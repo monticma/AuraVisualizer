@@ -1,13 +1,17 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="Aura — Visualiseur 3D de relations de code">
     <title>Aura — 3D Code Visualizer</title>
     <link rel="stylesheet" href="css/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
 </head>
+
 <body>
     <!-- Top Bar -->
     <header id="top-bar">
@@ -35,6 +39,7 @@
                 <span class="stat-separator">·</span>
                 <span class="stat" id="stat-time">—</span>
             </div>
+            <button id="btn-export" class="top-btn" title="Exporter la vue 3D en image PNG">📸 Capture</button>
         </div>
     </header>
 
@@ -44,12 +49,12 @@
             <div class="landing-logo">
                 <span class="landing-icon">✦</span>
                 <h1>AURA</h1>
-                <p class="landing-subtitle">Visualiseur 3D de Relations de Code</p>
+                <p class="landing-subtitle">3D Code Visualizer</p>
             </div>
             <div class="landing-form">
-                <label for="path-input">Chemin vers la codebase</label>
+                <label for="path-input">Path to the codebase</label>
                 <div class="input-row">
-                    <input type="text" id="path-input" placeholder="/chemin/vers/votre/projet" value="">
+                    <input type="text" id="path-input" placeholder="/path/to/your/project" value="">
                     <button id="analyze-btn">
                         <span class="btn-text">Analyser</span>
                         <span class="btn-loader hidden">⟳</span>
@@ -76,19 +81,19 @@
         <div class="panel-section">
             <div class="panel-grid">
                 <div class="panel-metric">
-                    <span class="metric-label">Langage</span>
+                    <span class="metric-label">Language</span>
                     <span class="metric-value" id="panel-language">—</span>
                 </div>
                 <div class="panel-metric">
-                    <span class="metric-label">Répertoire</span>
+                    <span class="metric-label">Folder</span>
                     <span class="metric-value" id="panel-group">—</span>
                 </div>
                 <div class="panel-metric">
-                    <span class="metric-label">Lignes</span>
+                    <span class="metric-label">Lines</span>
                     <span class="metric-value" id="panel-loc">—</span>
                 </div>
                 <div class="panel-metric">
-                    <span class="metric-label">Taille</span>
+                    <span class="metric-label">Size</span>
                     <span class="metric-value" id="panel-size">—</span>
                 </div>
                 <div class="panel-metric">
@@ -99,23 +104,49 @@
                     <span class="metric-label">Fan-in</span>
                     <span class="metric-value" id="panel-fanin">—</span>
                 </div>
+                <div class="panel-metric">
+                    <span class="metric-label">Complexity</span>
+                    <span class="metric-value" id="panel-complexity">—</span>
+                </div>
+                <div class="panel-metric">
+                    <span class="metric-label">Symbols</span>
+                    <span class="metric-value" id="panel-symbols-count">—</span>
+                </div>
             </div>
         </div>
+
+        <!-- Symbols / Explosion Section -->
+        <div class="panel-section" id="symbols-section" style="display:none">
+            <h3>Symbols <span id="symbols-total" class="count-badge">0</span></h3>
+            <div id="symbols-list" class="symbols-list"></div>
+        </div>
+
         <div class="panel-section">
-            <h3>Dépendances <span id="deps-count" class="count-badge">0</span></h3>
+            <h3>Dependencies <span id="deps-count" class="count-badge">0</span></h3>
             <ul id="panel-deps" class="panel-list"></ul>
         </div>
         <div class="panel-section">
-            <h3>Dépendants <span id="dependents-count" class="count-badge">0</span></h3>
+            <h3>Dependents <span id="dependents-count" class="count-badge">0</span></h3>
             <ul id="panel-dependents" class="panel-list"></ul>
         </div>
     </aside>
 
+    <!-- Heatmap Legend (shown in heatmap mode) -->
+    <div id="heatmap-legend" class="hidden">
+        <span class="legend-label" id="legend-low">Low</span>
+        <div class="legend-gradient" id="legend-gradient"></div>
+        <span class="legend-label" id="legend-high">High</span>
+        <span class="legend-mode" id="legend-mode">—</span>
+    </div>
+
     <!-- Bottom Filter Bar -->
     <footer id="filter-bar">
         <div class="filter-group" id="language-filters">
-            <button class="filter-btn active" data-lang="c" data-color="#4fc3f7">
-                <span class="filter-dot" style="background:#4fc3f7"></span> C / H
+            <button class="filter-btn active" data-lang="c-source" data-color="#4fc3f7">
+                <span class="filter-dot" style="background:#4fc3f7"></span> .c
+            </button>
+            <button class="filter-btn active" data-lang="c-header" data-color="#81d4fa">
+                <span class="filter-dot" style="background:#81d4fa"></span> .h
             </button>
             <button class="filter-btn active" data-lang="javascript" data-color="#ffd54f">
                 <span class="filter-dot" style="background:#ffd54f"></span> JS
@@ -129,17 +160,36 @@
         </div>
         <div class="filter-separator"></div>
         <div class="filter-group">
-            <button class="filter-btn" id="btn-dag-mode" title="Mode hiérarchique">
+            <button class="filter-btn" id="btn-dag-mode" title="Hierarchical mode">
                 ⊞ DAG
             </button>
-            <button class="filter-btn" id="btn-highlight-orphans" title="Nœuds isolés">
-                ◎ Orphelins
+            <button class="filter-btn" id="btn-highlight-orphans" title="Orphan nodes">
+                ◎ Orphans
+            </button>
+            <button class="filter-btn" id="btn-group-dirs" title="Group by directory">
+                📁 Groupes
+            </button>
+            <button class="filter-btn" id="btn-path-mode" title="Find path between 2 nodes">
+                🔗 Path
+            </button>
+            <button class="filter-btn" id="btn-labels" title="Show file names on the graph">
+                🏷️ Names
             </button>
         </div>
         <div class="filter-separator"></div>
         <div class="filter-group">
+            <select id="heatmap-select" class="filter-select" title="Coloring mode">
+                <option value="off">🎨 By language</option>
+                <option value="complexity">🔥 Complexity</option>
+                <option value="fanIn">📥 Fan-in</option>
+                <option value="fanOut">📤 Fan-out</option>
+                <option value="loc">📏 Lines of code</option>
+            </select>
+        </div>
+        <div class="filter-separator"></div>
+        <div class="filter-group">
             <label class="filter-label">
-                Taille nœuds
+                Node size
                 <input type="range" id="node-size-slider" min="1" max="10" value="4" step="0.5">
             </label>
         </div>
@@ -151,8 +201,16 @@
         <div class="tooltip-meta" id="tooltip-meta">—</div>
     </div>
 
+    <!-- Libraries -->
+    <script type="module">
+        import * as THREE from '/lib/three/three.module.min.js';
+        window.THREE = THREE;
+    </script>
     <script src="/lib/3d-force-graph/3d-force-graph.min.js"></script>
+
+    <!-- App Logic -->
     <script src="js/graph-config.js"></script>
     <script src="js/app.js"></script>
 </body>
+
 </html>

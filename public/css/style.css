@@ -229,6 +229,27 @@ body {
 
 .stat-separator {
     color: var(--text-muted);
+    user-select: none;
+}
+
+.top-btn {
+    margin-left: 15px;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    transition: var(--transition-fast);
+}
+
+.top-btn:hover {
+    background: var(--bg-glass-hover);
+    color: var(--text-primary);
+    border-color: var(--border-glow);
 }
 
 /* --- Landing Overlay --- */
@@ -688,6 +709,177 @@ body {
     display: none !important;
 }
 
+/* --- Heatmap Legend --- */
+#heatmap-legend {
+    position: fixed;
+    bottom: calc(var(--filterbar-height) + 12px);
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 80;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px;
+    background: var(--bg-glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+    box-shadow: var(--shadow-lg);
+}
+
+#heatmap-legend.hidden {
+    display: none !important;
+}
+
+.legend-gradient {
+    width: 140px;
+    height: 10px;
+    border-radius: 5px;
+    background: linear-gradient(to right, #1a237e, #2e7d32, #f9a825, #b71c1c);
+}
+
+.legend-mode {
+    font-weight: 600;
+    color: var(--text-accent);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 10px;
+}
+
+/* --- Symbols Section --- */
+.symbols-list {
+    max-height: 280px;
+    overflow-y: auto;
+}
+
+.symbol-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    transition: var(--transition-fast);
+    cursor: default;
+}
+
+.symbol-item:hover {
+    background: var(--bg-tertiary);
+}
+
+.symbol-icon {
+    font-size: 13px;
+    flex-shrink: 0;
+    width: 18px;
+    text-align: center;
+}
+
+.symbol-name {
+    font-weight: 500;
+    color: var(--text-primary);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.symbol-meta {
+    font-size: 9px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    padding: 2px 5px;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+}
+
+/* --- Explode Button --- */
+.explode-btn {
+    width: 100%;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+    background: rgba(129, 199, 132, 0.12);
+    border: 1px solid rgba(129, 199, 132, 0.3);
+    border-radius: 6px;
+    color: #81c784;
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.explode-btn:hover {
+    background: rgba(129, 199, 132, 0.2);
+    border-color: rgba(129, 199, 132, 0.5);
+}
+
+/* --- Function Call Badge --- */
+.dep-type-call {
+    background: rgba(129, 199, 132, 0.15) !important;
+    color: #81c784 !important;
+    border: 1px solid rgba(129, 199, 132, 0.25);
+}
+
+/* --- Group Labels --- */
+.group-label {
+    position: absolute;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border: 1px solid;
+    border-radius: 12px;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    font-weight: 600;
+    pointer-events: none;
+    opacity: 0.7;
+    transform: translate(-50%, -50%);
+    white-space: nowrap;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+}
+
+.group-label-count {
+    font-size: 9px;
+    padding: 1px 5px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 8px;
+}
+
+/* --- Heatmap Select Dropdown --- */
+.filter-select {
+    height: 32px;
+    padding: 0 10px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-family: var(--font-sans);
+    font-size: 12px;
+    cursor: pointer;
+    outline: none;
+    transition: var(--transition-fast);
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.filter-select:hover {
+    background: var(--bg-glass-hover);
+    border-color: var(--border-glow);
+}
+
+.filter-select option {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
 /* --- Responsive --- */
 @media (max-width: 768px) {
     #detail-panel {
@@ -698,5 +890,8 @@ body {
     }
     #stats-bar {
         display: none;
+    }
+    #heatmap-legend {
+        display: none !important;
     }
 }
