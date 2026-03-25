@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Aura — Visualiseur 3D de relations de code">
+    <title>Aura — 3D Code Visualizer</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Top Bar -->
+    <header id="top-bar">
+        <div class="top-bar-left">
+            <div id="logo">
+                <span class="logo-icon">✦</span>
+                <span class="logo-text">AURA</span>
+            </div>
+            <div id="project-info">
+                <span id="project-name">—</span>
+            </div>
+        </div>
+        <div class="top-bar-center">
+            <div id="search-container">
+                <span class="search-icon">⌕</span>
+                <input type="text" id="search-input" placeholder="Rechercher un fichier..." autocomplete="off">
+                <div id="search-results" class="hidden"></div>
+            </div>
+        </div>
+        <div class="top-bar-right">
+            <div id="stats-bar">
+                <span class="stat" id="stat-files">0 fichiers</span>
+                <span class="stat-separator">·</span>
+                <span class="stat" id="stat-links">0 liens</span>
+                <span class="stat-separator">·</span>
+                <span class="stat" id="stat-time">—</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Landing Overlay (shown before analysis) -->
+    <div id="landing-overlay">
+        <div class="landing-content">
+            <div class="landing-logo">
+                <span class="landing-icon">✦</span>
+                <h1>AURA</h1>
+                <p class="landing-subtitle">Visualiseur 3D de Relations de Code</p>
+            </div>
+            <div class="landing-form">
+                <label for="path-input">Chemin vers la codebase</label>
+                <div class="input-row">
+                    <input type="text" id="path-input" placeholder="/chemin/vers/votre/projet" value="">
+                    <button id="analyze-btn">
+                        <span class="btn-text">Analyser</span>
+                        <span class="btn-loader hidden">⟳</span>
+                    </button>
+                </div>
+                <p id="landing-error" class="hidden"></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3D Graph Container -->
+    <div id="graph-container"></div>
+
+    <!-- Detail Panel (right side) -->
+    <aside id="detail-panel" class="hidden">
+        <div class="panel-header">
+            <div class="panel-file-icon" id="panel-icon">📄</div>
+            <div class="panel-file-info">
+                <h2 id="panel-filename">—</h2>
+                <span id="panel-path" class="panel-path">—</span>
+            </div>
+            <button id="panel-close" class="panel-close">✕</button>
+        </div>
+        <div class="panel-section">
+            <div class="panel-grid">
+                <div class="panel-metric">
+                    <span class="metric-label">Langage</span>
+                    <span class="metric-value" id="panel-language">—</span>
+                </div>
+                <div class="panel-metric">
+                    <span class="metric-label">Répertoire</span>
+                    <span class="metric-value" id="panel-group">—</span>
+                </div>
+                <div class="panel-metric">
+                    <span class="metric-label">Lignes</span>
+                    <span class="metric-value" id="panel-loc">—</span>
+                </div>
+                <div class="panel-metric">
+                    <span class="metric-label">Taille</span>
+                    <span class="metric-value" id="panel-size">—</span>
+                </div>
+                <div class="panel-metric">
+                    <span class="metric-label">Fan-out</span>
+                    <span class="metric-value" id="panel-fanout">—</span>
+                </div>
+                <div class="panel-metric">
+                    <span class="metric-label">Fan-in</span>
+                    <span class="metric-value" id="panel-fanin">—</span>
+                </div>
+            </div>
+        </div>
+        <div class="panel-section">
+            <h3>Dépendances <span id="deps-count" class="count-badge">0</span></h3>
+            <ul id="panel-deps" class="panel-list"></ul>
+        </div>
+        <div class="panel-section">
+            <h3>Dépendants <span id="dependents-count" class="count-badge">0</span></h3>
+            <ul id="panel-dependents" class="panel-list"></ul>
+        </div>
+    </aside>
+
+    <!-- Bottom Filter Bar -->
+    <footer id="filter-bar">
+        <div class="filter-group" id="language-filters">
+            <button class="filter-btn active" data-lang="c" data-color="#4fc3f7">
+                <span class="filter-dot" style="background:#4fc3f7"></span> C / H
+            </button>
+            <button class="filter-btn active" data-lang="javascript" data-color="#ffd54f">
+                <span class="filter-dot" style="background:#ffd54f"></span> JS
+            </button>
+            <button class="filter-btn active" data-lang="css" data-color="#ce93d8">
+                <span class="filter-dot" style="background:#ce93d8"></span> CSS
+            </button>
+            <button class="filter-btn active" data-lang="html" data-color="#ff8a65">
+                <span class="filter-dot" style="background:#ff8a65"></span> HTML
+            </button>
+        </div>
+        <div class="filter-separator"></div>
+        <div class="filter-group">
+            <button class="filter-btn" id="btn-dag-mode" title="Mode hiérarchique">
+                ⊞ DAG
+            </button>
+            <button class="filter-btn" id="btn-highlight-orphans" title="Nœuds isolés">
+                ◎ Orphelins
+            </button>
+        </div>
+        <div class="filter-separator"></div>
+        <div class="filter-group">
+            <label class="filter-label">
+                Taille nœuds
+                <input type="range" id="node-size-slider" min="1" max="10" value="4" step="0.5">
+            </label>
+        </div>
+    </footer>
+
+    <!-- Hover Tooltip -->
+    <div id="tooltip" class="hidden">
+        <div class="tooltip-name" id="tooltip-name">—</div>
+        <div class="tooltip-meta" id="tooltip-meta">—</div>
+    </div>
+
+    <script src="/lib/3d-force-graph/3d-force-graph.min.js"></script>
+    <script src="js/graph-config.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
