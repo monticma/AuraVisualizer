@@ -1,18 +1,15 @@
 /**
- * app.js — Main Aura frontend application (V2).
+ * app.js — Aura Visualizer (VSCode Webview Edition).
  * 
- * Features:
- * - 3D force graph with interactive navigation
- * - Heatmap coloring by complexity, fan-in/out, LOC
- * - File explosion: expand a node to see its internal symbols
- * - Directory grouping: visual clusters by folder
- * - Search, filters, DAG mode, orphan highlighting
- * 
- * Depends on: ForceGraph3D (global), graph-config.js (globals)
+ * Adapted from Aura standalone: uses postMessage instead of fetch,
+ * no landing overlay, supports VSCode integration (open file, focus node).
  */
 
 (function() {
     'use strict';
+
+    // VSCode API
+    var vscode = acquireVsCodeApi();
 
     // ============================================================
     // State
@@ -23,148 +20,121 @@
     var hoveredNode = null;
     var highlightNodes = new Set();
     var highlightLinks = new Set();
-    var activeLanguages = new Set(['c-source', 'c-header', 'javascript', 'css', 'html']);
+    var activeLanguages = new Set(['c-source', 'c-header', 'javascript', 'typescript', 'python', 'css', 'html']);
     var dagMode = false;
     var showOrphans = false;
     var showLabels = false;
     var nodeSizeMultiplier = 4;
-    var heatmapMode = 'off'; // off, complexity, fanIn, fanOut, loc
+    var heatmapMode = 'off';
     var showGroups = false;
-    var groupMeshes = []; // Three.js meshes for directory groups
-    var metricRanges = {}; // {min, max} for each metric
+    var groupMeshes = [];
+    var metricRanges = {};
 
     // Path Mode
     var pathMode = false;
-    var pathNodes = []; // [startNode, endNode]
+    var pathNodes = [];
     var highlightedPath = { nodes: new Set(), links: new Set() };
+
+    // Pinned focus
+    var pinnedNode = null;
+    var pinnedNodes = new Set();
+    var pinnedLinks = new Set();
+
+    // Explorer state
+    var showExplorer = false;
+    var fileTree = {};
 
     // Explosion state
     var explodedNode = null;
-    var explosionData = null; // { origNodes, origLinks, expandedNodes, expandedLinks }
+    var explosionData = null;
 
     // ============================================================
     // DOM References
     // ============================================================
     var $ = function(sel) { return document.querySelector(sel); };
-    var $$ = function(sel) { return document.querySelectorAll(sel); };
-
-    var landingOverlay = $('#landing-overlay');
-    var pathInput = $('#path-input');
-    var analyzeBtn = $('#analyze-btn');
-    var btnText = analyzeBtn.querySelector('.btn-text');
-    var btnLoader = analyzeBtn.querySelector('.btn-loader');
-    var landingError = $('#landing-error');
 
     var graphContainer = $('#graph-container');
+    var loadingOverlay = $('#loading-overlay');
     var searchInput = $('#search-input');
     var searchResults = $('#search-results');
-
     var detailPanel = $('#detail-panel');
+    var explorerPanel = $('#explorer-panel');
+    var toggleExplorerBtn = $('#btn-toggle-explorer');
+    var explorerTree = $('#explorer-tree');
     var tooltip = $('#tooltip');
+
+    // ============================================================
+    // VSCode Message Handling
+    // ============================================================
+    window.addEventListener('message', function(event) {
+        var message = event.data;
+        switch (message.type) {
+            case 'graphData':
+                handleGraphData(message.payload);
+                break;
+            case 'focusNode':
+                if (message.payload && message.payload.nodeId) {
+                    focusNodeById(message.payload.nodeId);
+                }
+                break;
+            case 'themeChanged':
+                // Could adapt colors here if needed
+                break;
+        }
+    });
+
+    // Tell the extension we're ready
+    vscode.postMessage({ type: 'ready' });
 
     // ============================================================
     // Initialization
     // ============================================================
-    document.addEventListener('DOMContentLoaded', init);
-    if (document.readyState !== 'loading') init();
-
     function init() {
-        setupLanding();
         setupSearch();
         setupFilters();
         setupPanelClose();
-        setupExport();
+        setupRefresh();
+        setupExplorer();
     }
 
-    function setupExport() {
-        $('#btn-export').addEventListener('click', function() {
-            if (!graph) return;
-            var renderer = graph.renderer();
-            var scene = graph.scene();
-            var camera = graph.camera();
-            
-            // Forcer un rendu synchrone
-            renderer.render(scene, camera);
-            
-            // L'extraction synchrone conserve le contexte de "clic utilisateur"
-            // ce qui permet au navigateur d'honorer l'attribut 'download'.
-            var dataUrl = renderer.domElement.toDataURL('image/png');
-            
-            var a = document.createElement('a');
-            a.href = dataUrl;
-            a.download = 'aura-graphe.png';
-            
-            // Requis par Chrome/Firefox
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-        });
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
     }
 
-    // ============================================================
-    // Landing & Analysis
-    // ============================================================
-    function setupLanding() {
-        analyzeBtn.addEventListener('click', startAnalysis);
-        pathInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') startAnalysis();
-        });
-    }
-
-    function startAnalysis() {
-        var targetPath = pathInput.value.trim();
-        if (!targetPath) {
-            showLandingError('Veuillez entrer un chemin vers la codebase');
-            return;
-        }
-
-        setLoading(true);
-        landingError.classList.add('hidden');
-
-        fetch('/api/analyze', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ path: targetPath })
-        })
-        .then(function(response) {
-            if (!response.ok) {
-                return response.json().then(function(err) {
-                    throw new Error(err.error || 'Erreur HTTP ' + response.status);
-                });
-            }
-            return response.json();
-        })
-        .then(function(data) {
-            graphData = data;
-            console.log('[aura] Analysis result:', graphData.meta);
-            computeMetricRanges();
-            updateStats(graphData.meta);
-            landingOverlay.classList.add('hidden');
+    function handleGraphData(data) {
+        graphData = data;
+        computeMetricRanges();
+        updateStats(graphData.meta);
+        if (loadingOverlay) loadingOverlay.style.display = 'none';
+        try {
             initGraph(graphData);
-        })
-        .catch(function(err) {
-            console.error('[aura] Analysis failed:', err);
-            showLandingError(err.message);
-        })
-        .finally(function() {
-            setLoading(false);
-        });
+        } catch (e) {
+            console.error('[aura] initGraph error:', e);
+        }
+        buildExplorerTree(graphData.nodes);
     }
 
-    function setLoading(loading) {
-        analyzeBtn.disabled = loading;
-        btnText.classList.toggle('hidden', loading);
-        btnLoader.classList.toggle('hidden', !loading);
-    }
-
-    function showLandingError(msg) {
-        landingError.textContent = msg;
-        landingError.classList.remove('hidden');
+    function setupRefresh() {
+        var btn = $('#btn-refresh');
+        if (btn) {
+            btn.addEventListener('click', function() {
+                vscode.postMessage({ type: 'requestRefresh' });
+                if (loadingOverlay) loadingOverlay.style.display = 'flex';
+            });
+        }
+        var exportBtn = $('#btn-export');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', function() {
+                vscode.postMessage({ type: 'requestExport' });
+            });
+        }
     }
 
     function updateStats(meta) {
-        $('#stat-files').textContent = meta.totalFiles + ' fichiers';
-        $('#stat-links').textContent = meta.totalLinks + ' liens';
+        $('#stat-files').textContent = meta.totalFiles + ' files';
+        $('#stat-links').textContent = meta.totalLinks + ' links';
         $('#project-name').textContent = meta.projectName;
 
         var parts = [];
@@ -176,7 +146,7 @@
     }
 
     // ============================================================
-    // Metric Ranges (for heatmap normalization)
+    // Metric Ranges
     // ============================================================
     function computeMetricRanges() {
         if (!graphData) return;
@@ -186,7 +156,8 @@
             complexity: { min: Infinity, max: -Infinity },
             fanIn:      { min: Infinity, max: -Infinity },
             fanOut:     { min: Infinity, max: -Infinity },
-            loc:        { min: Infinity, max: -Infinity }
+            loc:        { min: Infinity, max: -Infinity },
+            lastModified: { min: Infinity, max: -Infinity }
         };
 
         for (var i = 0; i < nodes.length; i++) {
@@ -199,6 +170,9 @@
             metricRanges.fanOut.max = Math.max(metricRanges.fanOut.max, n.fanOut);
             metricRanges.loc.min = Math.min(metricRanges.loc.min, n.linesOfCode);
             metricRanges.loc.max = Math.max(metricRanges.loc.max, n.linesOfCode);
+            var mtime = n.lastModified || 0;
+            metricRanges.lastModified.min = Math.min(metricRanges.lastModified.min, mtime);
+            metricRanges.lastModified.max = Math.max(metricRanges.lastModified.max, mtime);
         }
     }
 
@@ -209,7 +183,7 @@
     }
 
     // ============================================================
-    // 3D Graph Initialization
+    // 3D Graph
     // ============================================================
     function initGraph(data) {
         if (typeof ForceGraph3D === 'undefined') {
@@ -217,8 +191,15 @@
             return;
         }
 
+        var filtered = filterGraphData(data);
+
+        // Destroy previous graph if any
+        if (graph) {
+            graph._destructor && graph._destructor();
+        }
+
         graph = ForceGraph3D()(graphContainer)
-            .graphData(filterGraphData(data))
+            .graphData(filtered)
             .nodeId('id')
             .nodeLabel('')
             .nodeColor(function(node) { return getNodeColor(node); })
@@ -227,13 +208,53 @@
             .nodeOpacity(0.92)
             .nodeThreeObjectExtend(true)
             .nodeThreeObject(function(node) {
-                if (!showLabels) return null;
-                if (node._isSymbol) return null; // Don't label sub-symbols to avoid clutter
-                var sprite = getLabelSprite(node.name);
-                if (sprite) {
-                    sprite.position.y = Math.sqrt(getNodeSize(node) || 1) * 2 + 2;
+                var T = window.THREE;
+                var isSelected = selectedNode && selectedNode.id === node.id;
+                var hasLabel = showLabels && !node._isSymbol &&
+                    !(showOrphans && (node.fanIn > 0 || node.fanOut > 0)) &&
+                    !(pinnedNode && !pinnedNodes.has(node));
+
+                if (!isSelected && !hasLabel) return null;
+
+                var group = new T.Group();
+
+                // Glow effect for selected node
+                if (isSelected) {
+                    var nodeRadius = Math.cbrt(getNodeSize(node) || 1) * 1;
+                    var glowGeo = new T.SphereGeometry(nodeRadius * 3, 16, 16);
+                    var glowMat = new T.MeshBasicMaterial({
+                        color: 0x60a5fa,
+                        transparent: true,
+                        opacity: 0.25,
+                        blending: T.AdditiveBlending,
+                        depthWrite: false
+                    });
+                    var glow = new T.Mesh(glowGeo, glowMat);
+                    group.add(glow);
+
+                    // Inner brighter core
+                    var coreGeo = new T.SphereGeometry(nodeRadius * 1.8, 16, 16);
+                    var coreMat = new T.MeshBasicMaterial({
+                        color: 0x93c5fd,
+                        transparent: true,
+                        opacity: 0.4,
+                        blending: T.AdditiveBlending,
+                        depthWrite: false
+                    });
+                    var core = new T.Mesh(coreGeo, coreMat);
+                    group.add(core);
                 }
-                return sprite;
+
+                // Label sprite
+                if (hasLabel) {
+                    var sprite = getLabelSprite(node.name);
+                    if (sprite) {
+                        sprite.position.y = Math.sqrt(getNodeSize(node) || 1) * 2 + 2;
+                        group.add(sprite);
+                    }
+                }
+
+                return group;
             })
             .linkSource('source')
             .linkTarget('target')
@@ -251,50 +272,65 @@
             })
             .linkDirectionalParticleWidth(2)
             .linkDirectionalParticleSpeed(0.005)
-            .backgroundColor('#0a0e17')
+            .backgroundColor('#0d1117')
             .showNavInfo(false)
             .onNodeHover(handleNodeHover)
             .onNodeClick(handleNodeClick)
+            .onNodeRightClick(handleNodeRightClick)
             .onBackgroundClick(handleBackgroundClick)
+            .onBackgroundRightClick(handleBackgroundRightClick)
             .warmupTicks(100)
             .cooldownTicks(200);
 
-        // Zoom to fit after layout settles
+        // Double-click to open file (not natively supported, use DOM event)
+        graphContainer.addEventListener('dblclick', function() {
+            if (hoveredNode) handleNodeDblClick(hoveredNode);
+        });
+
+        graphContainer.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
+        });
+
         setTimeout(function() {
             graph.zoomToFit(500, 50);
         }, 1500);
+
+        // Handle webview resize (e.g. when side editor opens/closes)
+        var resizeObserver = new ResizeObserver(function() {
+            if (graph) {
+                graph.width(graphContainer.clientWidth);
+                graph.height(graphContainer.clientHeight);
+            }
+        });
+        resizeObserver.observe(graphContainer);
     }
 
     // ============================================================
     // Node Visuals
     // ============================================================
     function getNodeColor(node) {
-        // Path mode colors
+        if (showOrphans) {
+            if (node.fanIn === 0 && node.fanOut === 0) return '#ff1744';
+            return '#ffffff0a';
+        }
+
         if (pathMode) {
             if (highlightedPath.nodes.size > 0) {
                 if (highlightedPath.nodes.has(node)) {
-                    if (pathNodes[0] && node.id === pathNodes[0].id) return '#4caf50'; // Start (green)
-                    if (pathNodes[1] && node.id === pathNodes[1].id) return '#f44336'; // End (red)
+                    if (pathNodes[0] && node.id === pathNodes[0].id) return '#4caf50';
+                    if (pathNodes[1] && node.id === pathNodes[1].id) return '#f44336';
                     return LANGUAGE_COLORS[node.language] || '#ffffff';
                 }
-                return '#ffffff11'; // Highly dimmed
+                return '#ffffff11';
             }
-            if (pathNodes.length === 1 && pathNodes[0].id === node.id) {
-                return '#4caf50'; // Start node is green
-            }
-            return (LANGUAGE_COLORS[node.language] || '#ffffff') + '44'; // Dim waiting for path
+            if (pathNodes.length === 1 && pathNodes[0].id === node.id) return '#4caf50';
+            return (LANGUAGE_COLORS[node.language] || '#ffffff') + '44';
         }
 
-        // Explosion sub-nodes
-        if (node._isSymbol) {
-            return node._symbolColor || '#81c784';
-        }
+        if (node._isSymbol) return node._symbolColor || '#81c784';
 
-        if (selectedNode && selectedNode.id === node.id) {
-            return '#ffffff';
-        }
+        if (selectedNode && selectedNode.id === node.id) return '#93c5fd';
 
-        // Heatmap mode
         if (heatmapMode !== 'off') {
             var value;
             switch (heatmapMode) {
@@ -302,39 +338,35 @@
                 case 'fanIn':      value = node.fanIn; break;
                 case 'fanOut':     value = node.fanOut; break;
                 case 'loc':        value = node.linesOfCode; break;
+                case 'lastModified': value = node.lastModified || 0; break;
                 default:           value = 0;
             }
             var norm = normalizeMetric(value, heatmapMode);
             var color = heatmapColor(norm, HEATMAP_SCALES[heatmapMode]);
-
-            if (highlightNodes.size > 0 && !highlightNodes.has(node)) {
-                return color + '44';
-            }
+            if (pinnedNode) return pinnedNodes.has(node) ? color : color + '15';
+            if (highlightNodes.size > 0 && !highlightNodes.has(node)) return color + '44';
             return color;
         }
 
-        // Language mode (default)
-        if (highlightNodes.size > 0 && !highlightNodes.has(node)) {
-            var langKey = node.language === 'c' ? (node.extension === '.h' ? 'c-header' : 'c-source') : node.language;
-            return (LANGUAGE_COLORS[langKey] || '#ffffff') + '44';
-        }
-        var langKeyActive = node.language === 'c' ? (node.extension === '.h' ? 'c-header' : 'c-source') : node.language;
-        return LANGUAGE_COLORS[langKeyActive] || '#ffffff';
+        var langKeyFinal = node.language === 'c' ? (node.extension === '.h' ? 'c-header' : 'c-source') : node.language;
+        var baseColor = LANGUAGE_COLORS[langKeyFinal] || '#ffffff';
+
+        if (pinnedNode) return pinnedNodes.has(node) ? baseColor : baseColor + '15';
+        if (highlightNodes.size > 0 && !highlightNodes.has(node)) return baseColor + '44';
+        return baseColor;
     }
 
     function getNodeSize(node) {
-        if (node._isSymbol) {
-            return nodeSizeMultiplier * 0.5;
-        }
+        if (node._isSymbol) return nodeSizeMultiplier * 0.5;
         var baseLOC = Math.max(node.linesOfCode || 1, 1);
         var size = Math.pow(baseLOC, 0.4) * nodeSizeMultiplier * 0.3;
-        if (showOrphans && node.fanIn === 0 && node.fanOut === 0) {
-            return size * 1.5;
-        }
+        if (showOrphans && node.fanIn === 0 && node.fanOut === 0) return size * 1.5;
         return size;
     }
 
     function getLinkColor(link) {
+        if (showOrphans) return '#ffffff02';
+
         if (pathMode) {
             if (highlightedPath.links.size > 0) {
                 return highlightedPath.links.has(link) ? (LINK_COLORS[link.type] || '#ffffffaa') : '#ffffff05';
@@ -342,12 +374,13 @@
             return '#ffffff11';
         }
 
-        if (link._isExplosionLink) {
-            return '#81c78488';
+        if (link._isExplosionLink) return '#81c78488';
+
+        if (pinnedNode) {
+            return pinnedLinks.has(link) ? (LINK_COLORS[link.type] || '#ffffffaa') : '#ffffff06';
         }
-        if (highlightLinks.has(link)) {
-            return LINK_COLORS[link.type] || '#ffffff88';
-        }
+
+        if (highlightLinks.has(link)) return LINK_COLORS[link.type] || '#ffffff88';
         return LINK_COLORS[link.type] || '#ffffff22';
     }
 
@@ -361,7 +394,7 @@
         if (pathMode && highlightedPath.nodes.size > 0) {
             if (node) showTooltip(node);
             else hideTooltip();
-            return; // Don't highlight local neighbors when path is shown
+            return;
         }
 
         highlightNodes.clear();
@@ -414,7 +447,7 @@
                 pathNodes.push(node);
                 findPath(pathNodes[0], pathNodes[1]);
             } else {
-                pathNodes = [node]; // Reset to new start node
+                pathNodes = [node];
                 highlightedPath.nodes.clear();
                 highlightedPath.links.clear();
                 if (graph) {
@@ -429,7 +462,9 @@
 
         selectedNode = node;
 
-        // Fly to node
+        // Refresh glow effect
+        if (graph) graph.nodeThreeObject(graph.nodeThreeObject());
+
         var distance = 120;
         var distRatio = 1 + distance / Math.hypot(node.x, node.y, node.z);
         graph.cameraPosition(
@@ -441,18 +476,110 @@
         showDetailPanel(node);
     }
 
+    // Double-click: open file in VSCode editor
+    function handleNodeDblClick(node) {
+        if (!node || node._isSymbol) {
+            // For symbols, open file at symbol line
+            if (node && node._isSymbol) {
+                vscode.postMessage({
+                    type: 'openFile',
+                    payload: { path: node.path, line: node._line }
+                });
+            }
+            return;
+        }
+        vscode.postMessage({
+            type: 'openFile',
+            payload: { path: node.path }
+        });
+    }
+
     function handleBackgroundClick() {
-        if (pathMode) return; // Keep path visible or allow user to click around
+        if (pathMode) return;
         selectedNode = null;
         highlightNodes.clear();
         highlightLinks.clear();
         detailPanel.classList.add('hidden');
+        clearPinnedFocus();
+        if (explodedNode) collapseExplosion();
+        updateExplorerSelection();
+        if (graph) {
+            graph.nodeColor(graph.nodeColor())
+                 .nodeThreeObject(graph.nodeThreeObject());
+        }
+    }
 
-        // Collapse explosion if active
-        if (explodedNode) {
-            collapseExplosion();
+    // ============================================================
+    // Right-click pinned focus
+    // ============================================================
+    function handleNodeRightClick(node) {
+        if (!node || pathMode) return;
+        if (pinnedNode && pinnedNode.id === node.id) {
+            clearPinnedFocus();
+            refreshGraphVisuals();
+            return;
         }
 
+        pinnedNode = node;
+        pinnedNodes.clear();
+        pinnedLinks.clear();
+        pinnedNodes.add(node);
+
+        var currentLinks = graph.graphData().links;
+        for (var i = 0; i < currentLinks.length; i++) {
+            var l = currentLinks[i];
+            var sourceId = typeof l.source === 'object' ? l.source.id : l.source;
+            var targetId = typeof l.target === 'object' ? l.target.id : l.target;
+            if (sourceId === node.id || targetId === node.id) {
+                pinnedLinks.add(l);
+                var sourceNode = typeof l.source === 'object' ? l.source : findNode(l.source);
+                var targetNode = typeof l.target === 'object' ? l.target : findNode(l.target);
+                if (sourceNode) pinnedNodes.add(sourceNode);
+                if (targetNode) pinnedNodes.add(targetNode);
+            }
+        }
+
+        refreshGraphVisuals();
+    }
+
+    function handleBackgroundRightClick() {
+        clearPinnedFocus();
+        refreshGraphVisuals();
+    }
+
+    function clearPinnedFocus() {
+        pinnedNode = null;
+        pinnedNodes.clear();
+        pinnedLinks.clear();
+    }
+
+    function refreshGraphVisuals() {
+        if (!graph) return;
+        graph.nodeColor(graph.nodeColor())
+             .linkWidth(graph.linkWidth())
+             .linkColor(graph.linkColor())
+             .linkDirectionalParticles(graph.linkDirectionalParticles())
+             .nodeThreeObject(graph.nodeThreeObject());
+    }
+
+    // ============================================================
+    // Focus node from extension (when switching editor tabs)
+    // ============================================================
+    function focusNodeById(nodeId) {
+        if (!graph || !graphData) return;
+        var node = null;
+        for (var i = 0; i < graphData.nodes.length; i++) {
+            if (graphData.nodes[i].id === nodeId) {
+                node = graphData.nodes[i];
+                break;
+            }
+        }
+        if (!node) return;
+
+        selectedNode = node;
+        updateExplorerSelection();
+
+        // Subtle highlight without flying camera
         if (graph) {
             graph.nodeColor(graph.nodeColor());
         }
@@ -467,11 +594,11 @@
 
         if (node._isSymbol) {
             nameEl.textContent = (SYMBOL_ICONS[node._symbolType] || '⚡') + ' ' + node.name;
-            metaEl.textContent = node._symbolType + ' · ligne ' + (node._line || '?');
+            metaEl.textContent = node._symbolType + ' · line ' + (node._line || '?');
         } else {
             nameEl.textContent = (LANGUAGE_ICONS[node.language] || '📄') + ' ' + node.name;
             var parts = [
-                node.linesOfCode + ' lignes',
+                node.linesOfCode + ' lines',
                 node.language,
                 'ccx: ' + (node.complexity || 1),
                 'in: ' + node.fanIn,
@@ -498,7 +625,7 @@
     // Detail Panel
     // ============================================================
     function showDetailPanel(node) {
-        if (node._isSymbol) return; // Don't show panel for sub-symbols
+        if (node._isSymbol) return;
         detailPanel.classList.remove('hidden');
 
         $('#panel-icon').textContent = LANGUAGE_ICONS[node.language] || '📄';
@@ -509,15 +636,20 @@
         $('#panel-group').textContent = node.group;
         $('#panel-loc').textContent = node.linesOfCode.toLocaleString();
         $('#panel-size').textContent = formatBytes(node.size);
+        
+        if (node.lastModified) {
+            var date = new Date(node.lastModified);
+            $('#panel-mtime').textContent = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        } else {
+            $('#panel-mtime').textContent = '—';
+        }
         $('#panel-fanout').textContent = node.fanOut;
         $('#panel-fanin').textContent = node.fanIn;
         $('#panel-complexity').textContent = node.complexity || 1;
 
-        // Symbols count
         var symbolCount = node.symbols ? node.symbols.totalSymbols : 0;
         $('#panel-symbols-count').textContent = symbolCount;
 
-        // Symbols section (explosion mode)
         var symbolsSection = $('#symbols-section');
         var symbolsList = $('#symbols-list');
         symbolsList.innerHTML = '';
@@ -526,15 +658,33 @@
             symbolsSection.style.display = 'block';
             $('#symbols-total').textContent = node.symbols.totalSymbols;
 
+            // Explode button
+            var explodeBtn = document.createElement('button');
+            explodeBtn.className = 'explode-btn';
+            explodeBtn.textContent = explodedNode && explodedNode.id === node.id ? '⊖ Collapse' : '⊕ Explode File';
+            explodeBtn.addEventListener('click', function() {
+                if (explodedNode && explodedNode.id === node.id) {
+                    collapseExplosion();
+                } else {
+                    explodeFile(node);
+                }
+            });
+            symbolsList.appendChild(explodeBtn);
+
             // Functions
             for (var i = 0; i < node.symbols.functions.length; i++) {
                 var fn = node.symbols.functions[i];
                 var item = document.createElement('div');
-                item.className = 'symbol-item';
+                item.className = 'symbol-item symbol-item-clickable';
                 item.innerHTML =
                     '<span class="symbol-icon">' + (SYMBOL_ICONS['function'] || '⚡') + '</span>' +
                     '<span class="symbol-name">' + fn.name + '</span>' +
                     '<span class="symbol-meta">' + fn.returnType + '(' + shortenParams(fn.params) + ') L' + fn.line + '</span>';
+                (function(line) {
+                    item.addEventListener('dblclick', function() {
+                        vscode.postMessage({ type: 'openFile', payload: { path: node.path, line: line } });
+                    });
+                })(fn.line);
                 symbolsList.appendChild(item);
             }
 
@@ -562,7 +712,7 @@
                 symbolsList.appendChild(eItem);
             }
 
-            // Macros (limited)
+            // Macros
             var macros = node.symbols.macros.slice(0, 15);
             for (var m = 0; m < macros.length; m++) {
                 var mac = macros[m];
@@ -574,20 +724,6 @@
                     '<span class="symbol-meta">' + mac.type + '</span>';
                 symbolsList.appendChild(mItem);
             }
-
-            // Add explode button
-            var explodeBtn = document.createElement('button');
-            explodeBtn.className = 'explode-btn';
-            explodeBtn.textContent = explodedNode && explodedNode.id === node.id ? '⊖ Replier' : '⊕ Exploser le fichier';
-            explodeBtn.addEventListener('click', function() {
-                if (explodedNode && explodedNode.id === node.id) {
-                    collapseExplosion();
-                } else {
-                    explodeFile(node);
-                }
-            });
-            symbolsList.insertBefore(explodeBtn, symbolsList.firstChild);
-
         } else {
             symbolsSection.style.display = 'none';
         }
@@ -652,6 +788,8 @@
                 depUl.appendChild(li);
             })(dependents[rr]);
         }
+
+        updateExplorerSelection();
     }
 
     function shortenParams(params) {
@@ -668,20 +806,14 @@
     }
 
     // ============================================================
-    // File Explosion Mode
+    // File Explosion
     // ============================================================
     function explodeFile(node) {
         if (!node.symbols || !node.symbols.functions.length) return;
-
-        // Collapse previous explosion if any
-        if (explodedNode) {
-            collapseExplosion();
-        }
+        if (explodedNode) collapseExplosion();
 
         explodedNode = node;
         var currentData = graph.graphData();
-
-        // Create sub-nodes for each function
         var subNodes = [];
         var subLinks = [];
         var colors = { 'function': '#81c784', 'struct': '#ce93d8', 'enum': '#ffd54f' };
@@ -713,7 +845,6 @@
                 _symbolType: sym.type,
                 _symbolColor: colors[sym.type] || '#81c784',
                 _line: sym.line,
-                // Position near parent
                 x: (node.x || 0) + (Math.random() - 0.5) * 60,
                 y: (node.y || 0) + (Math.random() - 0.5) * 60,
                 z: (node.z || 0) + (Math.random() - 0.5) * 60
@@ -727,32 +858,23 @@
             });
         }
 
-        // Save state for collapse
         explosionData = {
             parentId: node.id,
             subNodeIds: subNodes.map(function(n) { return n.id; })
         };
 
-        // Add to graph
         var newNodes = currentData.nodes.concat(subNodes);
         var newLinks = currentData.links.concat(subLinks);
         graph.graphData({ nodes: newNodes, links: newLinks });
-
-        console.log('[aura] Exploded ' + node.name + ': ' + subNodes.length + ' symbols');
     }
 
     function collapseExplosion() {
         if (!explosionData) return;
-
         var currentData = graph.graphData();
         var subIds = new Set(explosionData.subNodeIds);
 
-        var filteredNodes = currentData.nodes.filter(function(n) {
-            return !subIds.has(n.id);
-        });
-        var filteredLinks = currentData.links.filter(function(l) {
-            return !l._isExplosionLink;
-        });
+        var filteredNodes = currentData.nodes.filter(function(n) { return !subIds.has(n.id); });
+        var filteredLinks = currentData.links.filter(function(l) { return !l._isExplosionLink; });
 
         graph.graphData({ nodes: filteredNodes, links: filteredLinks });
         explodedNode = null;
@@ -772,14 +894,12 @@
             legend.classList.remove('hidden');
             $('#legend-mode').textContent = HEATMAP_LABELS[mode] || mode;
 
-            // Build gradient
             var gradient = $('#legend-gradient');
             var scale = HEATMAP_SCALES[mode];
             if (scale) {
                 gradient.style.background = 'linear-gradient(to right, ' + scale.join(', ') + ')';
             }
 
-            // Set range labels
             var range = metricRanges[mode];
             if (range) {
                 $('#legend-low').textContent = range.min;
@@ -787,10 +907,7 @@
             }
         }
 
-        // Refresh colors
-        if (graph) {
-            graph.nodeColor(graph.nodeColor());
-        }
+        if (graph) graph.nodeColor(graph.nodeColor());
     }
 
     // ============================================================
@@ -799,34 +916,14 @@
     function toggleDirectoryGroups() {
         showGroups = !showGroups;
         $('#btn-group-dirs').classList.toggle('active', showGroups);
-
-        if (showGroups) {
-            buildGroupMeshes();
-        } else {
-            removeGroupMeshes();
-        }
+        if (showGroups) buildGroupMeshes();
+        else removeGroupMeshes();
     }
 
     function buildGroupMeshes() {
-        removeGroupMeshes(); // Clean up any existing
+        removeGroupMeshes();
         if (!graph || !graphData) return;
 
-        var scene = graph.scene();
-        if (!scene) return;
-
-        var THREE = window.THREE;
-        if (!THREE) {
-            // Try to get THREE from the graph's renderer
-            try {
-                var renderer = graph.renderer();
-                // 3d-force-graph bundles THREE internally
-                // We use the graph's scene and construct basic meshes
-            } catch (e) {
-                console.warn('[aura] THREE.js not accessible for group meshes');
-            }
-        }
-
-        // Group nodes by directory
         var groups = {};
         var currentNodes = graph.graphData().nodes;
         for (var i = 0; i < currentNodes.length; i++) {
@@ -845,16 +942,13 @@
             var nodes = groups[groupName];
             if (nodes.length < 2) continue;
 
-            // Compute bounding sphere
             var cx = 0, cy = 0, cz = 0;
             for (var ni = 0; ni < nodes.length; ni++) {
                 cx += (nodes[ni].x || 0);
                 cy += (nodes[ni].y || 0);
                 cz += (nodes[ni].z || 0);
             }
-            cx /= nodes.length;
-            cy /= nodes.length;
-            cz /= nodes.length;
+            cx /= nodes.length; cy /= nodes.length; cz /= nodes.length;
 
             var maxDist = 0;
             for (var nj = 0; nj < nodes.length; nj++) {
@@ -865,26 +959,13 @@
                 if (dist > maxDist) maxDist = dist;
             }
 
-            var radius = maxDist + 15;
             var color = GROUP_COLORS[colorIdx % GROUP_COLORS.length];
             colorIdx++;
-
-            // Create a transparent sphere using raw Three.js from the scene
-            try {
-                var geometry = new scene.constructor.__proto__.constructor.prototype.constructor
-                    ? null : null;
-
-                // Since we can't directly access THREE, create a simple visual indicator
-                // We'll use the graph's custom layer instead
-                // Add group labels using CSS overlay instead
-                addGroupLabel(groupName, cx, cy, cz, radius, color, nodes.length);
-            } catch (e) {
-                addGroupLabel(groupName, cx, cy, cz, radius, color, nodes.length);
-            }
+            addGroupLabel(groupName, cx, cy, cz, color, nodes.length);
         }
     }
 
-    function addGroupLabel(name, x, y, z, radius, color, count) {
+    function addGroupLabel(name, x, y, z, color, count) {
         var overlay = document.createElement('div');
         overlay.className = 'group-label';
         overlay.style.borderColor = color;
@@ -894,8 +975,6 @@
         overlay._groupData = { x: x, y: y, z: z };
         graphContainer.appendChild(overlay);
         groupMeshes.push(overlay);
-
-        // Update position on each frame
         updateGroupLabelPositions();
     }
 
@@ -905,19 +984,11 @@
         requestAnimationFrame(function updateLoop() {
             if (!showGroups || groupMeshes.length === 0) return;
 
-            var camera = graph.camera();
-            var renderer = graph.renderer();
-            if (!camera || !renderer) return;
-
-            var width = renderer.domElement.width;
-            var height = renderer.domElement.height;
-
             for (var i = 0; i < groupMeshes.length; i++) {
                 var label = groupMeshes[i];
                 var data = label._groupData;
                 if (!data) continue;
 
-                // Project 3D position to 2D screen space
                 var pos = graph.graph2ScreenCoords(data.x, data.y, data.z);
                 if (pos) {
                     label.style.left = pos.x + 'px';
@@ -928,17 +999,13 @@
                 }
             }
 
-            if (showGroups) {
-                requestAnimationFrame(updateLoop);
-            }
+            if (showGroups) requestAnimationFrame(updateLoop);
         });
     }
 
     function removeGroupMeshes() {
         for (var i = 0; i < groupMeshes.length; i++) {
-            if (groupMeshes[i].parentNode) {
-                groupMeshes[i].parentNode.removeChild(groupMeshes[i]);
-            }
+            if (groupMeshes[i].parentNode) groupMeshes[i].parentNode.removeChild(groupMeshes[i]);
         }
         groupMeshes = [];
     }
@@ -980,7 +1047,7 @@
                         '</span>' +
                         '<div>' +
                             '<div class="result-name">' + highlightMatch(node.name, query) + '</div>' +
-                            '<div class="result-path">' + node.path + '</div>' +
+                            '<div class="result-path">' + escapeHtml(node.path) + '</div>' +
                         '</div>';
                     item.addEventListener('click', function() {
                         handleNodeClick(node);
@@ -1010,20 +1077,26 @@
 
     function highlightMatch(text, query) {
         var idx = text.toLowerCase().indexOf(query);
-        if (idx === -1) return text;
-        return text.slice(0, idx) +
-               '<strong style="color:var(--text-accent)">' +
-               text.slice(idx, idx + query.length) + '</strong>' +
-               text.slice(idx + query.length);
+        if (idx === -1) return escapeHtml(text);
+        return escapeHtml(text.slice(0, idx)) +
+               '<strong style="color:#60a5fa">' +
+               escapeHtml(text.slice(idx, idx + query.length)) + '</strong>' +
+               escapeHtml(text.slice(idx + query.length));
+    }
+
+    function escapeHtml(str) {
+        var div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
     }
 
     // ============================================================
-    // Label Sprites
+    // Label Sprites (THREE.js)
     // ============================================================
     var labelSpriteCache = {};
     function getLabelSprite(text) {
-        var THREE = window.THREE;
-        if (!THREE) return null;
+        var T = window.THREE;
+        if (!T) return null;
 
         if (labelSpriteCache[text]) {
             return labelSpriteCache[text].clone();
@@ -1034,8 +1107,7 @@
         var fontSize = 32;
         context.font = fontSize + 'px sans-serif';
         var textWidth = context.measureText(text).width;
-        
-        // Add padding
+
         var paddingX = 16;
         var paddingY = 8;
         canvas.width = textWidth + paddingX;
@@ -1044,24 +1116,27 @@
         context.font = fontSize + 'px sans-serif';
         context.textAlign = 'center';
         context.textBaseline = 'middle';
-        
-        // Background
-        context.fillStyle = 'rgba(0, 0, 0, 0.6)';
-        context.roundRect ? context.roundRect(0, 0, canvas.width, canvas.height, 8) : context.fillRect(0, 0, canvas.width, canvas.height);
-        context.fill();
 
-        // Text
+        context.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        if (context.roundRect) {
+            context.beginPath();
+            context.roundRect(0, 0, canvas.width, canvas.height, 8);
+            context.fill();
+        } else {
+            context.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
         context.fillStyle = 'rgba(255, 255, 255, 0.9)';
         context.fillText(text, canvas.width / 2, canvas.height / 2);
 
-        var texture = new THREE.CanvasTexture(canvas);
-        texture.minFilter = THREE.LinearFilter;
-        var material = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true });
-        var sprite = new THREE.Sprite(material);
-        
+        var texture = new T.CanvasTexture(canvas);
+        texture.minFilter = T.LinearFilter;
+        var material = new T.SpriteMaterial({ map: texture, depthTest: false, transparent: true });
+        var sprite = new T.Sprite(material);
+
         var scaleFactor = 0.15;
         sprite.scale.set(canvas.width * scaleFactor, canvas.height * scaleFactor, 1);
-        
+
         labelSpriteCache[text] = sprite;
         return sprite.clone();
     }
@@ -1081,10 +1156,7 @@
             var sId = typeof l.source === 'object' ? l.source.id : l.source;
             if (!adj[sId]) adj[sId] = [];
             
-            var tNode = typeof l.target === 'object' ? l.target : null;
-            if (!tNode) {
-                tNode = findNode(typeof l.target === 'object' ? l.target.id : l.target);
-            }
+            var tNode = typeof l.target === 'object' ? l.target : findNode(typeof l.target === 'object' ? l.target.id : l.target);
             adj[sId].push({ target: tNode, link: l });
         }
         
@@ -1110,7 +1182,6 @@
                          .linkWidth(graph.linkWidth())
                          .linkColor(graph.linkColor())
                          .linkDirectionalParticles(graph.linkDirectionalParticles());
-                    
                     graph.zoomToFit(1000, 50, function(n) { return nodesInPath.has(n); });
                 }
                 return;
@@ -1119,24 +1190,21 @@
             var neighbors = adj[currNode.id] || [];
             for (var k = 0; k < neighbors.length; k++) {
                 var n = neighbors[k].target;
-                var l = neighbors[k].link;
+                var link = neighbors[k].link;
                 if (n && !visited.has(n.id)) {
                     visited.add(n.id);
                     var newPathLinks = pathLinks.slice();
-                    newPathLinks.push(l);
+                    newPathLinks.push(link);
                     queue.push([n, newPathLinks]);
                 }
             }
         }
         
-        // No path
-        alert("Aucun chemin trouvé entre " + start.name + " et " + end.name + ".");
+        // No path found
         pathNodes = [];
         highlightedPath.nodes.clear();
         highlightedPath.links.clear();
-        if (graph) {
-            graph.nodeColor(graph.nodeColor());
-        }
+        if (graph) graph.nodeColor(graph.nodeColor());
     }
 
     // ============================================================
@@ -1149,11 +1217,8 @@
                 btn.addEventListener('click', function() {
                     var lang = btn.dataset.lang;
                     btn.classList.toggle('active');
-                    if (btn.classList.contains('active')) {
-                        activeLanguages.add(lang);
-                    } else {
-                        activeLanguages.delete(lang);
-                    }
+                    if (btn.classList.contains('active')) activeLanguages.add(lang);
+                    else activeLanguages.delete(lang);
                     applyFilters();
                 });
             })(langBtns[i]);
@@ -1164,6 +1229,12 @@
             $('#btn-dag-mode').classList.toggle('active', dagMode);
             if (graph) {
                 graph.dagMode(dagMode ? 'td' : null);
+                graph.dagLevelDistance(dagMode ? 60 : null);
+                if (!dagMode) {
+                    graph.numDimensions(3);
+                    graph.d3ReheatSimulation();
+                }
+                applyFilters();
             }
         });
 
@@ -1171,7 +1242,10 @@
             showOrphans = !showOrphans;
             $('#btn-highlight-orphans').classList.toggle('active', showOrphans);
             if (graph) {
+                graph.nodeColor(graph.nodeColor());
                 graph.nodeVal(graph.nodeVal());
+                graph.linkColor(graph.linkColor());
+                graph.nodeThreeObject(graph.nodeThreeObject());
             }
         });
 
@@ -1185,7 +1259,6 @@
             pathNodes = [];
             highlightedPath.nodes.clear();
             highlightedPath.links.clear();
-            
             if (graph) {
                 graph.nodeColor(graph.nodeColor())
                      .linkWidth(graph.linkWidth())
@@ -1197,22 +1270,27 @@
         $('#btn-labels').addEventListener('click', function() {
             showLabels = !showLabels;
             $('#btn-labels').classList.toggle('active', showLabels);
-            if (graph) {
-                // Trigger node refresh to attach/detach 3D objects
-                graph.nodeThreeObject(graph.nodeThreeObject());
-            }
+            if (graph) graph.nodeThreeObject(graph.nodeThreeObject());
         });
 
-        // Heatmap select
+        $('#btn-recenter').addEventListener('click', function() {
+            if (!graph) return;
+            selectedNode = null;
+            highlightNodes.clear();
+            highlightLinks.clear();
+            detailPanel.classList.add('hidden');
+            if (explodedNode) collapseExplosion();
+            graph.zoomToFit(500, 50);
+            graph.nodeColor(graph.nodeColor());
+        });
+
         $('#heatmap-select').addEventListener('change', function(e) {
             setHeatmapMode(e.target.value);
         });
 
         $('#node-size-slider').addEventListener('input', function(e) {
             nodeSizeMultiplier = parseFloat(e.target.value);
-            if (graph) {
-                graph.nodeVal(graph.nodeVal());
-            }
+            if (graph) graph.nodeVal(graph.nodeVal());
         });
     }
 
@@ -1221,33 +1299,188 @@
         for (var i = 0; i < data.nodes.length; i++) {
             var n = data.nodes[i];
             var langKey = n.language;
-            if (langKey === 'c') {
-                langKey = n.extension === '.h' ? 'c-header' : 'c-source';
-            }
-            if (activeLanguages.has(langKey)) {
-                filteredNodes.push(n);
-            }
+            if (langKey === 'c') langKey = n.extension === '.h' ? 'c-header' : 'c-source';
+            if (activeLanguages.has(langKey)) filteredNodes.push(n);
         }
         var nodeIds = new Set();
-        for (var j = 0; j < filteredNodes.length; j++) {
-            nodeIds.add(filteredNodes[j].id);
-        }
+        for (var j = 0; j < filteredNodes.length; j++) nodeIds.add(filteredNodes[j].id);
         var filteredLinks = [];
         for (var k = 0; k < data.links.length; k++) {
             var l = data.links[k];
             var sourceId = typeof l.source === 'object' ? l.source.id : l.source;
             var targetId = typeof l.target === 'object' ? l.target.id : l.target;
-            if (nodeIds.has(sourceId) && nodeIds.has(targetId)) {
-                filteredLinks.push(l);
-            }
+            if (nodeIds.has(sourceId) && nodeIds.has(targetId)) filteredLinks.push(l);
         }
         return { nodes: filteredNodes, links: filteredLinks };
     }
 
     function applyFilters() {
         if (!graph || !graphData) return;
-        var filtered = filterGraphData(graphData);
-        graph.graphData(filtered);
+        graph.graphData(filterGraphData(graphData));
+    }
+
+    // ============================================================
+    // File Explorer
+    // ============================================================
+    function setupExplorer() {
+        if (!toggleExplorerBtn) return;
+        toggleExplorerBtn.addEventListener('click', function() {
+            showExplorer = !showExplorer;
+            if (showExplorer) {
+                explorerPanel.classList.remove('hidden');
+                toggleExplorerBtn.classList.add('active');
+            } else {
+                explorerPanel.classList.add('hidden');
+                toggleExplorerBtn.classList.remove('active');
+            }
+        });
+    }
+
+    function buildExplorerTree(nodes) {
+        fileTree = { name: 'root', type: 'dir', children: {}, path: '' };
+        
+        for (var i = 0; i < nodes.length; i++) {
+            var node = nodes[i];
+            var parts = node.path.split('/');
+            var current = fileTree;
+            var currentPath = '';
+
+            for (var j = 0; j < parts.length; j++) {
+                var part = parts[j];
+                var isFile = (j === parts.length - 1);
+                currentPath = currentPath ? currentPath + '/' + part : part;
+
+                if (!current.children[part]) {
+                    current.children[part] = {
+                        name: part,
+                        type: isFile ? 'file' : 'dir',
+                        path: currentPath,
+                        node: isFile ? node : null,
+                        children: {}
+                    };
+                }
+                current = current.children[part];
+            }
+        }
+        
+        renderExplorerTree();
+    }
+
+    function renderExplorerTree() {
+        if (!explorerTree) return;
+        explorerTree.innerHTML = '';
+        var rootFragment = document.createDocumentFragment();
+        
+        var keys = Object.keys(fileTree.children).sort(function(a, b) {
+            var aObj = fileTree.children[a];
+            var bObj = fileTree.children[b];
+            if (aObj.type === 'dir' && bObj.type === 'file') return -1;
+            if (aObj.type === 'file' && bObj.type === 'dir') return 1;
+            return a.localeCompare(b);
+        });
+
+        for (var i = 0; i < keys.length; i++) {
+            rootFragment.appendChild(createTreeNode(fileTree.children[keys[i]], 0));
+        }
+
+        explorerTree.appendChild(rootFragment);
+    }
+
+    function createTreeNode(item, depth) {
+        var container = document.createElement('div');
+        
+        var nodeEl = document.createElement('div');
+        nodeEl.className = 'tree-node';
+        nodeEl.style.paddingLeft = (12 + depth * 16) + 'px';
+        
+        var icon = document.createElement('span');
+        icon.className = 'tree-icon';
+        
+        if (item.type === 'dir') {
+            icon.textContent = '📁';
+            nodeEl.dataset.expanded = 'false';
+        } else {
+            icon.textContent = LANGUAGE_ICONS[item.node.language] || '📄';
+            nodeEl.dataset.nodeId = item.node.id;
+        }
+
+        var label = document.createElement('span');
+        label.className = 'tree-label';
+        label.textContent = item.name;
+
+        nodeEl.appendChild(icon);
+        nodeEl.appendChild(label);
+        container.appendChild(nodeEl);
+
+        if (item.type === 'dir') {
+            var childrenContainer = document.createElement('div');
+            childrenContainer.className = 'tree-children collapsed';
+            
+            var keys = Object.keys(item.children).sort(function(a, b) {
+                var aObj = item.children[a];
+                var bObj = item.children[b];
+                if (aObj.type === 'dir' && bObj.type === 'file') return -1;
+                if (aObj.type === 'file' && bObj.type === 'dir') return 1;
+                return a.localeCompare(b);
+            });
+
+            for (var i = 0; i < keys.length; i++) {
+                childrenContainer.appendChild(createTreeNode(item.children[keys[i]], depth + 1));
+            }
+            container.appendChild(childrenContainer);
+
+            nodeEl.addEventListener('click', function(e) {
+                e.stopPropagation();
+                var isExpanded = nodeEl.dataset.expanded === 'true';
+                nodeEl.dataset.expanded = !isExpanded;
+                icon.textContent = isExpanded ? '📁' : '📂';
+                if (isExpanded) childrenContainer.classList.add('collapsed');
+                else childrenContainer.classList.remove('collapsed');
+            });
+        } else {
+            nodeEl.addEventListener('click', function(e) {
+                e.stopPropagation();
+                if (item.node) {
+                    handleNodeClick(item.node);
+                    updateExplorerSelection();
+                }
+            });
+            // Double-click: open in editor
+            nodeEl.addEventListener('dblclick', function(e) {
+                e.stopPropagation();
+                if (item.node) {
+                    vscode.postMessage({ type: 'openFile', payload: { path: item.node.path } });
+                }
+            });
+        }
+
+        return container;
+    }
+
+    function updateExplorerSelection() {
+        if (!explorerTree) return;
+        var nodes = explorerTree.querySelectorAll('.tree-node');
+        for (var i = 0; i < nodes.length; i++) {
+            nodes[i].classList.remove('selected');
+            if (selectedNode && nodes[i].dataset.nodeId === selectedNode.id) {
+                nodes[i].classList.add('selected');
+
+                var parent = nodes[i].parentElement;
+                while (parent && parent !== explorerTree) {
+                    if (parent.classList.contains('tree-children')) {
+                        parent.classList.remove('collapsed');
+                        var dirNode = parent.previousElementSibling;
+                        if (dirNode && dirNode.classList.contains('tree-node')) {
+                            dirNode.dataset.expanded = 'true';
+                            dirNode.querySelector('.tree-icon').textContent = '📂';
+                        }
+                    }
+                    parent = parent.parentElement;
+                }
+
+                nodes[i].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
     }
 
 })();

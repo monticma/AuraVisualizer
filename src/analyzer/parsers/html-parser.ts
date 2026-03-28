@@ -1,19 +1,12 @@
 /**
- * html-parser.js — Extracts <script src>, <link href>, and other resource references from HTML.
- * 
- * V1: Regex-based attribute extraction
- * Future: Proper HTML parsing (e.g., cheerio) for inline scripts, template references
+ * html-parser.ts — Extracts <script src>, <link href> references from HTML.
  */
 
-import { BaseParser } from './base-parser.js';
+import { BaseParser } from './base-parser';
+import type { FileInfo, Relation } from '../types';
 
-// <script src="...">
 const SCRIPT_SRC_RE = /<script[^>]+src\s*=\s*['"]([^'"]+)['"]/gi;
-
-// <link href="..." rel="stylesheet"> or just <link href="..."> for CSS
 const LINK_HREF_RE = /<link[^>]+href\s*=\s*['"]([^'"]+)['"]/gi;
-
-// <img src="..."> — optional for assets  
 const IMG_SRC_RE = /<img[^>]+src\s*=\s*['"]([^'"]+)['"]/gi;
 
 export class HTMLParser extends BaseParser {
@@ -21,17 +14,10 @@ export class HTMLParser extends BaseParser {
         super('html');
     }
 
-    /**
-     * @param {Object} fileInfo
-     * @param {Object} options
-     * @param {boolean} options.includeAssets - Whether to track img/asset references
-     * @returns {Array<import('./base-parser.js').Relation>}
-     */
-    parse(fileInfo, options = {}) {
+    parse(fileInfo: FileInfo, options: Record<string, unknown> = {}): Relation[] {
         const { content, id } = fileInfo;
-        const relations = [];
+        const relations: Relation[] = [];
 
-        // Script references
         relations.push(...this.extractMatches(
             content,
             new RegExp(SCRIPT_SRC_RE.source, 'gi'),
@@ -40,7 +26,6 @@ export class HTMLParser extends BaseParser {
             (m) => `<script src="${m[1]}">`
         ));
 
-        // Stylesheet references
         relations.push(...this.extractMatches(
             content,
             new RegExp(LINK_HREF_RE.source, 'gi'),
@@ -49,7 +34,6 @@ export class HTMLParser extends BaseParser {
             (m) => `<link href="${m[1]}">`
         ));
 
-        // Asset references (optional)
         if (options.includeAssets) {
             relations.push(...this.extractMatches(
                 content,
