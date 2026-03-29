@@ -7,7 +7,7 @@ import * as path from 'path';
 import * as fs from 'fs/promises';
 import { WebviewProvider } from './webview/WebviewProvider';
 import { AuraTreeProvider } from './AuraTreeProvider';
-import { analyzeCodebase, scanSingleFile, buildGraph, type GraphData, type FileInfo } from './analyzer/index';
+import { analyzeCodebase, scanSingleFile, buildGraph, type GraphData, type GraphNode, type GraphLink, type FileInfo } from './analyzer/index';
 
 let webviewProvider: WebviewProvider | undefined;
 let cachedGraphData: GraphData | undefined;
@@ -221,16 +221,102 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
         }
     }
 
+    const oldGraphData = cachedGraphData;
+
     // Rebuild graph from cached files
     const projectName = workspaceFolder.name;
     cachedGraphData = buildGraph(cachedFiles, projectName);
 
-    if (webviewProvider?.isVisible) {
-        webviewProvider.sendGraphData(cachedGraphData);
+    if (webviewProvider?.isVisible && cachedGraphData) {
+        if (oldGraphData) {
+            // Compute delta and send incremental update
+            const delta = computeGraphDelta(oldGraphData, cachedGraphData, relativePath, deleted);
+            webviewProvider.sendGraphDelta(delta);
+        } else {
+            webviewProvider.sendGraphData(cachedGraphData);
+        }
     }
 
     treeProvider?.update(cachedGraphData);
     updateStatusBar();
+}
+
+interface GraphDelta {
+    changedNodes: GraphNode[];
+    removedNodeIds: string[];
+    addedLinks: GraphLink[];
+    removedLinks: { source: string; target: string; type: string }[];
+    meta: GraphData['meta'];
+}
+
+function computeGraphDelta(
+    oldGraph: GraphData,
+    newGraph: GraphData,
+    changedFileId: string,
+    deleted: boolean
+): GraphDelta {
+    const delta: GraphDelta = {
+        changedNodes: [],
+        removedNodeIds: [],
+        addedLinks: [],
+        removedLinks: [],
+        meta: newGraph.meta
+    };
+
+    if (deleted) {
+        delta.removedNodeIds.push(changedFileId);
+    }
+
+    // Build lookup maps
+    const oldNodeMap = new Map(oldGraph.nodes.map(n => [n.id, n]));
+    const newNodeMap = new Map(newGraph.nodes.map(n => [n.id, n]));
+
+    // Find changed/added nodes (the changed file itself + any node whose metrics changed)
+    for (const node of newGraph.nodes) {
+        const oldNode = oldNodeMap.get(node.id);
+        if (!oldNode ||
+            node.fanIn !== oldNode.fanIn ||
+            node.fanOut !== oldNode.fanOut ||
+            node.complexity !== oldNode.complexity ||
+            node.linesOfCode !== oldNode.linesOfCode ||
+            node.size !== oldNode.size) {
+            delta.changedNodes.push(node);
+        }
+    }
+
+    // Find removed nodes (not just the deleted file — could be others if somehow missing)
+    for (const node of oldGraph.nodes) {
+        if (!newNodeMap.has(node.id)) {
+            if (!delta.removedNodeIds.includes(node.id)) {
+                delta.removedNodeIds.push(node.id);
+            }
+        }
+    }
+
+    // Compare links
+    const linkKey = (l: GraphLink | { source: string; target: string; type: string }) =>
+        `${typeof l.source === 'object' ? (l.source as { id: string }).id : l.source}|${typeof l.target === 'object' ? (l.target as { id: string }).id : l.target}|${l.type}`;
+
+    const oldLinkSet = new Set(oldGraph.links.map(linkKey));
+    const newLinkSet = new Set(newGraph.links.map(linkKey));
+
+    for (const link of newGraph.links) {
+        if (!oldLinkSet.has(linkKey(link))) {
+            delta.addedLinks.push(link);
+        }
+    }
+
+    for (const link of oldGraph.links) {
+        if (!newLinkSet.has(linkKey(link))) {
+            delta.removedLinks.push({
+                source: typeof link.source === 'object' ? (link.source as { id: string }).id : link.source,
+                target: typeof link.target === 'object' ? (link.target as { id: string }).id : link.target,
+                type: link.type
+            });
+        }
+    }
+
+    return delta;
 }
 
 function updateStatusBar(): void {

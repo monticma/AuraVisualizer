@@ -9,7 +9,9 @@
   },
   "categories": ["Visualization"],
   "keywords": ["3d", "visualization", "code-analysis", "dependency-graph", "codebase"],
-  "activationEvents": [],
+  "activationEvents": [
+    "onWebviewPanel:auraVisualizer.graphView"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [

@@ -8,7 +8,8 @@ import type { FileInfo, Relation, FileSymbols } from '../types';
 
 const INCLUDE_LOCAL_RE = /#include\s*"([^"]+)"/g;
 const INCLUDE_SYSTEM_RE = /#include\s*<([^>]+)>/g;
-const FUNC_DEF_RE = /^[ \t]*((?:[a-zA-Z_]\w*\s+)*[a-zA-Z_]\w*[\s*]+)([a-zA-Z_]\w*)\s*\(([^)]*)\)\s*\{/gm;
+// Matches function definitions, optionally preceded by __attribute__((...)) or GCC visibility
+const FUNC_DEF_RE = /^[ \t]*(?:__attribute__\s*\(\((?:[^()]*|\([^()]*\))*\)\)\s*)?(?:__declspec\s*\([^)]*\)\s*)?((?:[a-zA-Z_]\w*\s+)*[a-zA-Z_]\w*[\s*]+)([a-zA-Z_]\w*)\s*\(([^)]*)\)\s*\{/gm;
 const EXTERN_RE = /extern\s+[\w\s*]+\s+(\w+)\s*\([^)]*\)\s*;/g;
 const STRUCT_DEF_RE = /(?:typedef\s+)?struct\s+(\w+)\s*\{/g;
 const TYPEDEF_STRUCT_RE = /typedef\s+struct\s*(?:\w+\s*)?\{[^}]*\}\s*(\w+)\s*;/gs;
@@ -26,7 +27,8 @@ const C_BUILTINS = new Set([
     'strlen', 'strcpy', 'strncpy', 'strcmp', 'strncmp', 'strcat',
     'fopen', 'fclose', 'fread', 'fwrite', 'fseek', 'ftell',
     'exit', 'abort', 'assert', 'NULL', 'true', 'false',
-    'defined', 'offsetof', 'va_start', 'va_end', 'va_arg'
+    'defined', 'offsetof', 'va_start', 'va_end', 'va_arg',
+    '__attribute__', '__declspec', 'visibility', '__extension__'
 ]);
 
 export class CParser extends BaseParser {
@@ -118,13 +120,21 @@ export class CParser extends BaseParser {
     extractCalls(fileInfo: FileInfo): string[] {
         const { content } = fileInfo;
         const stripped = this.stripComments(content);
-        const calls = new Set<string>();
 
+        // First, collect all function names DEFINED in this file (including __attribute__ decorated ones)
+        const definedHere = new Set<string>();
+        const defRe = /^[ \t]*(?:__attribute__\s*\(\((?:[^()]*|\([^()]*\))*\)\)\s*)?(?:__declspec\s*\([^)]*\)\s*)?(?:[a-zA-Z_]\w*\s+)*[a-zA-Z_]\w*[\s*]+([a-zA-Z_]\w*)\s*\([^)]*\)\s*\{/gm;
+        let m;
+        while ((m = defRe.exec(stripped)) !== null) {
+            definedHere.add(m[1]);
+        }
+
+        const calls = new Set<string>();
         const callRe = /\b(\w+)\s*\(/g;
         let match;
         while ((match = callRe.exec(stripped)) !== null) {
             const name = match[1];
-            if (!C_BUILTINS.has(name) && !/^[A-Z_]+$/.test(name)) {
+            if (!C_BUILTINS.has(name) && !/^[A-Z_]+$/.test(name) && !definedHere.has(name)) {
                 calls.add(name);
             }
         }

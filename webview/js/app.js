@@ -72,6 +72,9 @@
             case 'graphData':
                 handleGraphData(message.payload);
                 break;
+            case 'updateGraph':
+                handleGraphDelta(message.payload);
+                break;
             case 'focusNode':
                 if (message.payload && message.payload.nodeId) {
                     focusNodeById(message.payload.nodeId);
@@ -114,6 +117,91 @@
             console.error('[aura] initGraph error:', e);
         }
         buildExplorerTree(graphData.nodes);
+    }
+
+    function handleGraphDelta(delta) {
+        if (!graphData || !graph) {
+            // No graph yet — can't apply delta, need full data
+            return;
+        }
+
+        var removedSet = new Set(delta.removedNodeIds || []);
+        var changedMap = {};
+        var changedNodes = delta.changedNodes || [];
+        for (var i = 0; i < changedNodes.length; i++) {
+            changedMap[changedNodes[i].id] = changedNodes[i];
+        }
+
+        // Update graphData.nodes: remove deleted, update changed, add new
+        var existingIds = new Set();
+        var newNodes = [];
+        for (var j = 0; j < graphData.nodes.length; j++) {
+            var node = graphData.nodes[j];
+            if (removedSet.has(node.id)) continue; // skip removed
+            if (changedMap[node.id]) {
+                // Update properties in-place to preserve 3d-force-graph position (x,y,z,vx,vy,vz)
+                var updated = changedMap[node.id];
+                node.name = updated.name;
+                node.size = updated.size;
+                node.linesOfCode = updated.linesOfCode;
+                node.complexity = updated.complexity;
+                node.fanIn = updated.fanIn;
+                node.fanOut = updated.fanOut;
+                node.lastModified = updated.lastModified;
+                if (updated.symbols) node.symbols = updated.symbols;
+                if (updated.complexityDetails) node.complexityDetails = updated.complexityDetails;
+            }
+            existingIds.add(node.id);
+            newNodes.push(node);
+        }
+        // Add truly new nodes (files that didn't exist before)
+        for (var k = 0; k < changedNodes.length; k++) {
+            if (!existingIds.has(changedNodes[k].id)) {
+                newNodes.push(changedNodes[k]);
+            }
+        }
+        graphData.nodes = newNodes;
+
+        // Update graphData.links: remove old, add new
+        var removedLinks = delta.removedLinks || [];
+        var removedLinkSet = new Set();
+        for (var rl = 0; rl < removedLinks.length; rl++) {
+            removedLinkSet.add(removedLinks[rl].source + '|' + removedLinks[rl].target + '|' + removedLinks[rl].type);
+        }
+
+        var keptLinks = [];
+        for (var li = 0; li < graphData.links.length; li++) {
+            var link = graphData.links[li];
+            var src = typeof link.source === 'object' ? link.source.id : link.source;
+            var tgt = typeof link.target === 'object' ? link.target.id : link.target;
+            var key = src + '|' + tgt + '|' + link.type;
+            if (!removedLinkSet.has(key) && !removedSet.has(src) && !removedSet.has(tgt)) {
+                keptLinks.push(link);
+            }
+        }
+        var addedLinks = delta.addedLinks || [];
+        for (var al = 0; al < addedLinks.length; al++) {
+            keptLinks.push(addedLinks[al]);
+        }
+        graphData.links = keptLinks;
+
+        // Update meta
+        if (delta.meta) graphData.meta = delta.meta;
+
+        // Recompute ranges and stats
+        computeMetricRanges();
+        updateStats(graphData.meta);
+
+        // Re-feed filtered data to the graph — preserves positions
+        graph.graphData(filterGraphData(graphData));
+
+        // Update explorer
+        buildExplorerTree(graphData.nodes);
+
+        // Clear label cache for changed nodes
+        for (var ci = 0; ci < changedNodes.length; ci++) {
+            delete labelSpriteCache[changedNodes[ci].name];
+        }
     }
 
     function setupRefresh() {

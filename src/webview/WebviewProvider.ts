@@ -112,6 +112,12 @@ export class WebviewProvider {
         }
     }
 
+    public sendGraphDelta(delta: Record<string, unknown>): void {
+        if (this.webviewReady) {
+            this.panel?.webview.postMessage({ type: 'updateGraph', payload: delta });
+        }
+    }
+
     public focusNode(nodeId: string): void {
         this.panel?.webview.postMessage({ type: 'focusNode', payload: { nodeId } });
     }

@@ -8,6 +8,7 @@ import type { FileInfo, Relation } from '../types';
 const IMPORT_RE = /import\s+(?:[\w{}\s,*]+\s+from\s+)?['"]([^'"]+)['"]/g;
 const REQUIRE_RE = /(?:^|[=(\s,])require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
 const DYNAMIC_IMPORT_RE = /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
+const DYNAMIC_IMPORT_TEMPLATE_RE = /import\s*\(\s*`([^`$]+)/g;
 
 export class JSParser extends BaseParser {
     constructor() {
@@ -41,6 +42,19 @@ export class JSParser extends BaseParser {
             id,
             (m) => `import('${m[1]}')`
         ));
+
+        // Dynamic imports with template literals: import(`./file.js?v=${x}`)
+        relations.push(...this.extractMatches(
+            content,
+            new RegExp(DYNAMIC_IMPORT_TEMPLATE_RE.source, 'g'),
+            'dynamic-import',
+            id,
+            (m) => {
+                // Strip query string if present
+                const clean = m[1].split('?')[0];
+                return `import('${clean}')`;
+            }
+        ).map(r => ({ ...r, target: r.target.split('?')[0] })));
 
         return relations;
     }
