@@ -27,6 +27,7 @@
     var nodeSizeMultiplier = 4;
     var heatmapMode = 'off';
     var showGroups = false;
+    var expandedGroups = new Set();
     var groupMeshes = [];
     var metricRanges = {};
 
@@ -298,9 +299,44 @@
             .nodeThreeObject(function(node) {
                 var T = window.THREE;
                 var isSelected = selectedNode && selectedNode.id === node.id;
-                var hasLabel = showLabels && !node._isSymbol &&
+                var hasLabel = showLabels &&
                     !(showOrphans && (node.fanIn > 0 || node.fanOut > 0)) &&
                     !(pinnedNode && !pinnedNodes.has(node));
+
+                // Cluster meta-nodes always get a label
+                if (node._isCluster) {
+                    var cGroup = new T.Group();
+                    var cRadius = Math.cbrt(getNodeSize(node) || 1) * 1.5;
+
+                    // Translucent shell
+                    var shellGeo = new T.SphereGeometry(cRadius, 24, 24);
+                    var shellMat = new T.MeshBasicMaterial({
+                        color: node._clusterColor || '#78909c',
+                        transparent: true,
+                        opacity: 0.3,
+                        depthWrite: false
+                    });
+                    cGroup.add(new T.Mesh(shellGeo, shellMat));
+
+                    // Wireframe outline
+                    var wireGeo = new T.SphereGeometry(cRadius * 1.02, 16, 16);
+                    var wireMat = new T.MeshBasicMaterial({
+                        color: node._clusterColor || '#78909c',
+                        wireframe: true,
+                        transparent: true,
+                        opacity: 0.5
+                    });
+                    cGroup.add(new T.Mesh(wireGeo, wireMat));
+
+                    // Cluster label
+                    var clusterLabel = getClusterLabelSprite(node.name, node._clusterCount, node._clusterColor);
+                    if (clusterLabel) {
+                        clusterLabel.position.y = cRadius + 4;
+                        cGroup.add(clusterLabel);
+                    }
+
+                    return cGroup;
+                }
 
                 if (!isSelected && !hasLabel) return null;
 
@@ -416,6 +452,7 @@
         }
 
         if (node._isSymbol) return node._symbolColor || '#81c784';
+        if (node._isCluster) return node._clusterColor || '#78909c';
 
         if (selectedNode && selectedNode.id === node.id) return '#93c5fd';
 
@@ -446,6 +483,7 @@
 
     function getNodeSize(node) {
         if (node._isSymbol) return nodeSizeMultiplier * 0.5;
+        if (node._isCluster) return Math.pow(node._clusterCount, 0.6) * nodeSizeMultiplier * 2;
         var baseLOC = Math.max(node.linesOfCode || 1, 1);
         var size = Math.pow(baseLOC, 0.4) * nodeSizeMultiplier * 0.3;
         if (showOrphans && node.fanIn === 0 && node.fanOut === 0) return size * 1.5;
@@ -564,16 +602,18 @@
         showDetailPanel(node);
     }
 
-    // Double-click: open file in VSCode editor
+    // Double-click: open file in VSCode editor, or expand/collapse cluster
     function handleNodeDblClick(node) {
-        if (!node || node._isSymbol) {
-            // For symbols, open file at symbol line
-            if (node && node._isSymbol) {
-                vscode.postMessage({
-                    type: 'openFile',
-                    payload: { path: node.path, line: node._line }
-                });
-            }
+        if (!node) return;
+        if (node._isCluster) {
+            toggleGroupExpansion(node._clusterGroup);
+            return;
+        }
+        if (node._isSymbol) {
+            vscode.postMessage({
+                type: 'openFile',
+                payload: { path: node.path, line: node._line }
+            });
             return;
         }
         vscode.postMessage({
@@ -680,7 +720,10 @@
         var nameEl = $('#tooltip-name');
         var metaEl = $('#tooltip-meta');
 
-        if (node._isSymbol) {
+        if (node._isCluster) {
+            nameEl.textContent = '📁 ' + node.name;
+            metaEl.textContent = node._clusterCount + ' files · in: ' + (node.fanIn || 0) + ' · out: ' + (node.fanOut || 0) + ' · double-click to expand';
+        } else if (node._isSymbol) {
             nameEl.textContent = (SYMBOL_ICONS[node._symbolType] || '⚡') + ' ' + node.name;
             metaEl.textContent = node._symbolType + ' · line ' + (node._line || '?');
         } else {
@@ -714,6 +757,50 @@
     // ============================================================
     function showDetailPanel(node) {
         if (node._isSymbol) return;
+
+        // Cluster meta-node detail panel
+        if (node._isCluster) {
+            detailPanel.classList.remove('hidden');
+            $('#panel-icon').textContent = '📁';
+            $('#panel-filename').textContent = node.name;
+            $('#panel-path').textContent = node._clusterGroup;
+            $('#panel-language').textContent = node._clusterCount + ' files';
+            $('#panel-language').style.color = node._clusterColor || '#78909c';
+            $('#panel-group').textContent = node._clusterGroup;
+            $('#panel-loc').textContent = '—';
+            $('#panel-size').textContent = '—';
+            $('#panel-mtime').textContent = '—';
+            $('#panel-fanout').textContent = node.fanOut || 0;
+            $('#panel-fanin').textContent = node.fanIn || 0;
+            $('#panel-complexity').textContent = '—';
+            $('#panel-symbols-count').textContent = '0';
+            $('#symbols-section').style.display = 'none';
+
+            // Show member files in deps section
+            var depsUl = $('#panel-deps');
+            depsUl.innerHTML = '';
+            $('#deps-count').textContent = node._memberIds ? node._memberIds.length : 0;
+            if (node._memberIds) {
+                for (var mi = 0; mi < node._memberIds.length; mi++) {
+                    var memberId = node._memberIds[mi];
+                    var memberNode = null;
+                    for (var x = 0; x < graphData.nodes.length; x++) {
+                        if (graphData.nodes[x].id === memberId) { memberNode = graphData.nodes[x]; break; }
+                    }
+                    var li = document.createElement('li');
+                    li.innerHTML =
+                        '<span class="dep-arrow">📄</span>' +
+                        '<span>' + (memberNode ? memberNode.name : memberId) + '</span>';
+                    depsUl.appendChild(li);
+                }
+            }
+
+            var depUl = $('#panel-dependents');
+            depUl.innerHTML = '';
+            $('#dependents-count').textContent = '0';
+            return;
+        }
+
         detailPanel.classList.remove('hidden');
 
         $('#panel-icon').textContent = LANGUAGE_ICONS[node.language] || '📄';
@@ -972,6 +1059,12 @@
     // ============================================================
     // Heatmap
     // ============================================================
+    function formatLegendDate(timestamp) {
+        if (!timestamp || timestamp === Infinity || timestamp === -Infinity) return '—';
+        var d = new Date(timestamp);
+        return d.toLocaleDateString();
+    }
+
     function setHeatmapMode(mode) {
         heatmapMode = mode;
         var legend = $('#heatmap-legend');
@@ -990,8 +1083,13 @@
 
             var range = metricRanges[mode];
             if (range) {
-                $('#legend-low').textContent = range.min;
-                $('#legend-high').textContent = range.max;
+                if (mode === 'lastModified') {
+                    $('#legend-low').textContent = formatLegendDate(range.min);
+                    $('#legend-high').textContent = formatLegendDate(range.max);
+                } else {
+                    $('#legend-low').textContent = range.min;
+                    $('#legend-high').textContent = range.max;
+                }
             }
         }
 
@@ -999,103 +1097,127 @@
     }
 
     // ============================================================
-    // Directory Grouping
+    // Directory Clustering
     // ============================================================
     function toggleDirectoryGroups() {
         showGroups = !showGroups;
         $('#btn-group-dirs').classList.toggle('active', showGroups);
-        if (showGroups) buildGroupMeshes();
-        else removeGroupMeshes();
+        if (!showGroups) {
+            expandedGroups.clear();
+        }
+        applyFilters();
     }
 
-    function buildGroupMeshes() {
-        removeGroupMeshes();
-        if (!graph || !graphData) return;
+    function toggleGroupExpansion(groupName) {
+        if (expandedGroups.has(groupName)) {
+            expandedGroups.delete(groupName);
+        } else {
+            expandedGroups.add(groupName);
+        }
+        applyFilters();
+    }
 
+    function buildClusteredData(data) {
+        // Group nodes by their group property (top-level directory)
         var groups = {};
-        var currentNodes = graph.graphData().nodes;
-        for (var i = 0; i < currentNodes.length; i++) {
-            var n = currentNodes[i];
+        for (var i = 0; i < data.nodes.length; i++) {
+            var n = data.nodes[i];
             if (n._isSymbol) continue;
             var grp = n.group || '/';
             if (!groups[grp]) groups[grp] = [];
             groups[grp].push(n);
         }
 
-        var groupNames = Object.keys(groups).sort();
+        var clusterNodes = [];
+        var clusterLinks = [];
+        var nodeToCluster = {}; // nodeId -> clusterId or nodeId
+
         var colorIdx = 0;
+        var groupNames = Object.keys(groups).sort();
 
         for (var g = 0; g < groupNames.length; g++) {
             var groupName = groupNames[g];
-            var nodes = groups[groupName];
-            if (nodes.length < 2) continue;
+            var members = groups[groupName];
 
-            var cx = 0, cy = 0, cz = 0;
-            for (var ni = 0; ni < nodes.length; ni++) {
-                cx += (nodes[ni].x || 0);
-                cy += (nodes[ni].y || 0);
-                cz += (nodes[ni].z || 0);
-            }
-            cx /= nodes.length; cy /= nodes.length; cz /= nodes.length;
-
-            var maxDist = 0;
-            for (var nj = 0; nj < nodes.length; nj++) {
-                var dx = (nodes[nj].x || 0) - cx;
-                var dy = (nodes[nj].y || 0) - cy;
-                var dz = (nodes[nj].z || 0) - cz;
-                var dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-                if (dist > maxDist) maxDist = dist;
-            }
-
-            var color = GROUP_COLORS[colorIdx % GROUP_COLORS.length];
-            colorIdx++;
-            addGroupLabel(groupName, cx, cy, cz, color, nodes.length);
-        }
-    }
-
-    function addGroupLabel(name, x, y, z, color, count) {
-        var overlay = document.createElement('div');
-        overlay.className = 'group-label';
-        overlay.style.borderColor = color;
-        overlay.style.color = color;
-        overlay.innerHTML = '<span class="group-label-name">' + name + '</span>' +
-                           '<span class="group-label-count">' + count + '</span>';
-        overlay._groupData = { x: x, y: y, z: z };
-        graphContainer.appendChild(overlay);
-        groupMeshes.push(overlay);
-        updateGroupLabelPositions();
-    }
-
-    function updateGroupLabelPositions() {
-        if (!graph || groupMeshes.length === 0) return;
-
-        requestAnimationFrame(function updateLoop() {
-            if (!showGroups || groupMeshes.length === 0) return;
-
-            for (var i = 0; i < groupMeshes.length; i++) {
-                var label = groupMeshes[i];
-                var data = label._groupData;
-                if (!data) continue;
-
-                var pos = graph.graph2ScreenCoords(data.x, data.y, data.z);
-                if (pos) {
-                    label.style.left = pos.x + 'px';
-                    label.style.top = pos.y + 'px';
-                    label.style.display = 'block';
-                } else {
-                    label.style.display = 'none';
+            if (expandedGroups.has(groupName) || members.length === 1) {
+                // Expanded: show individual nodes
+                for (var m = 0; m < members.length; m++) {
+                    clusterNodes.push(members[m]);
+                    nodeToCluster[members[m].id] = members[m].id;
                 }
+            } else {
+                // Collapsed: create meta-node
+                var totalLoc = 0, totalSize = 0, maxComplexity = 0;
+                for (var mc = 0; mc < members.length; mc++) {
+                    totalLoc += members[mc].linesOfCode || 0;
+                    totalSize += members[mc].size || 0;
+                    maxComplexity = Math.max(maxComplexity, members[mc].complexity || 1);
+                }
+                var color = GROUP_COLORS[colorIdx % GROUP_COLORS.length];
+                var clusterId = '__cluster__' + groupName;
+                clusterNodes.push({
+                    id: clusterId,
+                    name: groupName + '/',
+                    path: groupName,
+                    language: 'cluster',
+                    extension: '',
+                    size: totalSize,
+                    linesOfCode: totalLoc,
+                    lastModified: 0,
+                    group: groupName,
+                    fanIn: 0,
+                    fanOut: 0,
+                    complexity: maxComplexity,
+                    _isCluster: true,
+                    _clusterGroup: groupName,
+                    _clusterColor: color,
+                    _clusterCount: members.length,
+                    _memberIds: members.map(function(n) { return n.id; })
+                });
+                for (var mi = 0; mi < members.length; mi++) {
+                    nodeToCluster[members[mi].id] = clusterId;
+                }
+                colorIdx++;
             }
-
-            if (showGroups) requestAnimationFrame(updateLoop);
-        });
-    }
-
-    function removeGroupMeshes() {
-        for (var i = 0; i < groupMeshes.length; i++) {
-            if (groupMeshes[i].parentNode) groupMeshes[i].parentNode.removeChild(groupMeshes[i]);
         }
-        groupMeshes = [];
+
+        // Remap links
+        var linkSet = new Set();
+        for (var li = 0; li < data.links.length; li++) {
+            var link = data.links[li];
+            var srcId = typeof link.source === 'object' ? link.source.id : link.source;
+            var tgtId = typeof link.target === 'object' ? link.target.id : link.target;
+            var mappedSrc = nodeToCluster[srcId] || srcId;
+            var mappedTgt = nodeToCluster[tgtId] || tgtId;
+            if (mappedSrc === mappedTgt) continue; // internal link within same cluster
+            var lkey = mappedSrc + '|' + mappedTgt;
+            if (linkSet.has(lkey)) continue;
+            linkSet.add(lkey);
+            clusterLinks.push({
+                source: mappedSrc,
+                target: mappedTgt,
+                type: link.type,
+                label: link.label
+            });
+        }
+
+        // Compute cluster fan-in/fan-out
+        for (var ci = 0; ci < clusterNodes.length; ci++) {
+            var cn = clusterNodes[ci];
+            if (cn._isCluster) {
+                var fi = 0, fo = 0;
+                for (var cl = 0; cl < clusterLinks.length; cl++) {
+                    var csrc = typeof clusterLinks[cl].source === 'object' ? clusterLinks[cl].source.id : clusterLinks[cl].source;
+                    var ctgt = typeof clusterLinks[cl].target === 'object' ? clusterLinks[cl].target.id : clusterLinks[cl].target;
+                    if (csrc === cn.id) fo++;
+                    if (ctgt === cn.id) fi++;
+                }
+                cn.fanIn = fi;
+                cn.fanOut = fo;
+            }
+        }
+
+        return { nodes: clusterNodes, links: clusterLinks };
     }
 
     // ============================================================
@@ -1226,6 +1348,55 @@
         sprite.scale.set(canvas.width * scaleFactor, canvas.height * scaleFactor, 1);
 
         labelSpriteCache[text] = sprite;
+        return sprite.clone();
+    }
+
+    function getClusterLabelSprite(groupName, count, color) {
+        var T = window.THREE;
+        if (!T) return null;
+
+        var label = groupName + ' (' + count + ')';
+        var cacheKey = 'cluster:' + label + ':' + color;
+        if (labelSpriteCache[cacheKey]) return labelSpriteCache[cacheKey].clone();
+
+        var canvas = document.createElement('canvas');
+        var ctx = canvas.getContext('2d');
+        var fontSize = 36;
+        ctx.font = 'bold ' + fontSize + 'px sans-serif';
+        var tw = ctx.measureText(label).width;
+
+        var px = 24, py = 16;
+        canvas.width = tw + px;
+        canvas.height = fontSize + py;
+
+        ctx.font = 'bold ' + fontSize + 'px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // Background pill
+        ctx.fillStyle = color || 'rgba(120,144,156,0.8)';
+        ctx.globalAlpha = 0.75;
+        if (ctx.roundRect) {
+            ctx.beginPath();
+            ctx.roundRect(0, 0, canvas.width, canvas.height, 12);
+            ctx.fill();
+        } else {
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        ctx.globalAlpha = 1.0;
+
+        // Text
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(label, canvas.width / 2, canvas.height / 2);
+
+        var texture = new T.CanvasTexture(canvas);
+        texture.minFilter = T.LinearFilter;
+        var mat = new T.SpriteMaterial({ map: texture, depthTest: false, transparent: true });
+        var sprite = new T.Sprite(mat);
+        var sf = 0.18;
+        sprite.scale.set(canvas.width * sf, canvas.height * sf, 1);
+
+        labelSpriteCache[cacheKey] = sprite;
         return sprite.clone();
     }
 
@@ -1399,7 +1570,15 @@
             var targetId = typeof l.target === 'object' ? l.target.id : l.target;
             if (nodeIds.has(sourceId) && nodeIds.has(targetId)) filteredLinks.push(l);
         }
-        return { nodes: filteredNodes, links: filteredLinks };
+
+        var result = { nodes: filteredNodes, links: filteredLinks };
+
+        // Apply clustering if Groups mode is active
+        if (showGroups) {
+            result = buildClusteredData(result);
+        }
+
+        return result;
     }
 
     function applyFilters() {

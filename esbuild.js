@@ -20,6 +20,21 @@ const extensionConfig = {
     tsconfig: 'tsconfig.json',
 };
 
+/** @type {esbuild.BuildOptions} */
+const workerConfig = {
+    entryPoints: ['src/analyzer-worker.ts'],
+    bundle: true,
+    format: 'cjs',
+    minify: production,
+    sourcemap: !production,
+    sourcesContent: false,
+    platform: 'node',
+    outfile: 'out/analyzer-worker.js',
+    external: [],
+    logLevel: 'info',
+    tsconfig: 'tsconfig.json',
+};
+
 async function copyWebviewAssets() {
     const webviewSrc = path.join(__dirname, 'webview');
     const webviewDest = path.join(__dirname, 'out', 'webview');
@@ -63,6 +78,7 @@ async function main() {
         console.log('Watching for changes...');
     } else {
         await esbuild.build(extensionConfig);
+        await esbuild.build(workerConfig);
     }
 }
 

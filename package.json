@@ -7,8 +7,16 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Visualization"],
-  "keywords": ["3d", "visualization", "code-analysis", "dependency-graph", "codebase"],
+  "categories": [
+    "Visualization"
+  ],
+  "keywords": [
+    "3d",
+    "visualization",
+    "code-analysis",
+    "dependency-graph",
+    "codebase"
+  ],
   "activationEvents": [
     "onWebviewPanel:auraVisualizer.graphView"
   ],
@@ -82,7 +90,14 @@
       "properties": {
         "auraVisualizer.excludePaths": {
           "type": "array",
-          "default": ["node_modules", ".git", "dist", "build", "out", "__pycache__"],
+          "default": [
+            "node_modules",
+            ".git",
+            "dist",
+            "build",
+            "out",
+            "__pycache__"
+          ],
           "description": "Directories to exclude from analysis"
         },
         "auraVisualizer.maxFiles": {
@@ -96,19 +111,65 @@
           "description": "Automatically refresh visualization when files are saved"
         }
       }
-    }
+    },
+    "walkthroughs": [
+      {
+        "id": "aura-getting-started",
+        "title": "Get Started with Aura Visualizer",
+        "description": "Explore your codebase in 3D",
+        "steps": [
+          {
+            "id": "open-visualizer",
+            "title": "Open the 3D Visualizer",
+            "description": "Press ``Ctrl+Shift+A`` (or ``Cmd+Shift+A`` on Mac) to open the interactive 3D graph of your codebase.\n\n[Open Visualizer](command:auraVisualizer.open)",
+            "media": {
+              "markdown": "resources/walkthrough/open.md"
+            }
+          },
+          {
+            "id": "explore-graph",
+            "title": "Explore the Graph",
+            "description": "**Click** a node to see file details. **Double-click** to open the file in the editor. **Right-click** to pin focus on a file and its neighbors.\n\nUse the mouse wheel to zoom and drag to rotate.",
+            "media": {
+              "markdown": "resources/walkthrough/explore.md"
+            }
+          },
+          {
+            "id": "use-heatmaps",
+            "title": "Use Heatmaps",
+            "description": "Click the heatmap buttons in the toolbar to color nodes by **Complexity**, **Fan-in**, **Fan-out**, **Lines of Code**, or **Last Modified**.\n\nSpot hotspots at a glance!",
+            "media": {
+              "markdown": "resources/walkthrough/heatmaps.md"
+            }
+          },
+          {
+            "id": "find-paths",
+            "title": "Find Dependency Paths",
+            "description": "Click the **Path** button in the toolbar, then click two nodes to find the shortest dependency path between them.\n\nGreat for understanding how files are connected.",
+            "media": {
+              "markdown": "resources/walkthrough/paths.md"
+            }
+          }
+        ]
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run build",
     "build": "node esbuild.js --production",
     "watch": "node esbuild.js --watch",
-    "lint": "eslint src --ext ts"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint src --ext ts",
+    "package": "vsce package --no-dependencies"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^3.7.1",
     "esbuild": "^0.20.0",
-    "typescript": "^5.3.0"
+    "typescript": "^5.3.0",
+    "vitest": "^4.1.2"
   },
   "dependencies": {
     "3d-force-graph": "^1.77.7",

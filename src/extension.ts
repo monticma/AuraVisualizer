@@ -5,6 +5,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
+import { Worker } from 'worker_threads';
 import { WebviewProvider } from './webview/WebviewProvider';
 import { AuraTreeProvider } from './AuraTreeProvider';
 import { analyzeCodebase, scanSingleFile, buildGraph, type GraphData, type GraphNode, type GraphLink, type FileInfo } from './analyzer/index';
@@ -163,21 +164,16 @@ async function refreshAnalysis(context: vscode.ExtensionContext): Promise<void> 
     }
 
     try {
-        cachedGraphData = await vscode.window.withProgress(
+        const result = await vscode.window.withProgress(
             {
                 location: vscode.ProgressLocation.Window,
                 title: 'Aura: Analyzing codebase...'
             },
-            async () => {
-                const result = await analyzeCodebase(rootPath, {
-                    skipDirs: new Set(excludePaths),
-                    projectName: workspaceFolder.name
-                });
-                const { scanDirectory } = await import('./analyzer/scanner');
-                cachedFiles = await scanDirectory(rootPath, { skipDirs: new Set(excludePaths) });
-                return result;
-            }
+            () => runAnalysisInWorker(context.extensionUri, rootPath, excludePaths, workspaceFolder.name)
         );
+
+        cachedGraphData = result.graphData;
+        cachedFiles = result.files;
 
         if (webviewProvider) {
             webviewProvider.sendGraphData(cachedGraphData);
@@ -194,6 +190,44 @@ async function refreshAnalysis(context: vscode.ExtensionContext): Promise<void> 
     } finally {
         isAnalyzing = false;
     }
+}
+
+function runAnalysisInWorker(
+    extensionUri: vscode.Uri,
+    rootPath: string,
+    excludePaths: string[],
+    projectName: string
+): Promise<{ graphData: GraphData; files: FileInfo[] }> {
+    return new Promise((resolve, reject) => {
+        const workerPath = path.join(extensionUri.fsPath, 'out', 'analyzer-worker.js');
+        const worker = new Worker(workerPath, {
+            workerData: {
+                rootPath,
+                skipDirs: excludePaths,
+                projectName,
+            },
+        });
+
+        worker.on('message', (msg: { graphData?: GraphData; files?: FileInfo[]; error?: string }) => {
+            if (msg.error) {
+                reject(new Error(msg.error));
+            } else {
+                resolve({ graphData: msg.graphData!, files: msg.files! });
+            }
+            worker.terminate();
+        });
+
+        worker.on('error', (err) => {
+            reject(err);
+            worker.terminate();
+        });
+
+        worker.on('exit', (code) => {
+            if (code !== 0) {
+                reject(new Error(`Worker exited with code ${code}`));
+            }
+        });
+    });
 }
 
 /**
@@ -231,7 +265,7 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
         if (oldGraphData) {
             // Compute delta and send incremental update
             const delta = computeGraphDelta(oldGraphData, cachedGraphData, relativePath, deleted);
-            webviewProvider.sendGraphDelta(delta);
+            webviewProvider.sendGraphDelta(delta as unknown as Record<string, unknown>);
         } else {
             webviewProvider.sendGraphData(cachedGraphData);
         }
