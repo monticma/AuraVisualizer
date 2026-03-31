@@ -57,6 +57,16 @@
     var explodedNode = null;
     var explosionData = null;
 
+    // Time Machine state
+    var timelineCommits = [];       // all commits, newest first
+    var timelineDeltas = {};        // hash → CommitDelta
+    var timelinePosition = -1;     // -1 = HEAD (current), 0 = newest commit, N = older
+    var timelineScannedCount = 0;
+    var timelineTotalCount = 0;
+    var headGraphData = null;       // snapshot of graph at HEAD for reset
+    var timelineActive = false;     // true when navigating history
+    var timelineChangedNodes = new Set(); // nodes touched at current commit (for visual highlight)
+
     // Render throttle state
     var engineRunning = true;
     var idleTimer = null;
@@ -78,6 +88,10 @@
     var toggleExplorerBtn = $('#btn-toggle-explorer');
     var explorerTree = $('#explorer-tree');
     var tooltip = $('#tooltip');
+    var timelineBar = $('#timeline-bar');
+    var timelineSlider = $('#timeline-slider');
+    var timelinePrevBtn = $('#timeline-prev');
+    var timelineNextBtn = $('#timeline-next');
 
     // ============================================================
     // VSCode Message Handling
@@ -99,6 +113,15 @@
             case 'themeChanged':
                 // Could adapt colors here if needed
                 break;
+            case 'historyIndex':
+                handleHistoryIndex(message.payload);
+                break;
+            case 'historyProgress':
+                handleHistoryProgress(message.payload);
+                break;
+            case 'historyDelta':
+                handleHistoryDelta(message.payload);
+                break;
         }
     });
 
@@ -114,6 +137,7 @@
         setupPanelClose();
         setupRefresh();
         setupExplorer();
+        setupTimeline();
     }
 
     if (document.readyState === 'loading') {
@@ -124,6 +148,7 @@
 
     function handleGraphData(data) {
         graphData = data;
+        headGraphData = JSON.parse(JSON.stringify(data));
         computeMetricRanges();
         updateStats(graphData.meta);
         if (loadingOverlay) loadingOverlay.style.display = 'none';
@@ -511,6 +536,10 @@
         if (showCycles) {
             if (cycleNodeIds.has(node.id)) return '#ff9800';
             return '#ffffff0a';
+        }
+
+        if (timelineActive && timelineChangedNodes.size > 0) {
+            if (timelineChangedNodes.has(node.id)) return '#ffd54f';
         }
 
         if (pathMode) {
@@ -2066,6 +2095,20 @@
                     // Re-apply if already pinned
                     if (pinnedNode) handleNodeRightClick(pinnedNode, true);
                     break;
+                case 'arrowleft':
+                    // Timeline: previous commit
+                    if (timelineCommits.length > 0 && !timelinePrevBtn.disabled) {
+                        e.preventDefault();
+                        timelinePrevBtn.click();
+                    }
+                    break;
+                case 'arrowright':
+                    // Timeline: next commit
+                    if (timelineCommits.length > 0 && !timelineNextBtn.disabled) {
+                        e.preventDefault();
+                        timelineNextBtn.click();
+                    }
+                    break;
                 case 'escape':
                     // Reset: clear selection, pinned focus, path mode, heatmap
                     selectedNode = null;
@@ -2097,6 +2140,13 @@
                     }
                     detailPanel.classList.add('hidden');
                     if (explodedNode) collapseExplosion();
+                    if (timelineActive) {
+                        restoreHeadGraph();
+                        timelineSlider.value = timelineSlider.max;
+                        timelinePosition = parseInt(timelineSlider.max);
+                        updateTimelineLabel();
+                        updateTimelineButtons();
+                    }
                     graph.nodeColor(graph.nodeColor())
                          .linkWidth(graph.linkWidth())
                          .linkColor(graph.linkColor())
@@ -2146,6 +2196,400 @@
     function applyFilters() {
         if (!graph || !graphData) return;
         graph.graphData(filterGraphData(graphData));
+    }
+
+    // ============================================================
+    // Time Machine — Timeline Navigation
+    // ============================================================
+    function setupTimeline() {
+        if (!timelineSlider || !timelinePrevBtn || !timelineNextBtn) return;
+
+        timelineSlider.addEventListener('input', function() {
+            var pos = parseInt(timelineSlider.value);
+            navigateToCommit(pos);
+        });
+
+        timelinePrevBtn.addEventListener('click', function() {
+            var pos = parseInt(timelineSlider.value);
+            if (pos > 0) {
+                timelineSlider.value = pos - 1;
+                navigateToCommit(pos - 1);
+            }
+        });
+
+        timelineNextBtn.addEventListener('click', function() {
+            var pos = parseInt(timelineSlider.value);
+            var max = parseInt(timelineSlider.max);
+            if (pos < max) {
+                timelineSlider.value = pos + 1;
+                navigateToCommit(pos + 1);
+            }
+        });
+    }
+
+    function handleHistoryIndex(index) {
+        timelineCommits = index.commits || [];
+        timelineTotalCount = index.totalCommits || 0;
+        timelineScannedCount = index.scannedCommits || 0;
+
+        if (timelineCommits.length === 0) return;
+
+        // Show timeline bar
+        timelineBar.classList.remove('hidden');
+        document.body.classList.add('has-timeline');
+
+        // Slider: 0 = oldest scanned, max = HEAD (current state)
+        // We add +1 to max because the last position is HEAD (not a commit)
+        var maxPos = timelineScannedCount;
+        timelineSlider.min = 0;
+        timelineSlider.max = maxPos;
+        timelineSlider.value = maxPos; // start at HEAD
+        timelinePosition = -1;
+
+        updateTimelineLabel();
+        updateTimelineButtons();
+        updateTimelineProgress();
+    }
+
+    function handleHistoryProgress(progress) {
+        timelineScannedCount = progress.scanned;
+        timelineTotalCount = progress.total;
+
+        // Expand slider range as more commits are scanned
+        var maxPos = timelineScannedCount;
+        var currentVal = parseInt(timelineSlider.value);
+        var wasAtHead = currentVal === parseInt(timelineSlider.max);
+        timelineSlider.max = maxPos;
+        if (wasAtHead) {
+            timelineSlider.value = maxPos;
+        }
+
+        updateTimelineButtons();
+        updateTimelineProgress();
+    }
+
+    function handleHistoryDelta(delta) {
+        // Store the delta keyed by hash
+        timelineDeltas[delta.hash] = delta;
+        updateTimelineButtons();
+    }
+
+    function navigateToCommit(sliderPos) {
+        var maxPos = parseInt(timelineSlider.max);
+
+        if (sliderPos >= maxPos) {
+            // Back to HEAD
+            timelinePosition = -1;
+            timelineActive = false;
+            timelineChangedNodes.clear();
+            // Restore HEAD graph
+            if (headGraphData && graph) {
+                restoreHeadGraph();
+            }
+            updateTimelineLabel();
+            updateTimelineButtons();
+            return;
+        }
+
+        // sliderPos: 0 = oldest scanned commit, maxPos-1 = newest commit
+        // commits array is newest first, so we need to reverse the index
+        var commitIdx = (maxPos - 1) - sliderPos;
+        if (commitIdx < 0 || commitIdx >= timelineCommits.length) return;
+
+        var commit = timelineCommits[commitIdx];
+        if (!commit) return;
+
+        var delta = timelineDeltas[commit.hash];
+        if (!delta) {
+            // Delta not yet scanned — can't navigate here
+            updateTimelineLabel();
+            updateTimelineButtons();
+            return;
+        }
+
+        timelinePosition = commitIdx;
+        timelineActive = true;
+
+        // Apply the cumulative state up to this commit
+        applyCumulativeState(commitIdx);
+
+        updateTimelineLabel();
+        updateTimelineButtons();
+    }
+
+    function applyCumulativeState(targetCommitIdx) {
+        if (!headGraphData || !graph) return;
+
+        // Start from HEAD graph and apply deltas backward
+        // We need to reconstruct the graph at targetCommitIdx
+        // by knowing what changed between HEAD and that commit.
+
+        // Strategy: collect all files that were added/removed/modified
+        // between HEAD and the target commit
+        var removedAtTarget = new Set();   // files that don't exist at target (added after target)
+        var addedAtTarget = new Set();     // files re-added at target (removed after target)
+        var modifiedState = {};            // file id → DeltaNodeState at closest commit
+
+        // Walk from newest commit (index 0) to targetCommitIdx
+        // Each delta tells us what changed IN that commit (going forward in time)
+        // Going backward: "added" in a commit means the file didn't exist before → remove it
+        //                 "removed" in a commit means the file existed before → add it back
+        //                 "modified" in a commit means the file was different before → use the delta state
+        for (var i = 0; i <= targetCommitIdx; i++) {
+            var commit = timelineCommits[i];
+            var delta = timelineDeltas[commit.hash];
+            if (!delta) continue;
+
+            // Files added in this commit didn't exist before this commit
+            // Since we're going backward, these should be removed
+            for (var a = 0; a < delta.added.length; a++) {
+                removedAtTarget.add(delta.added[a]);
+                addedAtTarget.delete(delta.added[a]);
+            }
+
+            // Files removed in this commit existed before this commit
+            // Since we're going backward, these should be present
+            for (var r = 0; r < delta.removed.length; r++) {
+                addedAtTarget.add(delta.removed[r]);
+                removedAtTarget.delete(delta.removed[r]);
+            }
+
+            // Modified files: store their state at this commit
+            // The delta contains the state AT this commit
+            var modKeys = Object.keys(delta.modified);
+            for (var m = 0; m < modKeys.length; m++) {
+                modifiedState[modKeys[m]] = delta.modified[modKeys[m]];
+            }
+        }
+
+        // Now build the new node/link set
+        // Start from HEAD nodes
+        var newNodes = [];
+        var newLinks = [];
+        var nodeIds = new Set();
+        timelineChangedNodes.clear();
+
+        // Keep HEAD nodes that aren't removed at target
+        for (var ni = 0; ni < headGraphData.nodes.length; ni++) {
+            var headNode = headGraphData.nodes[ni];
+            if (removedAtTarget.has(headNode.id)) continue;
+
+            // Check if this node was modified — apply the older state
+            var mod = modifiedState[headNode.id];
+            var graphNode = findNodeInGraph(headNode.id);
+            var node;
+            if (graphNode) {
+                // Reuse the 3d node to preserve position
+                node = graphNode;
+            } else {
+                node = Object.assign({}, headNode);
+            }
+
+            if (mod) {
+                node.linesOfCode = mod.linesOfCode;
+                node.complexity = mod.complexity;
+                if (mod.symbols) node.symbols = mod.symbols;
+                timelineChangedNodes.add(node.id);
+            }
+            nodeIds.add(node.id);
+            newNodes.push(node);
+        }
+
+        // Grab the most recent commit's delta to identify what changed at the current position
+        var currentCommit = timelineCommits[targetCommitIdx];
+        var currentDelta = timelineDeltas[currentCommit.hash];
+        if (currentDelta) {
+            for (var ca = 0; ca < currentDelta.added.length; ca++) {
+                timelineChangedNodes.add(currentDelta.added[ca]);
+            }
+            for (var cr = 0; cr < currentDelta.removed.length; cr++) {
+                timelineChangedNodes.add(currentDelta.removed[cr]);
+            }
+            var cmk = Object.keys(currentDelta.modified);
+            for (var cm = 0; cm < cmk.length; cm++) {
+                timelineChangedNodes.add(cmk[cm]);
+            }
+        }
+
+        // Rebuild links from HEAD links + modified state
+        for (var li = 0; li < headGraphData.links.length; li++) {
+            var headLink = headGraphData.links[li];
+            var srcId = typeof headLink.source === 'object' ? headLink.source.id : headLink.source;
+            var tgtId = typeof headLink.target === 'object' ? headLink.target.id : headLink.target;
+            if (nodeIds.has(srcId) && nodeIds.has(tgtId)) {
+                newLinks.push({ source: srcId, target: tgtId, type: headLink.type, label: headLink.label || '' });
+            }
+        }
+
+        // Add links from modified states (for files whose imports changed)
+        for (var modFile in modifiedState) {
+            if (!nodeIds.has(modFile)) continue;
+            var state = modifiedState[modFile];
+            if (state.linksOut) {
+                for (var lo = 0; lo < state.linksOut.length; lo++) {
+                    var linkOut = state.linksOut[lo];
+                    if (nodeIds.has(linkOut.target)) {
+                        // Check if this link already exists
+                        var exists = false;
+                        for (var el = 0; el < newLinks.length; el++) {
+                            var es = typeof newLinks[el].source === 'object' ? newLinks[el].source.id : newLinks[el].source;
+                            var et = typeof newLinks[el].target === 'object' ? newLinks[el].target.id : newLinks[el].target;
+                            if (es === modFile && et === linkOut.target && newLinks[el].type === linkOut.type) {
+                                exists = true;
+                                break;
+                            }
+                        }
+                        if (!exists) {
+                            newLinks.push({
+                                source: modFile,
+                                target: linkOut.target,
+                                type: linkOut.type,
+                                label: ''
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        // Pin existing nodes so the layout doesn't restart
+        for (var pi = 0; pi < newNodes.length; pi++) {
+            var pn = newNodes[pi];
+            if (pn.x !== undefined) { pn.fx = pn.x; pn.fy = pn.y; pn.fz = pn.z; }
+        }
+
+        // Update the graph
+        graphData.nodes = newNodes;
+        graphData.links = newLinks;
+        graphData.meta.totalFiles = newNodes.length;
+        graphData.meta.totalLinks = newLinks.length;
+
+        graph.graphData({ nodes: newNodes, links: newLinks });
+        refreshGraphVisuals();
+
+        // Unpin after engine settles
+        setTimeout(function() {
+            var d = graph.graphData();
+            for (var ui = 0; ui < d.nodes.length; ui++) {
+                delete d.nodes[ui].fx; delete d.nodes[ui].fy; delete d.nodes[ui].fz;
+            }
+        }, 500);
+    }
+
+    function restoreHeadGraph() {
+        if (!headGraphData || !graph) return;
+
+        // Restore nodes (preserve positions for existing nodes)
+        var newNodes = [];
+        for (var i = 0; i < headGraphData.nodes.length; i++) {
+            var headNode = headGraphData.nodes[i];
+            var existing = findNodeInGraph(headNode.id);
+            if (existing) {
+                // Restore HEAD properties but keep position
+                existing.linesOfCode = headNode.linesOfCode;
+                existing.complexity = headNode.complexity;
+                existing.symbols = headNode.symbols;
+                existing.fanIn = headNode.fanIn;
+                existing.fanOut = headNode.fanOut;
+                existing.deadExports = headNode.deadExports;
+                existing.cycleIds = headNode.cycleIds;
+                newNodes.push(existing);
+            } else {
+                newNodes.push(Object.assign({}, headNode));
+            }
+        }
+
+        // Deep-copy links (source/target may have been mutated to objects)
+        var restoredLinks = [];
+        for (var rl = 0; rl < headGraphData.links.length; rl++) {
+            var hl = headGraphData.links[rl];
+            restoredLinks.push({
+                source: typeof hl.source === 'object' ? hl.source.id : hl.source,
+                target: typeof hl.target === 'object' ? hl.target.id : hl.target,
+                type: hl.type, label: hl.label || ''
+            });
+        }
+
+        // Pin nodes
+        for (var rp = 0; rp < newNodes.length; rp++) {
+            var rn = newNodes[rp];
+            if (rn.x !== undefined) { rn.fx = rn.x; rn.fy = rn.y; rn.fz = rn.z; }
+        }
+
+        graphData.nodes = newNodes;
+        graphData.links = restoredLinks;
+        graphData.meta = JSON.parse(JSON.stringify(headGraphData.meta));
+
+        graph.graphData({ nodes: newNodes, links: restoredLinks });
+        timelineChangedNodes.clear();
+        refreshGraphVisuals();
+
+        setTimeout(function() {
+            var d = graph.graphData();
+            for (var ui = 0; ui < d.nodes.length; ui++) {
+                delete d.nodes[ui].fx; delete d.nodes[ui].fy; delete d.nodes[ui].fz;
+            }
+        }, 500);
+    }
+
+    function findNodeInGraph(id) {
+        if (!graph) return null;
+        var data = graph.graphData();
+        for (var i = 0; i < data.nodes.length; i++) {
+            if (data.nodes[i].id === id) return data.nodes[i];
+        }
+        return null;
+    }
+
+    function updateTimelineLabel() {
+        var maxPos = parseInt(timelineSlider.max);
+        var pos = parseInt(timelineSlider.value);
+
+        if (pos >= maxPos) {
+            // HEAD
+            $('#timeline-hash').textContent = 'HEAD';
+            $('#timeline-message').textContent = 'Current state';
+            $('#timeline-date').textContent = '';
+        } else {
+            var commitIdx = (maxPos - 1) - pos;
+            if (commitIdx >= 0 && commitIdx < timelineCommits.length) {
+                var commit = timelineCommits[commitIdx];
+                $('#timeline-hash').textContent = commit.hash.substring(0, 7);
+                $('#timeline-message').textContent = commit.message;
+                var d = new Date(commit.date);
+                $('#timeline-date').textContent = d.toLocaleDateString();
+            }
+        }
+    }
+
+    function updateTimelineButtons() {
+        var pos = parseInt(timelineSlider.value);
+        var max = parseInt(timelineSlider.max);
+
+        // Can go back (prev) if not at 0 and the target has a delta
+        var canPrev = pos > 0;
+        if (canPrev) {
+            var prevCommitIdx = (max - 1) - (pos - 1);
+            if (prevCommitIdx >= 0 && prevCommitIdx < timelineCommits.length) {
+                var prevHash = timelineCommits[prevCommitIdx].hash;
+                if (!timelineDeltas[prevHash]) canPrev = false;
+            }
+        }
+        timelinePrevBtn.disabled = !canPrev;
+
+        // Can always go forward (next) as long as not at max
+        timelineNextBtn.disabled = pos >= max;
+    }
+
+    function updateTimelineProgress() {
+        var progressEl = $('#timeline-progress');
+        var textEl = $('#timeline-progress-text');
+        if (timelineScannedCount < timelineTotalCount) {
+            progressEl.classList.remove('hidden');
+            textEl.textContent = '⏳ ' + timelineScannedCount + '/' + timelineTotalCount;
+        } else {
+            progressEl.classList.add('hidden');
+        }
     }
 
     // ============================================================

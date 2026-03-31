@@ -791,6 +791,127 @@ html, body {
 }
 
 /* ============================================================
+   Timeline Bar (Time Machine)
+   ============================================================ */
+#timeline-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 36px;
+    background: rgba(13, 17, 23, 0.92);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 8px;
+    z-index: 90;
+    backdrop-filter: blur(10px);
+}
+
+#timeline-bar.hidden {
+    display: none !important;
+}
+
+.timeline-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: #e6edf3;
+    font-size: 11px;
+    width: 28px;
+    height: 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+}
+
+.timeline-btn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.timeline-btn:disabled {
+    opacity: 0.3;
+    cursor: default;
+}
+
+#timeline-slider {
+    flex: 1;
+    min-width: 100px;
+    height: 4px;
+    -webkit-appearance: none;
+    appearance: none;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+}
+
+#timeline-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #60a5fa;
+    border: 2px solid #93c5fd;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+#timeline-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.3);
+}
+
+#timeline-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: #8b949e;
+    white-space: nowrap;
+    overflow: hidden;
+    max-width: 400px;
+}
+
+#timeline-hash {
+    color: #60a5fa;
+    font-family: monospace;
+    font-size: 11px;
+}
+
+#timeline-message {
+    color: #e6edf3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+}
+
+#timeline-date {
+    color: #8b949e;
+    font-size: 10px;
+}
+
+#timeline-progress {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: #8b949e;
+    white-space: nowrap;
+}
+
+#timeline-progress-text {
+    color: #ffd54f;
+}
+
+/* Push filter bar up when timeline is visible */
+body.has-timeline #filter-bar {
+    bottom: 48px;
+}
+
+/* ============================================================
    Utility
    ============================================================ */
 .hidden { display: none !important; }

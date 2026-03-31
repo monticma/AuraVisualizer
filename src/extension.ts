@@ -9,10 +9,14 @@ import { Worker } from 'worker_threads';
 import { WebviewProvider } from './webview/WebviewProvider';
 import { AuraTreeProvider } from './AuraTreeProvider';
 import { analyzeCodebase, scanSingleFile, buildGraph, type GraphData, type GraphNode, type GraphLink, type FileInfo } from './analyzer/index';
+import { isGitRepo } from './analyzer/git-history';
+import type { CommitIndex, CommitDelta } from './analyzer/types';
 
 let webviewProvider: WebviewProvider | undefined;
 let cachedGraphData: GraphData | undefined;
 let cachedFiles: FileInfo[] = [];
+let historyWorker: Worker | undefined;
+let commitIndex: CommitIndex | undefined;
 let fileWatcher: vscode.FileSystemWatcher | undefined;
 let statusBarItem: vscode.StatusBarItem | undefined;
 let refreshTimeout: ReturnType<typeof setTimeout> | undefined;
@@ -181,6 +185,9 @@ async function refreshAnalysis(context: vscode.ExtensionContext): Promise<void> 
 
         treeProvider?.update(cachedGraphData);
         updateStatusBar();
+
+        // Launch Time Machine history scan in background
+        startHistoryScan(context, rootPath, excludePaths);
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         vscode.window.showErrorMessage(`Aura: Analysis failed — ${message}`);
@@ -358,6 +365,84 @@ function updateStatusBar(): void {
     const { totalFiles, totalLinks } = cachedGraphData.meta;
     statusBarItem.text = `$(eye) Aura: ${totalFiles} files, ${totalLinks} links`;
     statusBarItem.tooltip = `Aura — ${totalFiles} files, ${totalLinks} dependencies\nClick to open 3D visualizer`;
+}
+
+// ============================================================
+// Time Machine — Git History Scan
+// ============================================================
+async function startHistoryScan(
+    context: vscode.ExtensionContext,
+    rootPath: string,
+    excludePaths: string[]
+): Promise<void> {
+    // Only scan if it's a git repo
+    const isGit = await isGitRepo(rootPath);
+    if (!isGit) return;
+
+    // Kill previous worker if running
+    if (historyWorker) {
+        historyWorker.terminate();
+        historyWorker = undefined;
+    }
+
+    const historyDir = path.join(rootPath, '.aura', 'history');
+    const workerPath = path.join(context.extensionUri.fsPath, 'out', 'history-worker.js');
+
+    historyWorker = new Worker(workerPath, {
+        workerData: {
+            rootPath,
+            skipDirs: excludePaths,
+            historyDir
+        }
+    });
+
+    historyWorker.on('message', (msg: {
+        type: string;
+        payload?: CommitIndex | CommitDelta | { scanned: number; total: number };
+        message?: string;
+    }) => {
+        switch (msg.type) {
+            case 'index':
+                commitIndex = msg.payload as CommitIndex;
+                // Send to webview so it can show the timeline
+                if (webviewProvider) {
+                    webviewProvider.sendHistoryIndex(commitIndex);
+                }
+                break;
+
+            case 'progress': {
+                const progress = msg.payload as { scanned: number; total: number };
+                if (webviewProvider) {
+                    webviewProvider.sendHistoryProgress(progress.scanned, progress.total);
+                }
+                break;
+            }
+
+            case 'delta': {
+                const delta = msg.payload as CommitDelta;
+                if (webviewProvider) {
+                    webviewProvider.sendHistoryDelta(delta);
+                }
+                break;
+            }
+
+            case 'done':
+                // Scan complete
+                break;
+
+            case 'error':
+                // Silently ignore — not all workspaces are git repos
+                break;
+        }
+    });
+
+    historyWorker.on('error', () => {
+        // Worker crashed — non-critical feature, just log
+    });
+
+    historyWorker.on('exit', () => {
+        historyWorker = undefined;
+    });
 }
 
 function focusCurrentFile(): void {
@@ -607,4 +692,8 @@ export function deactivate(): void {
     webviewProvider?.dispose();
     fileWatcher?.dispose();
     if (refreshTimeout) clearTimeout(refreshTimeout);
+    if (historyWorker) {
+        historyWorker.terminate();
+        historyWorker = undefined;
+    }
 }

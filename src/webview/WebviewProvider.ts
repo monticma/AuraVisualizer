@@ -129,6 +129,24 @@ export class WebviewProvider {
         });
     }
 
+    public sendHistoryIndex(index: unknown): void {
+        if (this.webviewReady) {
+            this.panel?.webview.postMessage({ type: 'historyIndex', payload: index });
+        }
+    }
+
+    public sendHistoryProgress(scanned: number, total: number): void {
+        if (this.webviewReady) {
+            this.panel?.webview.postMessage({ type: 'historyProgress', payload: { scanned, total } });
+        }
+    }
+
+    public sendHistoryDelta(delta: unknown): void {
+        if (this.webviewReady) {
+            this.panel?.webview.postMessage({ type: 'historyDelta', payload: delta });
+        }
+    }
+
     public get isVisible(): boolean {
         return this.panel?.visible ?? false;
     }
@@ -286,6 +304,21 @@ export class WebviewProvider {
         <div class="legend-gradient" id="legend-gradient"></div>
         <span class="legend-label" id="legend-high">High</span>
         <span class="legend-mode" id="legend-mode">—</span>
+    </div>
+
+    <!-- Timeline Bar (Time Machine) -->
+    <div id="timeline-bar" class="hidden">
+        <button id="timeline-prev" class="timeline-btn" title="Previous commit (←)">◀</button>
+        <button id="timeline-next" class="timeline-btn" title="Next commit (→)">▶</button>
+        <input type="range" id="timeline-slider" min="0" max="0" value="0" step="1">
+        <div id="timeline-info">
+            <span id="timeline-hash">—</span>
+            <span id="timeline-message">—</span>
+            <span id="timeline-date">—</span>
+        </div>
+        <div id="timeline-progress" class="hidden">
+            <span id="timeline-progress-text">⏳ 0/0</span>
+        </div>
     </div>
 
     <!-- Bottom Filter Bar -->

@@ -35,6 +35,21 @@ const workerConfig = {
     tsconfig: 'tsconfig.json',
 };
 
+/** @type {esbuild.BuildOptions} */
+const historyWorkerConfig = {
+    entryPoints: ['src/history-worker.ts'],
+    bundle: true,
+    format: 'cjs',
+    minify: production,
+    sourcemap: !production,
+    sourcesContent: false,
+    platform: 'node',
+    outfile: 'out/history-worker.js',
+    external: [],
+    logLevel: 'info',
+    tsconfig: 'tsconfig.json',
+};
+
 async function copyWebviewAssets() {
     const webviewSrc = path.join(__dirname, 'webview');
     const webviewDest = path.join(__dirname, 'out', 'webview');
@@ -79,6 +94,7 @@ async function main() {
     } else {
         await esbuild.build(extensionConfig);
         await esbuild.build(workerConfig);
+        await esbuild.build(historyWorkerConfig);
     }
 }
 

@@ -122,3 +122,52 @@ export interface AnalyzeOptions extends ScanOptions {
     includeUrls?: boolean;
     includeAssets?: boolean;
 }
+
+// ============================================================
+// Time Machine — Git History Types
+// ============================================================
+
+/** Lightweight commit info from git log */
+export interface CommitInfo {
+    hash: string;
+    date: string;          // ISO 8601
+    author: string;
+    message: string;
+    files: CommitFileChange[];
+}
+
+/** A file changed in a commit */
+export interface CommitFileChange {
+    status: 'A' | 'M' | 'D' | 'R';   // Added, Modified, Deleted, Renamed
+    path: string;
+    oldPath?: string;                  // for renames
+}
+
+/** Full index of all commits (stored in .aura/history/index.json) */
+export interface CommitIndex {
+    repoRoot: string;
+    totalCommits: number;
+    scannedCommits: number;
+    commits: CommitInfo[];             // newest first
+}
+
+/** Snapshot of a single node at a specific commit */
+export interface DeltaNodeState {
+    id: string;
+    linesOfCode: number;
+    complexity: number;
+    language: string;
+    symbols?: NodeSymbols;
+    linksOut: { target: string; type: string }[];
+}
+
+/** Delta for a single commit (stored in .aura/history/<hash>.json) */
+export interface CommitDelta {
+    hash: string;
+    date: string;
+    message: string;
+    author: string;
+    added: string[];                   // file IDs added in this commit
+    removed: string[];                 // file IDs removed
+    modified: Record<string, DeltaNodeState>;  // file ID → full state at this commit
+}
