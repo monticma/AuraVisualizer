@@ -3,7 +3,7 @@
   "displayName": "Aura Visualizer",
   "description": "Visualize your codebase in 3D directly in VSCode — interactive dependency graph with force-directed layout",
   "version": "0.1.0",
-  "publisher": "aura",
+  "publisher": "aura-3d-visualizer",
   "engines": {
     "vscode": "^1.85.0"
   },

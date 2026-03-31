@@ -317,6 +317,8 @@ export class WebviewProvider {
         <div class="filter-group">
             <button class="filter-btn" id="btn-dag-mode" title="Hierarchical mode">⊞ DAG</button>
             <button class="filter-btn" id="btn-highlight-orphans" title="Orphan nodes">◎ Orphans</button>
+            <button class="filter-btn" id="btn-dead-code" title="Dead code detection">☠️ Dead</button>
+            <button class="filter-btn" id="btn-cycles" title="Circular dependencies">🔄 Cycles</button>
             <button class="filter-btn" id="btn-group-dirs" title="Group by directory">📁 Groups</button>
             <button class="filter-btn" id="btn-path-mode" title="Find path between 2 nodes">🔗 Path</button>
             <button class="filter-btn" id="btn-labels" title="Show file names">🏷️ Names</button>
@@ -338,6 +340,21 @@ export class WebviewProvider {
             <label class="filter-label">
                 Node size
                 <input type="range" id="node-size-slider" min="1" max="10" value="4" step="0.5">
+            </label>
+        </div>
+        <div class="filter-separator"></div>
+        <div class="filter-group">
+            <label class="filter-label">
+                Spread
+                <input type="range" id="spread-slider" min="1" max="5" value="1" step="0.5">
+            </label>
+        </div>
+        <div class="filter-separator"></div>
+        <div class="filter-group">
+            <label class="filter-label">
+                Depth
+                <input type="range" id="depth-slider" min="1" max="5" value="1" step="1">
+                <span id="depth-value">1</span>
             </label>
         </div>
     </footer>

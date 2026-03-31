@@ -68,7 +68,9 @@ export class CParser extends BaseParser {
             externs: [],
             structs: [],
             enums: [],
-            macros: []
+            macros: [],
+            classes: [],
+            exports: []
         };
 
         const stripped = this.stripComments(content);

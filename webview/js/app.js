@@ -23,8 +23,16 @@
     var activeLanguages = new Set(['c-source', 'c-header', 'javascript', 'typescript', 'python', 'css', 'html']);
     var dagMode = false;
     var showOrphans = false;
+    var showDeadCode = false;
+    var showCycles = false;
+    var cycleNodeIds = new Set();
+    var cycleLinkKeys = new Set();
+    var multiSelectedNodes = new Set();
+    var multiSelectedLinks = new Set();
     var showLabels = false;
     var nodeSizeMultiplier = 4;
+    var spreadMultiplier = 1;
+    var focusDepth = 1;
     var heatmapMode = 'off';
     var showGroups = false;
     var expandedGroups = new Set();
@@ -48,6 +56,13 @@
     // Explosion state
     var explodedNode = null;
     var explosionData = null;
+
+    // Render throttle state
+    var engineRunning = true;
+    var idleTimer = null;
+    var isPaused = false;
+    var lastPointerX = -1;
+    var lastPointerY = -1;
 
     // ============================================================
     // DOM References
@@ -298,9 +313,11 @@
             .nodeThreeObjectExtend(true)
             .nodeThreeObject(function(node) {
                 var T = window.THREE;
-                var isSelected = selectedNode && selectedNode.id === node.id;
+                var isSelected = (selectedNode && selectedNode.id === node.id) || multiSelectedNodes.has(node);
                 var hasLabel = showLabels &&
                     !(showOrphans && (node.fanIn > 0 || node.fanOut > 0)) &&
+                    !(showDeadCode && !(node.deadExports && node.deadExports.length > 0)) &&
+                    !(showCycles && !cycleNodeIds.has(node.id)) &&
                     !(pinnedNode && !pinnedNodes.has(node));
 
                 // Cluster meta-nodes always get a label
@@ -385,6 +402,7 @@
             .linkColor(function(link) { return getLinkColor(link); })
             .linkWidth(function(link) { 
                 if (pathMode && highlightedPath.links.has(link)) return 3;
+                if (multiSelectedLinks.has(link)) return 2.5;
                 return highlightLinks.has(link) ? 2 : 0.5; 
             })
             .linkOpacity(0.4)
@@ -392,6 +410,7 @@
             .linkDirectionalArrowRelPos(1)
             .linkDirectionalParticles(function(link) { 
                 if (pathMode && highlightedPath.links.has(link)) return 4;
+                if (multiSelectedLinks.has(link)) return 3;
                 return highlightLinks.has(link) ? 3 : 0; 
             })
             .linkDirectionalParticleWidth(2)
@@ -404,7 +423,21 @@
             .onBackgroundClick(handleBackgroundClick)
             .onBackgroundRightClick(handleBackgroundRightClick)
             .warmupTicks(100)
-            .cooldownTicks(200);
+            .cooldownTicks(200)
+            .d3AlphaDecay(0.03)
+            .d3VelocityDecay(0.5);
+
+        // Apply spread forces
+        applySpreadForces();
+
+        graph
+            .onEngineStop(function() {
+                engineRunning = false;
+                scheduleIdle();
+            })
+            .onEngineTick(function() {
+                engineRunning = true;
+            });
 
         // Double-click to open file (not natively supported, use DOM event)
         graphContainer.addEventListener('dblclick', function() {
@@ -415,6 +448,31 @@
             e.preventDefault();
         });
 
+        // Resume rendering on real user interaction
+        ['pointerdown', 'wheel'].forEach(function(evt) {
+            graphContainer.addEventListener(evt, wakeGraph, { passive: true });
+        });
+
+        // Track real mouse movement (ignore jitter < 3px)
+        graphContainer.addEventListener('pointermove', function(e) {
+            var dx = e.clientX - lastPointerX;
+            var dy = e.clientY - lastPointerY;
+            lastPointerX = e.clientX;
+            lastPointerY = e.clientY;
+            if (dx * dx + dy * dy > 9) {
+                wakeGraph();
+            }
+        }, { passive: true });
+
+        // Pause when webview tab is hidden
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                pauseGraph();
+            } else {
+                wakeGraph();
+            }
+        });
+
         setTimeout(function() {
             graph.zoomToFit(500, 50);
         }, 1500);
@@ -422,6 +480,7 @@
         // Handle webview resize (e.g. when side editor opens/closes)
         var resizeObserver = new ResizeObserver(function() {
             if (graph) {
+                wakeGraph();
                 graph.width(graphContainer.clientWidth);
                 graph.height(graphContainer.clientHeight);
             }
@@ -435,6 +494,22 @@
     function getNodeColor(node) {
         if (showOrphans) {
             if (node.fanIn === 0 && node.fanOut === 0) return '#ff1744';
+            return '#ffffff0a';
+        }
+
+        if (showDeadCode) {
+            if (node.deadExports && node.deadExports.length > 0) {
+                // Gradient: few dead = orange, many = red
+                var ratio = Math.min(node.deadExports.length / 5, 1);
+                var r = 255;
+                var g = Math.round(165 * (1 - ratio));
+                return 'rgb(' + r + ',' + g + ',0)';
+            }
+            return '#ffffff0a';
+        }
+
+        if (showCycles) {
+            if (cycleNodeIds.has(node.id)) return '#ff9800';
             return '#ffffff0a';
         }
 
@@ -453,6 +528,11 @@
 
         if (node._isSymbol) return node._symbolColor || '#81c784';
         if (node._isCluster) return node._clusterColor || '#78909c';
+
+        if (multiSelectedNodes.size > 0) {
+            if (multiSelectedNodes.has(node)) return '#93c5fd';
+            return '#ffffff11';
+        }
 
         if (selectedNode && selectedNode.id === node.id) return '#93c5fd';
 
@@ -487,11 +567,23 @@
         var baseLOC = Math.max(node.linesOfCode || 1, 1);
         var size = Math.pow(baseLOC, 0.4) * nodeSizeMultiplier * 0.3;
         if (showOrphans && node.fanIn === 0 && node.fanOut === 0) return size * 1.5;
+        if (showDeadCode && node.deadExports && node.deadExports.length > 0) return size * 1.5;
+        if (showCycles && cycleNodeIds.has(node.id)) return size * 1.5;
+        if (multiSelectedNodes.has(node)) return size * 1.3;
         return size;
     }
 
     function getLinkColor(link) {
         if (showOrphans) return '#ffffff02';
+        if (showDeadCode) return '#ffffff08';
+
+        if (showCycles) {
+            var srcId = typeof link.source === 'object' ? link.source.id : link.source;
+            var tgtId = typeof link.target === 'object' ? link.target.id : link.target;
+            var key = srcId + '>' + tgtId;
+            if (cycleLinkKeys.has(key)) return '#ff1744';
+            return '#ffffff06';
+        }
 
         if (pathMode) {
             if (highlightedPath.links.size > 0) {
@@ -501,6 +593,10 @@
         }
 
         if (link._isExplosionLink) return '#81c78488';
+
+        if (multiSelectedNodes.size > 0) {
+            return multiSelectedLinks.has(link) ? '#93c5fdcc' : '#ffffff06';
+        }
 
         if (pinnedNode) {
             return pinnedLinks.has(link) ? (LINK_COLORS[link.type] || '#ffffffaa') : '#ffffff06';
@@ -561,7 +657,7 @@
         return null;
     }
 
-    function handleNodeClick(node) {
+    function handleNodeClick(node, event) {
         if (!node) return;
 
         if (pathMode) {
@@ -586,6 +682,40 @@
             return;
         }
 
+        // Multi-selection with Shift+Click
+        if (event && event.shiftKey) {
+            if (multiSelectedNodes.size === 0 && selectedNode) {
+                // Promote current single selection into multi-selection
+                multiSelectedNodes.add(selectedNode);
+            }
+            if (multiSelectedNodes.has(node)) {
+                multiSelectedNodes.delete(node);
+            } else {
+                multiSelectedNodes.add(node);
+            }
+            selectedNode = null;
+            updateMultiSelectedLinks();
+            refreshGraphVisuals();
+            if (multiSelectedNodes.size > 1) {
+                showMultiSelectPanel();
+            } else if (multiSelectedNodes.size === 1) {
+                var solo = multiSelectedNodes.values().next().value;
+                multiSelectedNodes.clear();
+                multiSelectedLinks.clear();
+                selectedNode = solo;
+                refreshGraphVisuals();
+                showDetailPanel(solo);
+            } else {
+                detailPanel.classList.add('hidden');
+            }
+            return;
+        }
+
+        // Normal click: clear multi-selection, select single
+        if (multiSelectedNodes.size > 0) {
+            multiSelectedNodes.clear();
+            multiSelectedLinks.clear();
+        }
         selectedNode = node;
 
         // Refresh glow effect
@@ -600,6 +730,21 @@
         );
 
         showDetailPanel(node);
+    }
+
+    function updateMultiSelectedLinks() {
+        multiSelectedLinks.clear();
+        if (multiSelectedNodes.size < 2 || !graphData) return;
+        var selectedIds = new Set();
+        multiSelectedNodes.forEach(function(n) { selectedIds.add(n.id); });
+        var links = graphData.links;
+        for (var i = 0; i < links.length; i++) {
+            var srcId = typeof links[i].source === 'object' ? links[i].source.id : links[i].source;
+            var tgtId = typeof links[i].target === 'object' ? links[i].target.id : links[i].target;
+            if (selectedIds.has(srcId) && selectedIds.has(tgtId)) {
+                multiSelectedLinks.add(links[i]);
+            }
+        }
     }
 
     // Double-click: open file in VSCode editor, or expand/collapse cluster
@@ -624,7 +769,10 @@
 
     function handleBackgroundClick() {
         if (pathMode) return;
+        var hadSelection = !!selectedNode || multiSelectedNodes.size > 0;
         selectedNode = null;
+        multiSelectedNodes.clear();
+        multiSelectedLinks.clear();
         highlightNodes.clear();
         highlightLinks.clear();
         detailPanel.classList.add('hidden');
@@ -633,16 +781,21 @@
         updateExplorerSelection();
         if (graph) {
             graph.nodeColor(graph.nodeColor())
-                 .nodeThreeObject(graph.nodeThreeObject());
+                 .linkWidth(graph.linkWidth())
+                 .linkColor(graph.linkColor())
+                 .linkDirectionalParticles(graph.linkDirectionalParticles());
+            if (hadSelection) {
+                graph.nodeThreeObject(graph.nodeThreeObject());
+            }
         }
     }
 
     // ============================================================
     // Right-click pinned focus
     // ============================================================
-    function handleNodeRightClick(node) {
+    function handleNodeRightClick(node, lightRefresh) {
         if (!node || pathMode) return;
-        if (pinnedNode && pinnedNode.id === node.id) {
+        if (pinnedNode && pinnedNode.id === node.id && !lightRefresh) {
             clearPinnedFocus();
             refreshGraphVisuals();
             return;
@@ -653,21 +806,44 @@
         pinnedLinks.clear();
         pinnedNodes.add(node);
 
+        // BFS traversal up to focusDepth levels
         var currentLinks = graph.graphData().links;
-        for (var i = 0; i < currentLinks.length; i++) {
-            var l = currentLinks[i];
-            var sourceId = typeof l.source === 'object' ? l.source.id : l.source;
-            var targetId = typeof l.target === 'object' ? l.target.id : l.target;
-            if (sourceId === node.id || targetId === node.id) {
-                pinnedLinks.add(l);
-                var sourceNode = typeof l.source === 'object' ? l.source : findNode(l.source);
-                var targetNode = typeof l.target === 'object' ? l.target : findNode(l.target);
-                if (sourceNode) pinnedNodes.add(sourceNode);
-                if (targetNode) pinnedNodes.add(targetNode);
+        var frontier = [node];
+        var visited = new Set();
+        visited.add(node.id);
+
+        for (var depth = 0; depth < focusDepth; depth++) {
+            var nextFrontier = [];
+            for (var f = 0; f < frontier.length; f++) {
+                var curr = frontier[f];
+                for (var i = 0; i < currentLinks.length; i++) {
+                    var l = currentLinks[i];
+                    var sourceId = typeof l.source === 'object' ? l.source.id : l.source;
+                    var targetId = typeof l.target === 'object' ? l.target.id : l.target;
+                    if (sourceId === curr.id || targetId === curr.id) {
+                        var neighborId = sourceId === curr.id ? targetId : sourceId;
+                        var sourceNode = typeof l.source === 'object' ? l.source : findNode(l.source);
+                        var targetNode = typeof l.target === 'object' ? l.target : findNode(l.target);
+                        pinnedLinks.add(l);
+                        if (!visited.has(neighborId)) {
+                            visited.add(neighborId);
+                            var neighborNode = sourceId === curr.id ? targetNode : sourceNode;
+                            if (neighborNode) {
+                                pinnedNodes.add(neighborNode);
+                                nextFrontier.push(neighborNode);
+                            }
+                        }
+                    }
+                }
             }
+            frontier = nextFrontier;
         }
 
-        refreshGraphVisuals();
+        if (lightRefresh) {
+            refreshGraphColors();
+        } else {
+            refreshGraphVisuals();
+        }
     }
 
     function handleBackgroundRightClick() {
@@ -683,11 +859,68 @@
 
     function refreshGraphVisuals() {
         if (!graph) return;
+        wakeGraph();
         graph.nodeColor(graph.nodeColor())
              .linkWidth(graph.linkWidth())
              .linkColor(graph.linkColor())
              .linkDirectionalParticles(graph.linkDirectionalParticles())
              .nodeThreeObject(graph.nodeThreeObject());
+    }
+
+    // Light refresh: update colors without reheating the simulation
+    function refreshGraphColors() {
+        if (!graph) return;
+        if (isPaused) {
+            isPaused = false;
+            graph.resumeAnimation();
+        }
+        graph.nodeColor(graph.nodeColor())
+             .linkWidth(graph.linkWidth())
+             .linkColor(graph.linkColor())
+             .linkDirectionalParticles(graph.linkDirectionalParticles())
+             .nodeThreeObject(graph.nodeThreeObject());
+        scheduleIdle();
+    }
+
+    // ============================================================
+    // Idle / Wake render management
+    // ============================================================
+    function hasActiveParticles() {
+        return highlightLinks.size > 0 || pinnedLinks.size > 0 ||
+               multiSelectedLinks.size > 0 ||
+               (pathMode && highlightedPath.links.size > 0);
+    }
+
+    function scheduleIdle() {
+        if (idleTimer) clearTimeout(idleTimer);
+        idleTimer = setTimeout(function() {
+            if (hasActiveParticles()) {
+                // Particles still animating, re-check later
+                scheduleIdle();
+                return;
+            }
+            if (!engineRunning && graph && !document.hidden) {
+                pauseGraph();
+            }
+        }, 3000);
+    }
+
+    function pauseGraph() {
+        if (isPaused || !graph) return;
+        isPaused = true;
+        graph.pauseAnimation();
+    }
+
+    function wakeGraph() {
+        if (idleTimer) clearTimeout(idleTimer);
+        if (!graph) return;
+        if (isPaused) {
+            isPaused = false;
+            graph.resumeAnimation();
+        }
+        if (!engineRunning) {
+            scheduleIdle();
+        }
     }
 
     // ============================================================
@@ -903,6 +1136,52 @@
             symbolsSection.style.display = 'none';
         }
 
+        // Dead exports section
+        if (node.deadExports && node.deadExports.length > 0) {
+            var deadSection = document.createElement('div');
+            deadSection.className = 'dead-exports-section';
+            deadSection.innerHTML =
+                '<div class="dead-exports-header">☠️ Dead code <span class="dead-count">' +
+                node.deadExports.length + '</span></div>';
+            for (var de = 0; de < node.deadExports.length; de++) {
+                var dItem = document.createElement('div');
+                dItem.className = 'symbol-item dead-export-item';
+                dItem.innerHTML =
+                    '<span class="symbol-icon">⚠️</span>' +
+                    '<span class="symbol-name dead-name">' + node.deadExports[de] + '</span>' +
+                    '<span class="symbol-meta">unused</span>';
+                deadSection.appendChild(dItem);
+            }
+            symbolsList.appendChild(deadSection);
+            symbolsSection.style.display = 'block';
+        }
+
+        // Cycles section
+        if (node.cycleIds && node.cycleIds.length > 0 && graphData.meta.cycles) {
+            var cycleSection = document.createElement('div');
+            cycleSection.className = 'dead-exports-section';
+            cycleSection.innerHTML =
+                '<div class="dead-exports-header" style="color:#ff9800">🔄 Circular dependencies <span class="dead-count" style="background:rgba(255,152,0,0.2);color:#ff9800">' +
+                node.cycleIds.length + '</span></div>';
+            for (var cy = 0; cy < node.cycleIds.length; cy++) {
+                var cycle = graphData.meta.cycles[node.cycleIds[cy]];
+                if (!cycle) continue;
+                var cNames = [];
+                for (var cn = 0; cn < cycle.length; cn++) {
+                    var parts = cycle[cn].split('/');
+                    cNames.push(parts[parts.length - 1]);
+                }
+                var cycItem = document.createElement('div');
+                cycItem.className = 'symbol-item';
+                cycItem.innerHTML =
+                    '<span class="symbol-icon">🔄</span>' +
+                    '<span class="symbol-name" style="color:#ff9800;font-size:10px">' + cNames.join(' → ') + ' → ' + cNames[0] + '</span>';
+                cycleSection.appendChild(cycItem);
+            }
+            symbolsList.appendChild(cycleSection);
+            symbolsSection.style.display = 'block';
+        }
+
         // Dependencies (outgoing)
         var deps = [];
         var currentLinks = graphData.links;
@@ -967,6 +1246,106 @@
         updateExplorerSelection();
     }
 
+    function showMultiSelectPanel() {
+        detailPanel.classList.remove('hidden');
+
+        var nodes = [];
+        multiSelectedNodes.forEach(function(n) { nodes.push(n); });
+
+        var totalLoc = 0;
+        var totalComplexity = 0;
+        var totalSymbols = 0;
+        var languages = {};
+        for (var i = 0; i < nodes.length; i++) {
+            totalLoc += nodes[i].linesOfCode || 0;
+            totalComplexity += nodes[i].complexity || 1;
+            totalSymbols += (nodes[i].symbols ? nodes[i].symbols.totalSymbols : 0);
+            var lang = nodes[i].language || 'unknown';
+            languages[lang] = (languages[lang] || 0) + 1;
+        }
+        var avgComplexity = nodes.length > 0 ? (totalComplexity / nodes.length).toFixed(1) : 0;
+
+        $('#panel-icon').textContent = '📌';
+        $('#panel-filename').textContent = nodes.length + ' files selected';
+        $('#panel-path').textContent = 'Multi-selection';
+        $('#panel-language').textContent = Object.keys(languages).join(', ');
+        $('#panel-language').style.color = '#93c5fd';
+        $('#panel-group').textContent = '—';
+        $('#panel-loc').textContent = totalLoc.toLocaleString();
+        $('#panel-size').textContent = '—';
+        $('#panel-mtime').textContent = '—';
+        $('#panel-fanout').textContent = '—';
+        $('#panel-fanin').textContent = '—';
+        $('#panel-complexity').textContent = avgComplexity;
+        $('#panel-symbols-count').textContent = totalSymbols;
+
+        var symbolsSection = $('#symbols-section');
+        var symbolsList = $('#symbols-list');
+        symbolsList.innerHTML = '';
+
+        // Language breakdown
+        symbolsSection.style.display = 'block';
+        $('#symbols-total').textContent = nodes.length;
+
+        var langKeys = Object.keys(languages);
+        for (var li = 0; li < langKeys.length; li++) {
+            var langItem = document.createElement('div');
+            langItem.className = 'symbol-item';
+            langItem.innerHTML =
+                '<span class="symbol-icon">' + (LANGUAGE_ICONS[langKeys[li]] || '📄') + '</span>' +
+                '<span class="symbol-name">' + langKeys[li] + '</span>' +
+                '<span class="symbol-meta">' + languages[langKeys[li]] + ' files</span>';
+            symbolsList.appendChild(langItem);
+        }
+
+        // List selected files
+        var filesSection = document.createElement('div');
+        filesSection.className = 'dead-exports-section';
+        filesSection.innerHTML =
+            '<div class="dead-exports-header" style="color:#93c5fd">📌 Selected files <span class="dead-count" style="background:rgba(147,197,253,0.2);color:#93c5fd">' +
+            nodes.length + '</span></div>';
+        for (var fi = 0; fi < nodes.length; fi++) {
+            (function(node) {
+                var fItem = document.createElement('div');
+                fItem.className = 'symbol-item symbol-item-clickable';
+                fItem.innerHTML =
+                    '<span class="symbol-icon">' + (LANGUAGE_ICONS[node.language] || '📄') + '</span>' +
+                    '<span class="symbol-name">' + node.name + '</span>' +
+                    '<span class="symbol-meta">' + node.linesOfCode + ' lines</span>';
+                fItem.addEventListener('click', function() {
+                    handleNodeClick(node);
+                });
+                filesSection.appendChild(fItem);
+            })(nodes[fi]);
+        }
+        symbolsList.appendChild(filesSection);
+
+        // Internal links count
+        var depsUl = $('#panel-deps');
+        depsUl.innerHTML = '';
+        $('#deps-count').textContent = multiSelectedLinks.size;
+        multiSelectedLinks.forEach(function(link) {
+            var srcId = typeof link.source === 'object' ? link.source.id : link.source;
+            var tgtId = typeof link.target === 'object' ? link.target.id : link.target;
+            var srcNode = null, tgtNode = null;
+            for (var x = 0; x < graphData.nodes.length; x++) {
+                if (graphData.nodes[x].id === srcId) srcNode = graphData.nodes[x];
+                if (graphData.nodes[x].id === tgtId) tgtNode = graphData.nodes[x];
+            }
+            var liEl = document.createElement('li');
+            var typeClass = link.type === 'function-call' ? 'dep-type dep-type-call' : 'dep-type';
+            liEl.innerHTML =
+                '<span class="dep-arrow">→</span>' +
+                '<span>' + (srcNode ? srcNode.name : srcId) + ' → ' + (tgtNode ? tgtNode.name : tgtId) + '</span>' +
+                '<span class="' + typeClass + '">' + link.type + '</span>';
+            depsUl.appendChild(liEl);
+        });
+
+        var depUl = $('#panel-dependents');
+        depUl.innerHTML = '';
+        $('#dependents-count').textContent = '0';
+    }
+
     function shortenParams(params) {
         if (!params) return '';
         if (params.length > 40) return params.substring(0, 37) + '...';
@@ -977,6 +1356,11 @@
         $('#panel-close').addEventListener('click', function() {
             detailPanel.classList.add('hidden');
             selectedNode = null;
+            if (multiSelectedNodes.size > 0) {
+                multiSelectedNodes.clear();
+                multiSelectedLinks.clear();
+                refreshGraphVisuals();
+            }
         });
     }
 
@@ -1500,10 +1884,66 @@
         $('#btn-highlight-orphans').addEventListener('click', function() {
             showOrphans = !showOrphans;
             $('#btn-highlight-orphans').classList.toggle('active', showOrphans);
+            if (showOrphans) {
+                if (showDeadCode) { showDeadCode = false; $('#btn-dead-code').classList.remove('active'); }
+                if (showCycles)   { showCycles = false;   $('#btn-cycles').classList.remove('active'); }
+            }
             if (graph) {
                 graph.nodeColor(graph.nodeColor());
                 graph.nodeVal(graph.nodeVal());
                 graph.linkColor(graph.linkColor());
+                graph.nodeThreeObject(graph.nodeThreeObject());
+            }
+        });
+
+        $('#btn-dead-code').addEventListener('click', function() {
+            showDeadCode = !showDeadCode;
+            $('#btn-dead-code').classList.toggle('active', showDeadCode);
+            if (showDeadCode) {
+                if (showOrphans) { showOrphans = false; $('#btn-highlight-orphans').classList.remove('active'); }
+                if (showCycles)  { showCycles = false;   $('#btn-cycles').classList.remove('active'); }
+            }
+            if (graph) {
+                graph.nodeColor(graph.nodeColor());
+                graph.nodeVal(graph.nodeVal());
+                graph.linkColor(graph.linkColor());
+                graph.nodeThreeObject(graph.nodeThreeObject());
+            }
+        });
+
+        $('#btn-cycles').addEventListener('click', function() {
+            showCycles = !showCycles;
+            $('#btn-cycles').classList.toggle('active', showCycles);
+            if (showCycles) {
+                if (showOrphans)  { showOrphans = false;  $('#btn-highlight-orphans').classList.remove('active'); }
+                if (showDeadCode) { showDeadCode = false;  $('#btn-dead-code').classList.remove('active'); }
+                // Build cycle sets from graphData.meta.cycles
+                cycleNodeIds.clear();
+                cycleLinkKeys.clear();
+                if (graphData && graphData.meta && graphData.meta.cycles) {
+                    for (var ci = 0; ci < graphData.meta.cycles.length; ci++) {
+                        var cycle = graphData.meta.cycles[ci];
+                        for (var cj = 0; cj < cycle.length; cj++) {
+                            cycleNodeIds.add(cycle[cj]);
+                            // Link from this node to the next in cycle (wrapping around)
+                            var nextIdx = (cj + 1) % cycle.length;
+                            cycleLinkKeys.add(cycle[cj] + '>' + cycle[nextIdx]);
+                        }
+                    }
+                }
+            }
+            if (graph) {
+                graph.nodeColor(graph.nodeColor());
+                graph.nodeVal(graph.nodeVal());
+                graph.linkColor(graph.linkColor());
+                graph.linkWidth(function(link) {
+                    if (showCycles) {
+                        var srcId = typeof link.source === 'object' ? link.source.id : link.source;
+                        var tgtId = typeof link.target === 'object' ? link.target.id : link.target;
+                        if (cycleLinkKeys.has(srcId + '>' + tgtId)) return 2;
+                    }
+                    return highlightLinks.has(link) ? 1.5 : 0.3;
+                });
                 graph.nodeThreeObject(graph.nodeThreeObject());
             }
         });
@@ -1551,6 +1991,128 @@
             nodeSizeMultiplier = parseFloat(e.target.value);
             if (graph) graph.nodeVal(graph.nodeVal());
         });
+
+        $('#spread-slider').addEventListener('input', function(e) {
+            spreadMultiplier = parseFloat(e.target.value);
+            if (graph) {
+                applySpreadForces();
+                graph.d3ReheatSimulation();
+                wakeGraph();
+            }
+        });
+
+        $('#depth-slider').addEventListener('input', function(e) {
+            focusDepth = parseInt(e.target.value);
+            $('#depth-value').textContent = focusDepth;
+            // Re-apply if already pinned
+            if (pinnedNode) handleNodeRightClick(pinnedNode, true);
+        });
+
+        // ============================================================
+        // Keyboard shortcuts
+        // ============================================================
+        var HEATMAP_MODES = ['off', 'complexity', 'fanIn', 'fanOut', 'loc', 'lastModified'];
+
+        document.addEventListener('keydown', function(e) {
+            // Ignore when typing in an input
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+            if (!graph) return;
+
+            switch (e.key.toLowerCase()) {
+                case 'f':
+                    // Fit-to-view
+                    $('#btn-recenter').click();
+                    break;
+                case 'l':
+                    // Toggle labels
+                    $('#btn-labels').click();
+                    break;
+                case 'g':
+                    // Toggle groups
+                    $('#btn-group-dirs').click();
+                    break;
+                case 'h':
+                    // Cycle heatmaps
+                    var idx = HEATMAP_MODES.indexOf(heatmapMode);
+                    var nextMode = HEATMAP_MODES[(idx + 1) % HEATMAP_MODES.length];
+                    $('#heatmap-select').value = nextMode;
+                    setHeatmapMode(nextMode);
+                    break;
+                case 'p':
+                    // Toggle path mode
+                    $('#btn-path-mode').click();
+                    break;
+                case 'd':
+                    // Toggle DAG mode
+                    $('#btn-dag-mode').click();
+                    break;
+                case 'o':
+                    // Toggle orphans
+                    $('#btn-highlight-orphans').click();
+                    break;
+                case 'x':
+                    // Toggle dead code
+                    $('#btn-dead-code').click();
+                    break;
+                case 'c':
+                    // Toggle cycles
+                    $('#btn-cycles').click();
+                    break;
+                case '1': case '2': case '3': case '4': case '5':
+                    // Set focus depth
+                    focusDepth = parseInt(e.key);
+                    $('#depth-slider').value = focusDepth;
+                    $('#depth-value').textContent = focusDepth;
+                    // Re-apply if already pinned
+                    if (pinnedNode) handleNodeRightClick(pinnedNode, true);
+                    break;
+                case 'escape':
+                    // Reset: clear selection, pinned focus, path mode, heatmap
+                    selectedNode = null;
+                    multiSelectedNodes.clear();
+                    multiSelectedLinks.clear();
+                    highlightNodes.clear();
+                    highlightLinks.clear();
+                    clearPinnedFocus();
+                    if (pathMode) {
+                        pathMode = false;
+                        $('#btn-path-mode').classList.remove('active');
+                        pathNodes = [];
+                        highlightedPath.nodes.clear();
+                        highlightedPath.links.clear();
+                    }
+                    if (showOrphans) {
+                        showOrphans = false;
+                        $('#btn-highlight-orphans').classList.remove('active');
+                    }
+                    if (showDeadCode) {
+                        showDeadCode = false;
+                        $('#btn-dead-code').classList.remove('active');
+                    }
+                    if (showCycles) {
+                        showCycles = false;
+                        $('#btn-cycles').classList.remove('active');
+                        cycleNodeIds.clear();
+                        cycleLinkKeys.clear();
+                    }
+                    detailPanel.classList.add('hidden');
+                    if (explodedNode) collapseExplosion();
+                    graph.nodeColor(graph.nodeColor())
+                         .linkWidth(graph.linkWidth())
+                         .linkColor(graph.linkColor())
+                         .linkDirectionalParticles(graph.linkDirectionalParticles())
+                         .nodeThreeObject(graph.nodeThreeObject());
+                    break;
+            }
+        });
+    }
+
+    function applySpreadForces() {
+        if (!graph) return;
+        var charge = graph.d3Force('charge');
+        if (charge) charge.strength(-30 * spreadMultiplier);
+        var link = graph.d3Force('link');
+        if (link) link.distance(30 * spreadMultiplier);
     }
 
     function filterGraphData(data) {

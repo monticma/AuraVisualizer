@@ -337,9 +337,19 @@ html, body {
     outline: none;
 }
 
-#node-size-slider {
+#node-size-slider,
+#spread-slider,
+#depth-slider {
     width: 60px;
     accent-color: var(--aura-accent);
+}
+
+#depth-value {
+    display: inline-block;
+    min-width: 12px;
+    text-align: center;
+    font-size: 11px;
+    color: var(--aura-fg);
 }
 
 /* ============================================================
@@ -748,6 +758,36 @@ html, body {
     border-radius: 6px !important;
     border: 1px solid rgba(255,255,255,0.1) !important;
     pointer-events: none !important;
+}
+
+/* ============================================================
+   Dead Code
+   ============================================================ */
+.dead-exports-section {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255,68,68,0.3);
+}
+.dead-exports-header {
+    font-size: 11px;
+    font-weight: 600;
+    color: #ff6b6b;
+    margin-bottom: 4px;
+}
+.dead-count {
+    background: rgba(255,68,68,0.2);
+    color: #ff6b6b;
+    padding: 1px 6px;
+    border-radius: 8px;
+    font-size: 10px;
+    margin-left: 4px;
+}
+.dead-export-item {
+    opacity: 0.8;
+}
+.dead-name {
+    color: #ff6b6b !important;
+    text-decoration: line-through;
 }
 
 /* ============================================================

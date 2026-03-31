@@ -38,6 +38,8 @@ export interface FileSymbols {
     structs: SymbolInfo[];
     enums: SymbolInfo[];
     macros: SymbolInfo[];
+    classes: SymbolInfo[];
+    exports: SymbolInfo[];
 }
 
 export interface NodeSymbols {
@@ -45,6 +47,8 @@ export interface NodeSymbols {
     structs: { name: string; type: string }[];
     enums: { name: string; type: string }[];
     macros: { name: string; type: string }[];
+    classes: { name: string; type: string }[];
+    exports: { name: string; type: string }[];
     totalSymbols: number;
 }
 
@@ -68,6 +72,8 @@ export interface GraphNode {
     complexity: number;
     complexityDetails: Record<string, unknown>;
     symbols?: NodeSymbols;
+    deadExports?: string[];
+    cycleIds?: number[];
 }
 
 export interface GraphLink {
@@ -92,6 +98,9 @@ export interface GraphMeta {
     functionCallLinks: number;
     unresolvedReferences: number;
     unresolvedSamples: { from: string; ref: string }[];
+    deadCodeFiles: number;
+    deadExportsTotal: number;
+    cycles: string[][];
     languageStats: Record<string, LanguageStat>;
     groups: string[];
 }

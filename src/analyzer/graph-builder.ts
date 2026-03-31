@@ -53,6 +53,70 @@ function resolveTarget(target: string, sourceId: string, fileMap: Map<string, Fi
     return null;
 }
 
+/**
+ * Detect circular dependencies using DFS back-edge detection.
+ * Returns arrays of node IDs forming each cycle.
+ */
+function findCycles(links: GraphLink[]): string[][] {
+    // Build adjacency list
+    const adj = new Map<string, string[]>();
+    for (const link of links) {
+        if (!adj.has(link.source)) adj.set(link.source, []);
+        adj.get(link.source)!.push(link.target);
+    }
+
+    const cycles: string[][] = [];
+    const visited = new Set<string>();
+    const inStack = new Set<string>();
+    const stack: string[] = [];
+
+    function dfs(node: string): void {
+        visited.add(node);
+        inStack.add(node);
+        stack.push(node);
+
+        const neighbors = adj.get(node) || [];
+        for (const next of neighbors) {
+            if (inStack.has(next)) {
+                // Back-edge: extract cycle from stack
+                const cycleStart = stack.indexOf(next);
+                if (cycleStart >= 0) {
+                    const cycle = stack.slice(cycleStart);
+                    // Only keep cycles of 2+ nodes (self-loops are trivial)
+                    if (cycle.length >= 2) {
+                        cycles.push(cycle);
+                    }
+                }
+            } else if (!visited.has(next)) {
+                dfs(next);
+            }
+        }
+
+        stack.pop();
+        inStack.delete(node);
+    }
+
+    for (const node of adj.keys()) {
+        if (!visited.has(node)) {
+            dfs(node);
+        }
+    }
+
+    // Deduplicate cycles (same set of nodes, different start point)
+    const unique: string[][] = [];
+    const seen = new Set<string>();
+    for (const cycle of cycles) {
+        const sorted = [...cycle].sort();
+        const key = sorted.join('|');
+        if (!seen.has(key)) {
+            seen.add(key);
+            unique.push(cycle);
+        }
+    }
+
+    return unique;
+}
+
 export function buildGraph(files: FileInfo[], projectName: string = 'Project', options: AnalyzeOptions = {}): GraphData {
     const fileMap = new Map<string, FileInfo>();
     for (const file of files) {
@@ -69,50 +133,65 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
         }
     }
 
-    // Phase 2: Extract symbols for C/H files
-    const cParser = PARSER_REGISTRY['c'] as CParser;
+    // Phase 2: Extract symbols for all languages
     const fileSymbols = new Map<string, FileSymbols>();
+    // Language family scoping: only match calls within compatible language groups
+    const LANG_FAMILY: Record<string, string> = {
+        'c': 'c', 'javascript': 'js', 'typescript': 'js', 'python': 'py'
+    };
+    // globalFunctionIndex keyed by "family:funcName" to prevent cross-language false links
     const globalFunctionIndex = new Map<string, string[]>();
+    const SYMBOL_LANGUAGES = new Set(['c', 'javascript', 'typescript', 'python']);
 
     for (const file of files) {
-        if (file.language === 'c') {
-            const symbols = cParser.extractSymbols(file);
-            fileSymbols.set(file.id, symbols);
+        if (!SYMBOL_LANGUAGES.has(file.language)) continue;
+        const parser = PARSER_REGISTRY[file.language] as unknown as { extractSymbols(f: FileInfo): FileSymbols };
+        if (!parser.extractSymbols) continue;
 
-            for (const func of symbols.functions) {
-                if (!globalFunctionIndex.has(func.name)) {
-                    globalFunctionIndex.set(func.name, []);
-                }
-                globalFunctionIndex.get(func.name)!.push(file.id);
+        const symbols = parser.extractSymbols(file);
+        fileSymbols.set(file.id, symbols);
+
+        const family = LANG_FAMILY[file.language] || file.language;
+        for (const func of symbols.functions) {
+            const key = `${family}:${func.name}`;
+            if (!globalFunctionIndex.has(key)) {
+                globalFunctionIndex.set(key, []);
             }
+            globalFunctionIndex.get(key)!.push(file.id);
         }
     }
 
-    // Phase 3: Detect cross-file function calls
+    // Phase 3: Detect cross-file function calls (within same language family)
     const functionCallLinks: GraphLink[] = [];
+    const HEADER_EXTS = new Set(['.h', '.hpp', '.d.ts']);
 
     for (const file of files) {
-        if (file.language === 'c' && file.extension === '.c') {
-            const calls = cParser.extractCalls(file);
-            const ownSymbols = fileSymbols.get(file.id);
-            const ownFunctions = new Set(
-                ownSymbols ? ownSymbols.functions.map(f => f.name) : []
-            );
+        if (!SYMBOL_LANGUAGES.has(file.language)) continue;
+        if (HEADER_EXTS.has(file.extension)) continue;
+        const parser = PARSER_REGISTRY[file.language] as unknown as { extractCalls(f: FileInfo): string[] };
+        if (!parser.extractCalls) continue;
 
-            for (const callName of calls) {
-                if (ownFunctions.has(callName)) continue;
+        const calls = parser.extractCalls(file);
+        const ownSymbols = fileSymbols.get(file.id);
+        const ownFunctions = new Set(
+            ownSymbols ? ownSymbols.functions.map(f => f.name) : []
+        );
 
-                const definedIn = globalFunctionIndex.get(callName);
-                if (definedIn) {
-                    for (const defFileId of definedIn) {
-                        if (defFileId !== file.id) {
-                            functionCallLinks.push({
-                                source: file.id,
-                                target: defFileId,
-                                type: 'function-call',
-                                label: `${callName}()`
-                            });
-                        }
+        const family = LANG_FAMILY[file.language] || file.language;
+        for (const callName of calls) {
+            if (ownFunctions.has(callName)) continue;
+
+            const key = `${family}:${callName}`;
+            const definedIn = globalFunctionIndex.get(key);
+            if (definedIn) {
+                for (const defFileId of definedIn) {
+                    if (defFileId !== file.id) {
+                        functionCallLinks.push({
+                            source: file.id,
+                            target: defFileId,
+                            type: 'function-call',
+                            label: `${callName}()`
+                        });
                     }
                 }
             }
@@ -168,7 +247,56 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
         fanIn.set(link.target, (fanIn.get(link.target) || 0) + 1);
     }
 
-    // Phase 7: Build nodes
+    // Phase 7: Dead code detection
+    // Build set of all function/class names called anywhere in the codebase
+    // (including intra-file calls). Simple regex on raw content — false negatives
+    // (matches in comments/strings) are acceptable as they only under-report dead code.
+    const allCalledNames = new Set<string>();
+    const CALL_SCAN_RE = /(?:^|[^.\w])(\w+)\s*\(/gm;
+    for (const file of files) {
+        let m;
+        const re = new RegExp(CALL_SCAN_RE.source, 'gm');
+        while ((m = re.exec(file.content)) !== null) {
+            allCalledNames.add(m[1]);
+        }
+    }
+
+    const deadExportsMap = new Map<string, string[]>();
+    for (const file of files) {
+        const symbols = fileSymbols.get(file.id);
+        if (!symbols) continue;
+
+        const dead: string[] = [];
+
+        // Check each defined function: is it called anywhere?
+        for (const func of symbols.functions) {
+            if (func.name === 'main') continue; // C entry point
+            if (func.type === 'dunder') continue; // Python __init__ etc.
+            if (!allCalledNames.has(func.name)) {
+                dead.push(func.name);
+            }
+        }
+
+        // Check each defined class
+        for (const cls of symbols.classes) {
+            if (!allCalledNames.has(cls.name)) {
+                dead.push(cls.name);
+            }
+        }
+
+        // Check JS/TS/Python exports
+        for (const exp of symbols.exports) {
+            if (!allCalledNames.has(exp.name) && !dead.includes(exp.name)) {
+                dead.push(exp.name);
+            }
+        }
+
+        if (dead.length > 0) {
+            deadExportsMap.set(file.id, dead);
+        }
+    }
+
+    // Phase 8: Build nodes
     const nodes: GraphNode[] = files.map(f => {
         const symbols = fileSymbols.get(f.id);
         const cmplx = complexityMap.get(f.id) || { complexity: 1, details: {} };
@@ -201,12 +329,21 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
                 structs: symbols.structs.map(s => ({ name: s.name, type: s.type })),
                 enums: symbols.enums.map(e => ({ name: e.name, type: e.type })),
                 macros: symbols.macros.slice(0, 30),
+                classes: symbols.classes.map(c => ({ name: c.name, type: c.type })),
+                exports: symbols.exports.map(e => ({ name: e.name, type: e.type })),
                 totalSymbols:
                     symbols.functions.length +
                     symbols.structs.length +
                     symbols.enums.length +
-                    symbols.macros.length
+                    symbols.macros.length +
+                    symbols.classes.length +
+                    symbols.exports.length
             };
+        }
+
+        const dead = deadExportsMap.get(f.id);
+        if (dead && dead.length > 0) {
+            node.deadExports = dead;
         }
 
         return node;
@@ -230,6 +367,23 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
 
     const groupSet = new Set(nodes.map(n => n.group));
     const funcCallCount = uniqueLinks.filter(l => l.type === 'function-call').length;
+    const deadCodeFiles = nodes.filter(n => n.deadExports && n.deadExports.length > 0).length;
+    const deadExportsTotal = nodes.reduce((sum, n) => sum + (n.deadExports ? n.deadExports.length : 0), 0);
+
+    // Cycle detection
+    const cycles = findCycles(uniqueLinks);
+
+    // Tag nodes with their cycle indices
+    const nodeMap = new Map(nodes.map(n => [n.id, n]));
+    for (let i = 0; i < cycles.length; i++) {
+        for (const nodeId of cycles[i]) {
+            const node = nodeMap.get(nodeId);
+            if (node) {
+                if (!node.cycleIds) node.cycleIds = [];
+                node.cycleIds.push(i);
+            }
+        }
+    }
 
     return {
         meta: {
@@ -241,6 +395,9 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
             functionCallLinks: funcCallCount,
             unresolvedReferences: unresolvedCount.count,
             unresolvedSamples: unresolvedCount.targets,
+            deadCodeFiles,
+            deadExportsTotal,
+            cycles,
             languageStats: langStats,
             groups: [...groupSet].sort(),
         },
