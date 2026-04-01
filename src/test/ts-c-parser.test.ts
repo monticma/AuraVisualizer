@@ -58,6 +58,16 @@ describe('TreeSitterCParser.parseAST', () => {
         const file = makeFileInfo({ id: 'src/main.c', content, language: 'c', extension: '.c' });
         expect(parser.parseAST(t, file)).toHaveLength(0);
     });
+
+    it('extracts includes inside #ifndef header guards', async () => {
+        const content = '#ifndef DH_H\n#define DH_H\n#include "Core/Types.h"\n#include "Matrix4x4.h"\nvoid dh_solve(void);\n#endif\n';
+        const t = await tree(content);
+        const file = makeFileInfo({ id: 'DHKinematics.h', content, language: 'c', extension: '.h' });
+        const rels = parser.parseAST(t, file);
+        expect(rels).toHaveLength(2);
+        expect(rels[0]).toMatchObject({ target: 'Core/Types.h', type: 'include' });
+        expect(rels[1]).toMatchObject({ target: 'Matrix4x4.h', type: 'include' });
+    });
 });
 
 // ============================================================

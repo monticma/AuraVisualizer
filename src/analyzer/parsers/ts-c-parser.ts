@@ -38,36 +38,41 @@ export class TreeSitterCParser extends BaseParser {
 
     override parseAST(tree: Parser.Tree, fileInfo: FileInfo, options: Record<string, unknown> = {}): Relation[] {
         const relations: Relation[] = [];
-        const root = tree.rootNode;
+        this.walkForIncludes(tree.rootNode, fileInfo.id, relations, !!options.includeSystemHeaders);
+        return relations;
+    }
 
-        for (let i = 0; i < root.childCount; i++) {
-            const node = root.child(i)!;
-            if (node.type !== 'preproc_include') { continue; }
-
+    private walkForIncludes(node: Parser.SyntaxNode, sourceId: string, relations: Relation[], includeSystem: boolean): void {
+        if (node.type === 'preproc_include') {
             const pathNode = node.childForFieldName('path');
-            if (!pathNode) { continue; }
+            if (pathNode) {
+                const raw = pathNode.text;
 
-            const raw = pathNode.text;
-
-            if (pathNode.type === 'string_literal') {
-                // #include "file.h"
-                const target = raw.slice(1, -1); // remove quotes
-                relations.push({
-                    source: fileInfo.id,
-                    target,
-                    type: 'include',
-                    label: `#include "${target}"`,
-                });
-            } else if (pathNode.type === 'system_lib_string' && options.includeSystemHeaders) {
-                // #include <stdio.h>
-                const target = raw.slice(1, -1); // remove angle brackets
-                relations.push({
-                    source: fileInfo.id,
-                    target,
-                    type: 'system-include',
-                    label: `#include <${target}>`,
-                });
+                if (pathNode.type === 'string_literal') {
+                    // #include "file.h"
+                    const target = raw.slice(1, -1); // remove quotes
+                    relations.push({
+                        source: sourceId,
+                        target,
+                        type: 'include',
+                        label: `#include "${target}"`,
+                    });
+                } else if (pathNode.type === 'system_lib_string' && includeSystem) {
+                    // #include <stdio.h>
+                    const target = raw.slice(1, -1); // remove angle brackets
+                    relations.push({
+                        source: sourceId,
+                        target,
+                        type: 'system-include',
+                        label: `#include <${target}>`,
+                    });
+                }
             }
+            return; // no need to recurse inside preproc_include
+        }
+
+        for (let i = 0; i < node.childCount; i++) {
+            this.walkForIncludes(node.child(i)!, sourceId, relations, includeSystem);
         }
 
         return relations;

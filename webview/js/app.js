@@ -20,7 +20,7 @@
     var hoveredNode = null;
     var highlightNodes = new Set();
     var highlightLinks = new Set();
-    var activeLanguages = new Set(['c-source', 'c-header', 'javascript', 'typescript', 'python', 'css', 'html']);
+    var activeLanguages = new Set(['c-source', 'c-header', 'javascript', 'typescript', 'python', 'css', 'html', 'java', 'go', 'rust']);
     var dagMode = false;
     var showOrphans = false;
     var showDeadCode = false;

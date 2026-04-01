@@ -169,6 +169,24 @@ describe('buildGraph', () => {
         expect(graph.meta.totalFiles).toBe(0);
     });
 
+    it('resolves .h to .h include links with tree-sitter', async () => {
+        const files = [
+            makeFileInfo({
+                id: 'Include/Agent/Kinematics/DHKinematics.h',
+                content: '#include "Core/Types.h"\n#include "Agent/Kinematics/Matrix4x4.h"\nvoid dh_solve(void);\n',
+                language: 'c', extension: '.h',
+            }),
+            makeFileInfo({ id: 'Include/Core/Types.h', content: 'typedef int TypeId;\n', language: 'c', extension: '.h' }),
+            makeFileInfo({ id: 'Include/Agent/Kinematics/Matrix4x4.h', content: 'typedef struct { float m[16]; } Matrix4x4;\n', language: 'c', extension: '.h' }),
+        ];
+        const trees = await preParseFiles(files);
+        const graph = buildGraph(files, 'Test', {}, trees);
+        const dhLinks = graph.links.filter(l => l.source === 'Include/Agent/Kinematics/DHKinematics.h');
+        expect(dhLinks).toHaveLength(2);
+        expect(dhLinks.find(l => l.target === 'Include/Core/Types.h')).toBeDefined();
+        expect(dhLinks.find(l => l.target === 'Include/Agent/Kinematics/Matrix4x4.h')).toBeDefined();
+    });
+
     it('produces extends edges from TS class heritage', async () => {
         const files = [
             makeFileInfo({ id: 'base.ts', content: 'export class Base {\n  foo() {}\n}\n', language: 'typescript', extension: '.ts' }),
