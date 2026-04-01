@@ -460,12 +460,38 @@
             commFiles[cid].push(nodes[gi]);
         }
 
+        // Drop singleton communities (< 2 members)
+        for (var sc in commFiles) {
+            if (commFiles[sc].length < 2) {
+                for (var si2 = 0; si2 < commFiles[sc].length; si2++) {
+                    delete communityMap[commFiles[sc][si2].id];
+                }
+                delete commFiles[sc];
+            }
+        }
+
+        // Renumber remaining communities 0..k-1
+        var finalRemap = {};
+        var finalId = 0;
+        var sortedKeys = Object.keys(commFiles).map(Number).sort(function(a, b) { return a - b; });
+        for (var sk = 0; sk < sortedKeys.length; sk++) {
+            finalRemap[sortedKeys[sk]] = finalId++;
+        }
+        var newCommFiles = {};
+        for (var oldK in commFiles) {
+            var newK = finalRemap[oldK];
+            newCommFiles[newK] = commFiles[oldK];
+            for (var fi2 = 0; fi2 < commFiles[oldK].length; fi2++) {
+                communityMap[commFiles[oldK][fi2].id] = newK;
+            }
+        }
+
         // Name each community
         activeCommunities.clear();
-        for (var ci2 = 0; ci2 < nextId; ci2++) {
+        for (var ci2 = 0; ci2 < finalId; ci2++) {
             communityColors[ci2] = GROUP_COLORS[ci2 % GROUP_COLORS.length];
             activeCommunities.add(ci2);
-            var files = commFiles[ci2] || [];
+            var files = newCommFiles[ci2] || [];
             communityNames[ci2] = { name: nameCommunity(files), files: files.map(function(f) { return f.id; }) };
         }
     }
@@ -531,7 +557,7 @@
                     if (activeCommunities.has(cid)) activeCommunities.delete(cid);
                     else activeCommunities.add(cid);
                     item.classList.toggle('dimmed', !activeCommunities.has(cid));
-                    if (graph) graph.nodeColor(graph.nodeColor());
+                    if (graph) { graph.nodeColor(graph.nodeColor()); graph.linkColor(graph.linkColor()); }
                 });
                 list.appendChild(item);
             })(ids[i]);
@@ -838,14 +864,15 @@
                 var cid = communityMap[node.id];
                 var cColor = (cid !== undefined) ? (communityColors[cid] || '#ffffff') : '#ffffff';
                 var isActive = (cid !== undefined) && activeCommunities.has(cid);
-                if (!isActive) return cColor + '10';
+                var allActive = activeCommunities.size === Object.keys(communityNames).length;
+                if (!isActive) return '#ffffff08';
                 if (pinnedNode && blastMode) {
                     if (!pinnedNodes.has(node)) return cColor + '15';
                     var bdc = blastDepths[node.id];
                     return BLAST_COLORS[Math.min(bdc || 0, BLAST_COLORS.length - 1)];
                 }
                 if (pinnedNode) return pinnedNodes.has(node) ? cColor : cColor + '15';
-                if (highlightNodes.size > 0 && !highlightNodes.has(node)) return cColor + '44';
+                if (!allActive && highlightNodes.size > 0 && !highlightNodes.has(node)) return cColor + '44';
                 return cColor;
             }
             var value;
@@ -921,6 +948,15 @@
 
         if (pinnedNode) {
             return pinnedLinks.has(link) ? (LINK_COLORS[link.type] || '#ffffffaa') : '#ffffff06';
+        }
+
+        // Dim links for unselected communities
+        if (heatmapMode === 'community' && activeCommunities.size < Object.keys(communityNames).length) {
+            var lSrc = typeof link.source === 'object' ? link.source.id : link.source;
+            var lTgt = typeof link.target === 'object' ? link.target.id : link.target;
+            var srcActive = activeCommunities.has(communityMap[lSrc]);
+            var tgtActive = activeCommunities.has(communityMap[lTgt]);
+            if (!srcActive || !tgtActive) return '#ffffff06';
         }
 
         if (highlightLinks.has(link)) return LINK_COLORS[link.type] || '#ffffff88';
@@ -2469,14 +2505,14 @@
             cpSelectAll.addEventListener('click', function() {
                 for (var k in communityNames) activeCommunities.add(Number(k));
                 buildCommunityList();
-                if (graph) graph.nodeColor(graph.nodeColor());
+                if (graph) { graph.nodeColor(graph.nodeColor()); graph.linkColor(graph.linkColor()); }
             });
         }
         if (cpSelectNone) {
             cpSelectNone.addEventListener('click', function() {
                 activeCommunities.clear();
                 buildCommunityList();
-                if (graph) graph.nodeColor(graph.nodeColor());
+                if (graph) { graph.nodeColor(graph.nodeColor()); graph.linkColor(graph.linkColor()); }
             });
         }
         if (cpClose) {

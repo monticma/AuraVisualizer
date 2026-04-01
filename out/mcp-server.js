@@ -21606,7 +21606,7 @@ function handleTool(db, name, args) {
       for (const c of communities) {
         (groups[c.community] ??= []).push(c.nodeId);
       }
-      const sorted = Object.entries(groups).map(([id, files]) => ({
+      const sorted = Object.entries(groups).filter(([, files]) => files.length >= 2).map(([id, files]) => ({
         community: parseInt(id),
         name: nameCommunityMCP(files),
         files,

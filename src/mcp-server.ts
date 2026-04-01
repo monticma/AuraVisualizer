@@ -301,6 +301,7 @@ function handleTool(db: GraphDB, name: string, args: Record<string, unknown>): u
                 (groups[c.community] ??= []).push(c.nodeId);
             }
             const sorted = Object.entries(groups)
+                .filter(([, files]) => files.length >= 2)
                 .map(([id, files]) => ({
                     community: parseInt(id),
                     name: nameCommunityMCP(files),
