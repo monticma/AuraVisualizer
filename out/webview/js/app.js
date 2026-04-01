@@ -1009,6 +1009,14 @@
             }
         }
 
+        // No dependents found — cancel blast mode and show feedback
+        if (pinnedNodes.size <= 1) {
+            clearPinnedFocus();
+            showTooltipMessage('No impact — nothing depends on ' + node.name);
+            refreshGraphVisuals();
+            return;
+        }
+
         if (lightRefresh) {
             refreshGraphColors();
         } else {
@@ -1155,6 +1163,18 @@
     function hideTooltip() {
         tooltip.classList.add('hidden');
         document.removeEventListener('mousemove', positionTooltip);
+    }
+
+    function showTooltipMessage(msg) {
+        tooltip.innerHTML = '<div style="padding:6px 10px;color:#ffd54f">' + msg + '</div>';
+        tooltip.classList.remove('hidden');
+        tooltip.style.left = '50%';
+        tooltip.style.top = '60px';
+        tooltip.style.transform = 'translateX(-50%)';
+        setTimeout(function() {
+            tooltip.classList.add('hidden');
+            tooltip.style.transform = '';
+        }, 2500);
     }
 
     // ============================================================
