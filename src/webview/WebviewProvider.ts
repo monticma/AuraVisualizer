@@ -122,6 +122,10 @@ export class WebviewProvider {
         this.panel?.webview.postMessage({ type: 'focusNode', payload: { nodeId } });
     }
 
+    public sendBlastRadius(nodeId: string): void {
+        this.panel?.webview.postMessage({ type: 'blastRadius', payload: { nodeId } });
+    }
+
     public sendTheme(kind: vscode.ColorThemeKind): void {
         this.panel?.webview.postMessage({
             type: 'themeChanged',

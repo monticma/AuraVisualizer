@@ -81,6 +81,41 @@ describe('GraphDB', () => {
         expect(deps.length).toBeGreaterThanOrEqual(2); // main.c, utils.c, possibly helper.c
     });
 
+    it('getBlastRadius returns dependents with risk levels', async () => {
+        db.importGraphData(await makeTestGraph());
+        const blast = db.getBlastRadius('utils.h', 5);
+        expect(blast.length).toBeGreaterThanOrEqual(2);
+        // Direct dependents should be high risk
+        const highRisk = blast.filter(b => b.risk === 'high');
+        expect(highRisk.length).toBeGreaterThanOrEqual(2); // main.c, utils.c, helper.c
+        // All results should have the required fields
+        for (const b of blast) {
+            expect(b).toHaveProperty('id');
+            expect(b).toHaveProperty('depth');
+            expect(b).toHaveProperty('risk');
+            expect(['high', 'medium', 'low']).toContain(b.risk);
+        }
+    });
+
+    it('getBlastRadius respects maxDepth', async () => {
+        db.importGraphData(await makeTestGraph());
+        const blast1 = db.getBlastRadius('utils.h', 1);
+        const blast5 = db.getBlastRadius('utils.h', 5);
+        expect(blast1.length).toBeLessThanOrEqual(blast5.length);
+        // All depth=1 results should be risk 'high'
+        for (const b of blast1) {
+            expect(b.depth).toBe(1);
+            expect(b.risk).toBe('high');
+        }
+    });
+
+    it('getBlastRadius returns empty for leaf node', async () => {
+        db.importGraphData(await makeTestGraph());
+        // main.c is a leaf — nothing depends on it
+        const blast = db.getBlastRadius('main.c', 5);
+        expect(blast).toHaveLength(0);
+    });
+
     it('findPath returns path between connected nodes', async () => {
         db.importGraphData(await makeTestGraph());
         const path = db.findPath('main.c', 'utils.h');

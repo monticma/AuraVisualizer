@@ -49,6 +49,11 @@
         "command": "auraVisualizer.exportGraph",
         "title": "Aura: Export Graph for AI",
         "icon": "$(export)"
+      },
+      {
+        "command": "auraVisualizer.blastRadius",
+        "title": "Aura: Blast Radius (Impact Analysis)",
+        "icon": "$(radio-tower)"
       }
     ],
     "viewsContainers": {

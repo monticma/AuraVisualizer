@@ -53,6 +53,12 @@ export interface DepRow {
     depth: number;
 }
 
+export interface BlastRadiusRow {
+    id: string;
+    depth: number;
+    risk: 'high' | 'medium' | 'low';
+}
+
 export interface HotspotRow extends NodeRow {
     impact_score: number;
 }
@@ -327,6 +333,15 @@ export class GraphDB {
             )
             SELECT id, MIN(depth) AS depth FROM deps GROUP BY id ORDER BY depth
         `, [fileId, maxDepth]);
+    }
+
+    /** Blast radius — directional dependents with risk level. */
+    getBlastRadius(fileId: string, maxDepth: number = 5): BlastRadiusRow[] {
+        const deps = this.getDependents(fileId, maxDepth);
+        return deps.map(d => ({
+            ...d,
+            risk: (d.depth === 1 ? 'high' : d.depth === 2 ? 'medium' : 'low') as BlastRadiusRow['risk'],
+        }));
     }
 
     /** Shortest path between two files. Returns null if no path exists. */

@@ -49,7 +49,7 @@ const TOOLS = [
     },
     {
         name: 'find_dependents',
-        description: 'Find all files that depend on a given file (impact analysis). Shows what would be affected if this file changes.',
+        description: 'Find all files that depend on a given file (blast radius / impact analysis). Returns impacted files with depth and risk level (high/medium/low). Shows what would be affected if this file changes.',
         inputSchema: {
             type: 'object' as const,
             properties: {
@@ -148,13 +148,17 @@ function handleTool(db: GraphDB, name: string, args: Record<string, unknown>): u
         case 'find_dependents': {
             const file = args.file as string;
             const depth = (args.depth as number) || 5;
-            const deps = db.getDependents(file, depth);
+            const blast = db.getBlastRadius(file, depth);
+            const high = blast.filter(b => b.risk === 'high').length;
+            const medium = blast.filter(b => b.risk === 'medium').length;
+            const low = blast.filter(b => b.risk === 'low').length;
             return {
                 file,
                 depth,
-                dependents: deps,
-                total: deps.length,
-                note: `Modifying this file impacts ${deps.length} file(s) transitively`,
+                blast_radius: blast,
+                total: blast.length,
+                summary: `${high} high-risk, ${medium} medium-risk, ${low} low-risk`,
+                note: `Modifying this file impacts ${blast.length} file(s) transitively`,
             };
         }
         case 'find_path': {

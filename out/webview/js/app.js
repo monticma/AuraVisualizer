@@ -49,6 +49,10 @@
     var pinnedNodes = new Set();
     var pinnedLinks = new Set();
 
+    // Blast radius mode (Shift+RightClick)
+    var blastMode = false;
+    var blastDepths = {};  // nodeId → depth
+
     // Explorer state
     var showExplorer = false;
     var fileTree = {};
@@ -108,6 +112,21 @@
             case 'focusNode':
                 if (message.payload && message.payload.nodeId) {
                     focusNodeById(message.payload.nodeId);
+                }
+                break;
+            case 'blastRadius':
+                if (message.payload && message.payload.nodeId) {
+                    var brNode = findNode(message.payload.nodeId);
+                    if (brNode) {
+                        handleBlastRadius(brNode, false);
+                        if (graph) {
+                            graph.cameraPosition(
+                                { x: brNode.x, y: brNode.y, z: (brNode.z || 0) + 200 },
+                                { x: brNode.x, y: brNode.y, z: brNode.z || 0 },
+                                1000
+                            );
+                        }
+                    }
                 }
                 break;
             case 'themeChanged':
@@ -343,6 +362,7 @@
             .nodeThreeObject(function(node) {
                 var T = window.THREE;
                 var isSelected = (selectedNode && selectedNode.id === node.id) || multiSelectedNodes.has(node);
+                var isBlastSource = blastMode && pinnedNode && node.id === pinnedNode.id;
                 var hasLabel = showLabels &&
                     !(showOrphans && (node.fanIn > 0 || node.fanOut > 0)) &&
                     !(showDeadCode && !(node.deadExports && node.deadExports.length > 0)) &&
@@ -384,9 +404,23 @@
                     return cGroup;
                 }
 
-                if (!isSelected && !hasLabel) return null;
+                if (!isSelected && !hasLabel && !isBlastSource) return null;
 
                 var group = new T.Group();
+
+                // Glow effect for blast radius source node
+                if (isBlastSource && !isSelected) {
+                    var blastRadius = Math.cbrt(getNodeSize(node) || 1) * 1;
+                    var blastGlowGeo = new T.SphereGeometry(blastRadius * 3.5, 16, 16);
+                    var blastGlowMat = new T.MeshBasicMaterial({
+                        color: 0xff6b35,
+                        transparent: true,
+                        opacity: 0.3,
+                        blending: T.AdditiveBlending,
+                        depthWrite: false
+                    });
+                    group.add(new T.Mesh(blastGlowGeo, blastGlowMat));
+                }
 
                 // Glow effect for selected node
                 if (isSelected) {
@@ -594,6 +628,11 @@
             }
             var norm = normalizeMetric(value, heatmapMode);
             var color = heatmapColor(norm, HEATMAP_SCALES[heatmapMode]);
+            if (pinnedNode && blastMode) {
+                if (!pinnedNodes.has(node)) return color + '15';
+                var bd = blastDepths[node.id];
+                return BLAST_COLORS[Math.min(bd || 0, BLAST_COLORS.length - 1)];
+            }
             if (pinnedNode) return pinnedNodes.has(node) ? color : color + '15';
             if (highlightNodes.size > 0 && !highlightNodes.has(node)) return color + '44';
             return color;
@@ -602,6 +641,11 @@
         var langKeyFinal = node.language === 'c' ? (node.extension === '.h' ? 'c-header' : 'c-source') : node.language;
         var baseColor = LANGUAGE_COLORS[langKeyFinal] || '#ffffff';
 
+        if (pinnedNode && blastMode) {
+            if (!pinnedNodes.has(node)) return baseColor + '15';
+            var bd2 = blastDepths[node.id];
+            return BLAST_COLORS[Math.min(bd2 || 0, BLAST_COLORS.length - 1)];
+        }
         if (pinnedNode) return pinnedNodes.has(node) ? baseColor : baseColor + '15';
         if (highlightNodes.size > 0 && !highlightNodes.has(node)) return baseColor + '44';
         return baseColor;
@@ -839,9 +883,24 @@
     // ============================================================
     // Right-click pinned focus
     // ============================================================
-    function handleNodeRightClick(node, lightRefresh) {
+    function handleNodeRightClick(node, eventOrFlag) {
         if (!node || pathMode) return;
-        if (pinnedNode && pinnedNode.id === node.id && !lightRefresh) {
+
+        var isEvent = eventOrFlag && typeof eventOrFlag === 'object' && 'shiftKey' in eventOrFlag;
+        var isShift = isEvent && eventOrFlag.shiftKey;
+        var isLightRefresh = eventOrFlag === true;
+
+        // Shift+RightClick → blast radius mode
+        if (isShift) {
+            handleBlastRadius(node, false);
+            return;
+        }
+
+        // Clear blast mode when switching to regular pin focus
+        blastMode = false;
+        blastDepths = {};
+
+        if (pinnedNode && pinnedNode.id === node.id && !isLightRefresh) {
             clearPinnedFocus();
             refreshGraphVisuals();
             return;
@@ -885,6 +944,71 @@
             frontier = nextFrontier;
         }
 
+        if (isLightRefresh) {
+            refreshGraphColors();
+        } else {
+            refreshGraphVisuals();
+        }
+    }
+
+    // ============================================================
+    // Blast radius (Shift+RightClick) — directional impact analysis
+    // ============================================================
+    function handleBlastRadius(node, lightRefresh) {
+        if (blastMode && pinnedNode && pinnedNode.id === node.id && !lightRefresh) {
+            clearPinnedFocus();
+            refreshGraphVisuals();
+            return;
+        }
+
+        blastMode = true;
+        pinnedNode = node;
+        pinnedNodes.clear();
+        pinnedLinks.clear();
+        blastDepths = {};
+        pinnedNodes.add(node);
+        blastDepths[node.id] = 0;
+
+        // Directional BFS — only follow dependents
+        // Files whose edges point TO the current node (they import/use it)
+        var currentLinks = graph.graphData().links;
+        var frontier = [node];
+        var visited = new Set();
+        visited.add(node.id);
+
+        for (var depth = 0; depth < focusDepth; depth++) {
+            var nextFrontier = [];
+            for (var f = 0; f < frontier.length; f++) {
+                var curr = frontier[f];
+                for (var i = 0; i < currentLinks.length; i++) {
+                    var l = currentLinks[i];
+                    var sourceId = typeof l.source === 'object' ? l.source.id : l.source;
+                    var targetId = typeof l.target === 'object' ? l.target.id : l.target;
+                    // Reverse direction: find files that import/use/extend curr
+                    if (targetId === curr.id && !visited.has(sourceId)) {
+                        visited.add(sourceId);
+                        var neighborNode = typeof l.source === 'object' ? l.source : findNode(sourceId);
+                        if (neighborNode) {
+                            pinnedNodes.add(neighborNode);
+                            blastDepths[sourceId] = depth + 1;
+                            nextFrontier.push(neighborNode);
+                        }
+                    }
+                }
+            }
+            frontier = nextFrontier;
+        }
+
+        // Collect all links between blast nodes
+        for (var j = 0; j < currentLinks.length; j++) {
+            var link = currentLinks[j];
+            var sid = typeof link.source === 'object' ? link.source.id : link.source;
+            var tid = typeof link.target === 'object' ? link.target.id : link.target;
+            if (visited.has(sid) && visited.has(tid)) {
+                pinnedLinks.add(link);
+            }
+        }
+
         if (lightRefresh) {
             refreshGraphColors();
         } else {
@@ -901,6 +1025,8 @@
         pinnedNode = null;
         pinnedNodes.clear();
         pinnedLinks.clear();
+        blastMode = false;
+        blastDepths = {};
     }
 
     function refreshGraphVisuals() {
@@ -2073,7 +2199,10 @@
             focusDepth = parseInt(e.target.value);
             $('#depth-value').textContent = focusDepth;
             // Re-apply if already pinned
-            if (pinnedNode) handleNodeRightClick(pinnedNode, true);
+            if (pinnedNode) {
+                if (blastMode) handleBlastRadius(pinnedNode, true);
+                else handleNodeRightClick(pinnedNode, true);
+            }
         });
 
         // ============================================================
@@ -2132,7 +2261,10 @@
                     $('#depth-slider').value = focusDepth;
                     $('#depth-value').textContent = focusDepth;
                     // Re-apply if already pinned
-                    if (pinnedNode) handleNodeRightClick(pinnedNode, true);
+                    if (pinnedNode) {
+                        if (blastMode) handleBlastRadius(pinnedNode, true);
+                        else handleNodeRightClick(pinnedNode, true);
+                    }
                     break;
                 case 'arrowleft':
                     // Timeline: previous commit

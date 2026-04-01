@@ -10,12 +10,12 @@
 |---|------|----------|
 | **Type** | Extension VS Code (webview 3D) | CLI + Web UI (browser) |
 | **Point fort** | Visualisation 3D interactive intégrée | Knowledge graph + MCP pour agents IA |
-| **Parsing** | Regex custom (7 langages) | Tree-sitter AST (14+ langages) |
+| **Parsing** | Tree-sitter AST (10 langages) | Tree-sitter AST (14+ langages) |
 | **Base de données** | sql.js (SQLite WASM) | LadybugDB (graph DB native) |
 | **Visu** | 3d-force-graph + THREE.js | Sigma.js + Graphology (WebGL 2D) |
 | **MCP** | 8 tools, 3 resources | 7 tools, 6 resources, 2 prompts, 4 skills |
-| **Avantage Aura** | Intégré dans VS Code, visu 3D, Time Machine, heatmaps | — |
-| **Avantage GitNexus** | — | AST parsing, community detection, blast radius, multi-repo |
+| **Avantage Aura** | Intégré dans VS Code, visu 3D, Time Machine, heatmaps, Tree-sitter | — |
+| **Avantage GitNexus** | — | community detection, blast radius, multi-repo |
 
 ---
 
@@ -23,17 +23,15 @@
 
 ### 🟢 Haute valeur, faisable
  
-#### 1. Tree-sitter parsing
-- **GitNexus** : Parsing AST complet via Tree-sitter pour 14+ langages (TS, JS, Python, Java, Kotlin, C#, Go, Rust, PHP, Ruby, Swift, C, C++, Dart)
-- **Aura** : Regex parsers custom pour 7 langages (C/H, JS, TS, Python, CSS, HTML)
-- **Gain** : Parsing bien plus fiable (plus de faux positifs regex), ajout facile de nouveaux langages, détection de constructs complexes (classes, interfaces, decorators)
-- **Effort** : Moyen-élevé — remplacer les parsers un par un, tree-sitter WASM existe pour le browser/worker
+#### 1. ~~Tree-sitter parsing~~ ✅ FAIT
+- **Aura** : Tree-sitter AST pour 10 langages (C/H, JS, TS, Python, Java, Go, Rust, CSS, HTML) + grammaires WASM
+- **Résultat** : Parsing fiable, plus de regex, ajout de langages trivial
+- **Commit** : branche `languages`, phases 1-7 complétées, 181 tests
 
-#### 2. Héritage & interfaces (`extends` / `implements`)
-- **GitNexus** : Trace les relations heritage — class inheritance, interfaces, mixins
-- **Aura** : Non tracé — seuls import/include/function-call sont détectés
-- **Gain** : Visualiser la hiérarchie de classes en 3D (flèches différentes, couleurs distinctes). Très utile pour les projets OOP
-- **Effort** : Moyen — nécessite de parser `extends`/`implements` dans JS/TS/Python, ajouter un nouveau type d'edge
+#### 2. ~~Héritage & interfaces (`extends` / `implements`)~~ ✅ FAIT
+- **Aura** : Détection extends/implements pour JS/TS, Python, Java, Go (struct embedding), Rust (trait impl)
+- **Résultat** : Edges heritage dans le graphe, couleurs distinctes (rose = extends, violet = implements)
+- **Commit** : Phase 6 (`639dbc8`)
 
 #### 3. Blast radius amélioré (impact analysis)
 - **GitNexus** : `impact()` tool avec profondeur, score de confiance, filtrage par type de relation, inclusion/exclusion des tests
@@ -111,6 +109,8 @@
 | **Heatmaps** | 5 modes de coloration (complexity, fan-in/out, LOC, last modified) |
 | **Time Machine** | Navigation commit par commit avec timeline |
 | **File explosion** | Éclater un fichier en ses symboles individuels en 3D |
+| **Heritage edges** | extends/implements détectés pour JS/TS, Python, Java, Go, Rust |
+| **Dynamic filters** | Boutons de filtre langue affichés uniquement si fichiers présents |
 | **DAG layout** | Basculer entre force-directed et layout hiérarchique |
 | **Dead code visuel** | Coloration orange→rouge des fichiers avec exports inutilisés |
 | **Cycles visuels** | Highlight des boucles de dépendances circulaires |
@@ -121,8 +121,8 @@
 
 ## Recommandation : ordre d'implémentation
 
-1. **Tree-sitter** — Fondation pour tout le reste
-2. **Héritage & interfaces** — Quick win une fois tree-sitter en place
+1. ~~**Tree-sitter**~~ ✅ — Complété (10 langages, 12 grammaires WASM)
+2. ~~**Héritage & interfaces**~~ ✅ — Complété (extends/implements)
 3. **Community detection** — Remplace le clustering naïf par répertoire
 4. **Blast radius amélioré** — Enrichit la visu existante (right-click)
 5. **Git-diff impact** — Connecte Time Machine au graphe

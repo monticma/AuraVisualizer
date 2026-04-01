@@ -53,7 +53,8 @@ export function activate(context: vscode.ExtensionContext): void {
             const fullPath = path.join(workspaceFolder.uri.fsPath, relativePath);
             vscode.window.showTextDocument(vscode.Uri.file(fullPath), { preview: true });
         }),
-        vscode.commands.registerCommand('auraVisualizer.exportGraph', () => exportGraph())
+        vscode.commands.registerCommand('auraVisualizer.exportGraph', () => exportGraph()),
+        vscode.commands.registerCommand('auraVisualizer.blastRadius', () => blastRadiusCurrentFile(context))
     );
 
     // Watch for file changes (incremental)
@@ -513,6 +514,26 @@ function focusCurrentFile(): void {
     if (!relativePath.startsWith('..')) {
         webviewProvider.focusNode(relativePath);
     }
+}
+
+async function blastRadiusCurrentFile(context: vscode.ExtensionContext): Promise<void> {
+    const editor = vscode.window.activeTextEditor;
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!editor || !workspaceFolder) return;
+
+    const relativePath = path.relative(workspaceFolder.uri.fsPath, editor.document.uri.fsPath);
+    if (relativePath.startsWith('..')) return;
+
+    if (!webviewProvider) {
+        webviewProvider = new WebviewProvider(context.extensionUri);
+        registerOpenFileHandler();
+    }
+    webviewProvider.show();
+    if (cachedGraphData) {
+        webviewProvider.sendGraphData(cachedGraphData);
+    }
+    // Small delay to ensure graph is initialized before blast
+    setTimeout(() => webviewProvider?.sendBlastRadius(relativePath), 300);
 }
 
 async function exportGraph(): Promise<void> {
