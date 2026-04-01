@@ -433,18 +433,26 @@
                 return highlightLinks.has(link) ? 2 : 0.5; 
             })
             .linkOpacity(0.4)
-            .linkLineDash(function(link) {
-                return link.type === 'implements' ? [2, 2] : null;
+            .linkDirectionalArrowLength(function(link) {
+                if (link.type === 'extends' || link.type === 'implements') return 5;
+                return 3;
             })
-            .linkDirectionalArrowLength(3)
             .linkDirectionalArrowRelPos(1)
             .linkDirectionalParticles(function(link) { 
                 if (pathMode && highlightedPath.links.has(link)) return 4;
                 if (multiSelectedLinks.has(link)) return 3;
+                if (link.type === 'extends') return 2;
+                if (link.type === 'implements') return 3;
                 return highlightLinks.has(link) ? 3 : 0; 
             })
-            .linkDirectionalParticleWidth(2)
-            .linkDirectionalParticleSpeed(0.005)
+            .linkDirectionalParticleWidth(function(link) {
+                if (link.type === 'implements') return 1.2;
+                return 2;
+            })
+            .linkDirectionalParticleSpeed(function(link) {
+                if (link.type === 'implements') return 0.008;
+                return 0.005;
+            })
             .backgroundColor('#0d1117')
             .showNavInfo(false)
             .onNodeHover(handleNodeHover)
