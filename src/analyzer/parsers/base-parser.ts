@@ -28,7 +28,7 @@ export class BaseParser {
 
     /** Extract symbols using a Tree-sitter syntax tree (override in TS-based parsers). */
     extractSymbolsAST(_tree: Parser.Tree, _fileInfo: FileInfo): FileSymbols {
-        return { functions: [], externs: [], structs: [], enums: [], macros: [], classes: [], exports: [] };
+        return { functions: [], externs: [], structs: [], enums: [], macros: [], classes: [], exports: [], interfaces: [], traits: [], typeAliases: [], methods: [] };
     }
 
     /** Extract cross-file function calls using AST (override in TS-based parsers). */

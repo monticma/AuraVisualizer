@@ -112,7 +112,8 @@ export class JSParser extends BaseParser {
         const { content } = fileInfo;
         const symbols: FileSymbols = {
             functions: [], externs: [], structs: [], enums: [],
-            macros: [], classes: [], exports: []
+            macros: [], classes: [], exports: [],
+            interfaces: [], traits: [], typeAliases: [], methods: []
         };
 
         const stripped = this.stripCommentsAndStrings(content);

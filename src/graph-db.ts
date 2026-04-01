@@ -43,6 +43,9 @@ export interface SymbolRow {
     params: string;
     line: number;
     is_dead: number;
+    visibility: string;
+    is_static: number;
+    is_async: number;
 }
 
 export interface DepRow {
@@ -94,6 +97,9 @@ CREATE TABLE IF NOT EXISTS symbols (
     params      TEXT DEFAULT '',
     line        INTEGER DEFAULT 0,
     is_dead     INTEGER DEFAULT 0,
+    visibility  TEXT DEFAULT 'public',
+    is_static   INTEGER DEFAULT 0,
+    is_async    INTEGER DEFAULT 0,
     PRIMARY KEY (node_id, name, kind)
 );
 
@@ -167,6 +173,7 @@ export class GraphDB {
         }
 
         this.db.run(SCHEMA);
+        this.migrateSchema();
     }
 
     /** Open synchronously from an already-initialized SQL module. For MCP server use. */
@@ -179,6 +186,7 @@ export class GraphDB {
             this.db = new SQL.Database();
         }
         this.db.run(SCHEMA);
+        this.migrateSchema();
     }
 
     close(): void {
@@ -231,18 +239,26 @@ export class GraphDB {
             }
 
             // Insert symbols
+            const insertSymbol = 'INSERT OR IGNORE INTO symbols (node_id, name, kind, return_type, params, line, is_dead, visibility, is_static, is_async) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
             for (const n of data.nodes) {
                 if (!n.symbols) continue;
                 const deadSet = new Set(n.deadExports || []);
                 for (const fn of n.symbols.functions) {
-                    db.run('INSERT OR IGNORE INTO symbols (node_id, name, kind, return_type, params, line, is_dead) VALUES (?, ?, ?, ?, ?, ?, ?)',
-                        [n.id, fn.name, fn.type || 'function', fn.returnType || '', fn.params || '', fn.line || 0, deadSet.has(fn.name) ? 1 : 0]);
+                    db.run(insertSymbol,
+                        [n.id, fn.name, fn.type || 'function', fn.returnType || '', fn.params || '', fn.line || 0, deadSet.has(fn.name) ? 1 : 0, fn.visibility || 'public', fn.isStatic ? 1 : 0, fn.isAsync ? 1 : 0]);
                 }
-                for (const s of n.symbols.structs)  db.run('INSERT OR IGNORE INTO symbols (node_id, name, kind, return_type, params, line, is_dead) VALUES (?, ?, ?, ?, ?, ?, ?)', [n.id, s.name, s.type || 'struct', '', '', 0, 0]);
-                for (const e of n.symbols.enums)    db.run('INSERT OR IGNORE INTO symbols (node_id, name, kind, return_type, params, line, is_dead) VALUES (?, ?, ?, ?, ?, ?, ?)', [n.id, e.name, e.type || 'enum', '', '', 0, 0]);
-                for (const m of n.symbols.macros)   db.run('INSERT OR IGNORE INTO symbols (node_id, name, kind, return_type, params, line, is_dead) VALUES (?, ?, ?, ?, ?, ?, ?)', [n.id, m.name, m.type || 'macro', '', '', 0, 0]);
-                for (const c of n.symbols.classes)  db.run('INSERT OR IGNORE INTO symbols (node_id, name, kind, return_type, params, line, is_dead) VALUES (?, ?, ?, ?, ?, ?, ?)', [n.id, c.name, c.type || 'class', '', '', 0, deadSet.has(c.name) ? 1 : 0]);
-                for (const ex of n.symbols.exports) db.run('INSERT OR IGNORE INTO symbols (node_id, name, kind, return_type, params, line, is_dead) VALUES (?, ?, ?, ?, ?, ?, ?)', [n.id, ex.name, ex.type || 'export', '', '', 0, deadSet.has(ex.name) ? 1 : 0]);
+                for (const m of n.symbols.methods || []) {
+                    db.run(insertSymbol,
+                        [n.id, m.name, m.type || 'method', m.returnType || '', m.params || '', m.line || 0, deadSet.has(m.name) ? 1 : 0, m.visibility || 'public', m.isStatic ? 1 : 0, m.isAsync ? 1 : 0]);
+                }
+                for (const s of n.symbols.structs)  db.run(insertSymbol, [n.id, s.name, s.type || 'struct', '', '', 0, 0, 'public', 0, 0]);
+                for (const e of n.symbols.enums)    db.run(insertSymbol, [n.id, e.name, e.type || 'enum', '', '', 0, 0, 'public', 0, 0]);
+                for (const m of n.symbols.macros)   db.run(insertSymbol, [n.id, m.name, m.type || 'macro', '', '', 0, 0, 'public', 0, 0]);
+                for (const c of n.symbols.classes)  db.run(insertSymbol, [n.id, c.name, c.type || 'class', '', '', 0, deadSet.has(c.name) ? 1 : 0, 'public', 0, 0]);
+                for (const ex of n.symbols.exports) db.run(insertSymbol, [n.id, ex.name, ex.type || 'export', '', '', 0, deadSet.has(ex.name) ? 1 : 0, 'public', 0, 0]);
+                for (const i of n.symbols.interfaces || [])  db.run(insertSymbol, [n.id, i.name, i.type || 'interface', '', '', i.line || 0, 0, i.visibility || 'public', 0, 0]);
+                for (const t of n.symbols.traits || [])      db.run(insertSymbol, [n.id, t.name, t.type || 'trait', '', '', t.line || 0, 0, t.visibility || 'public', 0, 0]);
+                for (const ta of n.symbols.typeAliases || []) db.run(insertSymbol, [n.id, ta.name, ta.type || 'type_alias', '', '', ta.line || 0, 0, ta.visibility || 'public', 0, 0]);
             }
 
             // Insert cycles
@@ -400,17 +416,26 @@ export class GraphDB {
     }
 
     /** Search symbols by name (LIKE match). */
-    searchSymbols(query: string, kind?: string): { nodeId: string; name: string; kind: string; line: number }[] {
+    searchSymbols(query: string, kind?: string): { nodeId: string; name: string; kind: string; line: number; visibility: string; isStatic: boolean; isAsync: boolean }[] {
         const db = this.ensureDb();
-        if (kind) {
-            return queryAll(db,
-                'SELECT node_id AS nodeId, name, kind, line FROM symbols WHERE name LIKE ? AND kind = ? ORDER BY name LIMIT 100',
-                [`%${query}%`, kind]
+        const sql = 'SELECT node_id AS nodeId, name, kind, line, visibility, is_static AS isStatic, is_async AS isAsync FROM symbols WHERE name LIKE ?' +
+            (kind ? ' AND kind = ?' : '') + ' ORDER BY name LIMIT 100';
+        const params = kind ? [`%${query}%`, kind] : [`%${query}%`];
+        const rows = queryAll<{ nodeId: string; name: string; kind: string; line: number; visibility: string; isStatic: number; isAsync: number }>(db, sql, params);
+        return rows.map(r => ({ ...r, isStatic: !!r.isStatic, isAsync: !!r.isAsync, visibility: r.visibility || 'public' }));
+    }
+
+    /** Get heritage edges (extends, implements). */
+    getHeritage(fileId?: string): EdgeRow[] {
+        const db = this.ensureDb();
+        if (fileId) {
+            return queryAll<EdgeRow>(db,
+                "SELECT * FROM edges WHERE type IN ('extends', 'implements') AND (source = ? OR target = ?) ORDER BY source, type",
+                [fileId, fileId]
             );
         }
-        return queryAll(db,
-            'SELECT node_id AS nodeId, name, kind, line FROM symbols WHERE name LIKE ? ORDER BY name LIMIT 100',
-            [`%${query}%`]
+        return queryAll<EdgeRow>(db,
+            "SELECT * FROM edges WHERE type IN ('extends', 'implements') ORDER BY source, type"
         );
     }
 
@@ -439,6 +464,22 @@ export class GraphDB {
     }
 
     // ── Private ────────────────────────────────────────────────
+
+    /** Add columns that may be missing in older databases. */
+    private migrateSchema(): void {
+        const db = this.ensureDb();
+        const cols = queryAll<{ name: string }>(db, "PRAGMA table_info('symbols')").map(c => c.name);
+        const migrations: [string, string][] = [
+            ['visibility', "ALTER TABLE symbols ADD COLUMN visibility TEXT DEFAULT 'public'"],
+            ['is_static',  'ALTER TABLE symbols ADD COLUMN is_static INTEGER DEFAULT 0'],
+            ['is_async',   'ALTER TABLE symbols ADD COLUMN is_async INTEGER DEFAULT 0'],
+        ];
+        for (const [col, sql] of migrations) {
+            if (!cols.includes(col)) {
+                db.run(sql);
+            }
+        }
+    }
 
     private ensureDb(): SqlJsDatabase {
         if (!this.db) throw new Error('GraphDB is not open');

@@ -324,20 +324,40 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
                     returnType: fn.returnType || '',
                     params: fn.params || '',
                     line: fn.line || 0,
-                    type: fn.type
+                    type: fn.type,
+                    visibility: fn.visibility,
+                    isStatic: fn.isStatic,
+                    isAsync: fn.isAsync
                 })),
                 structs: symbols.structs.map(s => ({ name: s.name, type: s.type })),
                 enums: symbols.enums.map(e => ({ name: e.name, type: e.type })),
                 macros: symbols.macros.slice(0, 30),
                 classes: symbols.classes.map(c => ({ name: c.name, type: c.type })),
                 exports: symbols.exports.map(e => ({ name: e.name, type: e.type })),
+                interfaces: (symbols.interfaces || []).map(i => ({ name: i.name, type: i.type })),
+                traits: (symbols.traits || []).map(t => ({ name: t.name, type: t.type })),
+                typeAliases: (symbols.typeAliases || []).map(ta => ({ name: ta.name, type: ta.type })),
+                methods: (symbols.methods || []).map(m => ({
+                    name: m.name,
+                    returnType: m.returnType || '',
+                    params: m.params || '',
+                    line: m.line || 0,
+                    type: m.type,
+                    visibility: m.visibility,
+                    isStatic: m.isStatic,
+                    isAsync: m.isAsync
+                })),
                 totalSymbols:
                     symbols.functions.length +
                     symbols.structs.length +
                     symbols.enums.length +
                     symbols.macros.length +
                     symbols.classes.length +
-                    symbols.exports.length
+                    symbols.exports.length +
+                    (symbols.interfaces || []).length +
+                    (symbols.traits || []).length +
+                    (symbols.typeAliases || []).length +
+                    (symbols.methods || []).length
             };
         }
 

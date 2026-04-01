@@ -70,7 +70,11 @@ export class CParser extends BaseParser {
             enums: [],
             macros: [],
             classes: [],
-            exports: []
+            exports: [],
+            interfaces: [],
+            traits: [],
+            typeAliases: [],
+            methods: []
         };
 
         const stripped = this.stripComments(content);

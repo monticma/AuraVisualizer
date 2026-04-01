@@ -30,6 +30,9 @@ export interface SymbolInfo {
     returnType?: string;
     params?: string;
     line?: number;
+    visibility?: 'public' | 'private' | 'protected' | 'internal';
+    isStatic?: boolean;
+    isAsync?: boolean;
 }
 
 export interface FileSymbols {
@@ -40,15 +43,23 @@ export interface FileSymbols {
     macros: SymbolInfo[];
     classes: SymbolInfo[];
     exports: SymbolInfo[];
+    interfaces: SymbolInfo[];
+    traits: SymbolInfo[];
+    typeAliases: SymbolInfo[];
+    methods: SymbolInfo[];
 }
 
 export interface NodeSymbols {
-    functions: { name: string; returnType: string; params: string; line: number; type: string }[];
+    functions: { name: string; returnType: string; params: string; line: number; type: string; visibility?: string; isStatic?: boolean; isAsync?: boolean }[];
     structs: { name: string; type: string }[];
     enums: { name: string; type: string }[];
     macros: { name: string; type: string }[];
     classes: { name: string; type: string }[];
     exports: { name: string; type: string }[];
+    interfaces: { name: string; type: string }[];
+    traits: { name: string; type: string }[];
+    typeAliases: { name: string; type: string }[];
+    methods: { name: string; returnType: string; params: string; line: number; type: string; visibility?: string; isStatic?: boolean; isAsync?: boolean }[];
     totalSymbols: number;
 }
 

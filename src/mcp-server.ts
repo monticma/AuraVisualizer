@@ -100,14 +100,24 @@ const TOOLS = [
     },
     {
         name: 'search_symbols',
-        description: 'Search for functions, classes, exports, or other symbols by name (substring match).',
+        description: 'Search for functions, classes, interfaces, methods, or other symbols by name (substring match). Returns visibility, static/async flags.',
         inputSchema: {
             type: 'object' as const,
             properties: {
                 query: { type: 'string', description: 'Search string (matched as substring, case-insensitive in SQLite)' },
-                kind: { type: 'string', description: 'Optional filter by symbol kind: "function", "class", "struct", "enum", "macro", "export"' },
+                kind: { type: 'string', description: 'Optional filter by symbol kind: "function", "method", "class", "struct", "enum", "macro", "export", "interface", "trait", "type_alias"' },
             },
             required: ['query'],
+        },
+    },
+    {
+        name: 'find_heritage',
+        description: 'Find inheritance and implementation relationships (extends/implements edges). Optionally filter by file.',
+        inputSchema: {
+            type: 'object' as const,
+            properties: {
+                file: { type: 'string', description: 'Optional file path to filter heritage edges for' },
+            },
         },
     },
     {
@@ -204,8 +214,25 @@ function handleTool(db: GraphDB, name: string, args: Record<string, unknown>): u
                     symbol: r.name,
                     kind: r.kind,
                     line: r.line,
+                    visibility: r.visibility,
+                    is_static: r.isStatic,
+                    is_async: r.isAsync,
                 })),
                 total: results.length,
+            };
+        }
+        case 'find_heritage': {
+            const file = args.file as string | undefined;
+            const edges = db.getHeritage(file);
+            return {
+                file: file || 'all',
+                heritage: edges.map(e => ({
+                    source: e.source,
+                    target: e.target,
+                    type: e.type,
+                    label: e.label,
+                })),
+                total: edges.length,
             };
         }
         case 'get_architecture': {
