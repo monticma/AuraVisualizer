@@ -36,31 +36,14 @@ if (!DB_PATH) {
 
 function nameCommunityMCP(files: string[]): string {
     if (files.length === 0) return '?';
-    if (files.length === 1) return files[0].replace(/.*\//, '').replace(/\.[^.]+$/, '');
-    const parts0 = files[0].split('/');
-    let commonLen = 0;
-    for (let d = 0; d < parts0.length - 1; d++) {
-        const seg = parts0[d];
-        if (files.every(f => { const pp = f.split('/'); return d < pp.length - 1 && pp[d] === seg; })) {
-            commonLen = d + 1;
-        } else break;
-    }
-    if (commonLen > 0) {
-        const lastSeg = parts0[commonLen - 1];
-        if (lastSeg !== 'src' && lastSeg !== 'lib' && lastSeg !== 'app') return lastSeg;
-        if (commonLen >= 2) return parts0[commonLen - 1];
-    }
-    // Fallback: most common directory
-    const dirs: Record<string, number> = {};
+    // Use shortest filename (likely the hub/index) as community name
+    let best = files[0];
     for (const f of files) {
-        const segs = f.split('/');
-        if (segs.length >= 2) {
-            const dir = segs[segs.length - 2];
-            dirs[dir] = (dirs[dir] || 0) + 1;
-        }
+        const name = f.replace(/.*\//, '');
+        const bestName = best.replace(/.*\//, '');
+        if (name.length < bestName.length) best = f;
     }
-    const best = Object.entries(dirs).sort((a, b) => b[1] - a[1]);
-    return best.length > 0 ? best[0][0] : files[0].replace(/.*\//, '').replace(/\.[^.]+$/, '');
+    return best.replace(/.*\//, '').replace(/\.[^.]+$/, '');
 }
 
 // ── Tool definitions ───────────────────────────────────────────

@@ -498,34 +498,7 @@
 
     function nameCommunity(files) {
         if (files.length === 0) return '?';
-        if (files.length === 1) return files[0].name.replace(/\.[^.]+$/, '');
-
-        // Strategy 1: Common directory prefix
-        var paths = files.map(function(f) { return f.id; });
-        var parts0 = paths[0].split('/');
-        var commonLen = 0;
-        for (var d = 0; d < parts0.length - 1; d++) {
-            var seg = parts0[d];
-            var allMatch = true;
-            for (var p = 1; p < paths.length; p++) {
-                var pp = paths[p].split('/');
-                if (d >= pp.length - 1 || pp[d] !== seg) { allMatch = false; break; }
-            }
-            if (allMatch) commonLen = d + 1;
-            else break;
-        }
-        var prefix = parts0.slice(0, commonLen).join('/');
-        // Use prefix if it's specific (not just 'src' or a single generic dir)
-        if (prefix && commonLen > 0) {
-            var lastSeg = parts0[commonLen - 1];
-            if (lastSeg !== 'src' && lastSeg !== 'lib' && lastSeg !== 'app') {
-                return lastSeg;
-            }
-            // If 2+ levels deep, still useful
-            if (commonLen >= 2) return parts0.slice(commonLen - 1, commonLen).join('/');
-        }
-
-        // Strategy 2: Hub file (highest fan-in)
+        // Hub file: highest fan-in in the community
         var hub = files[0];
         for (var h = 1; h < files.length; h++) {
             if ((files[h].fanIn || 0) > (hub.fanIn || 0)) hub = files[h];
