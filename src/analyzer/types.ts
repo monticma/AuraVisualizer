@@ -107,6 +107,7 @@ export interface GraphMeta {
     totalLinks: number;
     totalRelationsFound: number;
     functionCallLinks: number;
+    heritageLinks: number;
     unresolvedReferences: number;
     unresolvedSamples: { from: string; ref: string }[];
     deadCodeFiles: number;

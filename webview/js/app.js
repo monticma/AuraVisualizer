@@ -428,9 +428,14 @@
             .linkWidth(function(link) { 
                 if (pathMode && highlightedPath.links.has(link)) return 3;
                 if (multiSelectedLinks.has(link)) return 2.5;
+                if (link.type === 'extends') return highlightLinks.has(link) ? 2.5 : 1;
+                if (link.type === 'implements') return highlightLinks.has(link) ? 2 : 0.8;
                 return highlightLinks.has(link) ? 2 : 0.5; 
             })
             .linkOpacity(0.4)
+            .linkLineDash(function(link) {
+                return link.type === 'implements' ? [2, 2] : null;
+            })
             .linkDirectionalArrowLength(3)
             .linkDirectionalArrowRelPos(1)
             .linkDirectionalParticles(function(link) { 

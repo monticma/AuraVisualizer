@@ -189,11 +189,12 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
     const fileSymbols = new Map<string, FileSymbols>();
     // Language family scoping: only match calls within compatible language groups
     const LANG_FAMILY: Record<string, string> = {
-        'c': 'c', 'javascript': 'js', 'typescript': 'js', 'python': 'py'
+        'c': 'c', 'javascript': 'js', 'typescript': 'js', 'python': 'py',
+        'java': 'java', 'go': 'go', 'rust': 'rust'
     };
     // globalFunctionIndex keyed by "family:funcName" to prevent cross-language false links
     const globalFunctionIndex = new Map<string, string[]>();
-    const SYMBOL_LANGUAGES = new Set(['c', 'javascript', 'typescript', 'python']);
+    const SYMBOL_LANGUAGES = new Set(['c', 'javascript', 'typescript', 'python', 'java', 'go', 'rust']);
 
     for (const file of files) {
         if (!SYMBOL_LANGUAGES.has(file.language)) continue;
@@ -263,6 +264,38 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
         }
     }
 
+    // Phase 3b: Extract heritage relations (extends/implements)
+    const heritageLinks: GraphLink[] = [];
+    // Build symbol → fileId index (classes, interfaces, traits, structs)
+    const symbolFileIndex = new Map<string, string>();
+    for (const [fileId, symbols] of fileSymbols) {
+        for (const cls of symbols.classes) { symbolFileIndex.set(cls.name, fileId); }
+        for (const iface of (symbols.interfaces || [])) { symbolFileIndex.set(iface.name, fileId); }
+        for (const trait of (symbols.traits || [])) { symbolFileIndex.set(trait.name, fileId); }
+        for (const struct of symbols.structs) { symbolFileIndex.set(struct.name, fileId); }
+    }
+
+    for (const file of files) {
+        const tree = astTrees?.get(file.id);
+        if (!tree) continue;
+        const parser = getParser(file.language, true);
+        if (!parser) continue;
+
+        const heritageRels = parser.extractHeritageRelations(tree, file);
+        for (const rel of heritageRels) {
+            // rel.target is a symbol name (e.g. "Base", "ILogger") — resolve to file ID
+            const targetFileId = symbolFileIndex.get(rel.target);
+            if (targetFileId && targetFileId !== file.id) {
+                heritageLinks.push({
+                    source: file.id,
+                    target: targetFileId,
+                    type: rel.type,
+                    label: rel.label
+                });
+            }
+        }
+    }
+
     // Phase 4: Compute complexity
     const complexityMap = new Map<string, { complexity: number; details: Record<string, unknown> }>();
     for (const file of files) {
@@ -294,6 +327,7 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
     }
 
     links.push(...functionCallLinks);
+    links.push(...heritageLinks);
 
     // Deduplicate links
     const linkSet = new Set<string>();
@@ -452,6 +486,7 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
 
     const groupSet = new Set(nodes.map(n => n.group));
     const funcCallCount = uniqueLinks.filter(l => l.type === 'function-call').length;
+    const heritageCount = uniqueLinks.filter(l => l.type === 'extends' || l.type === 'implements').length;
     const deadCodeFiles = nodes.filter(n => n.deadExports && n.deadExports.length > 0).length;
     const deadExportsTotal = nodes.reduce((sum, n) => sum + (n.deadExports ? n.deadExports.length : 0), 0);
 
@@ -478,6 +513,7 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
             totalLinks: uniqueLinks.length,
             totalRelationsFound: allRelations.length,
             functionCallLinks: funcCallCount,
+            heritageLinks: heritageCount,
             unresolvedReferences: unresolvedCount.count,
             unresolvedSamples: unresolvedCount.targets,
             deadCodeFiles,

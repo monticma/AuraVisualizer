@@ -36,6 +36,11 @@ export class BaseParser {
         return [];
     }
 
+    /** Extract heritage relations (extends/implements) from AST. */
+    extractHeritageRelations(_tree: Parser.Tree, _fileInfo: FileInfo): Relation[] {
+        return [];
+    }
+
     extractMatches(
         content: string,
         regex: RegExp,

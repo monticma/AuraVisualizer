@@ -1,6 +1,11 @@
-import { describe, it, expect } from 'vitest';
-import { buildGraph } from '../analyzer/graph-builder';
+import { describe, it, expect, beforeAll } from 'vitest';
+import { buildGraph, preParseFiles } from '../analyzer/graph-builder';
+import { initTreeSitter } from '../analyzer/tree-sitter-loader';
 import { makeFileInfo } from './helpers';
+
+beforeAll(async () => {
+    await initTreeSitter();
+});
 
 describe('buildGraph', () => {
     it('builds a graph with nodes and meta from file list', () => {
@@ -162,5 +167,45 @@ describe('buildGraph', () => {
         expect(graph.nodes).toHaveLength(0);
         expect(graph.links).toHaveLength(0);
         expect(graph.meta.totalFiles).toBe(0);
+    });
+
+    it('produces extends edges from TS class heritage', async () => {
+        const files = [
+            makeFileInfo({ id: 'base.ts', content: 'export class Base {\n  foo() {}\n}\n', language: 'typescript', extension: '.ts' }),
+            makeFileInfo({ id: 'child.ts', content: 'import { Base } from "./base";\nexport class Child extends Base {\n  bar() {}\n}\n', language: 'typescript', extension: '.ts' }),
+        ];
+        const trees = await preParseFiles(files);
+        const graph = buildGraph(files, 'Test', {}, trees);
+        const extendsLink = graph.links.find(l => l.type === 'extends');
+        expect(extendsLink).toBeDefined();
+        expect(extendsLink!.source).toBe('child.ts');
+        expect(extendsLink!.target).toBe('base.ts');
+        expect(graph.meta.heritageLinks).toBeGreaterThanOrEqual(1);
+    });
+
+    it('produces implements edges from TS interface', async () => {
+        const files = [
+            makeFileInfo({ id: 'iface.ts', content: 'export interface ILogger {\n  log(msg: string): void;\n}\n', language: 'typescript', extension: '.ts' }),
+            makeFileInfo({ id: 'impl.ts', content: 'import { ILogger } from "./iface";\nexport class ConsoleLogger implements ILogger {\n  log(msg: string) { console.log(msg); }\n}\n', language: 'typescript', extension: '.ts' }),
+        ];
+        const trees = await preParseFiles(files);
+        const graph = buildGraph(files, 'Test', {}, trees);
+        const implLink = graph.links.find(l => l.type === 'implements');
+        expect(implLink).toBeDefined();
+        expect(implLink!.source).toBe('impl.ts');
+        expect(implLink!.target).toBe('iface.ts');
+    });
+
+    it('produces heritage edges for Python class inheritance', async () => {
+        const files = [
+            makeFileInfo({ id: 'animal.py', content: 'class Animal:\n    def speak(self):\n        pass\n', language: 'python', extension: '.py' }),
+            makeFileInfo({ id: 'dog.py', content: 'from animal import Animal\nclass Dog(Animal):\n    def speak(self):\n        return "Woof"\n', language: 'python', extension: '.py' }),
+        ];
+        const trees = await preParseFiles(files);
+        const graph = buildGraph(files, 'Test', {}, trees);
+        const extendsLink = graph.links.find(l => l.type === 'extends');
+        expect(extendsLink).toBeDefined();
+        expect(extendsLink!.source).toBe('dog.py');
+        expect(extendsLink!.target).toBe('animal.py');
     });
 });

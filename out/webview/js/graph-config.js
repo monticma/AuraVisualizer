@@ -28,7 +28,9 @@ var LINK_COLORS = {
     'css-import':     '#ce93d888',
     'css-url':        '#ce93d866',
     'asset':          '#ffffff44',
-    'function-call':  '#81c784aa'
+    'function-call':  '#81c784aa',
+    'extends':        '#f06292cc',
+    'implements':     '#ba68c8aa'
 };
 
 var LANGUAGE_ICONS = {
