@@ -13,9 +13,9 @@
 | **Parsing** | Tree-sitter AST (10 langages) | Tree-sitter AST (14+ langages) |
 | **Base de données** | sql.js (SQLite WASM) | LadybugDB (graph DB native) |
 | **Visu** | 3d-force-graph + THREE.js | Sigma.js + Graphology (WebGL 2D) |
-| **MCP** | 8 tools, 3 resources | 7 tools, 6 resources, 2 prompts, 4 skills |
-| **Avantage Aura** | Intégré dans VS Code, visu 3D, Time Machine, heatmaps, Tree-sitter | — |
-| **Avantage GitNexus** | — | community detection, blast radius, multi-repo |
+| **MCP** | 9 tools, 3 resources | 7 tools, 6 resources, 2 prompts, 4 skills |
+| **Avantage Aura** | Intégré dans VS Code, visu 3D, Time Machine, heatmaps, Tree-sitter, blast radius, community detection | — |
+| **Avantage GitNexus** | — | multi-repo, wiki auto-générée, recherche sémantique |
 
 ---
 
@@ -33,11 +33,11 @@
 - **Résultat** : Edges heritage dans le graphe, couleurs distinctes (rose = extends, violet = implements)
 - **Commit** : Phase 6 (`639dbc8`)
 
-#### 3. Blast radius amélioré (impact analysis)
-- **GitNexus** : `impact()` tool avec profondeur, score de confiance, filtrage par type de relation, inclusion/exclusion des tests
-- **Aura** : `find_dependents` basique (BFS transitive), visu via right-click pin focus
-- **Gain** : Coloration par profondeur d'impact (vert → jaune → rouge), filtrage par confiance, meilleure réponse MCP
-- **Effort** : Moyen — enrichir la requête SQL existante, ajouter le scoring, adapter la visu
+#### 3. ~~Blast radius amélioré (impact analysis)~~ ✅ FAIT
+- **Aura** : Shift+RightClick déclenche un blast radius directionnel (dependents uniquement)
+- **Résultat** : BFS par profondeur avec coloration gradient (blanc → rouge → orange → jaune → vert), halo lumineux sur le nœud source, slider de profondeur 1-5 réutilisé
+- **MCP** : `find_dependents` enrichi avec `blast_radius[]`, niveaux de risque (high/medium/low), résumé
+- **Commit** : `3d53d34` + bugfixes (`0eea34e`, `59900a1`)
 
 #### 4. Git-diff impact
 - **GitNexus** : `detect_changes()` tool — mappe les lignes changées vers les symboles et process affectés, calcule un risk_level
@@ -45,11 +45,11 @@
 - **Gain** : Combiner Time Machine + blast radius — "ce commit a touché 3 fichiers, voilà les 12 fichiers potentiellement affectés"
 - **Effort** : Moyen — connecter git diff au graphe de dépendances existant
 
-#### 5. Community detection automatique
-- **GitNexus** : Algorithme de Leiden pour détecter les modules fonctionnels, cohésion scores, labels sémantiques
-- **Aura** : Clustering par répertoire uniquement (groupes = dossiers)
-- **Gain** : Détecte les vrais modules architecturaux indépendamment de la structure de fichiers. Visualise les communautés comme des clusters 3D avec cohésion
-- **Effort** : Moyen — implémenter Louvain/Leiden (bibliothèques JS existent), stocker dans graph-db
+#### 5. ~~Community detection automatique~~ ✅ FAIT
+- **Aura** : Algorithme de Louvain complet en TypeScript + JavaScript (webview), détecte les modules architecturaux par couplage de dépendances
+- **Résultat** : Mode heatmap "Communities" avec palette flottante interactive (select all/none, toggle individuel), nommage automatique par fichier hub (plus haut fan-in), minimum 2 membres par communauté, filtrage visuel (nœuds + liens grisés pour communautés désélectionnées)
+- **MCP** : Tool `get_communities` (9 tools total) avec noms, tailles, groupement par communauté
+- **Commit** : `8ffc773` + améliorations (`c5499ea`, `101025c`, `2062ca9`, `325232f`)
 
 ---
 
@@ -109,6 +109,8 @@
 | **Heatmaps** | 5 modes de coloration (complexity, fan-in/out, LOC, last modified) |
 | **Time Machine** | Navigation commit par commit avec timeline |
 | **File explosion** | Éclater un fichier en ses symboles individuels en 3D |
+| **Blast radius directionnel** | Shift+RightClick : BFS dependents, coloration par profondeur, halo source |
+| **Community detection** | Louvain algorithm, palette interactive, nommage par hub file, filtrage visuel |
 | **Heritage edges** | extends/implements détectés pour JS/TS, Python, Java, Go, Rust |
 | **Dynamic filters** | Boutons de filtre langue affichés uniquement si fichiers présents |
 | **DAG layout** | Basculer entre force-directed et layout hiérarchique |
@@ -123,6 +125,6 @@
 
 1. ~~**Tree-sitter**~~ ✅ — Complété (10 langages, 12 grammaires WASM)
 2. ~~**Héritage & interfaces**~~ ✅ — Complété (extends/implements)
-3. **Community detection** — Remplace le clustering naïf par répertoire
-4. **Blast radius amélioré** — Enrichit la visu existante (right-click)
+3. ~~**Blast radius amélioré**~~ ✅ — Complété (Shift+RightClick, profondeur, MCP enrichi)
+4. ~~**Community detection**~~ ✅ — Complété (Louvain, palette, nommage, filtrage)
 5. **Git-diff impact** — Connecte Time Machine au graphe
