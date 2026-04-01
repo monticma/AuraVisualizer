@@ -5,6 +5,8 @@
 import { basename, dirname, join, normalize } from 'path';
 import { CParser } from './parsers/c-parser';
 import { TreeSitterCParser } from './parsers/ts-c-parser';
+import { TreeSitterJSParser } from './parsers/ts-js-parser';
+import { TreeSitterTSParser } from './parsers/ts-ts-parser';
 import { JSParser } from './parsers/js-parser';
 import { HTMLParser } from './parsers/html-parser';
 import { CSSParser } from './parsers/css-parser';
@@ -29,6 +31,8 @@ const REGEX_PARSERS: Record<string, BaseParser> = {
 /** Tree-sitter AST parsers (preferred when AST trees are provided). */
 const TS_PARSERS: Record<string, BaseParser> = {
     'c': new TreeSitterCParser(),
+    'javascript': new TreeSitterJSParser(),
+    'typescript': new TreeSitterTSParser(),
 };
 
 /**
