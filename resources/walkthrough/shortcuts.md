@@ -7,7 +7,7 @@ Quick access to every feature without leaving the keyboard.
 | `F` | Fit to view / recenter camera |
 | `L` | Toggle node labels |
 | `G` | Toggle directory groups |
-| `H` | Cycle through heatmap modes |
+| `H` | Cycle through heatmap modes (including Communities) |
 | `P` | Toggle path-finding mode |
 | `D` | Toggle DAG (hierarchical) layout |
 | `O` | Highlight orphan files |

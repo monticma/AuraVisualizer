@@ -15,13 +15,14 @@ The MCP server starts automatically and registers itself in `.vscode/mcp.json`. 
 | Tool | What it does |
 |------|-------------|
 | `find_dependencies` | What does a file depend on? (transitive, includes inheritance) |
-| `find_dependents` | What files would be affected by a change? |
+| `find_dependents` | Blast radius — what files would be affected by a change? (with risk levels) |
 | `find_path` | Shortest path between two files |
 | `find_cycles` | All circular dependency cycles |
 | `find_dead_code` | Unused exports across the codebase |
 | `get_hotspots` | Most complex or impactful files |
 | `search_symbols` | Find functions, classes, exports by name |
 | `get_architecture` | High-level overview by language |
+| `get_communities` | Architectural modules detected by Louvain algorithm |
 
 ### Export for AI
 

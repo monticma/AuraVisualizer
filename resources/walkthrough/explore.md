@@ -10,6 +10,7 @@ Filter buttons at the bottom show only languages present in your project.
 - 🖱️ **Click** — Select a node, see details in the side panel
 - 🖱️ **Double-click** — Open the file in VS Code
 - 🖱️ **Right-click** — Pin focus on a file and its neighbors (depth 1–5)
+- 🖱️ **Shift+Right-click** — Blast radius — show all files impacted by this one, colored by depth
 - 🖱️ **Shift+Click** — Multi-select several nodes for aggregate stats
 - 🖱️ **Scroll** — Zoom in/out
 - 🖱️ **Drag** — Rotate the 3D view

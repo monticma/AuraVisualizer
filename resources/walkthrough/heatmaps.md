@@ -3,10 +3,15 @@
 Color every node by a metric to spot hotspots instantly.
 
 **Available modes:**
-- 🔵→🔴 **Complexity** — Cyclomatic complexity (branching, loops)
-- 🔵→🔴 **Fan-in** — How many files depend on this file
-- 🔵→🔴 **Fan-out** — How many files this file depends on
-- 🔵→🔴 **Lines of Code** — File size
-- 🔵→🔴 **Last Modified** — Recent changes appear in red
+- �→🔴 **Complexity** — Cyclomatic complexity (branching, loops)
+- 🟢→🔴 **Fan-in** — How many files depend on this file
+- 🟢→🔴 **Fan-out** — How many files this file depends on
+- 🟢→🔴 **Lines of Code** — File size
+- 🟢→🔴 **Last Modified** — Recent changes appear in red
+- 🧩 **Communities** — Architectural modules detected by Louvain algorithm
 
 Blue = low, Red = high. The legend bar shows the value range.
+
+### Communities mode
+
+The **Communities** heatmap colors nodes by detected architectural modules (Louvain algorithm). A floating **palette** shows all communities with their hub name, color, and file count. Click a community to toggle it on/off — unselected communities are grayed out.

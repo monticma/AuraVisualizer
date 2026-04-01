@@ -56,6 +56,7 @@ Language filter buttons are **dynamic** — only languages present in the curren
 | **Click** | Select node, show detail panel, focus camera |
 | **Double-click** | Open file in VS Code editor |
 | **Right-click** | Pin focus — isolate file + neighbors up to N depth |
+| **Shift+Right-click** | Blast radius — show impact (all dependents) with depth coloring |
 | **Shift+Click** | Multi-select — aggregate stats for multiple files |
 | **Scroll** | Zoom in / out |
 | **Drag** | Rotate the 3D view |
@@ -73,8 +74,36 @@ Color every node by a metric to spot hotspots at a glance. Press `H` to cycle th
 | **Fan-out** | How many files this file depends on |
 | **Lines of Code** | File size |
 | **Last Modified** | Git commit recency |
+| **Communities** | Architectural modules detected by Louvain algorithm |
 
 Blue = low, Red = high. A legend displays the value range.
+
+### Community Detection
+
+The **Communities** heatmap mode uses the Louvain algorithm to detect architectural modules by dependency coupling — not directory structure. Each community gets a unique color and is named after its hub file (highest fan-in).
+
+A **floating palette** appears on the right, listing all communities with:
+- Color swatch and hub name
+- File count per community
+- Click to toggle individual communities on/off
+- **All** / **None** buttons for batch selection
+
+Unselected communities are grayed out (nodes + links), just like pin focus.
+
+### Blast Radius
+
+**Shift+Right-click** on any file to see its impact radius — all files that transitively depend on it. Nodes are colored by depth of impact:
+
+| Depth | Color |
+|-------|-------|
+| Source | White (orange glow halo) |
+| 1 | Red |
+| 2 | Orange |
+| 3 | Yellow |
+| 4 | Yellow-green |
+| 5 | Green |
+
+Use the **Depth slider** (1–5) or keys `1`–`5` to control the blast radius depth.
 
 ### File Explosion
 
@@ -168,6 +197,7 @@ You can also open the visualizer from the **Aura** icon in the Activity Bar or v
 | Aura: Visualize Codebase | `Ctrl+Shift+A` | Open the 3D visualization |
 | Aura: Refresh Visualization | — | Re-analyze the workspace |
 | Aura: Focus Current File | — | Highlight the active editor file in the graph |
+| Aura: Blast Radius | — | Show blast radius for the active file |
 | Aura: Export Graph for AI | — | Export graph data as JSON |
 
 ## Keyboard Shortcuts (in graph)
@@ -214,13 +244,14 @@ The MCP server exposes your codebase graph to AI tools via stdio transport. It r
 | Tool | Parameters | Description |
 |------|-----------|-------------|
 | `find_dependencies` | `file`, `depth` | Transitive dependency tree |
-| `find_dependents` | `file`, `depth` | Impact analysis — what depends on this file |
+| `find_dependents` | `file`, `depth` | Impact analysis — blast radius with risk levels |
 | `find_path` | `from`, `to` | Shortest dependency path between two files |
 | `find_cycles` | — | All circular dependency cycles |
 | `find_dead_code` | — | Unused exports across the codebase |
 | `get_hotspots` | `limit`, `sort_by` | Most complex / impactful files |
 | `search_symbols` | `query`, `kind` | Find functions, classes, exports by name |
 | `get_architecture` | — | High-level overview by language |
+| `get_communities` | — | Architectural modules detected by Louvain algorithm |
 
 ---
 
