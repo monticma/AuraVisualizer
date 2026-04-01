@@ -344,6 +344,15 @@ export class WebviewProvider {
             <button class="filter-btn active" data-lang="html" data-color="#ff8a65">
                 <span class="filter-dot" style="background:#ff8a65"></span> HTML
             </button>
+            <button class="filter-btn active" data-lang="java" data-color="#e57373">
+                <span class="filter-dot" style="background:#e57373"></span> Java
+            </button>
+            <button class="filter-btn active" data-lang="go" data-color="#4dd0e1">
+                <span class="filter-dot" style="background:#4dd0e1"></span> Go
+            </button>
+            <button class="filter-btn active" data-lang="rust" data-color="#ffb74d">
+                <span class="filter-dot" style="background:#ffb74d"></span> Rust
+            </button>
         </div>
         <div class="filter-separator"></div>
         <div class="filter-group">

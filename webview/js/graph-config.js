@@ -11,7 +11,10 @@ var LANGUAGE_COLORS = {
     'typescript': '#64b5f6',
     'python':     '#81c784',
     'css':        '#ce93d8',
-    'html':       '#ff8a65'
+    'html':       '#ff8a65',
+    'java':       '#e57373',
+    'go':         '#4dd0e1',
+    'rust':       '#ffb74d'
 };
 
 var LINK_COLORS = {
@@ -36,7 +39,10 @@ var LANGUAGE_ICONS = {
     'typescript': '🔵',
     'python':     '🟢',
     'css':        '🟣',
-    'html':       '🟠'
+    'html':       '🟠',
+    'java':       '☕',
+    'go':         '🐹',
+    'rust':       '🦀'
 };
 
 var HEATMAP_SCALES = {

@@ -7,7 +7,7 @@ import { readdir, stat, readFile } from 'fs/promises';
 import { join, extname, relative } from 'path';
 import type { FileInfo, ScanOptions } from './types';
 
-export const SUPPORTED_EXTENSIONS = new Set(['.c', '.h', '.js', '.ts', '.py', '.css', '.html', '.htm']);
+export const SUPPORTED_EXTENSIONS = new Set(['.c', '.h', '.js', '.ts', '.py', '.css', '.html', '.htm', '.java', '.go', '.rs']);
 
 export const LANGUAGE_MAP: Record<string, string> = {
     '.c': 'c',
@@ -17,7 +17,10 @@ export const LANGUAGE_MAP: Record<string, string> = {
     '.py': 'python',
     '.css': 'css',
     '.html': 'html',
-    '.htm': 'html'
+    '.htm': 'html',
+    '.java': 'java',
+    '.go': 'go',
+    '.rs': 'rust'
 };
 
 export const SKIP_DIRS = new Set([

@@ -8,6 +8,9 @@ import { TreeSitterCParser } from './parsers/ts-c-parser';
 import { TreeSitterJSParser } from './parsers/ts-js-parser';
 import { TreeSitterTSParser } from './parsers/ts-ts-parser';
 import { TreeSitterPyParser } from './parsers/ts-py-parser';
+import { TreeSitterJavaParser } from './parsers/ts-java-parser';
+import { TreeSitterGoParser } from './parsers/ts-go-parser';
+import { TreeSitterRustParser } from './parsers/ts-rust-parser';
 import { JSParser } from './parsers/js-parser';
 import { HTMLParser } from './parsers/html-parser';
 import { CSSParser } from './parsers/css-parser';
@@ -35,6 +38,9 @@ const TS_PARSERS: Record<string, BaseParser> = {
     'javascript': new TreeSitterJSParser(),
     'typescript': new TreeSitterTSParser(),
     'python': new TreeSitterPyParser(),
+    'java': new TreeSitterJavaParser(),
+    'go': new TreeSitterGoParser(),
+    'rust': new TreeSitterRustParser(),
 };
 
 /**
