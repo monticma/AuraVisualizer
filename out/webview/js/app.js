@@ -1009,10 +1009,9 @@
             }
         }
 
-        // No dependents found — cancel blast mode and show feedback
+        // No dependents found — cancel blast mode
         if (pinnedNodes.size <= 1) {
             clearPinnedFocus();
-            showTooltipMessage('No impact — nothing depends on ' + node.name);
             refreshGraphVisuals();
             return;
         }
