@@ -11,6 +11,7 @@ import { AuraTreeProvider } from './AuraTreeProvider';
 import { analyzeCodebase, scanSingleFile, buildGraph, type GraphData, type GraphNode, type GraphLink, type FileInfo } from './analyzer/index';
 import { isGitRepo } from './analyzer/git-history';
 import type { CommitIndex, CommitDelta } from './analyzer/types';
+import { GraphDB } from './graph-db';
 
 let webviewProvider: WebviewProvider | undefined;
 let cachedGraphData: GraphData | undefined;
@@ -22,6 +23,7 @@ let statusBarItem: vscode.StatusBarItem | undefined;
 let refreshTimeout: ReturnType<typeof setTimeout> | undefined;
 let treeProvider: AuraTreeProvider | undefined;
 let isAnalyzing = false;
+let graphDb: GraphDB | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
     // Tree View in Activity Bar
@@ -186,6 +188,23 @@ async function refreshAnalysis(context: vscode.ExtensionContext): Promise<void> 
         treeProvider?.update(cachedGraphData);
         updateStatusBar();
 
+        // Persist graph to SQLite
+        try {
+            if (!graphDb) {
+                graphDb = new GraphDB();
+                const dbDir = path.join(rootPath, '.aura');
+                await fs.mkdir(dbDir, { recursive: true });
+                await graphDb.open(path.join(dbDir, 'graph.db'));
+            }
+            graphDb.importGraphData(cachedGraphData);
+
+            // Auto-register MCP server config
+            await registerMcpServer(context, rootPath);
+        } catch (dbErr) {
+            // Non-critical — log and continue
+            console.error('[aura] GraphDB import error:', dbErr);
+        }
+
         // Launch Time Machine history scan in background
         startHistoryScan(context, rootPath, excludePaths);
     } catch (err) {
@@ -197,6 +216,43 @@ async function refreshAnalysis(context: vscode.ExtensionContext): Promise<void> 
     } finally {
         isAnalyzing = false;
     }
+}
+
+/**
+ * Create or update .vscode/mcp.json so AI assistants can discover the Aura MCP server.
+ * Only writes once per workspace (skips if "aura" key already exists).
+ */
+async function registerMcpServer(context: vscode.ExtensionContext, rootPath: string): Promise<void> {
+    const vscodeDir = path.join(rootPath, '.vscode');
+    const mcpPath = path.join(vscodeDir, 'mcp.json');
+    const mcpServerPath = path.join(context.extensionUri.fsPath, 'out', 'mcp-server.js');
+    const dbPath = path.join(rootPath, '.aura', 'graph.db');
+
+    let config: { servers?: Record<string, unknown> } = {};
+
+    try {
+        const existing = await fs.readFile(mcpPath, 'utf-8');
+        config = JSON.parse(existing);
+    } catch {
+        // File doesn't exist or is invalid — start fresh
+    }
+
+    if (config.servers && config.servers['aura']) {
+        return; // Already registered
+    }
+
+    config.servers = config.servers || {};
+    config.servers['aura'] = {
+        command: 'node',
+        args: [mcpServerPath],
+        env: {
+            AURA_DB_PATH: dbPath,
+        },
+    };
+
+    await fs.mkdir(vscodeDir, { recursive: true });
+    await fs.writeFile(mcpPath, JSON.stringify(config, null, 4) + '\n', 'utf-8');
+    console.log('[aura] MCP server registered in .vscode/mcp.json');
 }
 
 function runAnalysisInWorker(
@@ -695,5 +751,9 @@ export function deactivate(): void {
     if (historyWorker) {
         historyWorker.terminate();
         historyWorker = undefined;
+    }
+    if (graphDb) {
+        graphDb.close();
+        graphDb = undefined;
     }
 }

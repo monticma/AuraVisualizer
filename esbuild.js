@@ -15,7 +15,7 @@ const extensionConfig = {
     sourcesContent: false,
     platform: 'node',
     outfile: 'out/extension.js',
-    external: ['vscode'],
+    external: ['vscode', 'sql.js'],
     logLevel: 'info',
     tsconfig: 'tsconfig.json',
 };
@@ -46,6 +46,21 @@ const historyWorkerConfig = {
     platform: 'node',
     outfile: 'out/history-worker.js',
     external: [],
+    logLevel: 'info',
+    tsconfig: 'tsconfig.json',
+};
+
+/** @type {esbuild.BuildOptions} */
+const mcpServerConfig = {
+    entryPoints: ['src/mcp-server.ts'],
+    bundle: true,
+    format: 'cjs',
+    minify: production,
+    sourcemap: !production,
+    sourcesContent: false,
+    platform: 'node',
+    outfile: 'out/mcp-server.js',
+    external: ['sql.js'],
     logLevel: 'info',
     tsconfig: 'tsconfig.json',
 };
@@ -95,6 +110,7 @@ async function main() {
         await esbuild.build(extensionConfig);
         await esbuild.build(workerConfig);
         await esbuild.build(historyWorkerConfig);
+        await esbuild.build(mcpServerConfig);
     }
 }
 
