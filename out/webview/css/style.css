@@ -738,6 +738,105 @@ html, body {
     border-radius: 4px;
 }
 
+/* ============================================================
+   Community Palette
+   ============================================================ */
+#community-palette {
+    position: fixed;
+    top: 80px;
+    right: 16px;
+    width: 220px;
+    max-height: 60vh;
+    background: var(--aura-sidebar-bg);
+    border: 1px solid var(--aura-border);
+    border-radius: var(--radius);
+    z-index: 200;
+    font-size: 12px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#community-palette.hidden { display: none; }
+
+.community-palette-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 10px;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: rgba(201, 209, 217, 0.7);
+    border-bottom: 1px solid var(--aura-border);
+    flex-shrink: 0;
+}
+
+.community-palette-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.community-palette-actions button {
+    background: transparent;
+    border: 1px solid var(--aura-border);
+    color: var(--aura-text-secondary);
+    padding: 2px 6px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 10px;
+}
+
+.community-palette-actions button:hover {
+    background: rgba(96, 165, 250, 0.15);
+    color: var(--aura-text);
+}
+
+#community-list {
+    overflow-y: auto;
+    padding: 4px 0;
+}
+
+.community-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 10px;
+    cursor: pointer;
+    transition: background 0.1s;
+    user-select: none;
+}
+
+.community-item:hover {
+    background: rgba(96, 165, 250, 0.08);
+}
+
+.community-item.dimmed {
+    opacity: 0.35;
+}
+
+.community-swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.community-name {
+    flex: 1;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.community-count {
+    color: var(--aura-text-secondary);
+    font-size: 10px;
+}
+
 #legend-low, #legend-high { opacity: 0.6; }
 
 /* ============================================================

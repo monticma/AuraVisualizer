@@ -21342,6 +21342,41 @@ if (!DB_PATH) {
   process.stderr.write("AURA_DB_PATH environment variable is required\n");
   process.exit(1);
 }
+function nameCommunityMCP(files) {
+  if (files.length === 0)
+    return "?";
+  if (files.length === 1)
+    return files[0].replace(/.*\//, "").replace(/\.[^.]+$/, "");
+  const parts0 = files[0].split("/");
+  let commonLen = 0;
+  for (let d = 0; d < parts0.length - 1; d++) {
+    const seg = parts0[d];
+    if (files.every((f) => {
+      const pp = f.split("/");
+      return d < pp.length - 1 && pp[d] === seg;
+    })) {
+      commonLen = d + 1;
+    } else
+      break;
+  }
+  if (commonLen > 0) {
+    const lastSeg = parts0[commonLen - 1];
+    if (lastSeg !== "src" && lastSeg !== "lib" && lastSeg !== "app")
+      return lastSeg;
+    if (commonLen >= 2)
+      return parts0[commonLen - 1];
+  }
+  const dirs = {};
+  for (const f of files) {
+    const segs = f.split("/");
+    if (segs.length >= 2) {
+      const dir = segs[segs.length - 2];
+      dirs[dir] = (dirs[dir] || 0) + 1;
+    }
+  }
+  const best = Object.entries(dirs).sort((a, b) => b[1] - a[1]);
+  return best.length > 0 ? best[0][0] : files[0].replace(/.*\//, "").replace(/\.[^.]+$/, "");
+}
 var TOOLS = [
   {
     name: "find_dependencies",
@@ -21571,7 +21606,12 @@ function handleTool(db, name, args) {
       for (const c of communities) {
         (groups[c.community] ??= []).push(c.nodeId);
       }
-      const sorted = Object.entries(groups).map(([id, files]) => ({ community: parseInt(id), files, size: files.length })).sort((a, b) => b.size - a.size);
+      const sorted = Object.entries(groups).map(([id, files]) => ({
+        community: parseInt(id),
+        name: nameCommunityMCP(files),
+        files,
+        size: files.length
+      })).sort((a, b) => b.size - a.size);
       return {
         communities: sorted,
         total: sorted.length,

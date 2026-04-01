@@ -56,6 +56,8 @@
     // Community detection
     var communityMap = {};  // nodeId → communityId
     var communityColors = {}; // communityId → color
+    var communityNames = {}; // communityId → { name, files }
+    var activeCommunities = new Set(); // communityIds currently visible
 
     // Explorer state
     var showExplorer = false;
@@ -449,9 +451,104 @@
             if (remap[c] === undefined) remap[c] = nextId++;
             communityMap[nodes[ri].id] = remap[c];
         }
+
+        // Group files by community
+        var commFiles = {};
+        for (var gi = 0; gi < n; gi++) {
+            var cid = communityMap[nodes[gi].id];
+            if (!commFiles[cid]) commFiles[cid] = [];
+            commFiles[cid].push(nodes[gi]);
+        }
+
+        // Name each community
+        activeCommunities.clear();
         for (var ci2 = 0; ci2 < nextId; ci2++) {
             communityColors[ci2] = GROUP_COLORS[ci2 % GROUP_COLORS.length];
+            activeCommunities.add(ci2);
+            var files = commFiles[ci2] || [];
+            communityNames[ci2] = { name: nameCommunity(files), files: files.map(function(f) { return f.id; }) };
         }
+    }
+
+    function nameCommunity(files) {
+        if (files.length === 0) return '?';
+        if (files.length === 1) return files[0].name.replace(/\.[^.]+$/, '');
+
+        // Strategy 1: Common directory prefix
+        var paths = files.map(function(f) { return f.id; });
+        var parts0 = paths[0].split('/');
+        var commonLen = 0;
+        for (var d = 0; d < parts0.length - 1; d++) {
+            var seg = parts0[d];
+            var allMatch = true;
+            for (var p = 1; p < paths.length; p++) {
+                var pp = paths[p].split('/');
+                if (d >= pp.length - 1 || pp[d] !== seg) { allMatch = false; break; }
+            }
+            if (allMatch) commonLen = d + 1;
+            else break;
+        }
+        var prefix = parts0.slice(0, commonLen).join('/');
+        // Use prefix if it's specific (not just 'src' or a single generic dir)
+        if (prefix && commonLen > 0) {
+            var lastSeg = parts0[commonLen - 1];
+            if (lastSeg !== 'src' && lastSeg !== 'lib' && lastSeg !== 'app') {
+                return lastSeg;
+            }
+            // If 2+ levels deep, still useful
+            if (commonLen >= 2) return parts0.slice(commonLen - 1, commonLen).join('/');
+        }
+
+        // Strategy 2: Hub file (highest fan-in)
+        var hub = files[0];
+        for (var h = 1; h < files.length; h++) {
+            if ((files[h].fanIn || 0) > (hub.fanIn || 0)) hub = files[h];
+        }
+        return hub.name.replace(/\.[^.]+$/, '');
+    }
+
+    function buildCommunityList() {
+        var list = $('#community-list');
+        if (!list) return;
+        list.innerHTML = '';
+
+        // Sort communities by file count descending
+        var ids = Object.keys(communityNames).map(Number);
+        ids.sort(function(a, b) {
+            return (communityNames[b].files.length) - (communityNames[a].files.length);
+        });
+
+        for (var i = 0; i < ids.length; i++) {
+            (function(cid) {
+                var info = communityNames[cid];
+                var item = document.createElement('div');
+                item.className = 'community-item' + (activeCommunities.has(cid) ? '' : ' dimmed');
+                item.innerHTML =
+                    '<span class="community-swatch" style="background:' + (communityColors[cid] || '#888') + '"></span>' +
+                    '<span class="community-name">' + escapeHtml(info.name) + '</span>' +
+                    '<span class="community-count">' + info.files.length + '</span>';
+                item.addEventListener('click', function() {
+                    if (activeCommunities.has(cid)) activeCommunities.delete(cid);
+                    else activeCommunities.add(cid);
+                    item.classList.toggle('dimmed', !activeCommunities.has(cid));
+                    if (graph) graph.nodeColor(graph.nodeColor());
+                });
+                list.appendChild(item);
+            })(ids[i]);
+        }
+    }
+
+    function showCommunityPalette() {
+        var el = $('#community-palette');
+        if (el) {
+            buildCommunityList();
+            el.classList.remove('hidden');
+        }
+    }
+
+    function hideCommunityPalette() {
+        var el = $('#community-palette');
+        if (el) el.classList.add('hidden');
     }
 
     // ============================================================
@@ -740,6 +837,8 @@
             if (heatmapMode === 'community') {
                 var cid = communityMap[node.id];
                 var cColor = (cid !== undefined) ? (communityColors[cid] || '#ffffff') : '#ffffff';
+                var isActive = (cid !== undefined) && activeCommunities.has(cid);
+                if (!isActive) return cColor + '10';
                 if (pinnedNode && blastMode) {
                     if (!pinnedNodes.has(node)) return cColor + '15';
                     var bdc = blastDepths[node.id];
@@ -1776,6 +1875,13 @@
         heatmapMode = mode;
         var legend = $('#heatmap-legend');
 
+        // Show/hide community palette
+        if (mode === 'community') {
+            showCommunityPalette();
+        } else {
+            hideCommunityPalette();
+        }
+
         if (mode === 'off') {
             legend.classList.add('hidden');
         } else if (mode === 'community') {
@@ -2354,6 +2460,30 @@
         $('#heatmap-select').addEventListener('change', function(e) {
             setHeatmapMode(e.target.value);
         });
+
+        // Community palette buttons
+        var cpSelectAll = $('#community-select-all');
+        var cpSelectNone = $('#community-select-none');
+        var cpClose = $('#community-palette-close');
+        if (cpSelectAll) {
+            cpSelectAll.addEventListener('click', function() {
+                for (var k in communityNames) activeCommunities.add(Number(k));
+                buildCommunityList();
+                if (graph) graph.nodeColor(graph.nodeColor());
+            });
+        }
+        if (cpSelectNone) {
+            cpSelectNone.addEventListener('click', function() {
+                activeCommunities.clear();
+                buildCommunityList();
+                if (graph) graph.nodeColor(graph.nodeColor());
+            });
+        }
+        if (cpClose) {
+            cpClose.addEventListener('click', function() {
+                hideCommunityPalette();
+            });
+        }
 
         $('#node-size-slider').addEventListener('input', function(e) {
             nodeSizeMultiplier = parseFloat(e.target.value);

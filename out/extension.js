@@ -428,6 +428,19 @@ var WebviewProvider = class _WebviewProvider {
         <span class="legend-mode" id="legend-mode">\u2014</span>
     </div>
 
+    <!-- Community Palette (overlay) -->
+    <div id="community-palette" class="hidden">
+        <div class="community-palette-header">
+            <span>\u{1F9E9} Communities</span>
+            <div class="community-palette-actions">
+                <button id="community-select-all" title="Select all">All</button>
+                <button id="community-select-none" title="Unselect all">None</button>
+                <button id="community-palette-close" title="Close">\u2715</button>
+            </div>
+        </div>
+        <div id="community-list"></div>
+    </div>
+
     <!-- Tooltip (overlay, outside grid) -->
     <div id="tooltip" class="hidden">
         <div class="tooltip-name" id="tooltip-name">\u2014</div>
