@@ -151,6 +151,7 @@
         headGraphData = JSON.parse(JSON.stringify(data));
         computeMetricRanges();
         updateStats(graphData.meta);
+        updateLanguageButtons(graphData.nodes);
         if (loadingOverlay) loadingOverlay.style.display = 'none';
         try {
             initGraph(graphData);
@@ -235,6 +236,9 @@
 
         // Re-feed filtered data to the graph — preserves positions
         graph.graphData(filterGraphData(graphData));
+
+        // Update language buttons
+        updateLanguageButtons(graphData.nodes);
 
         // Update explorer
         buildExplorerTree(graphData.nodes);
@@ -1895,6 +1899,28 @@
     // ============================================================
     // Filters
     // ============================================================
+    function updateLanguageButtons(nodes) {
+        var presentLangs = new Set();
+        for (var i = 0; i < nodes.length; i++) {
+            var langKey = nodes[i].language;
+            if (langKey === 'c') langKey = nodes[i].extension === '.h' ? 'c-header' : 'c-source';
+            presentLangs.add(langKey);
+        }
+        var langBtns = document.querySelectorAll('#language-filters .filter-btn');
+        for (var j = 0; j < langBtns.length; j++) {
+            var btn = langBtns[j];
+            var lang = btn.dataset.lang;
+            if (presentLangs.has(lang)) {
+                btn.style.display = '';
+                if (!activeLanguages.has(lang)) activeLanguages.add(lang);
+                btn.classList.add('active');
+            } else {
+                btn.style.display = 'none';
+                activeLanguages.delete(lang);
+            }
+        }
+    }
+
     function setupFilters() {
         var langBtns = document.querySelectorAll('#language-filters .filter-btn');
         for (var i = 0; i < langBtns.length; i++) {
