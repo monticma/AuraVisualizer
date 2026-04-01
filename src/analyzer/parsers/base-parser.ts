@@ -2,7 +2,8 @@
  * base-parser.ts — Base class for language-specific parsers.
  */
 
-import type { FileInfo, Relation } from '../types';
+import type { FileInfo, Relation, FileSymbols } from '../types';
+import type Parser from 'web-tree-sitter';
 
 export class BaseParser {
     language: string;
@@ -11,7 +12,27 @@ export class BaseParser {
         this.language = language;
     }
 
+    /** Whether this parser uses Tree-sitter AST (override in subclass). */
+    get usesTreeSitter(): boolean {
+        return false;
+    }
+
     parse(_fileInfo: FileInfo, _options?: Record<string, unknown>): Relation[] {
+        return [];
+    }
+
+    /** Parse using a Tree-sitter syntax tree (override in TS-based parsers). */
+    parseAST(_tree: Parser.Tree, _fileInfo: FileInfo, _options?: Record<string, unknown>): Relation[] {
+        return this.parse(_fileInfo, _options);
+    }
+
+    /** Extract symbols using a Tree-sitter syntax tree (override in TS-based parsers). */
+    extractSymbolsAST(_tree: Parser.Tree, _fileInfo: FileInfo): FileSymbols {
+        return { functions: [], externs: [], structs: [], enums: [], macros: [], classes: [], exports: [] };
+    }
+
+    /** Extract cross-file function calls using AST (override in TS-based parsers). */
+    extractCallsAST(_tree: Parser.Tree, _fileInfo: FileInfo, _globalFunctions: Set<string>): Relation[] {
         return [];
     }
 

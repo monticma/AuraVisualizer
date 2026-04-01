@@ -30,7 +30,7 @@ const workerConfig = {
     sourcesContent: false,
     platform: 'node',
     outfile: 'out/analyzer-worker.js',
-    external: [],
+    external: ['web-tree-sitter'],
     logLevel: 'info',
     tsconfig: 'tsconfig.json',
 };
@@ -99,8 +99,32 @@ async function copyWebviewAssets() {
     console.log('Webview assets copied.');
 }
 
+async function copyTreeSitterWasms() {
+    const destDir = path.join(__dirname, 'out', 'tree-sitter-wasms');
+    fs.mkdirSync(destDir, { recursive: true });
+
+    // Copy the web-tree-sitter runtime .wasm
+    const runtimeWasm = path.join(__dirname, 'node_modules', 'web-tree-sitter', 'tree-sitter.wasm');
+    if (fs.existsSync(runtimeWasm)) {
+        fs.copyFileSync(runtimeWasm, path.join(destDir, 'tree-sitter.wasm'));
+    }
+
+    // Copy language grammar .wasm files
+    const grammarsDir = path.join(__dirname, 'node_modules', 'tree-sitter-wasms', 'out');
+    if (fs.existsSync(grammarsDir)) {
+        const wasmFiles = fs.readdirSync(grammarsDir).filter(f => f.endsWith('.wasm'));
+        for (const file of wasmFiles) {
+            fs.copyFileSync(path.join(grammarsDir, file), path.join(destDir, file));
+        }
+        console.log(`Tree-sitter WASM files copied (${wasmFiles.length} grammars).`);
+    } else {
+        console.warn('Warning: tree-sitter-wasms not found, skipping grammar copy.');
+    }
+}
+
 async function main() {
     await copyWebviewAssets();
+    await copyTreeSitterWasms();
 
     if (watch) {
         const ctx = await esbuild.context(extensionConfig);
