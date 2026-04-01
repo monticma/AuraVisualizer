@@ -1,16 +1,21 @@
 ## Explore the Graph
 
 Each **node** is a file. Each **edge** is a dependency (import, include, function call).
+Node size reflects lines of code. Edge color reflects dependency type.
 
 **Mouse controls:**
-- 🖱️ **Left click** — Select a node, see details
-- 🖱️ **Double click** — Open the file in the editor
-- 🖱️ **Right click** — Pin focus (isolate a file & its neighbors)
+- 🖱️ **Click** — Select a node, see details in the side panel
+- 🖱️ **Double-click** — Open the file in VS Code
+- 🖱️ **Right-click** — Pin focus on a file and its neighbors (depth 1–5)
+- 🖱️ **Shift+Click** — Multi-select several nodes for aggregate stats
 - 🖱️ **Scroll** — Zoom in/out
-- 🖱️ **Drag** — Rotate the graph
+- 🖱️ **Drag** — Rotate the 3D view
 
-**Toolbar modes:**
-- **Labels** — Show/hide file names
-- **DAG** — Top-down layered layout
-- **Orphans** — Show only disconnected files
-- **Groups** — Cluster files by directory
+**Toolbar buttons:**
+- **Labels** (`L`) — Show/hide file names above nodes
+- **DAG** (`D`) — Hierarchical top-down layout
+- **Orphans** (`O`) — Highlight disconnected files in red
+- **Groups** (`G`) — Cluster files by directory
+- **Recenter** (`F`) — Fit the entire graph in view
+
+**Detail panel** — Click any node to see: file path, LOC, complexity, fan-in/out, symbols (functions, structs, enums), dependencies, and dependents.

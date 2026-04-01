@@ -2,8 +2,12 @@
   "name": "aura-visualizer",
   "displayName": "Aura Visualizer",
   "description": "Visualize your codebase in 3D directly in VSCode — interactive dependency graph with force-directed layout",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "publisher": "aura-3d-visualizer",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/monticma/AuraVisualizer"
+  },
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -148,6 +152,38 @@
             "description": "Click the **Path** button in the toolbar, then click two nodes to find the shortest dependency path between them.\n\nGreat for understanding how files are connected.",
             "media": {
               "markdown": "resources/walkthrough/paths.md"
+            }
+          },
+          {
+            "id": "dead-code-cycles",
+            "title": "Detect Dead Code & Cycles",
+            "description": "Press **X** to highlight unused exports (dead code). Press **C** to reveal circular dependencies. Press **O** to find orphan files.\n\nClean up your codebase!",
+            "media": {
+              "markdown": "resources/walkthrough/dead-code-cycles.md"
+            }
+          },
+          {
+            "id": "time-machine",
+            "title": "Travel Through Git History",
+            "description": "Use the **timeline bar** at the bottom to navigate your project's commit history. Changed files light up in yellow at each step.\n\nWatch your architecture evolve!",
+            "media": {
+              "markdown": "resources/walkthrough/time-machine.md"
+            }
+          },
+          {
+            "id": "ai-integration",
+            "title": "AI Integration (MCP Server)",
+            "description": "Aura includes a built-in **MCP server** with 8 tools for AI assistants. Query dependencies, find dead code, search symbols — all programmatically.\n\nWorks with GitHub Copilot and other MCP clients.",
+            "media": {
+              "markdown": "resources/walkthrough/ai-integration.md"
+            }
+          },
+          {
+            "id": "keyboard-shortcuts",
+            "title": "Keyboard Shortcuts",
+            "description": "Use single-key shortcuts: **F** recenter, **H** heatmaps, **D** DAG, **X** dead code, **C** cycles, **1-5** depth, **←→** timeline.\n\nAll features are one key away!",
+            "media": {
+              "markdown": "resources/walkthrough/shortcuts.md"
             }
           }
         ]
