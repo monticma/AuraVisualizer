@@ -15,6 +15,10 @@
   <img src="https://img.shields.io/badge/License-MIT-green" alt="License" />
 </p>
 
+<p align="center">
+  <img src="resources/AuraScreen.png" alt="Aura Visualizer screenshot" />
+</p>
+
 ---
 
 ## Features
