@@ -8,34 +8,37 @@ beforeAll(async () => {
 });
 
 describe('buildGraph', () => {
-    it('builds a graph with nodes and meta from file list', () => {
+    it('builds a graph with nodes and meta from file list', async () => {
         const files = [
             makeFileInfo({ id: 'main.c', content: '#include "utils.h"\nint main() { return 0; }\n', language: 'c', extension: '.c' }),
             makeFileInfo({ id: 'utils.h', content: 'int add(int, int);\n', language: 'c', extension: '.h' }),
         ];
-        const graph = buildGraph(files, 'TestProject');
+        const trees = await preParseFiles(files);
+        const graph = buildGraph(files, 'TestProject', {}, trees);
         expect(graph.meta.projectName).toBe('TestProject');
         expect(graph.meta.totalFiles).toBe(2);
         expect(graph.nodes).toHaveLength(2);
     });
 
-    it('resolves include relations to links', () => {
+    it('resolves include relations to links', async () => {
         const files = [
             makeFileInfo({ id: 'main.c', content: '#include "utils.h"\n', language: 'c', extension: '.c' }),
             makeFileInfo({ id: 'utils.h', content: 'void init(void);\n', language: 'c', extension: '.h' }),
         ];
-        const graph = buildGraph(files);
+        const trees = await preParseFiles(files);
+        const graph = buildGraph(files, 'Project', {}, trees);
         expect(graph.links.length).toBeGreaterThanOrEqual(1);
         expect(graph.links[0]).toMatchObject({ source: 'main.c', target: 'utils.h', type: 'include' });
     });
 
-    it('computes fan-in and fan-out correctly', () => {
+    it('computes fan-in and fan-out correctly', async () => {
         const files = [
             makeFileInfo({ id: 'a.c', content: '#include "common.h"\n', language: 'c', extension: '.c' }),
             makeFileInfo({ id: 'b.c', content: '#include "common.h"\n', language: 'c', extension: '.c' }),
             makeFileInfo({ id: 'common.h', content: 'void shared(void);\n', language: 'c', extension: '.h' }),
         ];
-        const graph = buildGraph(files);
+        const trees = await preParseFiles(files);
+        const graph = buildGraph(files, 'Project', {}, trees);
         const common = graph.nodes.find(n => n.id === 'common.h')!;
         expect(common.fanIn).toBe(2);
         expect(common.fanOut).toBe(0);
@@ -43,7 +46,7 @@ describe('buildGraph', () => {
         expect(a.fanOut).toBe(1);
     });
 
-    it('extracts C symbols and attaches to nodes', () => {
+    it('extracts C symbols and attaches to nodes', async () => {
         const files = [
             makeFileInfo({
                 id: 'lib.c',
@@ -51,14 +54,15 @@ describe('buildGraph', () => {
                 language: 'c', extension: '.c',
             }),
         ];
-        const graph = buildGraph(files);
+        const trees = await preParseFiles(files);
+        const graph = buildGraph(files, 'Project', {}, trees);
         const node = graph.nodes[0];
         expect(node.symbols).toBeDefined();
         expect(node.symbols!.functions).toHaveLength(2);
         expect(node.symbols!.totalSymbols).toBeGreaterThanOrEqual(2);
     });
 
-    it('detects cross-file function calls', () => {
+    it('detects cross-file function calls', async () => {
         const files = [
             makeFileInfo({
                 id: 'utils.c',
@@ -71,7 +75,8 @@ describe('buildGraph', () => {
                 language: 'c', extension: '.c',
             }),
         ];
-        const graph = buildGraph(files);
+        const trees = await preParseFiles(files);
+        const graph = buildGraph(files, 'Project', {}, trees);
         const callLink = graph.links.find(l => l.type === 'function-call');
         expect(callLink).toBeDefined();
         expect(callLink!.source).toBe('main.c');
@@ -79,7 +84,7 @@ describe('buildGraph', () => {
         expect(callLink!.label).toContain('helper');
     });
 
-    it('resolves relative imports for JS files', () => {
+    it('resolves relative imports for JS files', async () => {
         const files = [
             makeFileInfo({
                 id: 'src/app.js',
@@ -92,12 +97,13 @@ describe('buildGraph', () => {
                 language: 'javascript', extension: '.js',
             }),
         ];
-        const graph = buildGraph(files);
+        const trees = await preParseFiles(files);
+        const graph = buildGraph(files, 'Project', {}, trees);
         expect(graph.links).toHaveLength(1);
         expect(graph.links[0]).toMatchObject({ source: 'src/app.js', target: 'src/utils.js' });
     });
 
-    it('tracks unresolved references', () => {
+    it('tracks unresolved references', async () => {
         const files = [
             makeFileInfo({
                 id: 'app.js',
@@ -105,11 +111,12 @@ describe('buildGraph', () => {
                 language: 'javascript', extension: '.js',
             }),
         ];
-        const graph = buildGraph(files);
+        const trees = await preParseFiles(files);
+        const graph = buildGraph(files, 'Project', {}, trees);
         expect(graph.meta.unresolvedReferences).toBeGreaterThanOrEqual(1);
     });
 
-    it('deduplicates links', () => {
+    it('deduplicates links', async () => {
         const files = [
             makeFileInfo({
                 id: 'a.c',
@@ -122,7 +129,8 @@ describe('buildGraph', () => {
                 language: 'c', extension: '.h',
             }),
         ];
-        const graph = buildGraph(files);
+        const trees = await preParseFiles(files);
+        const graph = buildGraph(files, 'Project', {}, trees);
         const includeLinks = graph.links.filter(l => l.source === 'a.c' && l.target === 'b.h' && l.type === 'include');
         expect(includeLinks).toHaveLength(1);
     });

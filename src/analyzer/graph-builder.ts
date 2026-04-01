@@ -3,7 +3,6 @@
  */
 
 import { basename, dirname, join, normalize } from 'path';
-import { CParser } from './parsers/c-parser';
 import { TreeSitterCParser } from './parsers/ts-c-parser';
 import { TreeSitterJSParser } from './parsers/ts-js-parser';
 import { TreeSitterTSParser } from './parsers/ts-ts-parser';
@@ -11,29 +10,16 @@ import { TreeSitterPyParser } from './parsers/ts-py-parser';
 import { TreeSitterJavaParser } from './parsers/ts-java-parser';
 import { TreeSitterGoParser } from './parsers/ts-go-parser';
 import { TreeSitterRustParser } from './parsers/ts-rust-parser';
-import { JSParser } from './parsers/js-parser';
 import { HTMLParser } from './parsers/html-parser';
 import { CSSParser } from './parsers/css-parser';
-import { TSParser } from './parsers/ts-parser';
-import { PyParser } from './parsers/py-parser';
 import { computeComplexity } from './complexity';
 import { hasGrammar, parseSource } from './tree-sitter-loader';
 import type { BaseParser } from './parsers/base-parser';
 import type Parser from 'web-tree-sitter';
 import type { FileInfo, Relation, GraphData, GraphNode, GraphLink, AnalyzeOptions, FileSymbols } from './types';
 
-/** Regex-only parsers (fallback when Tree-sitter unavailable). */
-const REGEX_PARSERS: Record<string, BaseParser> = {
-    'c': new CParser(),
-    'javascript': new JSParser(),
-    'typescript': new TSParser(),
-    'python': new PyParser(),
-    'html': new HTMLParser(),
-    'css': new CSSParser()
-};
-
-/** Tree-sitter AST parsers (preferred when AST trees are provided). */
-const TS_PARSERS: Record<string, BaseParser> = {
+/** Parser registry — Tree-sitter for languages with WASM grammars, regex for HTML/CSS. */
+const PARSERS: Record<string, BaseParser> = {
     'c': new TreeSitterCParser(),
     'javascript': new TreeSitterJSParser(),
     'typescript': new TreeSitterTSParser(),
@@ -41,15 +27,15 @@ const TS_PARSERS: Record<string, BaseParser> = {
     'java': new TreeSitterJavaParser(),
     'go': new TreeSitterGoParser(),
     'rust': new TreeSitterRustParser(),
+    'html': new HTMLParser(),
+    'css': new CSSParser()
 };
 
 /**
- * Get the best parser for a language.
- * Uses Tree-sitter parser when an AST tree is available, else falls back to regex.
+ * Get the parser for a language.
  */
-function getParser(language: string, hasAst: boolean): BaseParser | undefined {
-    if (hasAst && TS_PARSERS[language]) { return TS_PARSERS[language]; }
-    return REGEX_PARSERS[language];
+function getParser(language: string): BaseParser | undefined {
+    return PARSERS[language];
 }
 
 /**
@@ -176,7 +162,7 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
     const allRelations: Relation[] = [];
     for (const file of files) {
         const tree = astTrees?.get(file.id);
-        const parser = getParser(file.language, !!tree);
+        const parser = getParser(file.language);
         if (parser) {
             const relations = tree && parser.usesTreeSitter
                 ? parser.parseAST(tree, file, options as Record<string, unknown>)
@@ -199,7 +185,7 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
     for (const file of files) {
         if (!SYMBOL_LANGUAGES.has(file.language)) continue;
         const tree = astTrees?.get(file.id);
-        const parser = getParser(file.language, !!tree);
+        const parser = getParser(file.language);
         if (!parser) continue;
 
         const symbols = tree && parser.usesTreeSitter
@@ -226,7 +212,7 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
         if (!SYMBOL_LANGUAGES.has(file.language)) continue;
         if (HEADER_EXTS.has(file.extension)) continue;
         const tree = astTrees?.get(file.id);
-        const parser = getParser(file.language, !!tree);
+        const parser = getParser(file.language);
         if (!parser) continue;
 
         let calls: string[];
@@ -278,7 +264,7 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
     for (const file of files) {
         const tree = astTrees?.get(file.id);
         if (!tree) continue;
-        const parser = getParser(file.language, true);
+        const parser = getParser(file.language);
         if (!parser) continue;
 
         const heritageRels = parser.extractHeritageRelations(tree, file);

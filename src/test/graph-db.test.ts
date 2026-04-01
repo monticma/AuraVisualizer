@@ -1,21 +1,27 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, beforeAll } from 'vitest';
 import { GraphDB } from '../graph-db';
-import { buildGraph } from '../analyzer/graph-builder';
+import { buildGraph, preParseFiles } from '../analyzer/graph-builder';
+import { initTreeSitter } from '../analyzer/tree-sitter-loader';
 import { makeFileInfo } from './helpers';
 import type { GraphData } from '../analyzer/types';
 import { join } from 'path';
 import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 
-function makeTestGraph() {
+async function makeTestGraph() {
     const files = [
         makeFileInfo({ id: 'main.c', content: '#include "utils.h"\nint main() {\n  if (x) {\n    for(;;) {}\n  }\n  return 0;\n}\n', language: 'c', extension: '.c', group: 'src' }),
         makeFileInfo({ id: 'utils.h', content: 'int add(int a, int b);\nvoid init(void);\n', language: 'c', extension: '.h', group: 'src' }),
         makeFileInfo({ id: 'utils.c', content: '#include "utils.h"\nint add(int a, int b) { return a+b; }\nvoid init(void) {}\n', language: 'c', extension: '.c', group: 'src' }),
         makeFileInfo({ id: 'lib/helper.c', content: '#include "../utils.h"\nvoid help() {}\n', language: 'c', extension: '.c', group: 'lib' }),
     ];
-    return buildGraph(files, 'TestProject');
+    const trees = await preParseFiles(files);
+    return buildGraph(files, 'TestProject', {}, trees);
 }
+
+beforeAll(async () => {
+    await initTreeSitter();
+});
 
 describe('GraphDB', () => {
     let db: GraphDB;
@@ -34,72 +40,72 @@ describe('GraphDB', () => {
         rmSync(tmpDir, { recursive: true, force: true });
     });
 
-    it('opens and reports isOpen', () => {
+    it('opens and reports isOpen', async () => {
         expect(db.isOpen).toBe(true);
     });
 
-    it('imports graph data without error', () => {
-        const graph = makeTestGraph();
+    it('imports graph data without error', async () => {
+        const graph = await makeTestGraph();
         expect(() => db.importGraphData(graph)).not.toThrow();
     });
 
-    it('stores all nodes', () => {
-        db.importGraphData(makeTestGraph());
+    it('stores all nodes', async () => {
+        db.importGraphData(await makeTestGraph());
         const nodes = db.getAllNodes();
         expect(nodes).toHaveLength(4);
         expect(nodes.map(n => n.id).sort()).toEqual(['lib/helper.c', 'main.c', 'utils.c', 'utils.h']);
     });
 
-    it('stores edges', () => {
-        db.importGraphData(makeTestGraph());
+    it('stores edges', async () => {
+        db.importGraphData(await makeTestGraph());
         const edges = db.getAllEdges();
         expect(edges.length).toBeGreaterThanOrEqual(3); // main→utils.h, utils.c→utils.h, helper→utils.h
     });
 
-    it('stores meta', () => {
-        db.importGraphData(makeTestGraph());
+    it('stores meta', async () => {
+        db.importGraphData(await makeTestGraph());
         expect(db.getMeta('projectName')).toBe('TestProject');
         expect(db.getMeta('totalFiles')).toBe('4');
     });
 
-    it('getDependencies returns direct deps', () => {
-        db.importGraphData(makeTestGraph());
+    it('getDependencies returns direct deps', async () => {
+        db.importGraphData(await makeTestGraph());
         const deps = db.getDependencies('main.c', 1);
         expect(deps.length).toBeGreaterThanOrEqual(1);
         expect(deps.some(d => d.id === 'utils.h')).toBe(true);
     });
 
-    it('getDependents returns reverse deps', () => {
-        db.importGraphData(makeTestGraph());
+    it('getDependents returns reverse deps', async () => {
+        db.importGraphData(await makeTestGraph());
         const deps = db.getDependents('utils.h', 1);
         expect(deps.length).toBeGreaterThanOrEqual(2); // main.c, utils.c, possibly helper.c
     });
 
-    it('findPath returns path between connected nodes', () => {
-        db.importGraphData(makeTestGraph());
+    it('findPath returns path between connected nodes', async () => {
+        db.importGraphData(await makeTestGraph());
         const path = db.findPath('main.c', 'utils.h');
         expect(path).not.toBeNull();
         expect(path![0]).toBe('main.c');
         expect(path![path!.length - 1]).toBe('utils.h');
     });
 
-    it('findPath returns null for unconnected nodes', () => {
-        db.importGraphData(makeTestGraph());
+    it('findPath returns null for unconnected nodes', async () => {
+        db.importGraphData(await makeTestGraph());
         const path = db.findPath('utils.h', 'main.c'); // reverse: utils.h doesn't import main.c
         // May or may not find a path depending on graph structure
         // At minimum it shouldn't crash
         expect(path === null || Array.isArray(path)).toBe(true);
     });
 
-    it('getHotspots returns nodes sorted by impact', () => {
-        db.importGraphData(makeTestGraph());
+    it('getHotspots returns nodes sorted by impact', async () => {
+        db.importGraphData(await makeTestGraph());
         const hotspots = db.getHotspots(2);
         expect(hotspots.length).toBeLessThanOrEqual(2);
         expect(hotspots[0]).toHaveProperty('impact_score');
     });
 
-    it('getArchitectureOverview groups by language', () => {
-        db.importGraphData(makeTestGraph());
+    it('getArchitectureOverview groups by language', async () => {
+        db.importGraphData(await makeTestGraph());
         const overview = db.getArchitectureOverview();
         expect(overview.length).toBeGreaterThanOrEqual(1);
         expect(overview[0]).toHaveProperty('language');
@@ -107,8 +113,8 @@ describe('GraphDB', () => {
         expect(overview[0]).toHaveProperty('total_loc');
     });
 
-    it('getNodeDetail returns full detail', () => {
-        db.importGraphData(makeTestGraph());
+    it('getNodeDetail returns full detail', async () => {
+        db.importGraphData(await makeTestGraph());
         const detail = db.getNodeDetail('main.c');
         expect(detail).not.toBeNull();
         expect(detail!.id).toBe('main.c');
@@ -117,42 +123,42 @@ describe('GraphDB', () => {
         expect(detail!).toHaveProperty('dependents');
     });
 
-    it('getNodeDetail returns null for unknown id', () => {
-        db.importGraphData(makeTestGraph());
+    it('getNodeDetail returns null for unknown id', async () => {
+        db.importGraphData(await makeTestGraph());
         expect(db.getNodeDetail('nonexistent.c')).toBeNull();
     });
 
-    it('searchSymbols finds functions', () => {
-        db.importGraphData(makeTestGraph());
+    it('searchSymbols finds functions', async () => {
+        db.importGraphData(await makeTestGraph());
         const results = db.searchSymbols('add');
         // Should find the 'add' function from utils.c or utils.h
         expect(results.length).toBeGreaterThanOrEqual(0); // may depend on parser extraction
     });
 
-    it('importGraphData is idempotent (replace)', () => {
-        const graph = makeTestGraph();
+    it('importGraphData is idempotent (replace)', async () => {
+        const graph = await makeTestGraph();
         db.importGraphData(graph);
         db.importGraphData(graph); // second import should replace, not duplicate
         expect(db.getAllNodes()).toHaveLength(4);
     });
 
-    it('getAllMeta returns full map', () => {
-        db.importGraphData(makeTestGraph());
+    it('getAllMeta returns full map', async () => {
+        db.importGraphData(await makeTestGraph());
         const meta = db.getAllMeta();
         expect(meta).toHaveProperty('projectName', 'TestProject');
         expect(meta).toHaveProperty('analyzedAt');
         expect(meta).toHaveProperty('totalFiles');
     });
 
-    it('getCycles returns empty for acyclic graph', () => {
-        db.importGraphData(makeTestGraph());
+    it('getCycles returns empty for acyclic graph', async () => {
+        db.importGraphData(await makeTestGraph());
         const cycles = db.getCycles();
         // Our test graph is acyclic
         expect(Array.isArray(cycles)).toBe(true);
     });
 
-    it('getDeadCode returns array', () => {
-        db.importGraphData(makeTestGraph());
+    it('getDeadCode returns array', async () => {
+        db.importGraphData(await makeTestGraph());
         const dead = db.getDeadCode();
         expect(Array.isArray(dead)).toBe(true);
     });
@@ -243,32 +249,32 @@ describe('GraphDB — enriched schema (Phase 1b)', () => {
         rmSync(tmpDir, { recursive: true, force: true });
     });
 
-    it('imports enriched graph data without error', () => {
+    it('imports enriched graph data without error', async () => {
         expect(() => db.importGraphData(makeEnrichedGraph())).not.toThrow();
     });
 
-    it('stores interface symbols', () => {
+    it('stores interface symbols', async () => {
         db.importGraphData(makeEnrichedGraph());
         const results = db.searchSymbols('IService', 'interface');
         expect(results).toHaveLength(1);
         expect(results[0].kind).toBe('interface');
     });
 
-    it('stores trait symbols', () => {
+    it('stores trait symbols', async () => {
         db.importGraphData(makeEnrichedGraph());
         const results = db.searchSymbols('Loggable', 'trait');
         expect(results).toHaveLength(1);
         expect(results[0].kind).toBe('trait');
     });
 
-    it('stores type_alias symbols', () => {
+    it('stores type_alias symbols', async () => {
         db.importGraphData(makeEnrichedGraph());
         const results = db.searchSymbols('ServiceConfig', 'type_alias');
         expect(results).toHaveLength(1);
         expect(results[0].kind).toBe('type_alias');
     });
 
-    it('stores method symbols with visibility', () => {
+    it('stores method symbols with visibility', async () => {
         db.importGraphData(makeEnrichedGraph());
         const results = db.searchSymbols('configure', 'method');
         expect(results).toHaveLength(1);
@@ -277,21 +283,21 @@ describe('GraphDB — enriched schema (Phase 1b)', () => {
         expect(results[0].isAsync).toBe(false);
     });
 
-    it('stores static method flag', () => {
+    it('stores static method flag', async () => {
         db.importGraphData(makeEnrichedGraph());
         const results = db.searchSymbols('getInstance', 'method');
         expect(results).toHaveLength(1);
         expect(results[0].isStatic).toBe(true);
     });
 
-    it('stores async function flag', () => {
+    it('stores async function flag', async () => {
         db.importGraphData(makeEnrichedGraph());
         const results = db.searchSymbols('init', 'function');
         expect(results).toHaveLength(1);
         expect(results[0].isAsync).toBe(true);
     });
 
-    it('stores private method visibility', () => {
+    it('stores private method visibility', async () => {
         db.importGraphData(makeEnrichedGraph());
         const results = db.searchSymbols('handle', 'method');
         expect(results).toHaveLength(1);
@@ -299,7 +305,7 @@ describe('GraphDB — enriched schema (Phase 1b)', () => {
         expect(results[0].isAsync).toBe(true);
     });
 
-    it('stores extends edges', () => {
+    it('stores extends edges', async () => {
         db.importGraphData(makeEnrichedGraph());
         const edges = db.getAllEdges();
         const extendsEdges = edges.filter(e => e.type === 'extends');
@@ -308,7 +314,7 @@ describe('GraphDB — enriched schema (Phase 1b)', () => {
         expect(extendsEdges[0].target).toBe('base.ts');
     });
 
-    it('stores implements edges', () => {
+    it('stores implements edges', async () => {
         db.importGraphData(makeEnrichedGraph());
         const edges = db.getAllEdges();
         const implEdges = edges.filter(e => e.type === 'implements');
@@ -316,7 +322,7 @@ describe('GraphDB — enriched schema (Phase 1b)', () => {
         expect(implEdges[0].label).toContain('IService');
     });
 
-    it('getHeritage returns extends and implements', () => {
+    it('getHeritage returns extends and implements', async () => {
         db.importGraphData(makeEnrichedGraph());
         const heritage = db.getHeritage();
         expect(heritage).toHaveLength(2);
@@ -324,7 +330,7 @@ describe('GraphDB — enriched schema (Phase 1b)', () => {
         expect(types).toEqual(['extends', 'implements']);
     });
 
-    it('getHeritage filters by file', () => {
+    it('getHeritage filters by file', async () => {
         db.importGraphData(makeEnrichedGraph());
         const heritage = db.getHeritage('child.ts');
         expect(heritage).toHaveLength(2);
@@ -332,13 +338,13 @@ describe('GraphDB — enriched schema (Phase 1b)', () => {
         expect(heritage2).toHaveLength(2); // base.ts is target of both
     });
 
-    it('getHeritage returns empty for file with no heritage', () => {
+    it('getHeritage returns empty for file with no heritage', async () => {
         db.importGraphData(makeEnrichedGraph());
         const heritage = db.getHeritage('nonexistent.ts');
         expect(heritage).toHaveLength(0);
     });
 
-    it('getNodeDetail includes enriched symbols', () => {
+    it('getNodeDetail includes enriched symbols', async () => {
         db.importGraphData(makeEnrichedGraph());
         const detail = db.getNodeDetail('base.ts');
         expect(detail).not.toBeNull();
@@ -348,7 +354,7 @@ describe('GraphDB — enriched schema (Phase 1b)', () => {
         expect(kinds).toContain('method');
     });
 
-    it('searchSymbols returns all new fields', () => {
+    it('searchSymbols returns all new fields', async () => {
         db.importGraphData(makeEnrichedGraph());
         const results = db.searchSymbols('start');
         expect(results.length).toBeGreaterThanOrEqual(1);

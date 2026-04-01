@@ -109,10 +109,24 @@ async function copyTreeSitterWasms() {
         fs.copyFileSync(runtimeWasm, path.join(destDir, 'tree-sitter.wasm'));
     }
 
-    // Copy language grammar .wasm files
+    // Copy language grammar .wasm files (only the ones we use)
     const grammarsDir = path.join(__dirname, 'node_modules', 'tree-sitter-wasms', 'out');
+    const NEEDED_GRAMMARS = new Set([
+        'tree-sitter-c.wasm',
+        'tree-sitter-cpp.wasm',
+        'tree-sitter-javascript.wasm',
+        'tree-sitter-typescript.wasm',
+        'tree-sitter-tsx.wasm',
+        'tree-sitter-python.wasm',
+        'tree-sitter-java.wasm',
+        'tree-sitter-go.wasm',
+        'tree-sitter-rust.wasm',
+        'tree-sitter-css.wasm',
+        'tree-sitter-html.wasm',
+        'tree-sitter-c_sharp.wasm',
+    ]);
     if (fs.existsSync(grammarsDir)) {
-        const wasmFiles = fs.readdirSync(grammarsDir).filter(f => f.endsWith('.wasm'));
+        const wasmFiles = fs.readdirSync(grammarsDir).filter(f => NEEDED_GRAMMARS.has(f));
         for (const file of wasmFiles) {
             fs.copyFileSync(path.join(grammarsDir, file), path.join(destDir, file));
         }

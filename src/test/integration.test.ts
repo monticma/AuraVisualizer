@@ -1,6 +1,8 @@
-import { describe, it, expect } from 'vitest';
-import { buildGraph } from '../analyzer/graph-builder';
+import { describe, it, expect, beforeAll } from 'vitest';
+import { buildGraph, preParseFiles } from '../analyzer/graph-builder';
+import { initTreeSitter } from '../analyzer/tree-sitter-loader';
 import { makeFileInfo } from './helpers';
+import type { GraphData } from '../analyzer/types';
 
 /**
  * Integration test — simulates a small multi-language project
@@ -127,7 +129,13 @@ describe('Integration: full analysis pipeline', () => {
         }),
     ];
 
-    const graph = buildGraph(files, 'TestProject');
+    let graph: GraphData;
+
+    beforeAll(async () => {
+        await initTreeSitter();
+        const trees = await preParseFiles(files);
+        graph = buildGraph(files, 'TestProject', {}, trees);
+    });
 
     it('produces correct number of nodes', () => {
         expect(graph.nodes).toHaveLength(8);

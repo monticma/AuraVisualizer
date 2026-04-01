@@ -1,45 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { PyParser } from '../analyzer/parsers/py-parser';
 import { CSSParser } from '../analyzer/parsers/css-parser';
 import { HTMLParser } from '../analyzer/parsers/html-parser';
 import { makeFileInfo } from './helpers';
-
-// ============================================================
-// Python
-// ============================================================
-describe('PyParser.parse', () => {
-    const parser = new PyParser();
-
-    it('extracts import statements', () => {
-        const file = makeFileInfo({
-            id: 'app.py', content: 'import os\nimport sys\n',
-            language: 'python', extension: '.py',
-        });
-        const rels = parser.parse(file);
-        expect(rels).toHaveLength(2);
-        expect(rels[0]).toMatchObject({ target: 'os', type: 'import' });
-        expect(rels[1]).toMatchObject({ target: 'sys', type: 'import' });
-    });
-
-    it('extracts from ... import statements', () => {
-        const file = makeFileInfo({
-            id: 'app.py', content: 'from flask import Flask, jsonify\nfrom os.path import join\n',
-            language: 'python', extension: '.py',
-        });
-        const rels = parser.parse(file);
-        expect(rels).toHaveLength(2);
-        expect(rels[0]).toMatchObject({ target: 'flask', type: 'from-import' });
-        expect(rels[1]).toMatchObject({ target: 'os.path', type: 'from-import' });
-    });
-
-    it('returns empty for no imports', () => {
-        const file = makeFileInfo({
-            id: 'pure.py', content: 'x = 42\nprint(x)\n',
-            language: 'python', extension: '.py',
-        });
-        expect(parser.parse(file)).toHaveLength(0);
-    });
-});
 
 // ============================================================
 // CSS

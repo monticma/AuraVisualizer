@@ -17,10 +17,14 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join, extname, dirname, normalize } from 'path';
 import { getCommitIndex, getFileAtCommit, isGitRepo } from './analyzer/git-history';
 import { computeComplexity } from './analyzer/complexity';
-import { CParser } from './analyzer/parsers/c-parser';
-import { JSParser } from './analyzer/parsers/js-parser';
-import { TSParser } from './analyzer/parsers/ts-parser';
-import { PyParser } from './analyzer/parsers/py-parser';
+import { initTreeSitter, parseSource, hasGrammar } from './analyzer/tree-sitter-loader';
+import { TreeSitterCParser } from './analyzer/parsers/ts-c-parser';
+import { TreeSitterJSParser } from './analyzer/parsers/ts-js-parser';
+import { TreeSitterTSParser } from './analyzer/parsers/ts-ts-parser';
+import { TreeSitterPyParser } from './analyzer/parsers/ts-py-parser';
+import { TreeSitterJavaParser } from './analyzer/parsers/ts-java-parser';
+import { TreeSitterGoParser } from './analyzer/parsers/ts-go-parser';
+import { TreeSitterRustParser } from './analyzer/parsers/ts-rust-parser';
 import { HTMLParser } from './analyzer/parsers/html-parser';
 import { CSSParser } from './analyzer/parsers/css-parser';
 import type { BaseParser } from './analyzer/parsers/base-parser';
@@ -36,25 +40,30 @@ const LANGUAGE_MAP: Record<string, string> = {
     '.c': 'c', '.h': 'c',
     '.js': 'javascript', '.ts': 'typescript',
     '.py': 'python', '.css': 'css',
-    '.html': 'html', '.htm': 'html'
+    '.html': 'html', '.htm': 'html',
+    '.java': 'java', '.go': 'go', '.rs': 'rust'
 };
 
 const SUPPORTED_EXTENSIONS = new Set(Object.keys(LANGUAGE_MAP));
 
 const PARSER_REGISTRY: Record<string, BaseParser> = {
-    'c': new CParser(),
-    'javascript': new JSParser(),
-    'typescript': new TSParser(),
-    'python': new PyParser(),
+    'c': new TreeSitterCParser(),
+    'javascript': new TreeSitterJSParser(),
+    'typescript': new TreeSitterTSParser(),
+    'python': new TreeSitterPyParser(),
+    'java': new TreeSitterJavaParser(),
+    'go': new TreeSitterGoParser(),
+    'rust': new TreeSitterRustParser(),
     'html': new HTMLParser(),
     'css': new CSSParser()
 };
 
 const LANG_FAMILY: Record<string, string> = {
-    'c': 'c', 'javascript': 'js', 'typescript': 'js', 'python': 'py'
+    'c': 'c', 'javascript': 'js', 'typescript': 'js', 'python': 'py',
+    'java': 'java', 'go': 'go', 'rust': 'rust'
 };
 
-const SYMBOL_LANGUAGES = new Set(['c', 'javascript', 'typescript', 'python']);
+const SYMBOL_LANGUAGES = new Set(['c', 'javascript', 'typescript', 'python', 'java', 'go', 'rust']);
 
 function post(msg: unknown): void {
     parentPort?.postMessage(msg);
@@ -88,17 +97,29 @@ function buildFileInfoFromContent(
  * Parse a single file to extract its relations (imports) and symbols.
  * Returns a DeltaNodeState with resolved outgoing links.
  */
-function analyzeFileForDelta(
+async function analyzeFileForDelta(
     fileInfo: FileInfo,
     existingFiles: Set<string>,
     fileMap: Map<string, FileInfo>
-): DeltaNodeState {
+): Promise<DeltaNodeState> {
     const parser = PARSER_REGISTRY[fileInfo.language];
+
+    // Parse AST if grammar is available
+    let tree: import('web-tree-sitter').Tree | undefined;
+    if (parser?.usesTreeSitter && hasGrammar(fileInfo.language)) {
+        try {
+            tree = await parseSource(fileInfo.language, fileInfo.content);
+        } catch {
+            // Fall back to regex parse
+        }
+    }
 
     // Parse relations (imports/includes/requires)
     const linksOut: { target: string; type: string }[] = [];
     if (parser) {
-        const relations = parser.parse(fileInfo, {});
+        const relations = tree
+            ? parser.parseAST(tree, fileInfo, {})
+            : parser.parse(fileInfo, {});
         for (const rel of relations) {
             const resolved = resolveTarget(rel.target, fileInfo.id, existingFiles, fileMap);
             if (resolved && resolved !== fileInfo.id) {
@@ -109,10 +130,11 @@ function analyzeFileForDelta(
 
     // Extract symbols
     let symbols: DeltaNodeState['symbols'] = undefined;
-    if (SYMBOL_LANGUAGES.has(fileInfo.language)) {
-        const symbolParser = parser as unknown as { extractSymbols(f: FileInfo): FileSymbols };
-        if (symbolParser?.extractSymbols) {
-            const raw = symbolParser.extractSymbols(fileInfo);
+    if (SYMBOL_LANGUAGES.has(fileInfo.language) && parser) {
+        const raw = tree
+            ? parser.extractSymbolsAST(tree, fileInfo)
+            : (parser as unknown as { extractSymbols(f: FileInfo): FileSymbols }).extractSymbols?.(fileInfo);
+        if (raw) {
             symbols = {
                 functions: raw.functions.map(f => ({
                     name: f.name,
@@ -161,7 +183,7 @@ function resolveTarget(
     if (existingFiles.has(relativePath)) return relativePath;
 
     // Try extensions
-    const tryExts = ['.js', '.ts', '.py', '.c', '.h', '.css', '.html'];
+    const tryExts = ['.js', '.ts', '.py', '.c', '.h', '.css', '.html', '.java', '.go', '.rs'];
     for (const ext of tryExts) {
         if (existingFiles.has(relativePath + ext)) return relativePath + ext;
     }
@@ -189,6 +211,9 @@ function resolveTarget(
 
 async function run(): Promise<void> {
     const { rootPath, skipDirs, historyDir } = workerData as HistoryWorkerInput;
+
+    // Initialize Tree-sitter WASM runtime
+    await initTreeSitter();
 
     // Check git
     const gitAvailable = await isGitRepo(rootPath);
@@ -325,7 +350,7 @@ async function scanCommit(
 
     // Analyze each non-deleted file
     for (const [filePath, fileInfo] of fileMap) {
-        const state = analyzeFileForDelta(fileInfo, existingFiles, fileMap);
+        const state = await analyzeFileForDelta(fileInfo, existingFiles, fileMap);
         delta.modified[filePath] = state;
     }
 
