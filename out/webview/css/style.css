@@ -28,11 +28,33 @@ html, body {
 }
 
 /* ============================================================
+   App Layout — CSS Grid
+   ============================================================ */
+#app-layout {
+    display: grid;
+    grid-template-rows: 48px 1fr auto auto;
+    grid-template-areas:
+        "topbar"
+        "middle"
+        "filterbar"
+        "timeline";
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+#middle-row {
+    grid-area: middle;
+    display: flex;
+    overflow: hidden;
+    min-height: 0;
+}
+
+/* ============================================================
    Top Bar
    ============================================================ */
 #top-bar {
-    position: fixed;
-    top: 0; left: 0; right: 0;
+    grid-area: topbar;
     height: 48px;
     display: flex;
     align-items: center;
@@ -235,10 +257,11 @@ html, body {
    Graph Container
    ============================================================ */
 #graph-container {
-    width: 100%;
-    height: 100%;
-    position: absolute;
-    top: 0; left: 0;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    position: relative;
+    overflow: hidden;
 }
 
 #graph-container canvas { display: block; }
@@ -256,20 +279,43 @@ html, body {
     align-items: center;
     justify-content: center;
     z-index: 1000;
-    gap: 16px;
+    gap: 20px;
 }
 
-.spinner {
-    width: 40px;
-    height: 40px;
-    border: 3px solid var(--aura-border);
-    border-top: 3px solid var(--aura-accent);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
+.loading-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
 }
 
-@keyframes spin {
-    to { transform: rotate(360deg); }
+.loading-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.loading-logo-icon {
+    font-size: 42px;
+    color: var(--aura-accent);
+    animation: pulse-glow 3s ease-in-out infinite;
+}
+
+.loading-logo-text {
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: 6px;
+    background: linear-gradient(135deg, #60a5fa, #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.loading-status {
+    color: var(--aura-fg);
+    opacity: 0.5;
+    font-size: 13px;
+    letter-spacing: 0.5px;
 }
 
 #loading-overlay .loading-text {
@@ -282,16 +328,13 @@ html, body {
    Filter Bar
    ============================================================ */
 #filter-bar {
-    position: fixed;
-    bottom: 12px; left: 50%;
-    transform: translateX(-50%);
+    grid-area: filterbar;
     display: flex;
     align-items: center;
     gap: 6px;
     padding: 6px 10px;
     background: var(--aura-sidebar-bg);
-    border: 1px solid var(--aura-border);
-    border-radius: var(--radius);
+    border-top: 1px solid var(--aura-border);
     z-index: 100;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
@@ -356,26 +399,21 @@ html, body {
    Detail Panel
    ============================================================ */
 #detail-panel {
-    position: fixed;
-    top: 56px;
-    right: 12px;
     width: 320px;
-    max-height: calc(100vh - 120px);
     background: var(--aura-sidebar-bg);
-    border: 1px solid var(--aura-border);
-    border-radius: var(--radius);
+    border-left: 1px solid var(--aura-border);
     padding: 0;
-    z-index: 100;
     overflow-y: auto;
+    overflow-x: hidden;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    transition: transform 0.25s, opacity 0.25s;
+    transition: width 0.25s ease;
+    flex-shrink: 0;
 }
 
-#detail-panel.hidden {
-    transform: translateX(20px);
-    opacity: 0;
-    pointer-events: none;
+#detail-panel.collapsed {
+    width: 0;
+    border-left: none;
 }
 
 #panel-close {
@@ -401,6 +439,7 @@ html, body {
     gap: 12px;
     padding: 16px 20px;
     border-bottom: 1px solid var(--aura-border);
+    min-width: 320px;
 }
 
 #panel-icon { font-size: 28px; flex-shrink: 0; margin-top: 2px; }
@@ -601,25 +640,20 @@ html, body {
    Explorer Panel
    ============================================================ */
 #explorer-panel {
-    position: fixed;
-    top: 56px;
-    left: 12px;
     width: 260px;
-    max-height: calc(100vh - 120px);
     background: var(--aura-sidebar-bg);
-    border: 1px solid var(--aura-border);
-    border-radius: var(--radius);
-    z-index: 100;
+    border-right: 1px solid var(--aura-border);
     overflow-y: auto;
+    overflow-x: hidden;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    transition: transform 0.25s, opacity 0.25s;
+    transition: width 0.25s ease;
+    flex-shrink: 0;
 }
 
-#explorer-panel.hidden {
-    transform: translateX(-20px);
-    opacity: 0;
-    pointer-events: none;
+#explorer-panel.collapsed {
+    width: 0;
+    border-right: none;
 }
 
 .explorer-title, .explorer-header {
@@ -633,6 +667,7 @@ html, body {
     top: 0;
     background: var(--vscode-sideBar-background, #0d1117);
     z-index: 1;
+    min-width: 260px;
 }
 
 .explorer-header h3 {
@@ -794,10 +829,7 @@ html, body {
    Timeline Bar (Time Machine)
    ============================================================ */
 #timeline-bar {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
+    grid-area: timeline;
     height: 36px;
     background: rgba(13, 17, 23, 0.92);
     border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -805,7 +837,6 @@ html, body {
     align-items: center;
     padding: 0 12px;
     gap: 8px;
-    z-index: 90;
     backdrop-filter: blur(10px);
 }
 
@@ -906,12 +937,23 @@ html, body {
     color: #ffd54f;
 }
 
-/* Push filter bar up when timeline is visible */
-body.has-timeline #filter-bar {
-    bottom: 48px;
-}
+/* has-timeline class no longer needed — grid handles stacking */
 
 /* ============================================================
    Utility
    ============================================================ */
 .hidden { display: none !important; }
+
+/* Prevent content from being visible when panel is collapsed */
+#explorer-panel.collapsed > *,
+#detail-panel.collapsed > * {
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+}
+
+#explorer-panel:not(.collapsed) > *,
+#detail-panel:not(.collapsed) > * {
+    opacity: 1;
+    transition: opacity 0.15s 0.1s;
+}

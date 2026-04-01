@@ -186,56 +186,62 @@ export class WebviewProvider {
     <title>Aura — 3D Visualizer</title>
 </head>
 <body>
-    <!-- Top Bar -->
-    <header id="top-bar">
-        <div class="top-bar-left">
-            <button id="btn-toggle-explorer" class="top-btn icon-btn" title="Toggle explorer">☰</button>
-            <div id="logo">
-                <span class="logo-icon">✦</span>
-                <span class="logo-text">AURA</span>
+    <div id="app-layout">
+        <!-- Top Bar -->
+        <header id="top-bar">
+            <div class="top-bar-left">
+                <button id="btn-toggle-explorer" class="top-btn icon-btn" title="Toggle explorer (☰)">☰</button>
+                <div id="logo">
+                    <span class="logo-icon">✦</span>
+                    <span class="logo-text">AURA</span>
+                </div>
+                <div id="project-info">
+                    <span id="project-name">—</span>
+                </div>
             </div>
-            <div id="project-info">
-                <span id="project-name">—</span>
+            <div class="top-bar-center">
+                <div id="search-container">
+                    <span class="search-icon">⌕</span>
+                    <input type="text" id="search-input" placeholder="Search file..." autocomplete="off">
+                    <div id="search-results" class="hidden"></div>
+                </div>
             </div>
-        </div>
-        <div class="top-bar-center">
-            <div id="search-container">
-                <span class="search-icon">⌕</span>
-                <input type="text" id="search-input" placeholder="Search file..." autocomplete="off">
-                <div id="search-results" class="hidden"></div>
+            <div class="top-bar-right">
+                <div id="stats-bar">
+                    <span class="stat" id="stat-files">0 files</span>
+                    <span class="stat-separator">·</span>
+                    <span class="stat" id="stat-links">0 links</span>
+                    <span class="stat-separator">·</span>
+                    <span class="stat" id="stat-time">—</span>
+                </div>
+                <button id="btn-export" class="top-btn" title="Export graph for AI">📤 Export</button>
+                <button id="btn-refresh" class="top-btn" title="Refresh analysis">🔄 Refresh</button>
             </div>
-        </div>
-        <div class="top-bar-right">
-            <div id="stats-bar">
-                <span class="stat" id="stat-files">0 files</span>
-                <span class="stat-separator">·</span>
-                <span class="stat" id="stat-links">0 links</span>
-                <span class="stat-separator">·</span>
-                <span class="stat" id="stat-time">—</span>
-            </div>
-            <button id="btn-export" class="top-btn" title="Export graph for AI">📤 Export</button>
-            <button id="btn-refresh" class="top-btn" title="Refresh analysis">🔄 Refresh</button>
-        </div>
-    </header>
+        </header>
 
-    <!-- Explorer Panel -->
-    <aside id="explorer-panel" class="hidden">
-        <div class="explorer-header"><h3>Files</h3></div>
-        <div id="explorer-tree" class="explorer-tree"></div>
-    </aside>
+        <!-- Middle Row: Explorer + Graph + Detail -->
+        <div id="middle-row">
+            <!-- Explorer Panel -->
+            <aside id="explorer-panel" class="collapsed">
+                <div class="explorer-header"><h3>Files</h3></div>
+                <div id="explorer-tree" class="explorer-tree"></div>
+            </aside>
 
-    <!-- 3D Graph Container -->
-    <div id="graph-container">
-        <div id="loading-overlay">
-            <div class="loading-content">
-                <span class="loading-icon">✦</span>
-                <p>Analyzing codebase...</p>
+            <!-- 3D Graph Container -->
+            <div id="graph-container">
+                <div id="loading-overlay">
+                    <div class="loading-content">
+                        <div class="loading-logo">
+                            <span class="loading-logo-icon">✦</span>
+                            <span class="loading-logo-text">AURA</span>
+                        </div>
+                        <p class="loading-status">Analyzing codebase...</p>
+                    </div>
+                </div>
             </div>
-        </div>
-    </div>
 
-    <!-- Detail Panel -->
-    <aside id="detail-panel" class="hidden">
+            <!-- Detail Panel -->
+            <aside id="detail-panel" class="collapsed">
         <div class="panel-header">
             <div class="panel-file-icon" id="panel-icon">📄</div>
             <div class="panel-file-info">
@@ -297,14 +303,7 @@ export class WebviewProvider {
             <ul id="panel-dependents" class="panel-list"></ul>
         </div>
     </aside>
-
-    <!-- Heatmap Legend -->
-    <div id="heatmap-legend" class="hidden">
-        <span class="legend-label" id="legend-low">Low</span>
-        <div class="legend-gradient" id="legend-gradient"></div>
-        <span class="legend-label" id="legend-high">High</span>
-        <span class="legend-mode" id="legend-mode">—</span>
-    </div>
+    </div><!-- /middle-row -->
 
     <!-- Timeline Bar (Time Machine) -->
     <div id="timeline-bar" class="hidden">
@@ -391,8 +390,17 @@ export class WebviewProvider {
             </label>
         </div>
     </footer>
+    </div><!-- /app-layout -->
 
-    <!-- Tooltip -->
+    <!-- Heatmap Legend (overlay, outside grid) -->
+    <div id="heatmap-legend" class="hidden">
+        <span class="legend-label" id="legend-low">Low</span>
+        <div class="legend-gradient" id="legend-gradient"></div>
+        <span class="legend-label" id="legend-high">High</span>
+        <span class="legend-mode" id="legend-mode">—</span>
+    </div>
+
+    <!-- Tooltip (overlay, outside grid) -->
     <div id="tooltip" class="hidden">
         <div class="tooltip-name" id="tooltip-name">—</div>
         <div class="tooltip-meta" id="tooltip-meta">—</div>

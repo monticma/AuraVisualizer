@@ -735,7 +735,7 @@
                 refreshGraphVisuals();
                 showDetailPanel(solo);
             } else {
-                detailPanel.classList.add('hidden');
+                detailPanel.classList.add('collapsed');
             }
             return;
         }
@@ -804,7 +804,7 @@
         multiSelectedLinks.clear();
         highlightNodes.clear();
         highlightLinks.clear();
-        detailPanel.classList.add('hidden');
+        detailPanel.classList.add('collapsed');
         clearPinnedFocus();
         if (explodedNode) collapseExplosion();
         updateExplorerSelection();
@@ -1022,7 +1022,7 @@
 
         // Cluster meta-node detail panel
         if (node._isCluster) {
-            detailPanel.classList.remove('hidden');
+            detailPanel.classList.remove('collapsed');
             $('#panel-icon').textContent = '📁';
             $('#panel-filename').textContent = node.name;
             $('#panel-path').textContent = node._clusterGroup;
@@ -1063,7 +1063,7 @@
             return;
         }
 
-        detailPanel.classList.remove('hidden');
+        detailPanel.classList.remove('collapsed');
 
         $('#panel-icon').textContent = LANGUAGE_ICONS[node.language] || '📄';
         $('#panel-filename').textContent = node.name;
@@ -1276,7 +1276,7 @@
     }
 
     function showMultiSelectPanel() {
-        detailPanel.classList.remove('hidden');
+        detailPanel.classList.remove('collapsed');
 
         var nodes = [];
         multiSelectedNodes.forEach(function(n) { nodes.push(n); });
@@ -1383,7 +1383,7 @@
 
     function setupPanelClose() {
         $('#panel-close').addEventListener('click', function() {
-            detailPanel.classList.add('hidden');
+            detailPanel.classList.add('collapsed');
             selectedNode = null;
             if (multiSelectedNodes.size > 0) {
                 multiSelectedNodes.clear();
@@ -2006,7 +2006,7 @@
             selectedNode = null;
             highlightNodes.clear();
             highlightLinks.clear();
-            detailPanel.classList.add('hidden');
+            detailPanel.classList.add('collapsed');
             if (explodedNode) collapseExplosion();
             graph.zoomToFit(500, 50);
             graph.nodeColor(graph.nodeColor());
@@ -2138,7 +2138,7 @@
                         cycleNodeIds.clear();
                         cycleLinkKeys.clear();
                     }
-                    detailPanel.classList.add('hidden');
+                    detailPanel.classList.add('collapsed');
                     if (explodedNode) collapseExplosion();
                     if (timelineActive) {
                         restoreHeadGraph();
@@ -2600,10 +2600,10 @@
         toggleExplorerBtn.addEventListener('click', function() {
             showExplorer = !showExplorer;
             if (showExplorer) {
-                explorerPanel.classList.remove('hidden');
+                explorerPanel.classList.remove('collapsed');
                 toggleExplorerBtn.classList.add('active');
             } else {
-                explorerPanel.classList.add('hidden');
+                explorerPanel.classList.add('collapsed');
                 toggleExplorerBtn.classList.remove('active');
             }
         });
