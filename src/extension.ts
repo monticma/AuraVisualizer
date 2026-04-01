@@ -8,7 +8,7 @@ import * as fs from 'fs/promises';
 import { Worker } from 'worker_threads';
 import { WebviewProvider } from './webview/WebviewProvider';
 import { AuraTreeProvider } from './AuraTreeProvider';
-import { analyzeCodebase, scanSingleFile, buildGraph, type GraphData, type GraphNode, type GraphLink, type FileInfo } from './analyzer/index';
+import { analyzeCodebase, scanSingleFile, buildGraph, preParseFiles, type GraphData, type GraphNode, type GraphLink, type FileInfo } from './analyzer/index';
 import { isGitRepo } from './analyzer/git-history';
 import type { CommitIndex, CommitDelta } from './analyzer/types';
 import { GraphDB } from './graph-db';
@@ -320,9 +320,10 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
 
     const oldGraphData = cachedGraphData;
 
-    // Rebuild graph from cached files
+    // Rebuild graph from cached files (with Tree-sitter pre-parsing)
     const projectName = workspaceFolder.name;
-    cachedGraphData = buildGraph(cachedFiles, projectName);
+    const astTrees = await preParseFiles(cachedFiles);
+    cachedGraphData = buildGraph(cachedFiles, projectName, {}, astTrees);
 
     if (webviewProvider?.isVisible && cachedGraphData) {
         if (oldGraphData) {

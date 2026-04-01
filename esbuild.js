@@ -15,7 +15,7 @@ const extensionConfig = {
     sourcesContent: false,
     platform: 'node',
     outfile: 'out/extension.js',
-    external: ['vscode', 'sql.js'],
+    external: ['vscode', 'sql.js', 'web-tree-sitter'],
     logLevel: 'info',
     tsconfig: 'tsconfig.json',
 };

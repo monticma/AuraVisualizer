@@ -5,7 +5,7 @@
 
 import { parentPort, workerData } from 'worker_threads';
 import { scanDirectory } from './analyzer/scanner';
-import { buildGraph } from './analyzer/graph-builder';
+import { buildGraph, preParseFiles } from './analyzer/graph-builder';
 
 interface WorkerInput {
     rootPath: string;
@@ -20,10 +20,13 @@ async function run(): Promise<void> {
         skipDirs: new Set(skipDirs),
     });
 
+    // Pre-parse files with Tree-sitter where grammar is available
+    const astTrees = await preParseFiles(files);
+
     const graphData = buildGraph(files, projectName, {
         skipDirs: new Set(skipDirs),
         projectName,
-    });
+    }, astTrees);
 
     parentPort?.postMessage({ graphData, files });
 }

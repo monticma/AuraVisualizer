@@ -4,16 +4,20 @@
 
 import { basename, dirname, join, normalize } from 'path';
 import { CParser } from './parsers/c-parser';
+import { TreeSitterCParser } from './parsers/ts-c-parser';
 import { JSParser } from './parsers/js-parser';
 import { HTMLParser } from './parsers/html-parser';
 import { CSSParser } from './parsers/css-parser';
 import { TSParser } from './parsers/ts-parser';
 import { PyParser } from './parsers/py-parser';
 import { computeComplexity } from './complexity';
+import { hasGrammar, parseSource } from './tree-sitter-loader';
 import type { BaseParser } from './parsers/base-parser';
+import type Parser from 'web-tree-sitter';
 import type { FileInfo, Relation, GraphData, GraphNode, GraphLink, AnalyzeOptions, FileSymbols } from './types';
 
-const PARSER_REGISTRY: Record<string, BaseParser> = {
+/** Regex-only parsers (fallback when Tree-sitter unavailable). */
+const REGEX_PARSERS: Record<string, BaseParser> = {
     'c': new CParser(),
     'javascript': new JSParser(),
     'typescript': new TSParser(),
@@ -21,6 +25,39 @@ const PARSER_REGISTRY: Record<string, BaseParser> = {
     'html': new HTMLParser(),
     'css': new CSSParser()
 };
+
+/** Tree-sitter AST parsers (preferred when AST trees are provided). */
+const TS_PARSERS: Record<string, BaseParser> = {
+    'c': new TreeSitterCParser(),
+};
+
+/**
+ * Get the best parser for a language.
+ * Uses Tree-sitter parser when an AST tree is available, else falls back to regex.
+ */
+function getParser(language: string, hasAst: boolean): BaseParser | undefined {
+    if (hasAst && TS_PARSERS[language]) { return TS_PARSERS[language]; }
+    return REGEX_PARSERS[language];
+}
+
+/**
+ * Pre-parse all files using Tree-sitter where grammar is available.
+ * Returns a map of fileId → syntax tree. Call before buildGraph.
+ */
+export async function preParseFiles(files: FileInfo[]): Promise<Map<string, Parser.Tree>> {
+    const trees = new Map<string, Parser.Tree>();
+    for (const file of files) {
+        if (hasGrammar(file.language)) {
+            try {
+                const tree = await parseSource(file.language, file.content);
+                trees.set(file.id, tree);
+            } catch {
+                // Fall back to regex for this file
+            }
+        }
+    }
+    return trees;
+}
 
 function resolveTarget(target: string, sourceId: string, fileMap: Map<string, FileInfo>): string | null {
     if (fileMap.has(target)) return target;
@@ -117,7 +154,7 @@ function findCycles(links: GraphLink[]): string[][] {
     return unique;
 }
 
-export function buildGraph(files: FileInfo[], projectName: string = 'Project', options: AnalyzeOptions = {}): GraphData {
+export function buildGraph(files: FileInfo[], projectName: string = 'Project', options: AnalyzeOptions = {}, astTrees?: Map<string, Parser.Tree>): GraphData {
     const fileMap = new Map<string, FileInfo>();
     for (const file of files) {
         fileMap.set(file.id, file);
@@ -126,9 +163,12 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
     // Phase 1: Parse relations
     const allRelations: Relation[] = [];
     for (const file of files) {
-        const parser = PARSER_REGISTRY[file.language];
+        const tree = astTrees?.get(file.id);
+        const parser = getParser(file.language, !!tree);
         if (parser) {
-            const relations = parser.parse(file, options as Record<string, unknown>);
+            const relations = tree && parser.usesTreeSitter
+                ? parser.parseAST(tree, file, options as Record<string, unknown>)
+                : parser.parse(file, options as Record<string, unknown>);
             allRelations.push(...relations);
         }
     }
@@ -145,10 +185,14 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
 
     for (const file of files) {
         if (!SYMBOL_LANGUAGES.has(file.language)) continue;
-        const parser = PARSER_REGISTRY[file.language] as unknown as { extractSymbols(f: FileInfo): FileSymbols };
-        if (!parser.extractSymbols) continue;
+        const tree = astTrees?.get(file.id);
+        const parser = getParser(file.language, !!tree);
+        if (!parser) continue;
 
-        const symbols = parser.extractSymbols(file);
+        const symbols = tree && parser.usesTreeSitter
+            ? parser.extractSymbolsAST(tree, file)
+            : (parser as unknown as { extractSymbols(f: FileInfo): FileSymbols }).extractSymbols?.(file);
+        if (!symbols) continue;
         fileSymbols.set(file.id, symbols);
 
         const family = LANG_FAMILY[file.language] || file.language;
@@ -168,10 +212,19 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
     for (const file of files) {
         if (!SYMBOL_LANGUAGES.has(file.language)) continue;
         if (HEADER_EXTS.has(file.extension)) continue;
-        const parser = PARSER_REGISTRY[file.language] as unknown as { extractCalls(f: FileInfo): string[] };
-        if (!parser.extractCalls) continue;
+        const tree = astTrees?.get(file.id);
+        const parser = getParser(file.language, !!tree);
+        if (!parser) continue;
 
-        const calls = parser.extractCalls(file);
+        let calls: string[];
+        if (tree && parser.usesTreeSitter) {
+            // AST-based: use extractCallsFromAST for raw call list
+            const tsParser = parser as unknown as { extractCallsFromAST(t: Parser.Tree): string[] };
+            calls = tsParser.extractCallsFromAST?.(tree) || [];
+        } else {
+            const regexParser = parser as unknown as { extractCalls(f: FileInfo): string[] };
+            calls = regexParser.extractCalls?.(file) || [];
+        }
         const ownSymbols = fileSymbols.get(file.id);
         const ownFunctions = new Set(
             ownSymbols ? ownSymbols.functions.map(f => f.name) : []
