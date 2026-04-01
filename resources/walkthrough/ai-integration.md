@@ -14,7 +14,7 @@ The MCP server starts automatically and registers itself in `.vscode/mcp.json`. 
 
 | Tool | What it does |
 |------|-------------|
-| `find_dependencies` | What does a file depend on? (transitive) |
+| `find_dependencies` | What does a file depend on? (transitive, includes inheritance) |
 | `find_dependents` | What files would be affected by a change? |
 | `find_path` | Shortest path between two files |
 | `find_cycles` | All circular dependency cycles |

@@ -22,7 +22,7 @@
 ## Fonctionnalités à reproduire — Classées par priorité
 
 ### 🟢 Haute valeur, faisable
-
+ 
 #### 1. Tree-sitter parsing
 - **GitNexus** : Parsing AST complet via Tree-sitter pour 14+ langages (TS, JS, Python, Java, Kotlin, C#, Go, Rust, PHP, Ruby, Swift, C, C++, Dart)
 - **Aura** : Regex parsers custom pour 7 langages (C/H, JS, TS, Python, CSS, HTML)

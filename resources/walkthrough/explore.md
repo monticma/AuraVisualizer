@@ -1,7 +1,10 @@
 ## Explore the Graph
 
-Each **node** is a file. Each **edge** is a dependency (import, include, function call).
+Each **node** is a file. Each **edge** is a dependency (import, include, function call, inheritance).
 Node size reflects lines of code. Edge color reflects dependency type.
+
+Aura supports **10 languages**: C, JavaScript, TypeScript, Python, Java, Go, Rust, CSS, HTML, and C headers — all parsed with Tree-sitter AST analysis.
+Filter buttons at the bottom show only languages present in your project.
 
 **Mouse controls:**
 - 🖱️ **Click** — Select a node, see details in the side panel

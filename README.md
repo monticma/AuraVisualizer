@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Languages-C%20%7C%20JS%20%7C%20TS%20%7C%20Python%20%7C%20CSS%20%7C%20HTML-blue" alt="Languages" />
+  <img src="https://img.shields.io/badge/Languages-C%20%7C%20JS%20%7C%20TS%20%7C%20Python%20%7C%20Java%20%7C%20Go%20%7C%20Rust%20%7C%20CSS%20%7C%20HTML-blue" alt="Languages" />
   <img src="https://img.shields.io/badge/VS%20Code-%3E%3D1.85-007ACC" alt="VS Code" />
   <img src="https://img.shields.io/badge/License-MIT-green" alt="License" />
 </p>
@@ -30,6 +30,8 @@ Files become interactive 3D nodes, dependencies become edges. The graph uses phy
 
 ### Multi-Language Support
 
+Powered by **Tree-sitter** AST parsing (WASM) for accurate, structural code analysis.
+
 | Language | Extensions | Color |
 |----------|-----------|-------|
 | C source | `.c` | 🔷 Light blue |
@@ -37,10 +39,15 @@ Files become interactive 3D nodes, dependencies become edges. The graph uses phy
 | JavaScript | `.js`, `.jsx` | 🟡 Yellow |
 | TypeScript | `.ts`, `.tsx` | 🔵 Blue |
 | Python | `.py` | 🟢 Green |
+| Java | `.java` | 🔴 Red |
+| Go | `.go` | 🩵 Cyan |
+| Rust | `.rs` | 🟠 Orange |
 | CSS | `.css` | 🟣 Purple |
-| HTML | `.html` | 🟠 Orange |
+| HTML | `.html` | 🟧 Coral |
 
-Cross-file **function calls** are detected for C files (definitions in one file, calls in another).
+Cross-file **function calls** are detected for C, JS/TS, Python, Java, Go, and Rust.
+**Inheritance edges** (`extends` / `implements`) are detected for JS/TS, Python, Java, Go (struct embedding), and Rust (trait impl).
+Language filter buttons are **dynamic** — only languages present in the current analysis are shown.
 
 ### Interactive Exploration
 
@@ -236,7 +243,9 @@ The MCP server exposes your codebase graph to AI tools via stdio transport. It r
 | `import` | Yellow | JS/TS `import` |
 | `require` | Yellow (dim) | CommonJS `require()` |
 | `dynamic-import` | Yellow (faint) | `import()` expressions |
-| `function-call` | Green | C cross-file function calls |
+| `function-call` | Green | Cross-file function calls (C, JS/TS, Python, Java, Go, Rust) |
+| `extends` | Pink | Class/struct inheritance |
+| `implements` | Purple | Interface / trait implementation |
 | `script` | Orange | HTML `<script src>` |
 | `stylesheet` | Purple | HTML `<link rel="stylesheet">` |
 | `css-import` | Purple (dim) | CSS `@import` |
