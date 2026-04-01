@@ -6,7 +6,7 @@
  *
  * Reads the SQLite database at AURA_DB_PATH (env var) and serves:
  *   - 3 resources  (overview, nodes, node detail)
- *   - 8 tools      (find_dependencies, find_dependents, find_path, etc.)
+ *   - 9 tools      (find_dependencies, find_dependents, find_path, etc.)
  *
  * Transport: stdio (standard for local MCP servers).
  * Launched by VS Code's MCP configuration (.vscode/mcp.json).
@@ -123,6 +123,14 @@ const TOOLS = [
     {
         name: 'get_architecture',
         description: 'Get a high-level architecture overview: file count, lines of code, and average complexity grouped by programming language.',
+        inputSchema: {
+            type: 'object' as const,
+            properties: {},
+        },
+    },
+    {
+        name: 'get_communities',
+        description: 'Detect architectural communities (modules) using the Louvain algorithm. Groups files by actual dependency coupling, not directory structure.',
         inputSchema: {
             type: 'object' as const,
             properties: {},
@@ -253,6 +261,21 @@ function handleTool(db: GraphDB, name: string, args: Record<string, unknown>): u
                     total_loc: o.total_loc,
                     avg_complexity: o.avg_complexity,
                 })),
+            };
+        }
+        case 'get_communities': {
+            const communities = db.getCommunities();
+            const groups: Record<number, string[]> = {};
+            for (const c of communities) {
+                (groups[c.community] ??= []).push(c.nodeId);
+            }
+            const sorted = Object.entries(groups)
+                .map(([id, files]) => ({ community: parseInt(id), files, size: files.length }))
+                .sort((a, b) => b.size - a.size);
+            return {
+                communities: sorted,
+                total: sorted.length,
+                note: `Detected ${sorted.length} architectural communities via Louvain algorithm`,
             };
         }
         default:

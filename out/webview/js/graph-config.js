@@ -64,7 +64,8 @@ var HEATMAP_LABELS = {
     fanIn:      'Fan-in',
     fanOut:     'Fan-out',
     loc:        'Lines of code',
-    lastModified: 'Last modified'
+    lastModified: 'Last modified',
+    community:  'Communities'
 };
 
 var SYMBOL_ICONS = {

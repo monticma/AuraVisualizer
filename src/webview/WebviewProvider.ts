@@ -378,6 +378,7 @@ export class WebviewProvider {
                 <option value="fanOut">📤 Fan-out</option>
                 <option value="loc">📏 Lines of code</option>
                 <option value="lastModified">📆 Last update</option>
+                <option value="community">🧩 Communities</option>
             </select>
         </div>
         <div class="filter-separator"></div>

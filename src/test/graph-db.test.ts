@@ -197,6 +197,33 @@ describe('GraphDB', () => {
         const dead = db.getDeadCode();
         expect(Array.isArray(dead)).toBe(true);
     });
+
+    it('getCommunities assigns communities to all nodes', async () => {
+        db.importGraphData(await makeTestGraph());
+        const communities = db.getCommunities();
+        expect(communities).toHaveLength(4);
+        // Every node should have a community assigned
+        for (const c of communities) {
+            expect(c).toHaveProperty('nodeId');
+            expect(c).toHaveProperty('community');
+            expect(typeof c.community).toBe('number');
+        }
+    });
+
+    it('getCommunities groups connected files together', async () => {
+        db.importGraphData(await makeTestGraph());
+        const communities = db.getCommunities();
+        const map: Record<string, number> = {};
+        for (const c of communities) map[c.nodeId] = c.community;
+        // main.c, utils.c, and lib/helper.c all include utils.h — they should be in the same community
+        expect(map['main.c']).toBe(map['utils.h']);
+        expect(map['utils.c']).toBe(map['utils.h']);
+    });
+
+    it('getCommunities returns empty for empty db', async () => {
+        const communities = db.getCommunities();
+        expect(communities).toHaveLength(0);
+    });
 });
 
 // ── Phase 1b: Enriched schema tests ───────────────────────────

@@ -392,6 +392,7 @@ var WebviewProvider = class _WebviewProvider {
                 <option value="fanOut">\u{1F4E4} Fan-out</option>
                 <option value="loc">\u{1F4CF} Lines of code</option>
                 <option value="lastModified">\u{1F4C6} Last update</option>
+                <option value="community">\u{1F9E9} Communities</option>
             </select>
         </div>
         <div class="filter-separator"></div>
@@ -4460,6 +4461,98 @@ var GraphDB = class {
   /** Get all edges. */
   getAllEdges() {
     return queryAll(this.ensureDb(), "SELECT * FROM edges ORDER BY source, target");
+  }
+  /**
+   * Community detection using Louvain algorithm.
+   * Returns nodeId → communityId mapping.
+   */
+  getCommunities() {
+    const db = this.ensureDb();
+    const nodes = queryAll(db, "SELECT id FROM nodes");
+    const edges = queryAll(db, "SELECT source, target FROM edges");
+    if (nodes.length === 0)
+      return [];
+    const nodeIndex = /* @__PURE__ */ new Map();
+    nodes.forEach((n2, i) => nodeIndex.set(n2.id, i));
+    const n = nodes.length;
+    const adj = Array.from({ length: n }, () => /* @__PURE__ */ new Map());
+    let totalWeight = 0;
+    for (const e of edges) {
+      const si = nodeIndex.get(e.source);
+      const ti = nodeIndex.get(e.target);
+      if (si === void 0 || ti === void 0 || si === ti)
+        continue;
+      adj[si].set(ti, (adj[si].get(ti) || 0) + 1);
+      adj[ti].set(si, (adj[ti].get(si) || 0) + 1);
+      totalWeight += 1;
+    }
+    if (totalWeight === 0) {
+      return nodes.map((nd, i) => ({ nodeId: nd.id, community: i }));
+    }
+    const m2 = totalWeight * 2;
+    const deg = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      let d = 0;
+      for (const w of adj[i].values())
+        d += w;
+      deg[i] = d;
+    }
+    const community = new Int32Array(n);
+    for (let i = 0; i < n; i++)
+      community[i] = i;
+    let improved = true;
+    let iterations = 0;
+    while (improved && iterations < 20) {
+      improved = false;
+      iterations++;
+      for (let i = 0; i < n; i++) {
+        const ci = community[i];
+        const commWeights = /* @__PURE__ */ new Map();
+        for (const [j, w] of adj[i]) {
+          const cj = community[j];
+          commWeights.set(cj, (commWeights.get(cj) || 0) + w);
+        }
+        const commDeg = /* @__PURE__ */ new Map();
+        for (let j = 0; j < n; j++) {
+          if (j === i)
+            continue;
+          const cj = community[j];
+          if (commWeights.has(cj) || cj === ci) {
+            commDeg.set(cj, (commDeg.get(cj) || 0) + deg[j]);
+          }
+        }
+        const ki = deg[i];
+        const wIn = commWeights.get(ci) || 0;
+        const sumCi = commDeg.get(ci) || 0;
+        const removeCost = wIn / totalWeight - ki * sumCi / (m2 * m2) * 2;
+        let bestGain = 0;
+        let bestComm = ci;
+        for (const [cj, wj] of commWeights) {
+          if (cj === ci)
+            continue;
+          const sumCj = commDeg.get(cj) || 0;
+          const gain = wj / totalWeight - ki * sumCj / (m2 * m2) * 2 - removeCost;
+          if (gain > bestGain) {
+            bestGain = gain;
+            bestComm = cj;
+          }
+        }
+        if (bestComm !== ci) {
+          community[i] = bestComm;
+          improved = true;
+        }
+      }
+    }
+    const idMap = /* @__PURE__ */ new Map();
+    let nextId = 0;
+    const result = [];
+    for (let i = 0; i < n; i++) {
+      let cid = community[i];
+      if (!idMap.has(cid))
+        idMap.set(cid, nextId++);
+      result.push({ nodeId: nodes[i].id, community: idMap.get(cid) });
+    }
+    return result;
   }
   /** Get meta value by key. */
   getMeta(key) {

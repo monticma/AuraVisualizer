@@ -464,6 +464,115 @@ export class GraphDB {
         return queryAll<EdgeRow>(this.ensureDb(), 'SELECT * FROM edges ORDER BY source, target');
     }
 
+    /**
+     * Community detection using Louvain algorithm.
+     * Returns nodeId → communityId mapping.
+     */
+    getCommunities(): { nodeId: string; community: number }[] {
+        const db = this.ensureDb();
+        const nodes = queryAll<{ id: string }>(db, 'SELECT id FROM nodes');
+        const edges = queryAll<{ source: string; target: string }>(db, 'SELECT source, target FROM edges');
+
+        if (nodes.length === 0) return [];
+
+        // Build adjacency with weights (undirected, multiple edge types count as 1)
+        const nodeIndex = new Map<string, number>();
+        nodes.forEach((n, i) => nodeIndex.set(n.id, i));
+        const n = nodes.length;
+
+        // Adjacency list: neighbor → weight
+        const adj: Map<number, number>[] = Array.from({ length: n }, () => new Map());
+        let totalWeight = 0;
+
+        for (const e of edges) {
+            const si = nodeIndex.get(e.source);
+            const ti = nodeIndex.get(e.target);
+            if (si === undefined || ti === undefined || si === ti) continue;
+            adj[si].set(ti, (adj[si].get(ti) || 0) + 1);
+            adj[ti].set(si, (adj[ti].get(si) || 0) + 1);
+            totalWeight += 1;
+        }
+
+        if (totalWeight === 0) {
+            return nodes.map((nd, i) => ({ nodeId: nd.id, community: i }));
+        }
+
+        const m2 = totalWeight * 2; // sum of all weights (undirected counted once)
+        // degree of each node (sum of edge weights)
+        const deg = new Float64Array(n);
+        for (let i = 0; i < n; i++) {
+            let d = 0;
+            for (const w of adj[i].values()) d += w;
+            deg[i] = d;
+        }
+
+        // Initial: each node in its own community
+        const community = new Int32Array(n);
+        for (let i = 0; i < n; i++) community[i] = i;
+
+        // Louvain phase 1: local moves
+        let improved = true;
+        let iterations = 0;
+        while (improved && iterations < 20) {
+            improved = false;
+            iterations++;
+            for (let i = 0; i < n; i++) {
+                const ci = community[i];
+                // Sum of weights to each neighboring community
+                const commWeights = new Map<number, number>();
+                for (const [j, w] of adj[i]) {
+                    const cj = community[j];
+                    commWeights.set(cj, (commWeights.get(cj) || 0) + w);
+                }
+
+                // Sum of degrees in each community
+                const commDeg = new Map<number, number>();
+                for (let j = 0; j < n; j++) {
+                    if (j === i) continue;
+                    const cj = community[j];
+                    if (commWeights.has(cj) || cj === ci) {
+                        commDeg.set(cj, (commDeg.get(cj) || 0) + deg[j]);
+                    }
+                }
+
+                // Try removing i from ci and adding to best community
+                const ki = deg[i];
+                const wIn = commWeights.get(ci) || 0;
+                const sumCi = commDeg.get(ci) || 0;
+                const removeCost = wIn / totalWeight - (ki * sumCi) / (m2 * m2) * 2;
+
+                let bestGain = 0;
+                let bestComm = ci;
+                for (const [cj, wj] of commWeights) {
+                    if (cj === ci) continue;
+                    const sumCj = commDeg.get(cj) || 0;
+                    const gain = wj / totalWeight - (ki * sumCj) / (m2 * m2) * 2 - removeCost;
+                    if (gain > bestGain) {
+                        bestGain = gain;
+                        bestComm = cj;
+                    }
+                }
+
+                if (bestComm !== ci) {
+                    community[i] = bestComm;
+                    improved = true;
+                }
+            }
+        }
+
+        // Renumber communities to 0..k-1
+        const idMap = new Map<number, number>();
+        let nextId = 0;
+        const result: { nodeId: string; community: number }[] = [];
+        for (let i = 0; i < n; i++) {
+            let cid = community[i];
+            if (!idMap.has(cid)) idMap.set(cid, nextId++);
+            result.push({ nodeId: nodes[i].id, community: idMap.get(cid)! });
+        }
+
+        return result;
+    }
+
     /** Get meta value by key. */
     getMeta(key: string): string | null {
         const row = queryOne<{ value: string }>(this.ensureDb(), 'SELECT value FROM meta WHERE key = ?', [key]);

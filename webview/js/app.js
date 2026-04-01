@@ -53,6 +53,10 @@
     var blastMode = false;
     var blastDepths = {};  // nodeId → depth
 
+    // Community detection
+    var communityMap = {};  // nodeId → communityId
+    var communityColors = {}; // communityId → color
+
     // Explorer state
     var showExplorer = false;
     var fileTree = {};
@@ -169,6 +173,7 @@
         graphData = data;
         headGraphData = JSON.parse(JSON.stringify(data));
         computeMetricRanges();
+        computeCommunities();
         updateStats(graphData.meta);
         updateLanguageButtons(graphData.nodes);
         if (loadingOverlay) loadingOverlay.style.display = 'none';
@@ -332,6 +337,121 @@
         var range = metricRanges[metric];
         if (!range || range.max === range.min) return 0;
         return (value - range.min) / (range.max - range.min);
+    }
+
+    // ============================================================
+    // Community Detection (Louvain)
+    // ============================================================
+    function computeCommunities() {
+        communityMap = {};
+        communityColors = {};
+        if (!graphData) return;
+
+        var nodes = graphData.nodes;
+        var links = graphData.links;
+        var n = nodes.length;
+        if (n === 0) return;
+
+        // Build index
+        var idx = {};
+        for (var i = 0; i < n; i++) idx[nodes[i].id] = i;
+
+        // Adjacency with weights (undirected)
+        var adj = [];
+        for (var a = 0; a < n; a++) adj[a] = {};
+        var totalWeight = 0;
+
+        for (var li = 0; li < links.length; li++) {
+            var lk = links[li];
+            var si = idx[typeof lk.source === 'object' ? lk.source.id : lk.source];
+            var ti = idx[typeof lk.target === 'object' ? lk.target.id : lk.target];
+            if (si === undefined || ti === undefined || si === ti) continue;
+            adj[si][ti] = (adj[si][ti] || 0) + 1;
+            adj[ti][si] = (adj[ti][si] || 0) + 1;
+            totalWeight += 1;
+        }
+
+        if (totalWeight === 0) {
+            for (var z = 0; z < n; z++) {
+                communityMap[nodes[z].id] = z;
+                communityColors[z] = GROUP_COLORS[z % GROUP_COLORS.length];
+            }
+            return;
+        }
+
+        var m2 = totalWeight * 2;
+        // Node degrees
+        var deg = [];
+        for (var di = 0; di < n; di++) {
+            var d = 0;
+            for (var k in adj[di]) d += adj[di][k];
+            deg[di] = d;
+        }
+
+        // Each node starts in its own community
+        var comm = [];
+        for (var ci = 0; ci < n; ci++) comm[ci] = ci;
+
+        // Louvain phase 1: local moves
+        var improved = true;
+        var iter = 0;
+        while (improved && iter < 20) {
+            improved = false;
+            iter++;
+            for (var ni = 0; ni < n; ni++) {
+                var curComm = comm[ni];
+                // Weights to neighboring communities
+                var cw = {};
+                for (var nb in adj[ni]) {
+                    var cn = comm[nb];
+                    cw[cn] = (cw[cn] || 0) + adj[ni][nb];
+                }
+                // Degree sum per neighboring community (excluding ni)
+                var cd = {};
+                for (var nj = 0; nj < n; nj++) {
+                    if (nj === ni) continue;
+                    var cj = comm[nj];
+                    if (cw[cj] !== undefined || cj === curComm) {
+                        cd[cj] = (cd[cj] || 0) + deg[nj];
+                    }
+                }
+
+                var ki = deg[ni];
+                var wIn = cw[curComm] || 0;
+                var sumCi = cd[curComm] || 0;
+                var removeCost = wIn / totalWeight - (ki * sumCi) / (m2 * m2) * 2;
+
+                var bestGain = 0;
+                var bestComm = curComm;
+                for (var cc in cw) {
+                    var ccNum = parseInt(cc);
+                    if (ccNum === curComm) continue;
+                    var sumCj = cd[ccNum] || 0;
+                    var gain = cw[ccNum] / totalWeight - (ki * sumCj) / (m2 * m2) * 2 - removeCost;
+                    if (gain > bestGain) {
+                        bestGain = gain;
+                        bestComm = ccNum;
+                    }
+                }
+
+                if (bestComm !== curComm) {
+                    comm[ni] = bestComm;
+                    improved = true;
+                }
+            }
+        }
+
+        // Renumber communities 0..k-1
+        var remap = {};
+        var nextId = 0;
+        for (var ri = 0; ri < n; ri++) {
+            var c = comm[ri];
+            if (remap[c] === undefined) remap[c] = nextId++;
+            communityMap[nodes[ri].id] = remap[c];
+        }
+        for (var ci2 = 0; ci2 < nextId; ci2++) {
+            communityColors[ci2] = GROUP_COLORS[ci2 % GROUP_COLORS.length];
+        }
     }
 
     // ============================================================
@@ -617,6 +737,18 @@
         if (selectedNode && selectedNode.id === node.id) return '#93c5fd';
 
         if (heatmapMode !== 'off') {
+            if (heatmapMode === 'community') {
+                var cid = communityMap[node.id];
+                var cColor = (cid !== undefined) ? (communityColors[cid] || '#ffffff') : '#ffffff';
+                if (pinnedNode && blastMode) {
+                    if (!pinnedNodes.has(node)) return cColor + '15';
+                    var bdc = blastDepths[node.id];
+                    return BLAST_COLORS[Math.min(bdc || 0, BLAST_COLORS.length - 1)];
+                }
+                if (pinnedNode) return pinnedNodes.has(node) ? cColor : cColor + '15';
+                if (highlightNodes.size > 0 && !highlightNodes.has(node)) return cColor + '44';
+                return cColor;
+            }
             var value;
             switch (heatmapMode) {
                 case 'complexity': value = node.complexity || 1; break;
@@ -1646,6 +1778,29 @@
 
         if (mode === 'off') {
             legend.classList.add('hidden');
+        } else if (mode === 'community') {
+            legend.classList.remove('hidden');
+            $('#legend-mode').textContent = HEATMAP_LABELS[mode] || mode;
+
+            // Count communities
+            var commCounts = {};
+            for (var nid in communityMap) {
+                var c = communityMap[nid];
+                commCounts[c] = (commCounts[c] || 0) + 1;
+            }
+            var numComm = Object.keys(commCounts).length;
+
+            var gradient = $('#legend-gradient');
+            // Build gradient from community colors
+            var stops = [];
+            for (var ci = 0; ci < Math.min(numComm, GROUP_COLORS.length); ci++) {
+                stops.push(communityColors[ci] || GROUP_COLORS[ci]);
+            }
+            if (stops.length > 0) {
+                gradient.style.background = 'linear-gradient(to right, ' + stops.join(', ') + ')';
+            }
+            $('#legend-low').textContent = numComm + ' communities';
+            $('#legend-high').textContent = '';
         } else {
             legend.classList.remove('hidden');
             $('#legend-mode').textContent = HEATMAP_LABELS[mode] || mode;
@@ -2227,7 +2382,7 @@
         // ============================================================
         // Keyboard shortcuts
         // ============================================================
-        var HEATMAP_MODES = ['off', 'complexity', 'fanIn', 'fanOut', 'loc', 'lastModified'];
+        var HEATMAP_MODES = ['off', 'complexity', 'fanIn', 'fanOut', 'loc', 'lastModified', 'community'];
 
         document.addEventListener('keydown', function(e) {
             // Ignore when typing in an input
