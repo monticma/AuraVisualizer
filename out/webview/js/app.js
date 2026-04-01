@@ -745,6 +745,17 @@
             graphContainer.addEventListener(evt, wakeGraph, { passive: true });
         });
 
+        // Wake graph when interacting with overlays (palette, explorer, sidebar)
+        var overlayEls = [
+            $('#community-palette'),
+            explorerPanel,
+            $('#filter-bar'),
+            detailPanel
+        ];
+        overlayEls.forEach(function(el) {
+            if (el) el.addEventListener('pointerdown', wakeGraph, { passive: true });
+        });
+
         // Track real mouse movement (ignore jitter < 3px)
         graphContainer.addEventListener('pointermove', function(e) {
             var dx = e.clientX - lastPointerX;
