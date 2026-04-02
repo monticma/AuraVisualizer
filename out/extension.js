@@ -54,6 +54,7 @@ var WebviewProvider = class _WebviewProvider {
   onDidDispose = this.onDisposeEmitter.event;
   pendingData;
   pendingHistoryIndex;
+  pendingDeltas = [];
   webviewReady = false;
   static VIEW_STATE_KEY = "aura.viewState";
   constructor(extensionUri, workspaceState) {
@@ -99,6 +100,7 @@ var WebviewProvider = class _WebviewProvider {
     this.panel.onDidDispose(() => {
       this.panel = void 0;
       this.webviewReady = false;
+      this.pendingDeltas = [];
       this.disposables.forEach((d) => d.dispose());
       this.disposables = [];
       this.onDisposeEmitter.fire();
@@ -117,6 +119,9 @@ var WebviewProvider = class _WebviewProvider {
             }
             if (this.pendingHistoryIndex) {
               this.panel?.webview.postMessage({ type: "historyIndex", payload: this.pendingHistoryIndex });
+            }
+            for (const delta of this.pendingDeltas) {
+              this.panel?.webview.postMessage({ type: "historyDelta", payload: delta });
             }
             break;
           case "openFile":
@@ -193,6 +198,8 @@ var WebviewProvider = class _WebviewProvider {
   sendHistoryDelta(delta) {
     if (this.webviewReady) {
       this.panel?.webview.postMessage({ type: "historyDelta", payload: delta });
+    } else {
+      this.pendingDeltas.push(delta);
     }
   }
   get isVisible() {
