@@ -194,6 +194,8 @@
             console.error('[aura] initGraph error:', e);
         }
         buildExplorerTree(graphData.nodes);
+        // Request saved view state from extension (pull model — guarantees graph is ready)
+        vscode.postMessage({ type: 'requestViewState' });
     }
 
     function handleGraphDelta(delta) {
@@ -2481,6 +2483,11 @@
 
             applySpreadForces();
             applyFilters();
+            // Force refresh of all visual accessors
+            graph.nodeColor(graph.nodeColor());
+            graph.nodeVal(graph.nodeVal());
+            graph.linkColor(graph.linkColor());
+            graph.nodeThreeObject(graph.nodeThreeObject());
         }
     }
 

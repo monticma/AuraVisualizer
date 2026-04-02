@@ -113,7 +113,6 @@ var WebviewProvider = class _WebviewProvider {
             this.webviewReady = true;
             if (this.pendingData) {
               this.panel?.webview.postMessage({ type: "graphData", payload: this.pendingData });
-              this.sendSavedViewState();
             }
             break;
           case "openFile":
@@ -140,7 +139,6 @@ var WebviewProvider = class _WebviewProvider {
     this.pendingData = data;
     if (this.webviewReady) {
       this.panel?.webview.postMessage({ type: "graphData", payload: data });
-      this.sendSavedViewState();
     }
   }
   sendSavedViewState() {
