@@ -530,7 +530,7 @@
                     if (activeCommunities.has(cid)) activeCommunities.delete(cid);
                     else activeCommunities.add(cid);
                     item.classList.toggle('dimmed', !activeCommunities.has(cid));
-                    if (graph) { graph.nodeColor(graph.nodeColor()); graph.linkColor(graph.linkColor()); }
+                    if (graph) { graph.nodeColor(graph.nodeColor()); graph.linkColor(graph.linkColor()); graph.nodeThreeObject(graph.nodeThreeObject()); }
                 });
                 list.appendChild(item);
             })(ids[i]);
@@ -583,7 +583,9 @@
                     !(showOrphans && (node.fanIn > 0 || node.fanOut > 0)) &&
                     !(showDeadCode && !(node.deadExports && node.deadExports.length > 0)) &&
                     !(showCycles && !cycleNodeIds.has(node.id)) &&
-                    !(pinnedNode && !pinnedNodes.has(node));
+                    !(pinnedNode && !pinnedNodes.has(node)) &&
+                    !(heatmapMode === 'community' && activeCommunities.size < Object.keys(communityNames).length &&
+                      (communityMap[node.id] === undefined || !activeCommunities.has(communityMap[node.id])));
 
                 // Cluster meta-nodes always get a label
                 if (node._isCluster) {
@@ -2489,14 +2491,14 @@
             cpSelectAll.addEventListener('click', function() {
                 for (var k in communityNames) activeCommunities.add(Number(k));
                 buildCommunityList();
-                if (graph) { graph.nodeColor(graph.nodeColor()); graph.linkColor(graph.linkColor()); }
+                if (graph) { graph.nodeColor(graph.nodeColor()); graph.linkColor(graph.linkColor()); graph.nodeThreeObject(graph.nodeThreeObject()); }
             });
         }
         if (cpSelectNone) {
             cpSelectNone.addEventListener('click', function() {
                 activeCommunities.clear();
                 buildCommunityList();
-                if (graph) { graph.nodeColor(graph.nodeColor()); graph.linkColor(graph.linkColor()); }
+                if (graph) { graph.nodeColor(graph.nodeColor()); graph.linkColor(graph.linkColor()); graph.nodeThreeObject(graph.nodeThreeObject()); }
             });
         }
         if (cpClose) {
