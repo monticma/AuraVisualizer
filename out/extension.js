@@ -53,6 +53,7 @@ var WebviewProvider = class _WebviewProvider {
   onDisposeEmitter = new vscode.EventEmitter();
   onDidDispose = this.onDisposeEmitter.event;
   pendingData;
+  pendingHistoryIndex;
   webviewReady = false;
   static VIEW_STATE_KEY = "aura.viewState";
   constructor(extensionUri, workspaceState) {
@@ -113,6 +114,9 @@ var WebviewProvider = class _WebviewProvider {
             this.webviewReady = true;
             if (this.pendingData) {
               this.panel?.webview.postMessage({ type: "graphData", payload: this.pendingData });
+            }
+            if (this.pendingHistoryIndex) {
+              this.panel?.webview.postMessage({ type: "historyIndex", payload: this.pendingHistoryIndex });
             }
             break;
           case "openFile":
@@ -176,6 +180,7 @@ var WebviewProvider = class _WebviewProvider {
     });
   }
   sendHistoryIndex(index) {
+    this.pendingHistoryIndex = index;
     if (this.webviewReady) {
       this.panel?.webview.postMessage({ type: "historyIndex", payload: index });
     }
@@ -4632,6 +4637,7 @@ var cachedGraphData;
 var cachedFiles = [];
 var historyWorker;
 var commitIndex;
+var cachedDeltas = [];
 var fileWatcher;
 var statusBarItem;
 var refreshTimeout;
@@ -4695,6 +4701,9 @@ function activate(context) {
         webviewProvider.sendGraphData(cachedGraphData);
         if (commitIndex) {
           webviewProvider.sendHistoryIndex(commitIndex);
+          for (const delta of cachedDeltas) {
+            webviewProvider.sendHistoryDelta(delta);
+          }
         }
       }
     }
@@ -4740,6 +4749,9 @@ async function openVisualizer(context) {
     webviewProvider.sendGraphData(cachedGraphData);
     if (commitIndex) {
       webviewProvider.sendHistoryIndex(commitIndex);
+      for (const delta of cachedDeltas) {
+        webviewProvider.sendHistoryDelta(delta);
+      }
     }
   } else {
     await refreshAnalysis(context);
@@ -4962,6 +4974,7 @@ async function startHistoryScan(context, rootPath, excludePaths) {
     historyWorker.terminate();
     historyWorker = void 0;
   }
+  cachedDeltas = [];
   const historyDir = path2.join(rootPath, ".aura", "history");
   const workerPath = path2.join(context.extensionUri.fsPath, "out", "history-worker.js");
   historyWorker = new import_worker_threads.Worker(workerPath, {
@@ -4988,6 +5001,7 @@ async function startHistoryScan(context, rootPath, excludePaths) {
       }
       case "delta": {
         const delta = msg.payload;
+        cachedDeltas.push(delta);
         if (webviewProvider) {
           webviewProvider.sendHistoryDelta(delta);
         }
@@ -5034,6 +5048,9 @@ async function blastRadiusCurrentFile(context) {
     webviewProvider.sendGraphData(cachedGraphData);
     if (commitIndex) {
       webviewProvider.sendHistoryIndex(commitIndex);
+      for (const delta of cachedDeltas) {
+        webviewProvider.sendHistoryDelta(delta);
+      }
     }
   }
   setTimeout(() => webviewProvider?.sendBlastRadius(relativePath), 300);

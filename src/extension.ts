@@ -18,6 +18,7 @@ let cachedGraphData: GraphData | undefined;
 let cachedFiles: FileInfo[] = [];
 let historyWorker: Worker | undefined;
 let commitIndex: CommitIndex | undefined;
+let cachedDeltas: CommitDelta[] = [];
 let fileWatcher: vscode.FileSystemWatcher | undefined;
 let statusBarItem: vscode.StatusBarItem | undefined;
 let refreshTimeout: ReturnType<typeof setTimeout> | undefined;
@@ -95,6 +96,9 @@ export function activate(context: vscode.ExtensionContext): void {
                 webviewProvider.sendGraphData(cachedGraphData);
                 if (commitIndex) {
                     webviewProvider.sendHistoryIndex(commitIndex);
+                    for (const delta of cachedDeltas) {
+                        webviewProvider.sendHistoryDelta(delta);
+                    }
                 }
             }
         }
@@ -148,9 +152,12 @@ async function openVisualizer(context: vscode.ExtensionContext): Promise<void> {
 
     if (cachedGraphData) {
         webviewProvider.sendGraphData(cachedGraphData);
-        // Re-send cached history index so timeline bar reappears
+        // Re-send cached history so timeline bar + navigation reappears
         if (commitIndex) {
             webviewProvider.sendHistoryIndex(commitIndex);
+            for (const delta of cachedDeltas) {
+                webviewProvider.sendHistoryDelta(delta);
+            }
         }
     } else {
         await refreshAnalysis(context);
@@ -454,6 +461,7 @@ async function startHistoryScan(
         historyWorker.terminate();
         historyWorker = undefined;
     }
+    cachedDeltas = [];
 
     const historyDir = path.join(rootPath, '.aura', 'history');
     const workerPath = path.join(context.extensionUri.fsPath, 'out', 'history-worker.js');
@@ -490,6 +498,7 @@ async function startHistoryScan(
 
             case 'delta': {
                 const delta = msg.payload as CommitDelta;
+                cachedDeltas.push(delta);
                 if (webviewProvider) {
                     webviewProvider.sendHistoryDelta(delta);
                 }
@@ -545,6 +554,9 @@ async function blastRadiusCurrentFile(context: vscode.ExtensionContext): Promise
         webviewProvider.sendGraphData(cachedGraphData);
         if (commitIndex) {
             webviewProvider.sendHistoryIndex(commitIndex);
+            for (const delta of cachedDeltas) {
+                webviewProvider.sendHistoryDelta(delta);
+            }
         }
     }
     // Small delay to ensure graph is initialized before blast

@@ -17,6 +17,7 @@ export class WebviewProvider {
     private onDisposeEmitter = new vscode.EventEmitter<void>();
     public readonly onDidDispose = this.onDisposeEmitter.event;
     private pendingData: GraphData | undefined;
+    private pendingHistoryIndex: unknown | undefined;
     private webviewReady = false;
 
     private static readonly VIEW_STATE_KEY = 'aura.viewState';
@@ -86,6 +87,9 @@ export class WebviewProvider {
                         this.webviewReady = true;
                         if (this.pendingData) {
                             this.panel?.webview.postMessage({ type: 'graphData', payload: this.pendingData });
+                        }
+                        if (this.pendingHistoryIndex) {
+                            this.panel?.webview.postMessage({ type: 'historyIndex', payload: this.pendingHistoryIndex });
                         }
                         break;
                     case 'openFile':
@@ -157,6 +161,7 @@ export class WebviewProvider {
     }
 
     public sendHistoryIndex(index: unknown): void {
+        this.pendingHistoryIndex = index;
         if (this.webviewReady) {
             this.panel?.webview.postMessage({ type: 'historyIndex', payload: index });
         }
