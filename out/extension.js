@@ -46,6 +46,7 @@ var WebviewProvider = class _WebviewProvider {
   static viewType = "auraVisualizer.graphView";
   panel;
   extensionUri;
+  workspaceState;
   disposables = [];
   onOpenFileEmitter = new vscode.EventEmitter();
   onOpenFile = this.onOpenFileEmitter.event;
@@ -53,8 +54,10 @@ var WebviewProvider = class _WebviewProvider {
   onDidDispose = this.onDisposeEmitter.event;
   pendingData;
   webviewReady = false;
-  constructor(extensionUri) {
+  static VIEW_STATE_KEY = "aura.viewState";
+  constructor(extensionUri, workspaceState) {
     this.extensionUri = extensionUri;
+    this.workspaceState = workspaceState;
   }
   show() {
     if (this.panel) {
@@ -110,6 +113,7 @@ var WebviewProvider = class _WebviewProvider {
             this.webviewReady = true;
             if (this.pendingData) {
               this.panel?.webview.postMessage({ type: "graphData", payload: this.pendingData });
+              this.sendSavedViewState();
             }
             break;
           case "openFile":
@@ -136,6 +140,13 @@ var WebviewProvider = class _WebviewProvider {
     this.pendingData = data;
     if (this.webviewReady) {
       this.panel?.webview.postMessage({ type: "graphData", payload: data });
+      this.sendSavedViewState();
+    }
+  }
+  sendSavedViewState() {
+    const state = this.workspaceState.get(_WebviewProvider.VIEW_STATE_KEY);
+    if (state) {
+      this.panel?.webview.postMessage({ type: "restoreViewState", payload: state });
     }
   }
   sendGraphDelta(delta) {
@@ -4670,7 +4681,7 @@ function activate(context) {
   vscode3.window.registerWebviewPanelSerializer(WebviewProvider.viewType, {
     async deserializeWebviewPanel(panel) {
       if (!webviewProvider) {
-        webviewProvider = new WebviewProvider(context.extensionUri);
+        webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState);
         registerOpenFileHandler();
       }
       webviewProvider.restore(panel);
@@ -4712,7 +4723,7 @@ function registerOpenFileHandler() {
 }
 async function openVisualizer(context) {
   if (!webviewProvider) {
-    webviewProvider = new WebviewProvider(context.extensionUri);
+    webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState);
     registerOpenFileHandler();
   }
   webviewProvider.show();
@@ -5003,7 +5014,7 @@ async function blastRadiusCurrentFile(context) {
   if (relativePath.startsWith(".."))
     return;
   if (!webviewProvider) {
-    webviewProvider = new WebviewProvider(context.extensionUri);
+    webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState);
     registerOpenFileHandler();
   }
   webviewProvider.show();

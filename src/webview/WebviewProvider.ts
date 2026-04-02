@@ -10,6 +10,7 @@ export class WebviewProvider {
     public static readonly viewType = 'auraVisualizer.graphView';
     private panel: vscode.WebviewPanel | undefined;
     private readonly extensionUri: vscode.Uri;
+    private readonly workspaceState: vscode.Memento;
     private disposables: vscode.Disposable[] = [];
     private onOpenFileEmitter = new vscode.EventEmitter<{ path: string; line?: number }>();
     public readonly onOpenFile = this.onOpenFileEmitter.event;
@@ -18,8 +19,11 @@ export class WebviewProvider {
     private pendingData: GraphData | undefined;
     private webviewReady = false;
 
-    constructor(extensionUri: vscode.Uri) {
+    private static readonly VIEW_STATE_KEY = 'aura.viewState';
+
+    constructor(extensionUri: vscode.Uri, workspaceState: vscode.Memento) {
         this.extensionUri = extensionUri;
+        this.workspaceState = workspaceState;
     }
 
     public show(): vscode.WebviewPanel {
@@ -82,6 +86,7 @@ export class WebviewProvider {
                         this.webviewReady = true;
                         if (this.pendingData) {
                             this.panel?.webview.postMessage({ type: 'graphData', payload: this.pendingData });
+                            this.sendSavedViewState();
                         }
                         break;
                     case 'openFile':
@@ -109,6 +114,14 @@ export class WebviewProvider {
         this.pendingData = data;
         if (this.webviewReady) {
             this.panel?.webview.postMessage({ type: 'graphData', payload: data });
+            this.sendSavedViewState();
+        }
+    }
+
+    private sendSavedViewState(): void {
+        const state = this.workspaceState.get(WebviewProvider.VIEW_STATE_KEY);
+        if (state) {
+            this.panel?.webview.postMessage({ type: 'restoreViewState', payload: state });
         }
     }
 

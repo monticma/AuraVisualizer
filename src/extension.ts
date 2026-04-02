@@ -86,7 +86,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.window.registerWebviewPanelSerializer(WebviewProvider.viewType, {
         async deserializeWebviewPanel(panel: vscode.WebviewPanel): Promise<void> {
             if (!webviewProvider) {
-                webviewProvider = new WebviewProvider(context.extensionUri);
+                webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState);
                 registerOpenFileHandler();
             }
             webviewProvider.restore(panel);
@@ -135,7 +135,7 @@ function registerOpenFileHandler(): void {
 
 async function openVisualizer(context: vscode.ExtensionContext): Promise<void> {
     if (!webviewProvider) {
-        webviewProvider = new WebviewProvider(context.extensionUri);
+        webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState);
         registerOpenFileHandler();
 
 
@@ -530,7 +530,7 @@ async function blastRadiusCurrentFile(context: vscode.ExtensionContext): Promise
     if (relativePath.startsWith('..')) return;
 
     if (!webviewProvider) {
-        webviewProvider = new WebviewProvider(context.extensionUri);
+        webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState);
         registerOpenFileHandler();
     }
     webviewProvider.show();

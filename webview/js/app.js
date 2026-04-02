@@ -153,6 +153,9 @@
             case 'historyDelta':
                 handleHistoryDelta(message.payload);
                 break;
+            case 'restoreViewState':
+                if (message.payload) applyViewState(message.payload);
+                break;
         }
     });
 
@@ -2357,6 +2360,130 @@
         }
     }
 
+    // ============================================================
+    // View State Persistence
+    // ============================================================
+    function collectViewState() {
+        return {
+            activeLanguages: Array.from(activeLanguages),
+            dagMode: dagMode,
+            showOrphans: showOrphans,
+            showDeadCode: showDeadCode,
+            showCycles: showCycles,
+            showGroups: showGroups,
+            pathMode: pathMode,
+            showLabels: showLabels,
+            heatmapMode: heatmapMode,
+            nodeSizeMultiplier: nodeSizeMultiplier,
+            spreadMultiplier: spreadMultiplier,
+            focusDepth: focusDepth,
+            showExplorer: showExplorer
+        };
+    }
+
+    function saveViewState() {
+        vscode.postMessage({ type: 'saveViewState', payload: collectViewState() });
+    }
+
+    function applyViewState(state) {
+        if (!state) return;
+
+        // Languages — only restrict to saved set, intersect with present languages
+        if (state.activeLanguages) {
+            var savedLangs = new Set(state.activeLanguages);
+            var langBtns = document.querySelectorAll('#language-filters .filter-btn');
+            for (var i = 0; i < langBtns.length; i++) {
+                var btn = langBtns[i];
+                var lang = btn.dataset.lang;
+                if (btn.style.display === 'none') continue; // not present in project
+                var shouldBeActive = savedLangs.has(lang);
+                btn.classList.toggle('active', shouldBeActive);
+                if (shouldBeActive) activeLanguages.add(lang);
+                else activeLanguages.delete(lang);
+            }
+        }
+
+        // Boolean toggles
+        dagMode = !!state.dagMode;
+        showOrphans = !!state.showOrphans;
+        showDeadCode = !!state.showDeadCode;
+        showCycles = !!state.showCycles;
+        showLabels = !!state.showLabels;
+        pathMode = !!state.pathMode;
+
+        $('#btn-dag-mode').classList.toggle('active', dagMode);
+        $('#btn-highlight-orphans').classList.toggle('active', showOrphans);
+        $('#btn-dead-code').classList.toggle('active', showDeadCode);
+        $('#btn-cycles').classList.toggle('active', showCycles);
+        $('#btn-labels').classList.toggle('active', showLabels);
+        $('#btn-path-mode').classList.toggle('active', pathMode);
+
+        // Groups — set directly (don't call toggleDirectoryGroups which flips the value)
+        showGroups = !!state.showGroups;
+        $('#btn-group-dirs').classList.toggle('active', showGroups);
+
+        // Sliders
+        if (typeof state.nodeSizeMultiplier === 'number') {
+            nodeSizeMultiplier = state.nodeSizeMultiplier;
+            var nss = $('#node-size-slider');
+            if (nss) nss.value = nodeSizeMultiplier;
+        }
+        if (typeof state.spreadMultiplier === 'number') {
+            spreadMultiplier = state.spreadMultiplier;
+            var ss = $('#spread-slider');
+            if (ss) ss.value = spreadMultiplier;
+        }
+        if (typeof state.focusDepth === 'number') {
+            focusDepth = state.focusDepth;
+            var ds = $('#depth-slider');
+            if (ds) ds.value = focusDepth;
+            var dv = $('#depth-value');
+            if (dv) dv.textContent = focusDepth;
+        }
+
+        // Heatmap
+        if (state.heatmapMode) {
+            var hs = $('#heatmap-select');
+            if (hs) hs.value = state.heatmapMode;
+            setHeatmapMode(state.heatmapMode);
+        }
+
+        // Explorer
+        if (typeof state.showExplorer === 'boolean') {
+            showExplorer = state.showExplorer;
+            if (showExplorer) {
+                explorerPanel.classList.remove('collapsed');
+                toggleExplorerBtn.classList.add('active');
+            } else {
+                explorerPanel.classList.add('collapsed');
+                toggleExplorerBtn.classList.remove('active');
+            }
+        }
+
+        // Apply to graph
+        if (graph) {
+            graph.dagMode(dagMode ? 'td' : null);
+            graph.dagLevelDistance(dagMode ? 60 : null);
+
+            // Build cycle sets if needed
+            if (showCycles && graphData && graphData.meta && graphData.meta.cycles) {
+                cycleNodeIds.clear();
+                cycleLinkKeys.clear();
+                for (var ci = 0; ci < graphData.meta.cycles.length; ci++) {
+                    var cycle = graphData.meta.cycles[ci];
+                    for (var cj = 0; cj < cycle.length; cj++) {
+                        cycleNodeIds.add(cycle[cj]);
+                        var nextIdx = (cj + 1) % cycle.length;
+                        cycleLinkKeys.add(cycle[cj] + '>' + cycle[nextIdx]);
+                    }
+                }
+            }
+
+            applySpreadForces();
+            applyFilters();
+        }
+    }
+
     function setupFilters() {
         var langBtns = document.querySelectorAll('#language-filters .filter-btn');
         for (var i = 0; i < langBtns.length; i++) {
@@ -2367,6 +2494,7 @@
                     if (btn.classList.contains('active')) activeLanguages.add(lang);
                     else activeLanguages.delete(lang);
                     applyFilters();
+                    saveViewState();
                 });
             })(langBtns[i]);
         }
@@ -2383,6 +2511,7 @@
                 }
                 applyFilters();
             }
+            saveViewState();
         });
 
         $('#btn-highlight-orphans').addEventListener('click', function() {
@@ -2398,6 +2527,7 @@
                 graph.linkColor(graph.linkColor());
                 graph.nodeThreeObject(graph.nodeThreeObject());
             }
+            saveViewState();
         });
 
         $('#btn-dead-code').addEventListener('click', function() {
@@ -2413,6 +2543,7 @@
                 graph.linkColor(graph.linkColor());
                 graph.nodeThreeObject(graph.nodeThreeObject());
             }
+            saveViewState();
         });
 
         $('#btn-cycles').addEventListener('click', function() {
@@ -2450,10 +2581,12 @@
                 });
                 graph.nodeThreeObject(graph.nodeThreeObject());
             }
+            saveViewState();
         });
 
         $('#btn-group-dirs').addEventListener('click', function() {
             toggleDirectoryGroups();
+            saveViewState();
         });
 
         $('#btn-path-mode').addEventListener('click', function() {
@@ -2468,12 +2601,14 @@
                      .linkColor(graph.linkColor())
                      .linkDirectionalParticles(graph.linkDirectionalParticles());
             }
+            saveViewState();
         });
 
         $('#btn-labels').addEventListener('click', function() {
             showLabels = !showLabels;
             $('#btn-labels').classList.toggle('active', showLabels);
             if (graph) graph.nodeThreeObject(graph.nodeThreeObject());
+            saveViewState();
         });
 
         $('#btn-recenter').addEventListener('click', function() {
@@ -2489,6 +2624,7 @@
 
         $('#heatmap-select').addEventListener('change', function(e) {
             setHeatmapMode(e.target.value);
+            saveViewState();
         });
 
         // Community palette buttons
@@ -2518,6 +2654,7 @@
         $('#node-size-slider').addEventListener('input', function(e) {
             nodeSizeMultiplier = parseFloat(e.target.value);
             if (graph) graph.nodeVal(graph.nodeVal());
+            saveViewState();
         });
 
         $('#spread-slider').addEventListener('input', function(e) {
@@ -2527,6 +2664,7 @@
                 graph.d3ReheatSimulation();
                 wakeGraph();
             }
+            saveViewState();
         });
 
         $('#depth-slider').addEventListener('input', function(e) {
@@ -2537,6 +2675,7 @@
                 if (blastMode) handleBlastRadius(pinnedNode, true);
                 else handleNodeRightClick(pinnedNode, true);
             }
+            saveViewState();
         });
 
         // ============================================================
@@ -2568,6 +2707,7 @@
                     var nextMode = HEATMAP_MODES[(idx + 1) % HEATMAP_MODES.length];
                     $('#heatmap-select').value = nextMode;
                     setHeatmapMode(nextMode);
+                    saveViewState();
                     break;
                 case 'p':
                     // Toggle path mode
@@ -3111,6 +3251,7 @@
                 explorerPanel.classList.add('collapsed');
                 toggleExplorerBtn.classList.remove('active');
             }
+            saveViewState();
         });
     }
 
