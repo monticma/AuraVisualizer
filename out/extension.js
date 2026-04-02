@@ -4693,6 +4693,9 @@ function activate(context) {
       webviewProvider.restore(panel);
       if (cachedGraphData) {
         webviewProvider.sendGraphData(cachedGraphData);
+        if (commitIndex) {
+          webviewProvider.sendHistoryIndex(commitIndex);
+        }
       }
     }
   });
@@ -4735,6 +4738,9 @@ async function openVisualizer(context) {
   webviewProvider.show();
   if (cachedGraphData) {
     webviewProvider.sendGraphData(cachedGraphData);
+    if (commitIndex) {
+      webviewProvider.sendHistoryIndex(commitIndex);
+    }
   } else {
     await refreshAnalysis(context);
   }
@@ -5026,6 +5032,9 @@ async function blastRadiusCurrentFile(context) {
   webviewProvider.show();
   if (cachedGraphData) {
     webviewProvider.sendGraphData(cachedGraphData);
+    if (commitIndex) {
+      webviewProvider.sendHistoryIndex(commitIndex);
+    }
   }
   setTimeout(() => webviewProvider?.sendBlastRadius(relativePath), 300);
 }

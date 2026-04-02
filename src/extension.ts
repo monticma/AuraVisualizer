@@ -93,6 +93,9 @@ export function activate(context: vscode.ExtensionContext): void {
             // If analysis already completed, send cached data immediately
             if (cachedGraphData) {
                 webviewProvider.sendGraphData(cachedGraphData);
+                if (commitIndex) {
+                    webviewProvider.sendHistoryIndex(commitIndex);
+                }
             }
         }
     });
@@ -145,6 +148,10 @@ async function openVisualizer(context: vscode.ExtensionContext): Promise<void> {
 
     if (cachedGraphData) {
         webviewProvider.sendGraphData(cachedGraphData);
+        // Re-send cached history index so timeline bar reappears
+        if (commitIndex) {
+            webviewProvider.sendHistoryIndex(commitIndex);
+        }
     } else {
         await refreshAnalysis(context);
     }
@@ -536,6 +543,9 @@ async function blastRadiusCurrentFile(context: vscode.ExtensionContext): Promise
     webviewProvider.show();
     if (cachedGraphData) {
         webviewProvider.sendGraphData(cachedGraphData);
+        if (commitIndex) {
+            webviewProvider.sendHistoryIndex(commitIndex);
+        }
     }
     // Small delay to ensure graph is initialized before blast
     setTimeout(() => webviewProvider?.sendBlastRadius(relativePath), 300);
