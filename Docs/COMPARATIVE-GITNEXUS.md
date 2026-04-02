@@ -14,7 +14,7 @@
 | **Base de données** | sql.js (SQLite WASM) | LadybugDB (graph DB native) |
 | **Visu** | 3d-force-graph + THREE.js | Sigma.js + Graphology (WebGL 2D) |
 | **MCP** | 9 tools, 3 resources | 7 tools, 6 resources, 2 prompts, 4 skills |
-| **Avantage Aura** | Intégré dans VS Code, visu 3D, Time Machine, heatmaps, Tree-sitter, blast radius, community detection | — |
+| **Avantage Aura** | Intégré dans VS Code, visu 3D, Time Travel, heatmaps, Tree-sitter, blast radius, community detection | — |
 | **Avantage GitNexus** | — | multi-repo, wiki auto-générée, recherche sémantique |
 
 ---
@@ -41,8 +41,8 @@
 
 #### 4. Git-diff impact
 - **GitNexus** : `detect_changes()` tool — mappe les lignes changées vers les symboles et process affectés, calcule un risk_level
-- **Aura** : Time Machine montre les fichiers changés visuellement, mais pas l'impact en cascade
-- **Gain** : Combiner Time Machine + blast radius — "ce commit a touché 3 fichiers, voilà les 12 fichiers potentiellement affectés"
+- **Aura** : Time Travel montre les fichiers changés visuellement, mais pas l'impact en cascade
+- **Gain** : Combiner Time Travel + blast radius — "ce commit a touché 3 fichiers, voilà les 12 fichiers potentiellement affectés"
 - **Effort** : Moyen — connecter git diff au graphe de dépendances existant
 
 #### 5. ~~Community detection automatique~~ ✅ FAIT
@@ -107,7 +107,7 @@
 | **Visualisation 3D** | Force-directed 3D graph avec THREE.js — GitNexus n'a que du 2D WebGL |
 | **Intégration VS Code native** | Webview panel, activity bar, commands, keybindings |
 | **Heatmaps** | 5 modes de coloration (complexity, fan-in/out, LOC, last modified) |
-| **Time Machine** | Navigation commit par commit avec timeline |
+| **Time Travel** | Navigation commit par commit avec timeline |
 | **File explosion** | Éclater un fichier en ses symboles individuels en 3D |
 | **Blast radius directionnel** | Shift+RightClick : BFS dependents, coloration par profondeur, halo source |
 | **Community detection** | Louvain algorithm, palette interactive, nommage par hub file, filtrage visuel |
@@ -127,4 +127,4 @@
 2. ~~**Héritage & interfaces**~~ ✅ — Complété (extends/implements)
 3. ~~**Blast radius amélioré**~~ ✅ — Complété (Shift+RightClick, profondeur, MCP enrichi)
 4. ~~**Community detection**~~ ✅ — Complété (Louvain, palette, nommage, filtrage)
-5. **Git-diff impact** — Connecte Time Machine au graphe
+5. **Git-diff impact** — Connecte Time Travel au graphe

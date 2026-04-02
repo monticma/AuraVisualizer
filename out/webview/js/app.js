@@ -67,7 +67,7 @@
     var explodedNode = null;
     var explosionData = null;
 
-    // Time Machine state
+    // Time Travel state
     var timelineCommits = [];       // all commits, newest first
     var timelineDeltas = {};        // hash → CommitDelta
     var timelinePosition = -1;     // -1 = HEAD (current), 0 = newest commit, N = older
@@ -2704,7 +2704,7 @@
     }
 
     // ============================================================
-    // Time Machine — Timeline Navigation
+    // Time Travel — Timeline Navigation
     // ============================================================
     function setupTimeline() {
         if (!timelineSlider || !timelinePrevBtn || !timelineNextBtn) return;

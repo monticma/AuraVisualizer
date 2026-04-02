@@ -329,7 +329,7 @@ var WebviewProvider = class _WebviewProvider {
     </aside>
     </div><!-- /middle-row -->
 
-    <!-- Timeline Bar (Time Machine) -->
+    <!-- Timeline Bar (Time Travel) -->
     <div id="timeline-bar" class="hidden">
         <button id="timeline-prev" class="timeline-btn" title="Previous commit (\u2190)">\u25C0</button>
         <button id="timeline-next" class="timeline-btn" title="Next commit (\u2192)">\u25B6</button>

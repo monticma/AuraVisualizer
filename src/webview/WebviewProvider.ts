@@ -316,7 +316,7 @@ export class WebviewProvider {
     </aside>
     </div><!-- /middle-row -->
 
-    <!-- Timeline Bar (Time Machine) -->
+    <!-- Timeline Bar (Time Travel) -->
     <div id="timeline-bar" class="hidden">
         <button id="timeline-prev" class="timeline-btn" title="Previous commit (←)">◀</button>
         <button id="timeline-next" class="timeline-btn" title="Next commit (→)">▶</button>

@@ -1,4 +1,4 @@
-## Time Machine ⏳
+## Time Travel ⏳
 
 Navigate your project's git history and watch the dependency graph evolve over time.
 

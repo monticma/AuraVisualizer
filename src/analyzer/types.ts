@@ -136,7 +136,7 @@ export interface AnalyzeOptions extends ScanOptions {
 }
 
 // ============================================================
-// Time Machine — Git History Types
+// Time Travel — Git History Types
 // ============================================================
 
 /** Lightweight commit info from git log */

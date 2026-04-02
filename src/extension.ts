@@ -207,7 +207,7 @@ async function refreshAnalysis(context: vscode.ExtensionContext): Promise<void> 
             console.error('[aura] GraphDB import error:', dbErr);
         }
 
-        // Launch Time Machine history scan in background
+        // Launch Time Travel history scan in background
         startHistoryScan(context, rootPath, excludePaths);
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -431,7 +431,7 @@ function updateStatusBar(): void {
 }
 
 // ============================================================
-// Time Machine — Git History Scan
+// Time Travel — Git History Scan
 // ============================================================
 async function startHistoryScan(
     context: vscode.ExtensionContext,

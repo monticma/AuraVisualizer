@@ -146,7 +146,7 @@ Hold `Shift` and click multiple nodes to select a group. The detail panel shows:
 - Internal links between selected files
 - List of all selected files
 
-### Time Machine ⏳
+### Time Travel ⏳
 
 Navigate your project's git history commit by commit. A timeline bar at the bottom lets you scrub through commits. Changed files are highlighted in yellow at each step.
 

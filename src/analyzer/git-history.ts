@@ -1,5 +1,5 @@
 /**
- * git-history.ts — Git history utilities for Time Machine.
+ * git-history.ts — Git history utilities for Time Travel.
  * Uses child_process to call git (no external dependency needed).
  */
 

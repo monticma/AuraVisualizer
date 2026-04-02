@@ -168,11 +168,11 @@
             }
           },
           {
-            "id": "time-machine",
+            "id": "time-travel",
             "title": "Travel Through Git History",
             "description": "Use the **timeline bar** at the bottom to navigate your project's commit history. Changed files light up in yellow at each step.\n\nWatch your architecture evolve!",
             "media": {
-              "markdown": "resources/walkthrough/time-machine.md"
+              "markdown": "resources/walkthrough/time-travel.md"
             }
           },
           {
