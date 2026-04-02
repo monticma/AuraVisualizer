@@ -129,6 +129,14 @@ var WebviewProvider = class _WebviewProvider {
           case "requestExport":
             vscode.commands.executeCommand("auraVisualizer.exportGraph");
             break;
+          case "saveViewState":
+            if (message.payload) {
+              this.workspaceState.update(_WebviewProvider.VIEW_STATE_KEY, message.payload);
+            }
+            break;
+          case "requestViewState":
+            this.sendSavedViewState();
+            break;
         }
       },
       null,
