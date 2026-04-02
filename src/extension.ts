@@ -115,6 +115,7 @@ function registerOpenFileHandler(): void {
         try {
             const doc = await vscode.workspace.openTextDocument(uri);
             const editor = await vscode.window.showTextDocument(doc, {
+                viewColumn: vscode.ViewColumn.Beside,
                 preserveFocus: false
             });
 

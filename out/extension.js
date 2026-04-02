@@ -4695,6 +4695,7 @@ function registerOpenFileHandler() {
     try {
       const doc = await vscode3.workspace.openTextDocument(uri);
       const editor = await vscode3.window.showTextDocument(doc, {
+        viewColumn: vscode3.ViewColumn.Beside,
         preserveFocus: false
       });
       if (line && line > 0) {
