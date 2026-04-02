@@ -118,6 +118,10 @@ export class WebviewProvider {
         }
     }
 
+    public sendProgress(phase: string, message: string): void {
+        this.panel?.webview.postMessage({ type: 'progress', payload: { phase, message } });
+    }
+
     public focusNode(nodeId: string): void {
         this.panel?.webview.postMessage({ type: 'focusNode', payload: { nodeId } });
     }
@@ -239,7 +243,10 @@ export class WebviewProvider {
                             <span class="loading-logo-icon">✦</span>
                             <span class="loading-logo-text">AURA</span>
                         </div>
-                        <p class="loading-status">Analyzing codebase...</p>
+                        <div class="loading-progress-bar">
+                            <div class="loading-progress-fill" id="loading-progress-fill"></div>
+                        </div>
+                        <p class="loading-status" id="loading-status">Analyzing codebase...</p>
                     </div>
                 </div>
             </div>

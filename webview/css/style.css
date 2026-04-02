@@ -318,6 +318,28 @@ html, body {
     letter-spacing: 0.5px;
 }
 
+.loading-progress-bar {
+    width: 220px;
+    height: 3px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.loading-progress-fill {
+    height: 100%;
+    width: 30%;
+    background: linear-gradient(90deg, #60a5fa, #a78bfa);
+    border-radius: 2px;
+    animation: progress-slide 1.8s ease-in-out infinite;
+}
+
+@keyframes progress-slide {
+    0%   { transform: translateX(-100%); width: 30%; }
+    50%  { transform: translateX(150%); width: 50%; }
+    100% { transform: translateX(700%); width: 30%; }
+}
+
 #loading-overlay .loading-text {
     color: var(--aura-fg);
     opacity: 0.7;

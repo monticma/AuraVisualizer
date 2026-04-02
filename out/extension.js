@@ -143,6 +143,9 @@ var WebviewProvider = class _WebviewProvider {
       this.panel?.webview.postMessage({ type: "updateGraph", payload: delta });
     }
   }
+  sendProgress(phase, message) {
+    this.panel?.webview.postMessage({ type: "progress", payload: { phase, message } });
+  }
   focusNode(nodeId) {
     this.panel?.webview.postMessage({ type: "focusNode", payload: { nodeId } });
   }
@@ -253,7 +256,10 @@ var WebviewProvider = class _WebviewProvider {
                             <span class="loading-logo-icon">\u2726</span>
                             <span class="loading-logo-text">AURA</span>
                         </div>
-                        <p class="loading-status">Analyzing codebase...</p>
+                        <div class="loading-progress-bar">
+                            <div class="loading-progress-fill" id="loading-progress-fill"></div>
+                        </div>
+                        <p class="loading-status" id="loading-status">Analyzing codebase...</p>
                     </div>
                 </div>
             </div>
@@ -4813,6 +4819,10 @@ function runAnalysisInWorker(extensionUri, rootPath, excludePaths, projectName) 
       }
     });
     worker.on("message", (msg) => {
+      if (msg.progress) {
+        webviewProvider?.sendProgress(msg.progress.phase, msg.progress.message);
+        return;
+      }
       if (msg.error) {
         reject(new Error(msg.error));
       } else {

@@ -3584,10 +3584,13 @@ function buildGraph(files, projectName = "Project", options = {}, astTrees) {
 // src/analyzer-worker.ts
 async function run() {
   const { rootPath, skipDirs, projectName } = import_worker_threads.workerData;
+  import_worker_threads.parentPort?.postMessage({ progress: { phase: "scanning", message: "Scanning files..." } });
   const files = await scanDirectory(rootPath, {
     skipDirs: new Set(skipDirs)
   });
+  import_worker_threads.parentPort?.postMessage({ progress: { phase: "parsing", message: `Parsing ${files.length} files...` } });
   const astTrees = await preParseFiles(files);
+  import_worker_threads.parentPort?.postMessage({ progress: { phase: "building", message: "Building dependency graph..." } });
   const graphData = buildGraph(files, projectName, {
     skipDirs: new Set(skipDirs),
     projectName

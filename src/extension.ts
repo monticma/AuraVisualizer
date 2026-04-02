@@ -272,7 +272,11 @@ function runAnalysisInWorker(
             },
         });
 
-        worker.on('message', (msg: { graphData?: GraphData; files?: FileInfo[]; error?: string }) => {
+        worker.on('message', (msg: { graphData?: GraphData; files?: FileInfo[]; error?: string; progress?: { phase: string; message: string } }) => {
+            if (msg.progress) {
+                webviewProvider?.sendProgress(msg.progress.phase, msg.progress.message);
+                return;
+            }
             if (msg.error) {
                 reject(new Error(msg.error));
             } else {

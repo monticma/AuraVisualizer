@@ -138,6 +138,12 @@
             case 'themeChanged':
                 // Could adapt colors here if needed
                 break;
+            case 'progress':
+                if (message.payload) {
+                    var statusEl = $('#loading-status');
+                    if (statusEl) statusEl.textContent = message.payload.message || 'Analyzing...';
+                }
+                break;
             case 'historyIndex':
                 handleHistoryIndex(message.payload);
                 break;
@@ -281,6 +287,8 @@
             btn.addEventListener('click', function() {
                 vscode.postMessage({ type: 'requestRefresh' });
                 if (loadingOverlay) loadingOverlay.style.display = 'flex';
+                var statusEl = $('#loading-status');
+                if (statusEl) statusEl.textContent = 'Analyzing codebase...';
             });
         }
         var exportBtn = $('#btn-export');
