@@ -48,6 +48,7 @@ html, body {
     display: flex;
     overflow: hidden;
     min-height: 0;
+    position: relative;
 }
 
 /* ============================================================
@@ -421,6 +422,10 @@ html, body {
    Detail Panel
    ============================================================ */
 #detail-panel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
     width: 320px;
     background: var(--aura-sidebar-bg);
     border-left: 1px solid var(--aura-border);
@@ -429,13 +434,14 @@ html, body {
     overflow-x: hidden;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    transition: width 0.25s ease;
-    flex-shrink: 0;
+    transition: transform 0.25s ease;
+    z-index: 50;
+    transform: translateX(0);
 }
 
 #detail-panel.collapsed {
-    width: 0;
-    border-left: none;
+    transform: translateX(100%);
+    pointer-events: none;
 }
 
 #panel-close {
@@ -662,6 +668,10 @@ html, body {
    Explorer Panel
    ============================================================ */
 #explorer-panel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
     width: 260px;
     background: var(--aura-sidebar-bg);
     border-right: 1px solid var(--aura-border);
@@ -669,13 +679,14 @@ html, body {
     overflow-x: hidden;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    transition: width 0.25s ease;
-    flex-shrink: 0;
+    transition: transform 0.25s ease;
+    z-index: 50;
+    transform: translateX(0);
 }
 
 #explorer-panel.collapsed {
-    width: 0;
-    border-right: none;
+    transform: translateX(-100%);
+    pointer-events: none;
 }
 
 .explorer-title, .explorer-header {
@@ -1064,17 +1075,3 @@ html, body {
    Utility
    ============================================================ */
 .hidden { display: none !important; }
-
-/* Prevent content from being visible when panel is collapsed */
-#explorer-panel.collapsed > *,
-#detail-panel.collapsed > * {
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.15s;
-}
-
-#explorer-panel:not(.collapsed) > *,
-#detail-panel:not(.collapsed) > * {
-    opacity: 1;
-    transition: opacity 0.15s 0.1s;
-}
