@@ -67,6 +67,9 @@
     var explodedNode = null;
     var explosionData = null;
 
+    // Hovered symbol in explosion (call edges shown only for this symbol)
+    var hoveredSymbolId = null;
+
     // Time Travel state
     var timelineCommits = [];       // all commits, newest first
     var timelineDeltas = {};        // hash → CommitDelta
@@ -651,7 +654,7 @@
 
                 var group = new T.Group();
 
-                // Glow effect for blast radius source node
+                // Glow effect for blast radius / trace calls source node
                 if (isBlastSource && !isSelected) {
                     var blastRadius = Math.cbrt(getNodeSize(node) || 1) * 1;
                     var blastGlowGeo = new T.SphereGeometry(blastRadius * 3.5, 16, 16);
@@ -707,6 +710,12 @@
             .linkTarget('target')
             .linkColor(function(link) { return getLinkColor(link); })
             .linkWidth(function(link) { 
+                if (link._isCallEdge) {
+                    if (!hoveredSymbolId) return 0;
+                    var cwSrc = typeof link.source === 'object' ? link.source.id : link.source;
+                    var cwTgt = typeof link.target === 'object' ? link.target.id : link.target;
+                    return (cwSrc === hoveredSymbolId || cwTgt === hoveredSymbolId) ? 2 : 0;
+                }
                 if (pathMode && highlightedPath.links.has(link)) return 3;
                 if (multiSelectedLinks.has(link)) return 2.5;
                 if (link.type === 'extends') return highlightLinks.has(link) ? 2.5 : 1;
@@ -720,6 +729,12 @@
             })
             .linkDirectionalArrowRelPos(1)
             .linkDirectionalParticles(function(link) { 
+                if (link._isCallEdge) {
+                    if (!hoveredSymbolId) return 0;
+                    var cpSrc = typeof link.source === 'object' ? link.source.id : link.source;
+                    var cpTgt = typeof link.target === 'object' ? link.target.id : link.target;
+                    return (cpSrc === hoveredSymbolId || cpTgt === hoveredSymbolId) ? 3 : 0;
+                }
                 if (pathMode && highlightedPath.links.has(link)) return 4;
                 if (multiSelectedLinks.has(link)) return 3;
                 if (link.type === 'extends') return 2;
@@ -951,14 +966,24 @@
             return '#ffffff11';
         }
 
-        if (link._isExplosionLink) return '#81c78488';
+        if (link._isExplosionLink) {
+            if (link._isCallEdge) {
+                if (!hoveredSymbolId) return '#00000000';
+                var ceSrc = typeof link.source === 'object' ? link.source.id : link.source;
+                var ceTgt = typeof link.target === 'object' ? link.target.id : link.target;
+                if (ceSrc === hoveredSymbolId || ceTgt === hoveredSymbolId) return '#00e5ffcc';
+                return '#00000000';
+            }
+            return '#81c78488';
+        }
 
         if (multiSelectedNodes.size > 0) {
             return multiSelectedLinks.has(link) ? '#93c5fdcc' : '#ffffff06';
         }
 
         if (pinnedNode) {
-            return pinnedLinks.has(link) ? (LINK_COLORS[link.type] || '#ffffffaa') : '#ffffff06';
+            if (!pinnedLinks.has(link)) return '#ffffff06';
+            return LINK_COLORS[link.type] || '#ffffffaa';
         }
 
         // Dim links for unselected communities
@@ -985,6 +1010,16 @@
             if (node) showTooltip(node);
             else hideTooltip();
             return;
+        }
+
+        // Track hovered symbol for call-edge visibility
+        var symbolChanged = false;
+        if (explodedNode) {
+            var prevHoveredSymbol = hoveredSymbolId;
+            hoveredSymbolId = (node && node._isSymbol) ? node.id : null;
+            symbolChanged = hoveredSymbolId !== prevHoveredSymbol;
+        } else {
+            hoveredSymbolId = null;
         }
 
         highlightNodes.clear();
@@ -1014,6 +1049,9 @@
             graph.nodeColor(graph.nodeColor())
                  .linkWidth(graph.linkWidth())
                  .linkDirectionalParticles(graph.linkDirectionalParticles());
+            if (symbolChanged) {
+                graph.linkColor(graph.linkColor());
+            }
         }
     }
 
@@ -1969,13 +2007,49 @@
             });
         }
 
+        // Build call edges (not shown immediately — revealed on symbol hover)
+        var allCallEdges = [];
+        var subIdSet = new Set(subNodes.map(function(n) { return n.id; }));
+        if (graphData && graphData.functionCalls) {
+            for (var fc = 0; fc < graphData.functionCalls.length; fc++) {
+                var call = graphData.functionCalls[fc];
+                if (call.callerFile !== node.id) continue;
+                var callerId = node.id + '::' + call.callerName;
+                // Intra-file: callee is a symbol in the same file
+                if (call.calleeFile === node.id) {
+                    var calleeId = node.id + '::' + call.calleeName;
+                    if (subIdSet.has(callerId) && subIdSet.has(calleeId) && callerId !== calleeId) {
+                        allCallEdges.push({
+                            source: callerId,
+                            target: calleeId,
+                            type: 'function-call',
+                            label: call.callerName + ' → ' + call.calleeName,
+                            _isExplosionLink: true,
+                            _isCallEdge: true
+                        });
+                    }
+                }
+                // Cross-file: caller symbol → external file node
+                else if (subIdSet.has(callerId) && call.calleeFile) {
+                    allCallEdges.push({
+                        source: callerId,
+                        target: call.calleeFile,
+                        type: 'function-call',
+                        label: call.callerName + ' → ' + call.calleeName + ' (' + call.calleeFile + ')',
+                        _isExplosionLink: true,
+                        _isCallEdge: true
+                    });
+                }
+            }
+        }
+
         explosionData = {
             parentId: node.id,
             subNodeIds: subNodes.map(function(n) { return n.id; })
         };
 
         var newNodes = currentData.nodes.concat(subNodes);
-        var newLinks = currentData.links.concat(subLinks);
+        var newLinks = currentData.links.concat(subLinks).concat(allCallEdges);
         graph.graphData({ nodes: newNodes, links: newLinks });
     }
 
@@ -1990,6 +2064,7 @@
         graph.graphData({ nodes: filteredNodes, links: filteredLinks });
         explodedNode = null;
         explosionData = null;
+        hoveredSymbolId = null;
     }
 
     // ============================================================
