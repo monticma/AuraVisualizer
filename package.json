@@ -4,6 +4,7 @@
   "description": "Visualize your codebase in 3D directly in VSCode — interactive dependency graph with force-directed layout",
   "version": "1.0.0",
   "publisher": "aura-3d-visualizer",
+  "icon": "resources/aura-star-icon.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/monticma/AuraVisualizer"
@@ -62,7 +63,7 @@
         {
           "id": "aura-explorer",
           "title": "Aura",
-          "icon": "resources/aura-icon.svg"
+          "icon": "resources/aura-star.svg"
         }
       ]
     },

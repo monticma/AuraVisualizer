@@ -9,4 +9,7 @@ esbuild.js
 PLAN.md
 resources/icon_old.png
 resources/aura-icon.png
+resources/aura-icon.svg
+resources/aura-star.png
+resources/aura-star-24.png
 out/webview/lib/three.module.min.js

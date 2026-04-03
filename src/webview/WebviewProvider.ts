@@ -65,7 +65,7 @@ export class WebviewProvider {
     private initPanel(): void {
         if (!this.panel) return;
 
-        this.panel.iconPath = vscode.Uri.joinPath(this.extensionUri, 'resources', 'icon.png');
+        this.panel.iconPath = vscode.Uri.joinPath(this.extensionUri, 'resources', 'aura-star-icon.png');
         this.panel.webview.html = this.getHtmlContent(this.panel.webview);
 
         this.setupMessageHandler();
