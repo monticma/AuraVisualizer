@@ -473,11 +473,12 @@
             commFiles[cid].push(nodes[gi]);
         }
 
-        // Drop singleton communities (< 2 members)
+        // Separate singleton communities (< 2 members) into "Others"
+        var singletonFiles = [];
         for (var sc in commFiles) {
             if (commFiles[sc].length < 2) {
                 for (var si2 = 0; si2 < commFiles[sc].length; si2++) {
-                    delete communityMap[commFiles[sc][si2].id];
+                    singletonFiles.push(commFiles[sc][si2]);
                 }
                 delete commFiles[sc];
             }
@@ -499,13 +500,23 @@
             }
         }
 
+        // Add "Others" community for singletons
+        if (singletonFiles.length > 0) {
+            var othersId = finalId++;
+            newCommFiles[othersId] = singletonFiles;
+            for (var oi = 0; oi < singletonFiles.length; oi++) {
+                communityMap[singletonFiles[oi].id] = othersId;
+            }
+        }
+
         // Name each community
         activeCommunities.clear();
         for (var ci2 = 0; ci2 < finalId; ci2++) {
             communityColors[ci2] = GROUP_COLORS[ci2 % GROUP_COLORS.length];
             activeCommunities.add(ci2);
             var files = newCommFiles[ci2] || [];
-            communityNames[ci2] = { name: nameCommunity(files), files: files.map(function(f) { return f.id; }) };
+            var isOthers = (singletonFiles.length > 0 && ci2 === finalId - 1);
+            communityNames[ci2] = { name: isOthers ? 'Others' : nameCommunity(files), files: files.map(function(f) { return f.id; }) };
         }
     }
 

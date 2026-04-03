@@ -292,6 +292,18 @@ function handleTool(db: GraphDB, name: string, args: Record<string, unknown>): u
                     size: files.length,
                 }))
                 .sort((a, b) => b.size - a.size);
+            // Group singletons into "Others"
+            const singletons = Object.entries(groups)
+                .filter(([, files]) => files.length < 2)
+                .flatMap(([, files]) => files);
+            if (singletons.length > 0) {
+                sorted.push({
+                    community: sorted.length,
+                    name: 'Others',
+                    files: singletons,
+                    size: singletons.length,
+                });
+            }
             return {
                 communities: sorted,
                 total: sorted.length,

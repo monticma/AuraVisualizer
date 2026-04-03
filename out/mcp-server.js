@@ -21589,6 +21589,15 @@ function handleTool(db, name, args) {
         files,
         size: files.length
       })).sort((a, b) => b.size - a.size);
+      const singletons = Object.entries(groups).filter(([, files]) => files.length < 2).flatMap(([, files]) => files);
+      if (singletons.length > 0) {
+        sorted.push({
+          community: sorted.length,
+          name: "Others",
+          files: singletons,
+          size: singletons.length
+        });
+      }
       return {
         communities: sorted,
         total: sorted.length,
