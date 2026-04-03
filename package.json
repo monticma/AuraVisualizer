@@ -22,6 +22,7 @@
     "codebase"
   ],
   "activationEvents": [
+    "onCommand:auraVisualizer.open",
     "onWebviewPanel:auraVisualizer.graphView"
   ],
   "main": "./out/extension.js",
