@@ -1,6 +1,6 @@
 # Analyse Comparative : Aura vs GitNexus
 
-> Date : 1 avril 2026
+> Date : 3 avril 2026
 > GitNexus : v1.5.0 — 21k ⭐, 56 contributeurs, 14+ langages
 > Aura : v1.0.0 — Extension VS Code avec visu 3D
 
@@ -13,9 +13,9 @@
 | **Parsing** | Tree-sitter AST (10 langages) | Tree-sitter AST (14+ langages) |
 | **Base de données** | sql.js (SQLite WASM) | LadybugDB (graph DB native) |
 | **Visu** | 3d-force-graph + THREE.js | Sigma.js + Graphology (WebGL 2D) |
-| **MCP** | 10 tools, 3 resources | 7 tools, 6 resources, 2 prompts, 4 skills |
-| **Avantage Aura** | Intégré dans VS Code, visu 3D, Time Travel, heatmaps, Tree-sitter, blast radius, community detection | — |
-| **Avantage GitNexus** | — | multi-repo, wiki auto-générée, recherche sémantique |
+| **MCP** | 11 tools, 3 resources | 7 tools, 6 resources, 2 prompts, 4 skills |
+| **Avantage Aura** | Intégré dans VS Code, visu 3D, Time Travel, heatmaps (6 modes), Tree-sitter, blast radius, community detection, heritage edges, file explosion, view state persistence, generate_documentation MCP | — |
+| **Avantage GitNexus** | — | multi-repo, recherche sémantique, confidence scoring |
 
 ---
 
@@ -47,19 +47,20 @@
 
 #### 5. ~~Community detection automatique~~ ✅ FAIT
 - **Aura** : Algorithme de Louvain complet en TypeScript + JavaScript (webview), détecte les modules architecturaux par couplage de dépendances
-- **Résultat** : Mode heatmap "Communities" avec palette flottante interactive (select all/none, toggle individuel), nommage automatique par fichier hub (plus haut fan-in), minimum 2 membres par communauté, filtrage visuel (nœuds + liens grisés pour communautés désélectionnées)
-- **MCP** : Tool `get_communities` (10 tools total) avec noms, tailles, groupement par communauté
-- **Commit** : `8ffc773` + améliorations (`c5499ea`, `101025c`, `2062ca9`, `325232f`)
+- **Résultat** : Mode heatmap "Communities" avec palette flottante interactive (select all/none, toggle individuel), nommage automatique par fichier hub (plus haut fan-in), minimum 2 membres par communauté, singletons regroupés en communauté "Others", filtrage visuel (nœuds + liens grisés pour communautés désélectionnées)
+- **MCP** : Tool `get_communities` (11 tools total) avec noms, tailles, groupement par communauté
+- **Commit** : `8ffc773` + améliorations (`c5499ea`, `101025c`, `2062ca9`, `325232f`, `c4d54fe`)
 
 ---
 
 ### 🟡 Intéressant, effort plus conséquent
 
-#### 6. Wiki auto-générée
+#### 6. ~~Wiki auto-générée~~ ✅ FAIT (approche MCP)
 - **GitNexus** : `gitnexus wiki` génère une documentation complète via LLM depuis le knowledge graph
-- **Aura** : Export JSON uniquement
-- **Gain** : Générer des docs Markdown depuis le graphe Aura (overview, modules, dépendances critiques)
-- **Effort** : Moyen — nécessite intégration LLM API (OpenAI/Anthropic), templates de génération
+- **Aura** : Tool MCP `generate_documentation` — consolide toutes les données en un seul appel (overview, modules, singletons, dépendances critiques, hotspots, cycles, dead code, liens inter-modules)
+- **Approche** : Pas besoin d'intégrer un LLM — Copilot **est** le LLM. Aura fournit les données structurées via MCP, l'utilisateur demande à Copilot de générer la documentation en langage naturel
+- **Résultat** : Un prompt comme "génère la doc de ce projet" déclenche `generate_documentation` qui retourne tout le contexte nécessaire en un payload JSON
+- **Commit** : `57d7a36`
 
 #### 7. Recherche sémantique (hybrid search)
 - **GitNexus** : BM25 + embeddings vectoriels + Reciprocal Rank Fusion
@@ -106,7 +107,7 @@
 |-------------|--------|
 | **Visualisation 3D** | Force-directed 3D graph avec THREE.js — GitNexus n'a que du 2D WebGL |
 | **Intégration VS Code native** | Webview panel, activity bar, commands, keybindings |
-| **Heatmaps** | 5 modes de coloration (complexity, fan-in/out, LOC, last modified) |
+| **Heatmaps** | 6 modes de coloration (complexity, fan-in, fan-out, LOC, last modified, communities) |
 | **Time Travel** | Navigation commit par commit avec timeline |
 | **File explosion** | Éclater un fichier en ses symboles individuels en 3D |
 | **Blast radius directionnel** | Shift+RightClick : BFS dependents, coloration par profondeur, halo source |
@@ -117,14 +118,20 @@
 | **Dead code visuel** | Coloration orange→rouge des fichiers avec exports inutilisés |
 | **Cycles visuels** | Highlight des boucles de dépendances circulaires |
 | **Multi-selection** | Shift+click pour stats agrégées |
-| **Raccourcis clavier** | Touches uniques (F, L, G, H, P, D, O, X, C, 1-5) |
+| **Raccourcis clavier** | Touches uniques (F, L, G, H, P, D, O, X, C, 1-5, ←/→, Escape) |
+| **View state persistence** | État UI (filtres, sliders, panneaux) sauvegardé par workspace |
+| **Overlay panels** | Panneaux Detail/Explorer en overlay (ne redimensionnent pas le graphe) |
+| **Search avec highlight** | Recherche de fichiers avec mise en surbrillance des résultats |
+| **Progress bar** | Barre de progression animée pendant l'analyse |
+| **Incremental updates** | Mise à jour delta du graphe sans perte des positions 3D |
 
 ---
 
 ## Recommandation : ordre d'implémentation
 
 1. ~~**Tree-sitter**~~ ✅ — Complété (10 langages, 12 grammaires WASM)
-2. ~~**Héritage & interfaces**~~ ✅ — Complété (extends/implements)
+2. ~~**Héritage & interfaces**~~ ✅ — Complété (extends/implements + MCP `find_heritage`)
 3. ~~**Blast radius amélioré**~~ ✅ — Complété (Shift+RightClick, profondeur, MCP enrichi)
-4. ~~**Community detection**~~ ✅ — Complété (Louvain, palette, nommage, filtrage)
-5. **Git-diff impact** — Connecte Time Travel au graphe
+4. ~~**Community detection**~~ ✅ — Complété (Louvain, palette, nommage, filtrage, "Others")
+5. ~~**Wiki / documentation**~~ ✅ — Complété (`generate_documentation` MCP tool, approche data-via-MCP)
+6. **Git-diff impact** — Connecte Time Travel au graphe

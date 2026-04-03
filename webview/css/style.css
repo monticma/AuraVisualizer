@@ -983,6 +983,17 @@ html, body {
     cursor: default;
 }
 
+.impact-btn {
+    font-size: 13px;
+    transition: background 0.15s, box-shadow 0.15s;
+}
+
+.impact-btn.active {
+    background: rgba(244, 67, 54, 0.25);
+    border-color: #f44336;
+    box-shadow: 0 0 6px rgba(244, 67, 54, 0.4);
+}
+
 #timeline-slider {
     flex: 1;
     min-width: 100px;

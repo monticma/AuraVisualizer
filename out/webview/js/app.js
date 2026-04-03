@@ -76,6 +76,7 @@
     var headGraphData = null;       // snapshot of graph at HEAD for reset
     var timelineActive = false;     // true when navigating history
     var timelineChangedNodes = new Set(); // nodes touched at current commit (for visual highlight)
+    var impactMode = false; // true when showing impact cascade from timeline changed nodes
 
     // Render throttle state
     var engineRunning = true;
@@ -102,6 +103,7 @@
     var timelineSlider = $('#timeline-slider');
     var timelinePrevBtn = $('#timeline-prev');
     var timelineNextBtn = $('#timeline-next');
+    var timelineImpactBtn = $('#timeline-impact');
 
     // ============================================================
     // VSCode Message Handling
@@ -601,7 +603,7 @@
             .nodeThreeObject(function(node) {
                 var T = window.THREE;
                 var isSelected = (selectedNode && selectedNode.id === node.id) || multiSelectedNodes.has(node);
-                var isBlastSource = blastMode && pinnedNode && node.id === pinnedNode.id;
+                var isBlastSource = blastMode && pinnedNode && (node.id === pinnedNode.id || (impactMode && blastDepths[node.id] === 0));
                 var hasLabel = showLabels &&
                     !(showOrphans && (node.fanIn > 0 || node.fanOut > 0)) &&
                     !(showDeadCode && !(node.deadExports && node.deadExports.length > 0)) &&
@@ -1310,6 +1312,89 @@
         pinnedLinks.clear();
         blastMode = false;
         blastDepths = {};
+    }
+
+    // ============================================================
+    // Impact mode — multi-source blast radius from timeline changed nodes
+    // ============================================================
+    function computeTimelineImpact() {
+        if (!timelineActive || timelineChangedNodes.size === 0 || !graph) {
+            impactMode = false;
+            clearPinnedFocus();
+            if (timelineImpactBtn) timelineImpactBtn.classList.remove('active');
+            refreshGraphVisuals();
+            return;
+        }
+
+        // Set up blast infrastructure
+        blastMode = true;
+        pinnedNode = {}; // sentinel — not a real node, just truthy
+        pinnedNodes.clear();
+        pinnedLinks.clear();
+        blastDepths = {};
+
+        var currentNodes = graph.graphData().nodes;
+        var currentLinks = graph.graphData().links;
+        var visited = new Set();
+        var frontier = [];
+
+        // Seed: all changed nodes as depth 0
+        for (var ni = 0; ni < currentNodes.length; ni++) {
+            var n = currentNodes[ni];
+            if (timelineChangedNodes.has(n.id)) {
+                pinnedNodes.add(n);
+                blastDepths[n.id] = 0;
+                visited.add(n.id);
+                frontier.push(n);
+            }
+        }
+
+        // BFS — follow dependents (reverse edges)
+        for (var depth = 0; depth < focusDepth; depth++) {
+            var nextFrontier = [];
+            for (var f = 0; f < frontier.length; f++) {
+                var curr = frontier[f];
+                for (var i = 0; i < currentLinks.length; i++) {
+                    var l = currentLinks[i];
+                    var sourceId = typeof l.source === 'object' ? l.source.id : l.source;
+                    var targetId = typeof l.target === 'object' ? l.target.id : l.target;
+                    if (targetId === curr.id && !visited.has(sourceId)) {
+                        visited.add(sourceId);
+                        var neighborNode = typeof l.source === 'object' ? l.source : findNode(sourceId);
+                        if (neighborNode) {
+                            pinnedNodes.add(neighborNode);
+                            blastDepths[sourceId] = depth + 1;
+                            nextFrontier.push(neighborNode);
+                        }
+                    }
+                }
+            }
+            frontier = nextFrontier;
+        }
+
+        // Collect links between impacted nodes
+        for (var j = 0; j < currentLinks.length; j++) {
+            var link = currentLinks[j];
+            var sid = typeof link.source === 'object' ? link.source.id : link.source;
+            var tid = typeof link.target === 'object' ? link.target.id : link.target;
+            if (visited.has(sid) && visited.has(tid)) {
+                pinnedLinks.add(link);
+            }
+        }
+
+        refreshGraphVisuals();
+    }
+
+    function toggleImpactMode() {
+        if (!timelineActive || timelineChangedNodes.size === 0) return;
+        impactMode = !impactMode;
+        if (timelineImpactBtn) timelineImpactBtn.classList.toggle('active', impactMode);
+        if (impactMode) {
+            computeTimelineImpact();
+        } else {
+            clearPinnedFocus();
+            refreshGraphVisuals();
+        }
     }
 
     function refreshGraphVisuals() {
@@ -2687,8 +2772,10 @@
         $('#depth-slider').addEventListener('input', function(e) {
             focusDepth = parseInt(e.target.value);
             $('#depth-value').textContent = focusDepth;
-            // Re-apply if already pinned
-            if (pinnedNode) {
+            // Re-apply if already pinned or in impact mode
+            if (impactMode) {
+                computeTimelineImpact();
+            } else if (pinnedNode) {
                 if (blastMode) handleBlastRadius(pinnedNode, true);
                 else handleNodeRightClick(pinnedNode, true);
             }
@@ -2746,13 +2833,19 @@
                     // Toggle cycles
                     $('#btn-cycles').click();
                     break;
+                case 'i':
+                    // Toggle impact mode (timeline)
+                    if (timelineActive) toggleImpactMode();
+                    break;
                 case '1': case '2': case '3': case '4': case '5':
                     // Set focus depth
                     focusDepth = parseInt(e.key);
                     $('#depth-slider').value = focusDepth;
                     $('#depth-value').textContent = focusDepth;
-                    // Re-apply if already pinned
-                    if (pinnedNode) {
+                    // Re-apply if already pinned or in impact mode
+                    if (impactMode) {
+                        computeTimelineImpact();
+                    } else if (pinnedNode) {
                         if (blastMode) handleBlastRadius(pinnedNode, true);
                         else handleNodeRightClick(pinnedNode, true);
                     }
@@ -2779,6 +2872,10 @@
                     highlightNodes.clear();
                     highlightLinks.clear();
                     clearPinnedFocus();
+                    if (impactMode) {
+                        impactMode = false;
+                        if (timelineImpactBtn) timelineImpactBtn.classList.remove('active');
+                    }
                     if (pathMode) {
                         pathMode = false;
                         $('#btn-path-mode').classList.remove('active');
@@ -2887,6 +2984,12 @@
                 navigateToCommit(pos + 1);
             }
         });
+
+        if (timelineImpactBtn) {
+            timelineImpactBtn.addEventListener('click', function() {
+                toggleImpactMode();
+            });
+        }
     }
 
     function handleHistoryIndex(index) {
@@ -2944,6 +3047,12 @@
             timelinePosition = -1;
             timelineActive = false;
             timelineChangedNodes.clear();
+            // Clear impact mode
+            if (impactMode) {
+                impactMode = false;
+                if (timelineImpactBtn) timelineImpactBtn.classList.remove('active');
+                clearPinnedFocus();
+            }
             // Restore HEAD graph
             if (headGraphData && graph) {
                 restoreHeadGraph();
@@ -2974,6 +3083,11 @@
 
         // Apply the cumulative state up to this commit
         applyCumulativeState(commitIdx);
+
+        // Re-compute impact cascade if impact mode is active
+        if (impactMode) {
+            computeTimelineImpact();
+        }
 
         updateTimelineLabel();
         updateTimelineButtons();

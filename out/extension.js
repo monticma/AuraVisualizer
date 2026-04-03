@@ -359,6 +359,7 @@ var WebviewProvider = class _WebviewProvider {
     <div id="timeline-bar" class="hidden">
         <button id="timeline-prev" class="timeline-btn" title="Previous commit (\u2190)">\u25C0</button>
         <button id="timeline-next" class="timeline-btn" title="Next commit (\u2192)">\u25B6</button>
+        <button id="timeline-impact" class="timeline-btn impact-btn" title="Show impact cascade (I)">\u{1F4A5}</button>
         <input type="range" id="timeline-slider" min="0" max="0" value="0" step="1">
         <div id="timeline-info">
             <span id="timeline-hash">\u2014</span>

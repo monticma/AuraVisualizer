@@ -6,7 +6,7 @@
  *
  * Reads the SQLite database at AURA_DB_PATH (env var) and serves:
  *   - 3 resources  (overview, nodes, node detail)
- *   - 10 tools     (find_dependencies, find_dependents, find_path, etc.)
+ *   - 11 tools     (find_dependencies, find_dependents, find_path, etc.)
  *
  * Transport: stdio (standard for local MCP servers).
  * Launched by VS Code's MCP configuration (.vscode/mcp.json).
