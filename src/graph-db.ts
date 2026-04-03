@@ -164,7 +164,12 @@ export class GraphDB {
     // ── Lifecycle ──────────────────────────────────────────────
 
     async open(dbPath: string): Promise<void> {
-        const wasmPath = join(dirname(require.resolve('sql.js')), 'sql-wasm.wasm');
+        // In production (bundled), sql-wasm.wasm sits next to extension.js in out/
+        // In tests (vitest), fall back to node_modules location
+        let wasmPath = join(__dirname, 'sql-wasm.wasm');
+        if (!existsSync(wasmPath)) {
+            wasmPath = join(dirname(require.resolve('sql.js')), 'sql-wasm.wasm');
+        }
         const SQL = await initSqlJs({
             locateFile: () => wasmPath,
         });

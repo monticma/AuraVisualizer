@@ -441,7 +441,11 @@ function handleTool(db: GraphDB, name: string, args: Record<string, unknown>): u
 async function main(): Promise<void> {
     // Initialize sql.js and open the database
     const { join, dirname } = await import('path');
-    const wasmPath = join(dirname(require.resolve('sql.js')), 'sql-wasm.wasm');
+    const { existsSync } = await import('fs');
+    let wasmPath = join(__dirname, 'sql-wasm.wasm');
+    if (!existsSync(wasmPath)) {
+        wasmPath = join(dirname(require.resolve('sql.js')), 'sql-wasm.wasm');
+    }
     const SQL = await initSqlJs({ locateFile: () => wasmPath });
 
     const db = new GraphDB();

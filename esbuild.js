@@ -15,8 +15,9 @@ const extensionConfig = {
     sourcesContent: false,
     platform: 'node',
     outfile: 'out/extension.js',
-    external: ['vscode', 'sql.js', 'web-tree-sitter'],
+    external: ['vscode'],
     logLevel: 'info',
+    logOverride: { 'require-resolve-not-external': 'silent' },
     tsconfig: 'tsconfig.json',
 };
 
@@ -30,7 +31,7 @@ const workerConfig = {
     sourcesContent: false,
     platform: 'node',
     outfile: 'out/analyzer-worker.js',
-    external: ['web-tree-sitter'],
+    external: [],
     logLevel: 'info',
     tsconfig: 'tsconfig.json',
 };
@@ -60,8 +61,9 @@ const mcpServerConfig = {
     sourcesContent: false,
     platform: 'node',
     outfile: 'out/mcp-server.js',
-    external: ['sql.js'],
+    external: [],
     logLevel: 'info',
+    logOverride: { 'require-resolve-not-external': 'silent' },
     tsconfig: 'tsconfig.json',
 };
 
@@ -139,6 +141,13 @@ async function copyTreeSitterWasms() {
 async function main() {
     await copyWebviewAssets();
     await copyTreeSitterWasms();
+
+    // Copy sql.js WASM binary to out/ (next to the bundled JS)
+    const sqlWasmSrc = path.join(__dirname, 'node_modules', 'sql.js', 'dist', 'sql-wasm.wasm');
+    if (fs.existsSync(sqlWasmSrc)) {
+        fs.copyFileSync(sqlWasmSrc, path.join(__dirname, 'out', 'sql-wasm.wasm'));
+        console.log('sql-wasm.wasm copied.');
+    }
 
     if (watch) {
         const ctx = await esbuild.context(extensionConfig);
