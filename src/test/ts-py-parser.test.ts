@@ -241,3 +241,57 @@ describe('TreeSitterPyParser.extractCallsAST', () => {
         expect(calls).toContain('external');
     });
 });
+
+// ============================================================
+// extractCallSitesAST — function-level call site extraction
+// ============================================================
+describe('TreeSitterPyParser.extractCallSitesAST', () => {
+    it('tracks caller function for each call site', async () => {
+        const content = [
+            'def main():',
+            '    helper()',
+            '    process()',
+            '',
+            'def setup():',
+            '    init()',
+        ].join('\n') + '\n';
+        const t = await tree(content);
+        const file = makeFileInfo({ id: 'app.py', content, language: 'python', extension: '.py' });
+        const sites = parser.extractCallSitesAST(t, file);
+        const mainCalls = sites.filter(s => s.callerName === 'main');
+        expect(mainCalls).toHaveLength(2);
+        expect(mainCalls.map(s => s.calleeName).sort()).toEqual(['helper', 'process']);
+        const setupCalls = sites.filter(s => s.callerName === 'setup');
+        expect(setupCalls).toHaveLength(1);
+        expect(setupCalls[0].calleeName).toBe('init');
+    });
+
+    it('marks local calls', async () => {
+        const content = [
+            'def helper():',
+            '    pass',
+            '',
+            'def main():',
+            '    helper()',
+            '    external()',
+        ].join('\n') + '\n';
+        const t = await tree(content);
+        const file = makeFileInfo({ id: 'app.py', content, language: 'python', extension: '.py' });
+        const sites = parser.extractCallSitesAST(t, file);
+        const helperCall = sites.find(s => s.calleeName === 'helper');
+        const extCall = sites.find(s => s.calleeName === 'external');
+        expect(helperCall?.isLocal).toBe(true);
+        expect(extCall?.isLocal).toBe(false);
+    });
+
+    it('uses <module> for top-level calls', async () => {
+        const content = 'setup()\n\ndef run():\n    execute()\n';
+        const t = await tree(content);
+        const file = makeFileInfo({ id: 'app.py', content, language: 'python', extension: '.py' });
+        const sites = parser.extractCallSitesAST(t, file);
+        const topLevel = sites.find(s => s.calleeName === 'setup');
+        expect(topLevel?.callerName).toBe('<module>');
+        const nested = sites.find(s => s.calleeName === 'execute');
+        expect(nested?.callerName).toBe('run');
+    });
+});

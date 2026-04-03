@@ -16,7 +16,7 @@ import { computeComplexity } from './complexity';
 import { hasGrammar, parseSource } from './tree-sitter-loader';
 import type { BaseParser } from './parsers/base-parser';
 import type Parser from 'web-tree-sitter';
-import type { FileInfo, Relation, GraphData, GraphNode, GraphLink, AnalyzeOptions, FileSymbols } from './types';
+import type { FileInfo, Relation, GraphData, GraphNode, GraphLink, AnalyzeOptions, FileSymbols, CallSite } from './types';
 
 /** Parser registry — Tree-sitter for languages with WASM grammars, regex for HTML/CSS. */
 const PARSERS: Record<string, BaseParser> = {
@@ -244,6 +244,49 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
                             type: 'function-call',
                             label: `${callName}()`
                         });
+                    }
+                }
+            }
+        }
+    }
+
+    // Phase 3a: Collect function-level call sites
+    const allCallSites: { callerFile: string; callerName: string; calleeFile: string; calleeName: string; callLine: number }[] = [];
+    for (const file of files) {
+        if (!SYMBOL_LANGUAGES.has(file.language)) continue;
+        if (HEADER_EXTS.has(file.extension)) continue;
+        const tree = astTrees?.get(file.id);
+        const parser = getParser(file.language);
+        if (!tree || !parser?.usesTreeSitter) continue;
+
+        const sites: CallSite[] = parser.extractCallSitesAST(tree, file);
+        const family = LANG_FAMILY[file.language] || file.language;
+
+        for (const site of sites) {
+            if (site.isLocal) {
+                // Intra-file call: callee is in the same file
+                allCallSites.push({
+                    callerFile: file.id,
+                    callerName: site.callerName,
+                    calleeFile: file.id,
+                    calleeName: site.calleeName,
+                    callLine: site.line,
+                });
+            } else {
+                // Cross-file call: resolve callee to target file(s)
+                const key = `${family}:${site.calleeName}`;
+                const definedIn = globalFunctionIndex.get(key);
+                if (definedIn) {
+                    for (const defFileId of definedIn) {
+                        if (defFileId !== file.id) {
+                            allCallSites.push({
+                                callerFile: file.id,
+                                callerName: site.callerName,
+                                calleeFile: defFileId,
+                                calleeName: site.calleeName,
+                                callLine: site.line,
+                            });
+                        }
                     }
                 }
             }
@@ -509,6 +552,7 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
             groups: [...groupSet].sort(),
         },
         nodes,
-        links: uniqueLinks
+        links: uniqueLinks,
+        functionCalls: allCallSites,
     };
 }

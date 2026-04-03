@@ -7,7 +7,7 @@
  */
 
 import { BaseParser } from './base-parser';
-import type { FileInfo, Relation, FileSymbols, SymbolInfo } from '../types';
+import type { FileInfo, Relation, FileSymbols, SymbolInfo, CallSite } from '../types';
 import type Parser from 'web-tree-sitter';
 
 const PY_BUILTINS = new Set([
@@ -373,6 +373,59 @@ export class TreeSitterPyParser extends BaseParser {
         }
         for (let i = 0; i < node.childCount; i++) {
             this.collectCalls(node.child(i)!, calls, definedHere);
+        }
+    }
+
+    // ── AST-based call site extraction (function-level) ────────
+
+    override extractCallSitesAST(tree: Parser.Tree, _fileInfo: FileInfo): CallSite[] {
+        const definedHere = new Set<string>();
+        this.collectDefinedFunctions(tree.rootNode, definedHere);
+        const sites: CallSite[] = [];
+        this.collectCallSites(tree.rootNode, sites, definedHere, '<module>');
+        return sites;
+    }
+
+    private collectCallSites(node: Parser.SyntaxNode, sites: CallSite[], definedHere: Set<string>, currentFunc: string): void {
+        // Track function scope
+        if (node.type === 'function_definition') {
+            const name = node.childForFieldName('name')?.text || currentFunc;
+            for (let i = 0; i < node.childCount; i++) {
+                this.collectCallSites(node.child(i)!, sites, definedHere, name);
+            }
+            return;
+        }
+        if (node.type === 'decorated_definition') {
+            for (let i = 0; i < node.childCount; i++) {
+                const child = node.child(i)!;
+                if (child.type === 'function_definition') {
+                    const name = child.childForFieldName('name')?.text || currentFunc;
+                    this.collectCallSites(child, sites, definedHere, name);
+                } else {
+                    this.collectCallSites(child, sites, definedHere, currentFunc);
+                }
+            }
+            return;
+        }
+
+        // Detect calls
+        if (node.type === 'call') {
+            const funcNode = node.childForFieldName('function');
+            if (funcNode?.type === 'identifier') {
+                const name = funcNode.text;
+                if (!PY_BUILTINS.has(name) && !PY_KEYWORDS.has(name) && !/^[A-Z_]+$/.test(name)) {
+                    sites.push({
+                        callerName: currentFunc,
+                        calleeName: name,
+                        line: node.startPosition.row + 1,
+                        isLocal: definedHere.has(name),
+                    });
+                }
+            }
+        }
+
+        for (let i = 0; i < node.childCount; i++) {
+            this.collectCallSites(node.child(i)!, sites, definedHere, currentFunc);
         }
     }
 

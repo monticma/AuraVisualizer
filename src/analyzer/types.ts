@@ -24,6 +24,14 @@ export interface Relation {
     resolvedTarget?: string;
 }
 
+/** A function-level call site detected by AST analysis. */
+export interface CallSite {
+    callerName: string;       // name of the enclosing function (or '<module>' for top-level)
+    calleeName: string;       // name of the called function
+    line: number;             // line number of the call expression
+    isLocal: boolean;         // true if callee is defined in the same file
+}
+
 export interface SymbolInfo {
     name: string;
     type: string;
@@ -121,6 +129,7 @@ export interface GraphData {
     meta: GraphMeta;
     nodes: GraphNode[];
     links: GraphLink[];
+    functionCalls?: { callerFile: string; callerName: string; calleeFile: string; calleeName: string; callLine: number }[];
 }
 
 export interface ScanOptions {

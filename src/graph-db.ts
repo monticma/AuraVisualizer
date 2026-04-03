@@ -121,12 +121,23 @@ CREATE TABLE IF NOT EXISTS meta (
     value TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS function_calls (
+    caller_file  TEXT NOT NULL,
+    caller_name  TEXT NOT NULL,
+    callee_file  TEXT NOT NULL,
+    callee_name  TEXT NOT NULL,
+    call_line    INTEGER NOT NULL,
+    PRIMARY KEY (caller_file, caller_name, callee_file, callee_name, call_line)
+);
+
 CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source);
 CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target);
 CREATE INDEX IF NOT EXISTS idx_symbols_node ON symbols(node_id);
 CREATE INDEX IF NOT EXISTS idx_symbols_name ON symbols(name);
 CREATE INDEX IF NOT EXISTS idx_nodes_language ON nodes(language);
 CREATE INDEX IF NOT EXISTS idx_nodes_group ON nodes(group_name);
+CREATE INDEX IF NOT EXISTS idx_fcalls_caller ON function_calls(caller_file, caller_name);
+CREATE INDEX IF NOT EXISTS idx_fcalls_callee ON function_calls(callee_file, callee_name);
 `;
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -230,6 +241,7 @@ export class GraphDB {
             db.run('DELETE FROM cycles');
             db.run('DELETE FROM nodes');
             db.run('DELETE FROM meta');
+            db.run('DELETE FROM function_calls');
 
             // Insert nodes
             for (const n of data.nodes) {
@@ -298,6 +310,14 @@ export class GraphDB {
             ];
             for (const [key, value] of metaEntries) {
                 db.run('INSERT INTO meta (key, value) VALUES (?, ?)', [key, value]);
+            }
+
+            // Insert function-level call sites
+            if (data.functionCalls) {
+                const insertCall = 'INSERT OR IGNORE INTO function_calls (caller_file, caller_name, callee_file, callee_name, call_line) VALUES (?, ?, ?, ?, ?)';
+                for (const fc of data.functionCalls) {
+                    db.run(insertCall, [fc.callerFile, fc.callerName, fc.calleeFile, fc.calleeName, fc.callLine]);
+                }
             }
 
             db.run('COMMIT');
@@ -469,6 +489,18 @@ export class GraphDB {
         return queryAll<EdgeRow>(this.ensureDb(), 'SELECT * FROM edges ORDER BY source, target');
     }
 
+    /** Get function-level call sites, optionally filtered by file. */
+    getFunctionCalls(fileId?: string): { caller_file: string; caller_name: string; callee_file: string; callee_name: string; call_line: number }[] {
+        const db = this.ensureDb();
+        if (fileId) {
+            return queryAll(db,
+                'SELECT * FROM function_calls WHERE caller_file = ? OR callee_file = ? ORDER BY caller_file, call_line',
+                [fileId, fileId]
+            );
+        }
+        return queryAll(db, 'SELECT * FROM function_calls ORDER BY caller_file, call_line');
+    }
+
     /**
      * Community detection using Louvain algorithm.
      * Returns nodeId → communityId mapping.
@@ -607,6 +639,19 @@ export class GraphDB {
             if (!cols.includes(col)) {
                 db.run(sql);
             }
+        }
+
+        // Migrate: add function_calls table if missing
+        const tables = queryAll<{ name: string }>(db, "SELECT name FROM sqlite_master WHERE type='table'").map(t => t.name);
+        if (!tables.includes('function_calls')) {
+            db.run(`CREATE TABLE function_calls (
+                caller_file TEXT NOT NULL, caller_name TEXT NOT NULL,
+                callee_file TEXT NOT NULL, callee_name TEXT NOT NULL,
+                call_line INTEGER NOT NULL,
+                PRIMARY KEY (caller_file, caller_name, callee_file, callee_name, call_line)
+            )`);
+            db.run('CREATE INDEX IF NOT EXISTS idx_fcalls_caller ON function_calls(caller_file, caller_name)');
+            db.run('CREATE INDEX IF NOT EXISTS idx_fcalls_callee ON function_calls(callee_file, callee_name)');
         }
     }
 

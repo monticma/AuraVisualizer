@@ -2,7 +2,7 @@
  * base-parser.ts — Base class for language-specific parsers.
  */
 
-import type { FileInfo, Relation, FileSymbols } from '../types';
+import type { FileInfo, Relation, FileSymbols, CallSite } from '../types';
 import type Parser from 'web-tree-sitter';
 
 export class BaseParser {
@@ -33,6 +33,11 @@ export class BaseParser {
 
     /** Extract cross-file function calls using AST (override in TS-based parsers). */
     extractCallsAST(_tree: Parser.Tree, _fileInfo: FileInfo, _globalFunctions: Set<string>): Relation[] {
+        return [];
+    }
+
+    /** Extract function-level call sites from AST (override in TS-based parsers). */
+    extractCallSitesAST(_tree: Parser.Tree, _fileInfo: FileInfo): CallSite[] {
         return [];
     }
 

@@ -354,3 +354,106 @@ describe('TreeSitterTSParser.extractCallsAST', () => {
         expect(calls).not.toContain('localHelper');
     });
 });
+
+// ============================================================
+// extractCallSitesAST — function-level call site extraction
+// ============================================================
+describe('TreeSitterJSParser.extractCallSitesAST', () => {
+    it('tracks caller function for each call site', async () => {
+        const content = [
+            'function foo() {',
+            '    bar();',
+            '    baz();',
+            '}',
+            'function qux() {',
+            '    bar();',
+            '}',
+        ].join('\n');
+        const t = await jsTree(content);
+        const file = makeFileInfo({ id: 'test.js', content, language: 'javascript', extension: '.js' });
+        const sites = jsParser.extractCallSitesAST(t, file);
+        expect(sites.length).toBe(3);
+        // foo calls bar and baz
+        const fooCalls = sites.filter(s => s.callerName === 'foo');
+        expect(fooCalls).toHaveLength(2);
+        expect(fooCalls.map(s => s.calleeName).sort()).toEqual(['bar', 'baz']);
+        // qux calls bar
+        const quxCalls = sites.filter(s => s.callerName === 'qux');
+        expect(quxCalls).toHaveLength(1);
+        expect(quxCalls[0].calleeName).toBe('bar');
+    });
+
+    it('marks local calls with isLocal=true', async () => {
+        const content = [
+            'function helper() {}',
+            'function main() {',
+            '    helper();',
+            '    externalFn();',
+            '}',
+        ].join('\n');
+        const t = await jsTree(content);
+        const file = makeFileInfo({ id: 'test.js', content, language: 'javascript', extension: '.js' });
+        const sites = jsParser.extractCallSitesAST(t, file);
+        const helperCall = sites.find(s => s.calleeName === 'helper');
+        const extCall = sites.find(s => s.calleeName === 'externalFn');
+        expect(helperCall?.isLocal).toBe(true);
+        expect(extCall?.isLocal).toBe(false);
+    });
+
+    it('uses <module> for top-level calls', async () => {
+        const content = 'initApp();\nfunction setup() { configure(); }\n';
+        const t = await jsTree(content);
+        const file = makeFileInfo({ id: 'test.js', content, language: 'javascript', extension: '.js' });
+        const sites = jsParser.extractCallSitesAST(t, file);
+        const topLevel = sites.find(s => s.calleeName === 'initApp');
+        expect(topLevel?.callerName).toBe('<module>');
+        const nested = sites.find(s => s.calleeName === 'configure');
+        expect(nested?.callerName).toBe('setup');
+    });
+
+    it('tracks arrow function scope', async () => {
+        const content = [
+            'const process = () => {',
+            '    transform();',
+            '};',
+        ].join('\n');
+        const t = await jsTree(content);
+        const file = makeFileInfo({ id: 'test.js', content, language: 'javascript', extension: '.js' });
+        const sites = jsParser.extractCallSitesAST(t, file);
+        expect(sites).toHaveLength(1);
+        expect(sites[0].callerName).toBe('process');
+        expect(sites[0].calleeName).toBe('transform');
+    });
+
+    it('includes line numbers', async () => {
+        const content = [
+            'function main() {',
+            '    foo();',
+            '    bar();',
+            '}',
+        ].join('\n');
+        const t = await jsTree(content);
+        const file = makeFileInfo({ id: 'test.js', content, language: 'javascript', extension: '.js' });
+        const sites = jsParser.extractCallSitesAST(t, file);
+        const fooCall = sites.find(s => s.calleeName === 'foo');
+        const barCall = sites.find(s => s.calleeName === 'bar');
+        expect(fooCall?.line).toBe(2);
+        expect(barCall?.line).toBe(3);
+    });
+});
+
+describe('TreeSitterTSParser.extractCallSitesAST', () => {
+    it('inherits call site extraction from JS parser', async () => {
+        const content = [
+            'function handler(): void {',
+            '    validate();',
+            '    transform();',
+            '}',
+        ].join('\n');
+        const t = await tsTree(content);
+        const file = makeFileInfo({ id: 'test.ts', content, language: 'typescript', extension: '.ts' });
+        const sites = tsParser.extractCallSitesAST(t, file);
+        expect(sites).toHaveLength(2);
+        expect(sites.every(s => s.callerName === 'handler')).toBe(true);
+    });
+});

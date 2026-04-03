@@ -7,7 +7,7 @@
  */
 
 import { BaseParser } from './base-parser';
-import type { FileInfo, Relation, FileSymbols, SymbolInfo } from '../types';
+import type { FileInfo, Relation, FileSymbols, SymbolInfo, CallSite } from '../types';
 import type Parser from 'web-tree-sitter';
 
 const JS_KEYWORDS = new Set([
@@ -403,6 +403,64 @@ export class TreeSitterJSParser extends BaseParser {
         }
         for (let i = 0; i < node.childCount; i++) {
             this.collectCalls(node.child(i)!, calls, definedHere);
+        }
+    }
+
+    // ── AST-based call site extraction (function-level) ────────
+
+    override extractCallSitesAST(tree: Parser.Tree, _fileInfo: FileInfo): CallSite[] {
+        const definedHere = new Set<string>();
+        this.collectDefinedFunctions(tree.rootNode, definedHere);
+        const sites: CallSite[] = [];
+        this.collectCallSites(tree.rootNode, sites, definedHere, '<module>');
+        return sites;
+    }
+
+    private collectCallSites(node: Parser.SyntaxNode, sites: CallSite[], definedHere: Set<string>, currentFunc: string): void {
+        // Track function scope changes
+        if (node.type === 'function_declaration' || node.type === 'generator_function_declaration') {
+            const name = node.childForFieldName('name')?.text || currentFunc;
+            for (let i = 0; i < node.childCount; i++) {
+                this.collectCallSites(node.child(i)!, sites, definedHere, name);
+            }
+            return;
+        }
+        if (node.type === 'variable_declarator') {
+            const value = node.childForFieldName('value');
+            if (value?.type === 'arrow_function') {
+                const name = node.childForFieldName('name')?.text || currentFunc;
+                for (let i = 0; i < node.childCount; i++) {
+                    this.collectCallSites(node.child(i)!, sites, definedHere, name);
+                }
+                return;
+            }
+        }
+        if (node.type === 'method_definition') {
+            const name = node.childForFieldName('name')?.text || currentFunc;
+            for (let i = 0; i < node.childCount; i++) {
+                this.collectCallSites(node.child(i)!, sites, definedHere, name);
+            }
+            return;
+        }
+
+        // Detect call expressions
+        if (node.type === 'call_expression') {
+            const funcNode = node.childForFieldName('function');
+            if (funcNode?.type === 'identifier') {
+                const name = funcNode.text;
+                if (!JS_BUILTINS.has(name) && !/^[A-Z_]+$/.test(name)) {
+                    sites.push({
+                        callerName: currentFunc,
+                        calleeName: name,
+                        line: node.startPosition.row + 1,
+                        isLocal: definedHere.has(name),
+                    });
+                }
+            }
+        }
+
+        for (let i = 0; i < node.childCount; i++) {
+            this.collectCallSites(node.child(i)!, sites, definedHere, currentFunc);
         }
     }
 

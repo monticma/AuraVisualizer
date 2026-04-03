@@ -6,7 +6,7 @@
  */
 
 import { BaseParser } from './base-parser';
-import type { FileInfo, Relation, FileSymbols, SymbolInfo } from '../types';
+import type { FileInfo, Relation, FileSymbols, SymbolInfo, CallSite } from '../types';
 import type Parser from 'web-tree-sitter';
 
 const GO_BUILTINS = new Set([
@@ -227,6 +227,54 @@ export class TreeSitterGoParser extends BaseParser {
         }
         for (let i = 0; i < node.childCount; i++) {
             this.collectCalls(node.child(i)!, calls, definedHere);
+        }
+    }
+
+    // ── AST-based call site extraction (function-level) ────────
+
+    override extractCallSitesAST(tree: Parser.Tree, _fileInfo: FileInfo): CallSite[] {
+        const definedHere = new Set<string>();
+        this.collectDefinedFunctions(tree.rootNode, definedHere);
+        const sites: CallSite[] = [];
+        this.collectCallSites(tree.rootNode, sites, definedHere, '<module>');
+        return sites;
+    }
+
+    private collectCallSites(node: Parser.SyntaxNode, sites: CallSite[], definedHere: Set<string>, currentFunc: string): void {
+        // Track function/method scope
+        if (node.type === 'function_declaration') {
+            const name = node.childForFieldName('name')?.text || currentFunc;
+            for (let i = 0; i < node.childCount; i++) {
+                this.collectCallSites(node.child(i)!, sites, definedHere, name);
+            }
+            return;
+        }
+        if (node.type === 'method_declaration') {
+            const name = node.childForFieldName('name')?.text || currentFunc;
+            for (let i = 0; i < node.childCount; i++) {
+                this.collectCallSites(node.child(i)!, sites, definedHere, name);
+            }
+            return;
+        }
+
+        // Detect calls
+        if (node.type === 'call_expression') {
+            const funcNode = node.childForFieldName('function');
+            if (funcNode?.type === 'identifier') {
+                const name = funcNode.text;
+                if (!GO_BUILTINS.has(name) && !GO_KEYWORDS.has(name)) {
+                    sites.push({
+                        callerName: currentFunc,
+                        calleeName: name,
+                        line: node.startPosition.row + 1,
+                        isLocal: definedHere.has(name),
+                    });
+                }
+            }
+        }
+
+        for (let i = 0; i < node.childCount; i++) {
+            this.collectCallSites(node.child(i)!, sites, definedHere, currentFunc);
         }
     }
 

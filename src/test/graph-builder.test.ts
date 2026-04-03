@@ -234,4 +234,51 @@ describe('buildGraph', () => {
         expect(extendsLink!.source).toBe('dog.py');
         expect(extendsLink!.target).toBe('animal.py');
     });
+
+    it('populates functionCalls with caller/callee info', async () => {
+        const files = [
+            makeFileInfo({
+                id: 'utils.c',
+                content: 'void helper(void) {\n}\n',
+                language: 'c', extension: '.c',
+            }),
+            makeFileInfo({
+                id: 'main.c',
+                content: 'void main() {\n    helper();\n}\n',
+                language: 'c', extension: '.c',
+            }),
+        ];
+        const trees = await preParseFiles(files);
+        const graph = buildGraph(files, 'Project', {}, trees);
+        expect(graph.functionCalls).toBeDefined();
+        expect(graph.functionCalls!.length).toBeGreaterThan(0);
+        const call = graph.functionCalls!.find(fc => fc.calleeName === 'helper');
+        expect(call).toBeDefined();
+        expect(call!.callerFile).toBe('main.c');
+        expect(call!.callerName).toBe('main');
+        expect(call!.calleeFile).toBe('utils.c');
+        expect(call!.calleeName).toBe('helper');
+    });
+
+    it('includes intra-file function calls in functionCalls', async () => {
+        const files = [
+            makeFileInfo({
+                id: 'app.js',
+                content: [
+                    'function validate() {}',
+                    'function process() {',
+                    '    validate();',
+                    '}',
+                ].join('\n'),
+                language: 'javascript', extension: '.js',
+            }),
+        ];
+        const trees = await preParseFiles(files);
+        const graph = buildGraph(files, 'Project', {}, trees);
+        const localCall = graph.functionCalls!.find(fc => fc.calleeName === 'validate');
+        expect(localCall).toBeDefined();
+        expect(localCall!.callerFile).toBe('app.js');
+        expect(localCall!.calleeFile).toBe('app.js');
+        expect(localCall!.callerName).toBe('process');
+    });
 });

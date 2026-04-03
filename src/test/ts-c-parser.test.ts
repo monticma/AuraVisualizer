@@ -228,3 +228,28 @@ describe('TreeSitterCParser metadata', () => {
         expect(parser.language).toBe('c');
     });
 });
+
+// ============================================================
+// extractCallSitesAST — function-level call site extraction
+// ============================================================
+describe('TreeSitterCParser.extractCallSitesAST', () => {
+    it('tracks caller function for each call site', async () => {
+        const content = [
+            'void helper() {}',
+            'void main() {',
+            '    helper();',
+            '    process_data();',
+            '}',
+        ].join('\n');
+        const t = await tree(content);
+        const file = makeFileInfo({ id: 'main.c', content, language: 'c', extension: '.c' });
+        const sites = parser.extractCallSitesAST(t, file);
+        const mainCalls = sites.filter(s => s.callerName === 'main');
+        expect(mainCalls).toHaveLength(2);
+        expect(mainCalls.map(s => s.calleeName).sort()).toEqual(['helper', 'process_data']);
+        const helperCall = mainCalls.find(s => s.calleeName === 'helper');
+        expect(helperCall?.isLocal).toBe(true);
+        const extCall = mainCalls.find(s => s.calleeName === 'process_data');
+        expect(extCall?.isLocal).toBe(false);
+    });
+});
