@@ -234,9 +234,6 @@ export class WebviewProvider {
                     <span class="logo-icon">✦</span>
                     <span class="logo-text">AURA</span>
                 </div>
-                <div id="project-info">
-                    <span id="project-name">—</span>
-                </div>
             </div>
             <div class="top-bar-center">
                 <div id="search-container">

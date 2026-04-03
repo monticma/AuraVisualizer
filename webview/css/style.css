@@ -115,23 +115,6 @@ html, body {
     background-clip: text;
 }
 
-/* Project info */
-#project-info {
-    padding-left: 16px;
-    border-left: 1px solid var(--aura-border);
-    font-size: 13px;
-    color: var(--aura-fg);
-    opacity: 0.7;
-}
-
-#project-name {
-    font-weight: 500;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 200px;
-}
-
 /* Top bar buttons */
 .top-btn {
     background: transparent;

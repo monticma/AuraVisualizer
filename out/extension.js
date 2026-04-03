@@ -245,9 +245,6 @@ var WebviewProvider = class _WebviewProvider {
                     <span class="logo-icon">\u2726</span>
                     <span class="logo-text">AURA</span>
                 </div>
-                <div id="project-info">
-                    <span id="project-name">\u2014</span>
-                </div>
             </div>
             <div class="top-bar-center">
                 <div id="search-container">

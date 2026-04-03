@@ -307,7 +307,6 @@
     function updateStats(meta) {
         $('#stat-files').textContent = meta.totalFiles + ' files';
         $('#stat-links').textContent = meta.totalLinks + ' links';
-        $('#project-name').textContent = meta.projectName;
 
         var parts = [];
         var entries = Object.entries(meta.languageStats);
