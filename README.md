@@ -256,6 +256,7 @@ The MCP server exposes your codebase graph to AI tools via stdio transport. It r
 | `search_symbols` | `query`, `kind` | Find functions, classes, exports by name |
 | `get_architecture` | — | High-level overview by language |
 | `get_communities` | — | Architectural modules detected by Louvain algorithm |
+| `generate_documentation` | `hotspot_limit` | Full documentation payload: overview, modules, hotspots, cycles, dead code, inter-module links |
 
 ---
 

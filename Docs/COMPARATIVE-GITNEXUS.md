@@ -13,7 +13,7 @@
 | **Parsing** | Tree-sitter AST (10 langages) | Tree-sitter AST (14+ langages) |
 | **Base de données** | sql.js (SQLite WASM) | LadybugDB (graph DB native) |
 | **Visu** | 3d-force-graph + THREE.js | Sigma.js + Graphology (WebGL 2D) |
-| **MCP** | 9 tools, 3 resources | 7 tools, 6 resources, 2 prompts, 4 skills |
+| **MCP** | 10 tools, 3 resources | 7 tools, 6 resources, 2 prompts, 4 skills |
 | **Avantage Aura** | Intégré dans VS Code, visu 3D, Time Travel, heatmaps, Tree-sitter, blast radius, community detection | — |
 | **Avantage GitNexus** | — | multi-repo, wiki auto-générée, recherche sémantique |
 
@@ -48,7 +48,7 @@
 #### 5. ~~Community detection automatique~~ ✅ FAIT
 - **Aura** : Algorithme de Louvain complet en TypeScript + JavaScript (webview), détecte les modules architecturaux par couplage de dépendances
 - **Résultat** : Mode heatmap "Communities" avec palette flottante interactive (select all/none, toggle individuel), nommage automatique par fichier hub (plus haut fan-in), minimum 2 membres par communauté, filtrage visuel (nœuds + liens grisés pour communautés désélectionnées)
-- **MCP** : Tool `get_communities` (9 tools total) avec noms, tailles, groupement par communauté
+- **MCP** : Tool `get_communities` (10 tools total) avec noms, tailles, groupement par communauté
 - **Commit** : `8ffc773` + améliorations (`c5499ea`, `101025c`, `2062ca9`, `325232f`)
 
 ---

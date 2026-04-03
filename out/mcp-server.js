@@ -21455,6 +21455,16 @@ var TOOLS = [
       type: "object",
       properties: {}
     }
+  },
+  {
+    name: "generate_documentation",
+    description: "Generate a comprehensive documentation payload for the codebase. Returns architecture overview, modules (communities with hub files), critical dependencies (high fan-in files), hotspots, dependency cycles, dead code, and inter-module links \u2014 everything an LLM needs to produce full project documentation in one call.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        hotspot_limit: { type: "number", description: "Number of top hotspots to include (default: 15)" }
+      }
+    }
   }
 ];
 function handleTool(db, name, args) {
@@ -21602,6 +21612,98 @@ function handleTool(db, name, args) {
         communities: sorted,
         total: sorted.length,
         note: `Detected ${sorted.length} architectural communities via Louvain algorithm`
+      };
+    }
+    case "generate_documentation": {
+      const hotspotLimit = args.hotspot_limit || 15;
+      const meta3 = db.getAllMeta();
+      const overview = db.getArchitectureOverview();
+      const communityData = db.getCommunities();
+      const groups = {};
+      for (const c of communityData) {
+        (groups[c.community] ??= []).push(c.nodeId);
+      }
+      const modules = Object.entries(groups).filter(([, files]) => files.length >= 2).map(([id, files]) => ({
+        id: parseInt(id),
+        name: nameCommunityMCP(files),
+        files,
+        size: files.length
+      })).sort((a, b) => b.size - a.size);
+      const singletonFiles = Object.entries(groups).filter(([, files]) => files.length < 2).flatMap(([, files]) => files);
+      const nodeToModule = {};
+      for (const mod of modules) {
+        for (const f of mod.files)
+          nodeToModule[f] = mod.name;
+      }
+      const allEdges = db.getAllEdges();
+      const interModuleSet = /* @__PURE__ */ new Set();
+      const interModuleLinks = [];
+      const interModuleMap = {};
+      for (const e of allEdges) {
+        const sm = nodeToModule[e.source];
+        const tm = nodeToModule[e.target];
+        if (sm && tm && sm !== tm) {
+          const key = `${sm} \u2192 ${tm}`;
+          if (!interModuleSet.has(key)) {
+            interModuleSet.add(key);
+            interModuleMap[key] = [];
+          }
+          interModuleMap[key].push(`${e.source} \u2192 ${e.target}`);
+        }
+      }
+      for (const [key, files] of Object.entries(interModuleMap)) {
+        const [from_module, to_module] = key.split(" \u2192 ");
+        interModuleLinks.push({ from_module, to_module, files: files.slice(0, 5) });
+      }
+      const hotspots = db.getHotspots(hotspotLimit, "impact");
+      const cycles = db.getCycles();
+      const dead = db.getDeadCode();
+      const deadByFile = {};
+      for (const d of dead) {
+        (deadByFile[d.nodeId] ??= []).push(`${d.symbol} (${d.kind})`);
+      }
+      const criticalDeps = db.getHotspots(10, "fan_in");
+      return {
+        overview: {
+          project: meta3.projectName || "unknown",
+          analyzed_at: meta3.analyzedAt || "unknown",
+          total_files: Number(meta3.totalFiles) || 0,
+          total_links: Number(meta3.totalLinks) || 0,
+          languages: overview.map((o) => ({
+            language: o.language,
+            files: o.count,
+            total_loc: o.total_loc,
+            avg_complexity: o.avg_complexity
+          }))
+        },
+        modules: modules.map((m) => ({
+          name: m.name,
+          size: m.size,
+          files: m.files
+        })),
+        singletons: singletonFiles,
+        critical_dependencies: criticalDeps.map((h) => ({
+          file: h.id,
+          fan_in: h.fan_in,
+          fan_out: h.fan_out,
+          complexity: h.complexity,
+          lines: h.lines
+        })),
+        hotspots: hotspots.map((h) => ({
+          file: h.id,
+          lines: h.lines,
+          complexity: h.complexity,
+          fan_in: h.fan_in,
+          impact_score: h.impact_score
+        })),
+        cycles: cycles.map((c) => ({ files: c, length: c.length })),
+        dead_code: {
+          files: Object.entries(deadByFile).map(([file2, symbols]) => ({ file: file2, symbols })),
+          total_symbols: dead.length,
+          total_files: Object.keys(deadByFile).length
+        },
+        inter_module_links: interModuleLinks,
+        note: "Use this data to generate comprehensive project documentation. Modules represent dependency-coupled groups detected via Louvain algorithm. Hotspots are files with highest complexity \xD7 fan-in. Critical dependencies are files imported by the most other files."
       };
     }
     default:

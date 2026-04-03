@@ -178,7 +178,7 @@
           {
             "id": "ai-integration",
             "title": "AI Integration (MCP Server)",
-            "description": "Aura includes a built-in **MCP server** with 9 tools for AI assistants. Query dependencies, blast radius, communities, find dead code, search symbols — all programmatically.\n\nWorks with GitHub Copilot and other MCP clients.",
+            "description": "Aura includes a built-in **MCP server** with 10 tools for AI assistants. Query dependencies, blast radius, communities, generate documentation, find dead code, search symbols — all programmatically.\n\nWorks with GitHub Copilot and other MCP clients.",
             "media": {
               "markdown": "resources/walkthrough/ai-integration.md"
             }
