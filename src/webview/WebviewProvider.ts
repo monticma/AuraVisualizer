@@ -300,6 +300,10 @@ export class WebviewProvider {
                     <span class="metric-value" id="panel-group">—</span>
                 </div>
                 <div class="panel-metric">
+                    <span class="metric-label">Community</span>
+                    <span class="metric-value" id="panel-community">—</span>
+                </div>
+                <div class="panel-metric">
                     <span class="metric-label">Lines</span>
                     <span class="metric-value" id="panel-loc">—</span>
                 </div>

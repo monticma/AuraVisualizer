@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="resources/icon.png" width="128" alt="Aura icon" />
-</p>
-
 <h1 align="center">✦ Aura Visualizer</h1>
 
 <p align="center">

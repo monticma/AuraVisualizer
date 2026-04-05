@@ -88,6 +88,10 @@ ${JSON.stringify(s,null,2)}`);let u=i[c]();return new Language(INTERNAL,u)})}}cl
                     <span class="metric-value" id="panel-group">\u2014</span>
                 </div>
                 <div class="panel-metric">
+                    <span class="metric-label">Community</span>
+                    <span class="metric-value" id="panel-community">\u2014</span>
+                </div>
+                <div class="panel-metric">
                     <span class="metric-label">Lines</span>
                     <span class="metric-value" id="panel-loc">\u2014</span>
                 </div>

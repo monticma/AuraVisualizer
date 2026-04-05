@@ -1539,6 +1539,9 @@
             metaEl.textContent = node._symbolType + ' · line ' + (node._line || '?');
         } else {
             nameEl.textContent = (LANGUAGE_ICONS[node.language] || '📄') + ' ' + node.name;
+            var commName = '';
+            var cid = communityMap[node.id];
+            if (cid !== undefined && communityNames[cid]) commName = communityNames[cid].name;
             var parts = [
                 node.linesOfCode + ' lines',
                 node.language,
@@ -1546,6 +1549,7 @@
                 'in: ' + node.fanIn,
                 'out: ' + node.fanOut
             ];
+            if (commName) parts.push(commName);
             metaEl.textContent = parts.join(' · ');
         }
 
@@ -1590,6 +1594,8 @@
             $('#panel-language').textContent = node._clusterCount + ' files';
             $('#panel-language').style.color = node._clusterColor || '#78909c';
             $('#panel-group').textContent = node._clusterGroup;
+            $('#panel-community').textContent = '—';
+            $('#panel-community').style.color = '';
             $('#panel-loc').textContent = '—';
             $('#panel-size').textContent = '—';
             $('#panel-mtime').textContent = '—';
@@ -1632,6 +1638,15 @@
         $('#panel-language').textContent = node.language;
         $('#panel-language').style.color = LANGUAGE_COLORS[node.language] || '#fff';
         $('#panel-group').textContent = node.group;
+        var cid = communityMap[node.id];
+        var commEl = $('#panel-community');
+        if (cid !== undefined && communityNames[cid]) {
+            commEl.textContent = communityNames[cid].name;
+            commEl.style.color = communityColors[cid] || '#fff';
+        } else {
+            commEl.textContent = '—';
+            commEl.style.color = '';
+        }
         $('#panel-loc').textContent = node.linesOfCode.toLocaleString();
         $('#panel-size').textContent = formatBytes(node.size);
         
@@ -1861,6 +1876,8 @@
         $('#panel-language').textContent = Object.keys(languages).join(', ');
         $('#panel-language').style.color = '#93c5fd';
         $('#panel-group').textContent = '—';
+        $('#panel-community').textContent = '—';
+        $('#panel-community').style.color = '';
         $('#panel-loc').textContent = totalLoc.toLocaleString();
         $('#panel-size').textContent = '—';
         $('#panel-mtime').textContent = '—';
