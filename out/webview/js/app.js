@@ -192,12 +192,19 @@
         computeCommunities();
         updateStats(graphData.meta);
         updateLanguageButtons(graphData.nodes);
-        if (loadingOverlay) loadingOverlay.style.display = 'none';
         try {
             initGraph(graphData);
         } catch (e) {
             console.error('[aura] initGraph error:', e);
         }
+        // Hide overlay after the graph has rendered its first frame
+        requestAnimationFrame(function() {
+            requestAnimationFrame(function() {
+                if (loadingOverlay) {
+                    loadingOverlay.style.display = 'none';
+                }
+            });
+        });
         buildExplorerTree(graphData.nodes);
         // Request saved view state from extension (pull model — guarantees graph is ready)
         vscode.postMessage({ type: 'requestViewState' });
@@ -296,9 +303,11 @@
         if (btn) {
             btn.addEventListener('click', function() {
                 vscode.postMessage({ type: 'requestRefresh' });
-                if (loadingOverlay) loadingOverlay.style.display = 'flex';
+                if (loadingOverlay) {
+                    loadingOverlay.style.display = 'flex';
+                }
                 var statusEl = $('#loading-status');
-                if (statusEl) statusEl.textContent = 'Analyzing codebase...';
+                if (statusEl) statusEl.textContent = 'Refreshing analysis...';
             });
         }
         var exportBtn = $('#btn-export');
@@ -2844,6 +2853,43 @@
                 hideCommunityPalette();
             });
         }
+
+        // Community palette drag
+        (function() {
+            var palette = $('#community-palette');
+            var header = palette ? palette.querySelector('.community-palette-header') : null;
+            if (!header) return;
+            var dragging = false;
+            var offsetX = 0, offsetY = 0;
+
+            header.addEventListener('mousedown', function(e) {
+                if (e.target.tagName === 'BUTTON') return;
+                dragging = true;
+                var rect = palette.getBoundingClientRect();
+                offsetX = e.clientX - rect.left;
+                offsetY = e.clientY - rect.top;
+                // Switch from right-anchored to left-anchored positioning
+                palette.style.left = rect.left + 'px';
+                palette.style.top = rect.top + 'px';
+                palette.style.right = 'auto';
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', function(e) {
+                if (!dragging) return;
+                var x = e.clientX - offsetX;
+                var y = e.clientY - offsetY;
+                // Clamp to viewport
+                x = Math.max(0, Math.min(x, window.innerWidth - 60));
+                y = Math.max(0, Math.min(y, window.innerHeight - 40));
+                palette.style.left = x + 'px';
+                palette.style.top = y + 'px';
+            });
+
+            document.addEventListener('mouseup', function() {
+                dragging = false;
+            });
+        })();
 
         $('#node-size-slider').addEventListener('input', function(e) {
             nodeSizeMultiplier = parseFloat(e.target.value);

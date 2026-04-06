@@ -264,18 +264,19 @@ export class WebviewProvider {
             </aside>
 
             <!-- 3D Graph Container -->
-            <div id="graph-container">
-                <div id="loading-overlay">
-                    <div class="loading-content">
-                        <div class="loading-logo">
-                            <span class="loading-logo-icon">✦</span>
-                            <span class="loading-logo-text">AURA</span>
-                        </div>
-                        <div class="loading-progress-bar">
-                            <div class="loading-progress-fill" id="loading-progress-fill"></div>
-                        </div>
-                        <p class="loading-status" id="loading-status">Analyzing codebase...</p>
+            <div id="graph-container"></div>
+
+            <!-- Loading Overlay (outside graph-container so it survives graph init) -->
+            <div id="loading-overlay">
+                <div class="loading-content">
+                    <div class="loading-logo">
+                        <span class="loading-logo-icon">✦</span>
+                        <span class="loading-logo-text">AURA</span>
                     </div>
+                    <div class="loading-progress-bar">
+                        <div class="loading-progress-fill" id="loading-progress-fill"></div>
+                    </div>
+                    <p class="loading-status" id="loading-status">Analyzing codebase...</p>
                 </div>
             </div>
 

@@ -762,7 +762,9 @@ html, body {
     top: 80px;
     right: 16px;
     width: 220px;
-    max-height: 60vh;
+    min-width: 160px;
+    min-height: 120px;
+    max-height: 80vh;
     background: var(--aura-sidebar-bg);
     border: 1px solid var(--aura-border);
     border-radius: var(--radius);
@@ -773,6 +775,8 @@ html, body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    resize: both;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.35);
 }
 
 #community-palette.hidden { display: none; }
@@ -789,6 +793,12 @@ html, body {
     color: rgba(201, 209, 217, 0.7);
     border-bottom: 1px solid var(--aura-border);
     flex-shrink: 0;
+    cursor: grab;
+    user-select: none;
+}
+
+.community-palette-header:active {
+    cursor: grabbing;
 }
 
 .community-palette-actions {
