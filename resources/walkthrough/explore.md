@@ -21,5 +21,6 @@ Filter buttons at the bottom show only languages present in your project.
 - **Orphans** (`O`) — Highlight disconnected files in red
 - **Groups** (`G`) — Cluster files by directory
 - **Recenter** (`F`) — Fit the entire graph in view
+- **🗺️ Map** — Toggle the minimap — a real-time overview that rotates with the camera. Drag inside to pan the viewport.
 
 **Detail panel** — Click any node to see: file path, LOC, complexity, fan-in/out, symbols (functions, structs, enums), dependencies, and dependents.

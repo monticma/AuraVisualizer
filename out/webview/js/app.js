@@ -70,6 +70,14 @@
     // Hovered symbol in explosion (call edges shown only for this symbol)
     var hoveredSymbolId = null;
 
+    // Flow trace mode (function call propagation)
+    var flowTraceMode = false;
+    var flowTraceNodes = new Set();  // file nodes in the trace
+    var flowTraceDepths = {};        // nodeId → depth
+    var flowTraceAnimDepth = -1;     // current animated depth (-1 = done)
+    var flowTraceMaxDepth = 0;
+    var flowTraceTimer = null;
+
     // Time Travel state
     var timelineCommits = [];       // all commits, newest first
     var timelineDeltas = {};        // hash → CommitDelta
@@ -81,10 +89,6 @@
     var timelineChangedNodes = new Set(); // nodes touched at current commit (for visual highlight)
     var impactMode = false; // true when showing impact cascade from timeline changed nodes
 
-    // Render throttle state
-    var engineRunning = true;
-    var idleTimer = null;
-    var isPaused = false;
     var lastPointerX = -1;
     var lastPointerY = -1;
 
@@ -186,6 +190,17 @@
     }
 
     function handleGraphData(data) {
+        // Reset interaction state before re-init (retainContextWhenHidden keeps
+        // the JS closure, so stale state survives refresh)
+        clearPinnedFocus();   // also clears flowTrace timer
+        pathMode = false;
+        pathNodes = [];
+        highlightedPath.nodes.clear();
+        highlightedPath.links.clear();
+        selectedNode = null;
+        explodedNode = null;
+        explosionData = null;
+
         graphData = data;
         headGraphData = JSON.parse(JSON.stringify(data));
         computeMetricRanges();
@@ -315,6 +330,43 @@
             exportBtn.addEventListener('click', function() {
                 vscode.postMessage({ type: 'requestExport' });
             });
+        }
+
+        // Help modal
+        var helpBtn = $('#btn-help');
+        var helpModal = $('#help-modal');
+        var helpClose = $('#help-modal-close');
+        if (helpBtn && helpModal) {
+            helpBtn.addEventListener('click', function() {
+                helpModal.classList.toggle('hidden');
+            });
+            if (helpClose) {
+                helpClose.addEventListener('click', function() {
+                    helpModal.classList.add('hidden');
+                });
+            }
+            helpModal.addEventListener('click', function(e) {
+                if (e.target === helpModal) helpModal.classList.add('hidden');
+            });
+        }
+
+        // Minimap toggle
+        var minimapBtn = $('#btn-minimap');
+        var minimapEl = $('#minimap');
+        var minimapClose = $('#minimap-close');
+        if (minimapBtn && minimapEl) {
+            minimapBtn.addEventListener('click', function() {
+                minimapEl.classList.toggle('hidden');
+                minimapBtn.classList.toggle('active', !minimapEl.classList.contains('hidden'));
+                saveViewState();
+            });
+            if (minimapClose) {
+                minimapClose.addEventListener('click', function() {
+                    minimapEl.classList.add('hidden');
+                    minimapBtn.classList.remove('active');
+                    saveViewState();
+                });
+            }
         }
     }
 
@@ -622,7 +674,13 @@
                     !(showCycles && !cycleNodeIds.has(node.id)) &&
                     !(pinnedNode && !pinnedNodes.has(node)) &&
                     !(heatmapMode === 'community' && activeCommunities.size < Object.keys(communityNames).length &&
-                      (communityMap[node.id] === undefined || !activeCommunities.has(communityMap[node.id])));
+                      (communityMap[node.id] === undefined || !activeCommunities.has(communityMap[node.id]))) &&
+                    !(flowTraceMode && !flowTraceNodes.has(node.id));
+
+                // In flow trace mode, force labels on trace nodes even if showLabels is off
+                if (flowTraceMode && flowTraceNodes.has(node.id) && flowTraceDepths[node.id] <= flowTraceAnimDepth) {
+                    hasLabel = true;
+                }
 
                 // Cluster meta-nodes always get a label
                 if (node._isCluster) {
@@ -773,15 +831,6 @@
         // Apply spread forces
         applySpreadForces();
 
-        graph
-            .onEngineStop(function() {
-                engineRunning = false;
-                scheduleIdle();
-            })
-            .onEngineTick(function() {
-                engineRunning = true;
-            });
-
         // Double-click to open file (not natively supported, use DOM event)
         graphContainer.addEventListener('dblclick', function() {
             if (hoveredNode) handleNodeDblClick(hoveredNode);
@@ -791,42 +840,6 @@
             e.preventDefault();
         });
 
-        // Resume rendering on real user interaction
-        ['pointerdown', 'wheel'].forEach(function(evt) {
-            graphContainer.addEventListener(evt, wakeGraph, { passive: true });
-        });
-
-        // Wake graph when interacting with overlays (palette, explorer, sidebar)
-        var overlayEls = [
-            $('#community-palette'),
-            explorerPanel,
-            $('#filter-bar'),
-            detailPanel
-        ];
-        overlayEls.forEach(function(el) {
-            if (el) el.addEventListener('pointerdown', wakeGraph, { passive: true });
-        });
-
-        // Track real mouse movement (ignore jitter < 3px)
-        graphContainer.addEventListener('pointermove', function(e) {
-            var dx = e.clientX - lastPointerX;
-            var dy = e.clientY - lastPointerY;
-            lastPointerX = e.clientX;
-            lastPointerY = e.clientY;
-            if (dx * dx + dy * dy > 9) {
-                wakeGraph();
-            }
-        }, { passive: true });
-
-        // Pause when webview tab is hidden
-        document.addEventListener('visibilitychange', function() {
-            if (document.hidden) {
-                pauseGraph();
-            } else {
-                wakeGraph();
-            }
-        });
-
         setTimeout(function() {
             graph.zoomToFit(500, 50);
         }, 1500);
@@ -834,7 +847,6 @@
         // Handle webview resize (e.g. when side editor opens/closes)
         var resizeObserver = new ResizeObserver(function() {
             if (graph) {
-                wakeGraph();
                 graph.width(graphContainer.clientWidth);
                 graph.height(graphContainer.clientHeight);
             }
@@ -882,6 +894,14 @@
             }
             if (pathNodes.length === 1 && pathNodes[0].id === node.id) return '#4caf50';
             return (LANGUAGE_COLORS[node.language] || '#ffffff') + '44';
+        }
+
+        // Flow trace mode — animated call propagation
+        if (flowTraceMode) {
+            if (!flowTraceNodes.has(node.id)) return '#ffffff08';
+            var fd = flowTraceDepths[node.id];
+            if (fd === undefined || fd > flowTraceAnimDepth) return '#ffffff08';
+            return FLOW_COLORS[Math.min(fd, FLOW_COLORS.length - 1)];
         }
 
         if (node._isSymbol) return node._symbolColor || '#81c784';
@@ -973,6 +993,17 @@
                 return highlightedPath.links.has(link) ? (LINK_COLORS[link.type] || '#ffffffaa') : '#ffffff05';
             }
             return '#ffffff11';
+        }
+
+        if (flowTraceMode) {
+            var ftSrc = typeof link.source === 'object' ? link.source.id : link.source;
+            var ftTgt = typeof link.target === 'object' ? link.target.id : link.target;
+            if (flowTraceNodes.has(ftSrc) && flowTraceNodes.has(ftTgt) &&
+                flowTraceDepths[ftSrc] <= flowTraceAnimDepth && flowTraceDepths[ftTgt] <= flowTraceAnimDepth) {
+                var edgeDepth = Math.max(flowTraceDepths[ftSrc] || 0, flowTraceDepths[ftTgt] || 0);
+                return FLOW_COLORS[Math.min(edgeDepth, FLOW_COLORS.length - 1)] + 'aa';
+            }
+            return '#ffffff06';
         }
 
         if (link._isExplosionLink) {
@@ -1359,6 +1390,112 @@
         pinnedLinks.clear();
         blastMode = false;
         blastDepths = {};
+        clearFlowTrace();
+    }
+
+    // ============================================================
+    // Flow Trace — animate function call propagation across files
+    // ============================================================
+    function clearFlowTrace() {
+        flowTraceMode = false;
+        flowTraceNodes.clear();
+        flowTraceDepths = {};
+        flowTraceAnimDepth = -1;
+        flowTraceMaxDepth = 0;
+        if (flowTraceTimer) {
+            clearInterval(flowTraceTimer);
+            flowTraceTimer = null;
+        }
+    }
+
+    function startFlowTrace(fileId, funcName) {
+        // If already tracing same function, toggle off
+        if (flowTraceMode && flowTraceDepths[fileId] === 0 && flowTraceNodes.size > 0) {
+            clearFlowTrace();
+            refreshGraphColors();
+            return;
+        }
+
+        clearFlowTrace();
+
+        if (!graphData || !graphData.functionCalls || graphData.functionCalls.length === 0) return;
+
+        // Build caller→callees map: callerFile::callerName → [{calleeFile, calleeName}]
+        var callMap = {};
+        for (var i = 0; i < graphData.functionCalls.length; i++) {
+            var fc = graphData.functionCalls[i];
+            var key = fc.callerFile + '::' + fc.callerName;
+            if (!callMap[key]) callMap[key] = [];
+            callMap[key].push({ file: fc.calleeFile, name: fc.calleeName });
+        }
+
+        // Also build a file→functions map (which functions are defined in each file)
+        var fileFuncs = {};
+        var allNodes = graph ? graph.graphData().nodes : (graphData ? graphData.nodes : []);
+        for (var n = 0; n < allNodes.length; n++) {
+            var nd = allNodes[n];
+            if (nd.symbols && nd.symbols.functions) {
+                fileFuncs[nd.id] = [];
+                for (var f = 0; f < nd.symbols.functions.length; f++) {
+                    fileFuncs[nd.id].push(nd.symbols.functions[f].name);
+                }
+            }
+        }
+
+        // BFS: start from funcName in fileId
+        flowTraceDepths[fileId] = 0;
+        flowTraceNodes.add(fileId);
+
+        var frontier = [{ file: fileId, name: funcName }];
+        var visited = new Set();
+        visited.add(fileId + '::' + funcName);
+        var depth = 0;
+
+        while (frontier.length > 0) {
+            var nextFrontier = [];
+            for (var fi = 0; fi < frontier.length; fi++) {
+                var curr = frontier[fi];
+                var key2 = curr.file + '::' + curr.name;
+                var callees = callMap[key2];
+                if (!callees) continue;
+                for (var ci = 0; ci < callees.length; ci++) {
+                    var callee = callees[ci];
+                    var calleeKey = callee.file + '::' + callee.name;
+                    if (visited.has(calleeKey)) continue;
+                    visited.add(calleeKey);
+
+                    // Record this file at its depth (keep shallowest)
+                    if (flowTraceDepths[callee.file] === undefined) {
+                        flowTraceDepths[callee.file] = depth + 1;
+                    }
+                    flowTraceNodes.add(callee.file);
+                    nextFrontier.push(callee);
+                }
+            }
+            depth++;
+            frontier = nextFrontier;
+            if (depth > 20) break; // safety limit
+        }
+
+        flowTraceMaxDepth = depth - 1;
+        if (flowTraceNodes.size <= 1) {
+            clearFlowTrace();
+            return;
+        }
+
+        // Animate: reveal depth by depth
+        flowTraceMode = true;
+        flowTraceAnimDepth = 0;
+        refreshGraphColors();
+
+        flowTraceTimer = setInterval(function() {
+            flowTraceAnimDepth++;
+            refreshGraphColors();
+            if (flowTraceAnimDepth >= flowTraceMaxDepth) {
+                clearInterval(flowTraceTimer);
+                flowTraceTimer = null;
+            }
+        }, 400);
     }
 
     // ============================================================
@@ -1446,7 +1583,6 @@
 
     function refreshGraphVisuals() {
         if (!graph) return;
-        wakeGraph();
         graph.nodeColor(graph.nodeColor())
              .linkWidth(graph.linkWidth())
              .linkColor(graph.linkColor())
@@ -1457,57 +1593,11 @@
     // Light refresh: update colors without reheating the simulation
     function refreshGraphColors() {
         if (!graph) return;
-        if (isPaused) {
-            isPaused = false;
-            graph.resumeAnimation();
-        }
         graph.nodeColor(graph.nodeColor())
              .linkWidth(graph.linkWidth())
              .linkColor(graph.linkColor())
              .linkDirectionalParticles(graph.linkDirectionalParticles())
              .nodeThreeObject(graph.nodeThreeObject());
-        scheduleIdle();
-    }
-
-    // ============================================================
-    // Idle / Wake render management
-    // ============================================================
-    function hasActiveParticles() {
-        return highlightLinks.size > 0 || pinnedLinks.size > 0 ||
-               multiSelectedLinks.size > 0 ||
-               (pathMode && highlightedPath.links.size > 0);
-    }
-
-    function scheduleIdle() {
-        if (idleTimer) clearTimeout(idleTimer);
-        idleTimer = setTimeout(function() {
-            if (hasActiveParticles()) {
-                // Particles still animating, re-check later
-                scheduleIdle();
-                return;
-            }
-            if (!engineRunning && graph && !document.hidden) {
-                pauseGraph();
-            }
-        }, 3000);
-    }
-
-    function pauseGraph() {
-        if (isPaused || !graph) return;
-        isPaused = true;
-        graph.pauseAnimation();
-    }
-
-    function wakeGraph() {
-        if (idleTimer) clearTimeout(idleTimer);
-        if (!graph) return;
-        if (isPaused) {
-            isPaused = false;
-            graph.resumeAnimation();
-        }
-        if (!engineRunning) {
-            scheduleIdle();
-        }
     }
 
     // ============================================================
@@ -1698,10 +1788,29 @@
                 var fn = node.symbols.functions[i];
                 var item = document.createElement('div');
                 item.className = 'symbol-item symbol-item-clickable';
-                item.innerHTML =
-                    '<span class="symbol-icon">' + (SYMBOL_ICONS['function'] || '⚡') + '</span>' +
-                    '<span class="symbol-name">' + fn.name + '</span>' +
-                    '<span class="symbol-meta">' + fn.returnType + '(' + shortenParams(fn.params) + ') L' + fn.line + '</span>';
+                var traceBtn = document.createElement('button');
+                traceBtn.className = 'flow-trace-btn';
+                traceBtn.textContent = '▶';
+                traceBtn.title = 'Trace call flow from ' + fn.name;
+                (function(funcName, fileId) {
+                    traceBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        startFlowTrace(fileId, funcName);
+                    });
+                })(fn.name, node.id);
+                item.appendChild(traceBtn);
+                var iconSpan = document.createElement('span');
+                iconSpan.className = 'symbol-icon';
+                iconSpan.textContent = SYMBOL_ICONS['function'] || '⚡';
+                item.appendChild(iconSpan);
+                var nameSpan = document.createElement('span');
+                nameSpan.className = 'symbol-name';
+                nameSpan.textContent = fn.name;
+                item.appendChild(nameSpan);
+                var metaSpan = document.createElement('span');
+                metaSpan.className = 'symbol-meta';
+                metaSpan.textContent = fn.returnType + '(' + shortenParams(fn.params) + ') L' + fn.line;
+                item.appendChild(metaSpan);
                 (function(line) {
                     item.addEventListener('dblclick', function() {
                         vscode.postMessage({ type: 'openFile', payload: { path: node.path, line: line } });
@@ -2575,7 +2684,8 @@
             nodeSizeMultiplier: nodeSizeMultiplier,
             spreadMultiplier: spreadMultiplier,
             focusDepth: focusDepth,
-            showExplorer: showExplorer
+            showExplorer: showExplorer,
+            showMinimap: !$('#minimap').classList.contains('hidden')
         };
     }
 
@@ -2656,6 +2766,14 @@
                 explorerPanel.classList.add('collapsed');
                 toggleExplorerBtn.classList.remove('active');
             }
+        }
+
+        // Minimap
+        if (typeof state.showMinimap === 'boolean') {
+            var mm = $('#minimap');
+            var mmBtn = $('#btn-minimap');
+            if (mm) mm.classList.toggle('hidden', !state.showMinimap);
+            if (mmBtn) mmBtn.classList.toggle('active', !!state.showMinimap);
         }
 
         // Apply to graph
@@ -2891,6 +3009,218 @@
             });
         })();
 
+        // ============================================================
+        // Minimap — 2D top-down overview with camera viewport rectangle
+        // ============================================================
+        (function() {
+            var container = $('#minimap');
+            var canvas = $('#minimap-canvas');
+            var header = container ? container.querySelector('.minimap-header') : null;
+            if (!container || !canvas || !header) return;
+            var ctx = canvas.getContext('2d');
+            var PADDING = 12;
+
+            // --- Drag logic ---
+            var dragging = false;
+            var offsetX = 0, offsetY = 0;
+            header.addEventListener('mousedown', function(e) {
+                if (e.target.tagName === 'BUTTON') return;
+                dragging = true;
+                var rect = container.getBoundingClientRect();
+                offsetX = e.clientX - rect.left;
+                offsetY = e.clientY - rect.top;
+                container.style.left = rect.left + 'px';
+                container.style.top = rect.top + 'px';
+                container.style.right = 'auto';
+                container.style.bottom = 'auto';
+                e.preventDefault();
+            });
+            document.addEventListener('mousemove', function(e) {
+                if (!dragging) return;
+                var x = Math.max(0, Math.min(e.clientX - offsetX, window.innerWidth - 60));
+                var y = Math.max(0, Math.min(e.clientY - offsetY, window.innerHeight - 40));
+                container.style.left = x + 'px';
+                container.style.top = y + 'px';
+            });
+            document.addEventListener('mouseup', function() { dragging = false; });
+
+            // --- Helpers: camera-view projection with fixed centroid ---
+            // Projects world positions onto the camera's screen plane
+            // (right + up axes). Centroid and scale are computed in WORLD
+            // space so they stay fixed across frames — only the rotation
+            // changes, giving a clean full-360° rotation.
+            function projectAll(nodes, w, h) {
+                var cam = graph.camera();
+                cam.updateMatrixWorld();
+                var m = cam.matrixWorldInverse;
+
+                // 1) World-space centroid (camera-independent, stable)
+                var wcx = 0, wcy = 0, wcz = 0, count = 0;
+                for (var i = 0; i < nodes.length; i++) {
+                    var n = nodes[i];
+                    if (n.x === undefined) continue;
+                    wcx += n.x; wcy += n.y; wcz += n.z; count++;
+                }
+                if (count === 0) return null;
+                wcx /= count; wcy /= count; wcz /= count;
+
+                // 2) Max radius from centroid in world space (stable)
+                var maxR = 0;
+                for (var i = 0; i < nodes.length; i++) {
+                    var n = nodes[i];
+                    if (n.x === undefined) continue;
+                    var dx = n.x - wcx, dy = n.y - wcy, dz = n.z - wcz;
+                    var r = dx * dx + dy * dy + dz * dz;
+                    if (r > maxR) maxR = r;
+                }
+                maxR = Math.sqrt(maxR) || 1;
+                var halfSize = Math.min(w, h) / 2 - PADDING;
+                var scale = halfSize / maxR;
+
+                // 3) Project each node (relative to centroid) via camera rotation
+                var pts = [];
+                for (var i = 0; i < nodes.length; i++) {
+                    var n = nodes[i];
+                    if (n.x === undefined) continue;
+                    var rx = n.x - wcx, ry = n.y - wcy, rz = n.z - wcz;
+                    var u =  m.elements[0] * rx + m.elements[4] * ry + m.elements[8]  * rz;
+                    var v = -(m.elements[1] * rx + m.elements[5] * ry + m.elements[9] * rz);
+                    pts.push({ node: n, u: u, v: v });
+                }
+
+                // 4) Project camera target relative to centroid
+                var ctrl = graph.controls();
+                var target = ctrl.target;
+                var trx = target.x - wcx, try_ = target.y - wcy, trz = target.z - wcz;
+                var tu =  m.elements[0] * trx + m.elements[4] * try_ + m.elements[8]  * trz;
+                var tv = -(m.elements[1] * trx + m.elements[5] * try_ + m.elements[9] * trz);
+
+                return {
+                    pts: pts, scale: scale,
+                    cx: w / 2, cy: h / 2,
+                    midU: 0, midV: 0,
+                    targetU: tu, targetV: tv
+                };
+            }
+
+            // --- Drag to pan the camera viewport ---
+            var draggingViewport = false;
+            var lastDragX = 0, lastDragY = 0;
+
+            function handleMinimapDrag(e) {
+                if (!draggingViewport || !graph) return;
+                var dx = e.clientX - lastDragX;
+                var dy = e.clientY - lastDragY;
+                lastDragX = e.clientX;
+                lastDragY = e.clientY;
+
+                var nodes = graph.graphData().nodes;
+                if (!nodes || nodes.length === 0) return;
+                var p = projectAll(nodes, canvas.width, canvas.height);
+                if (!p) return;
+
+                // Minimap pixels → view-space units
+                var pixelRatio = canvas.width / canvas.getBoundingClientRect().width;
+                var du = dx * pixelRatio / p.scale;
+                var dv = dy * pixelRatio / p.scale;
+
+                // Convert view-space deltas back to world using camera's world matrix
+                // column 0 = right vector, column 1 = up vector
+                var cam = graph.camera();
+                var mw = cam.matrixWorld;
+                // du → right direction (col 0), dv → -up direction (col 1, negated because v was flipped)
+                var worldDx = mw.elements[0] * du - mw.elements[4] * dv;
+                var worldDy = mw.elements[1] * du - mw.elements[5] * dv;
+                var worldDz = mw.elements[2] * du - mw.elements[6] * dv;
+
+                var pos = cam.position;
+                var ctrl = graph.controls();
+                var target = ctrl.target;
+                graph.cameraPosition(
+                    { x: pos.x + worldDx, y: pos.y + worldDy, z: pos.z + worldDz },
+                    { x: target.x + worldDx, y: target.y + worldDy, z: target.z + worldDz },
+                    0
+                );
+            }
+
+            canvas.addEventListener('mousedown', function(e) {
+                if (!graph) return;
+                draggingViewport = true;
+                lastDragX = e.clientX;
+                lastDragY = e.clientY;
+                e.preventDefault();
+            });
+
+            // Handle drag on both canvas (while cursor is over it) and
+            // document (when cursor leaves canvas during drag)
+            canvas.addEventListener('mousemove', handleMinimapDrag);
+            document.addEventListener('mousemove', function(e) {
+                if (!draggingViewport) return;
+                handleMinimapDrag(e);
+            });
+
+            document.addEventListener('mouseup', function() {
+                draggingViewport = false;
+            });
+
+            // --- Render loop ---
+            function renderMinimap() {
+                requestAnimationFrame(renderMinimap);
+                if (container.classList.contains('hidden') || !graph) return;
+
+                var nodes = graph.graphData().nodes;
+                if (!nodes || nodes.length === 0) return;
+
+                var w = canvas.width;
+                var h = canvas.height;
+                ctx.clearRect(0, 0, w, h);
+                ctx.fillStyle = '#0d1117';
+                ctx.fillRect(0, 0, w, h);
+
+                var p = projectAll(nodes, w, h);
+                if (!p) return;
+
+                // Draw nodes
+                for (var j = 0; j < p.pts.length; j++) {
+                    var pt = p.pts[j];
+                    var px = p.cx + (pt.u - p.midU) * p.scale;
+                    var py = p.cy + (pt.v - p.midV) * p.scale;
+                    ctx.fillStyle = getNodeColor(pt.node);
+                    ctx.beginPath();
+                    ctx.arc(px, py, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Viewport rectangle centered on camera target
+                try {
+                    var cam = graph.camera();
+                    var pos = cam.position;
+                    var ctrl = graph.controls();
+                    var target = ctrl.target || { x: 0, y: 0, z: 0 };
+                    var dist = Math.sqrt(
+                        (pos.x - target.x) * (pos.x - target.x) +
+                        (pos.y - target.y) * (pos.y - target.y) +
+                        (pos.z - target.z) * (pos.z - target.z)
+                    ) || 500;
+                    var fov = cam.fov || 75;
+                    var aspect = cam.aspect || 1;
+                    var halfH = dist * Math.tan((fov * Math.PI / 180) / 2);
+                    var halfW = halfH * aspect;
+
+                    // Camera target position in minimap space
+                    var vpCx = p.cx + (p.targetU - p.midU) * p.scale;
+                    var vpCy = p.cy + (p.targetV - p.midV) * p.scale;
+                    var vpHalfW = halfW * p.scale;
+                    var vpHalfH = halfH * p.scale;
+
+                    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(vpCx - vpHalfW, vpCy - vpHalfH, vpHalfW * 2, vpHalfH * 2);
+                } catch (ignored) {}
+            }
+            requestAnimationFrame(renderMinimap);
+        })();
+
         $('#node-size-slider').addEventListener('input', function(e) {
             nodeSizeMultiplier = parseFloat(e.target.value);
             if (graph) graph.nodeVal(graph.nodeVal());
@@ -2902,7 +3232,6 @@
             if (graph) {
                 applySpreadForces();
                 graph.d3ReheatSimulation();
-                wakeGraph();
             }
             saveViewState();
         });
@@ -3128,6 +3457,42 @@
                 toggleImpactMode();
             });
         }
+
+        // Timeline slider hover tooltip
+        var sliderTip = document.createElement('div');
+        sliderTip.id = 'timeline-slider-tip';
+        sliderTip.className = 'hidden';
+        document.body.appendChild(sliderTip);
+
+        timelineSlider.addEventListener('mousemove', function(e) {
+            if (timelineCommits.length === 0) return;
+            var rect = timelineSlider.getBoundingClientRect();
+            var ratio = (e.clientX - rect.left) / rect.width;
+            ratio = Math.max(0, Math.min(1, ratio));
+            var maxPos = parseInt(timelineSlider.max);
+            var pos = Math.round(ratio * maxPos);
+            if (pos >= maxPos) {
+                sliderTip.textContent = 'HEAD — Current state';
+            } else {
+                var commitIdx = (maxPos - 1) - pos;
+                if (commitIdx >= 0 && commitIdx < timelineCommits.length) {
+                    var c = timelineCommits[commitIdx];
+                    var d = new Date(c.date);
+                    sliderTip.textContent = d.toLocaleDateString() + ' — ' + c.message;
+                } else {
+                    sliderTip.textContent = '';
+                }
+            }
+            sliderTip.classList.remove('hidden');
+            var tipX = e.clientX - sliderTip.offsetWidth / 2;
+            tipX = Math.max(4, Math.min(tipX, window.innerWidth - sliderTip.offsetWidth - 4));
+            sliderTip.style.left = tipX + 'px';
+            sliderTip.style.top = (rect.top - 32) + 'px';
+        });
+
+        timelineSlider.addEventListener('mouseleave', function() {
+            sliderTip.classList.add('hidden');
+        });
     }
 
     function handleHistoryIndex(index) {

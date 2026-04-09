@@ -197,6 +197,14 @@ export class WebviewProvider {
     private getHtmlContent(webview: vscode.Webview): string {
         const webviewPath = path.join('out', 'webview');
 
+        // Read version from package.json
+        const pkgPath = path.join(this.extensionUri.fsPath, 'package.json');
+        let version = '1.0.0';
+        try {
+            const pkg = require(pkgPath);
+            version = pkg.version || version;
+        } catch { /* fallback */ }
+
         const styleUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'css', 'style.css')
         );
@@ -233,6 +241,7 @@ export class WebviewProvider {
                 <div id="logo">
                     <span class="logo-icon">✦</span>
                     <span class="logo-text">AURA</span>
+                    <span class="logo-version">v${version}</span>
                 </div>
             </div>
             <div class="top-bar-center">
@@ -251,7 +260,9 @@ export class WebviewProvider {
                     <span class="stat" id="stat-time">—</span>
                 </div>
                 <button id="btn-export" class="top-btn" title="Export graph for AI">📤 Export</button>
+                <button id="btn-minimap" class="top-btn" title="Toggle minimap">🗺️ Map</button>
                 <button id="btn-refresh" class="top-btn" title="Refresh analysis">🔄 Refresh</button>
+                <button id="btn-help" class="top-btn" title="Help & shortcuts">❓ Help</button>
             </div>
         </header>
 
@@ -472,6 +483,98 @@ export class WebviewProvider {
     <div id="tooltip" class="hidden">
         <div class="tooltip-name" id="tooltip-name">—</div>
         <div class="tooltip-meta" id="tooltip-meta">—</div>
+    </div>
+
+    <!-- Minimap (overlay) -->
+    <div id="minimap" class="hidden">
+        <div class="minimap-header">
+            <span>🗺️ Minimap</span>
+            <button id="minimap-close" title="Close">✕</button>
+        </div>
+        <canvas id="minimap-canvas" width="200" height="200"></canvas>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="help-modal" class="hidden">
+        <div class="help-modal-content">
+            <div class="help-modal-header">
+                <span>✦ Aura Help — v${version}</span>
+                <button id="help-modal-close" title="Close">✕</button>
+            </div>
+            <div class="help-modal-body">
+
+                <h3>🖱️ Interactive Exploration</h3>
+                <table class="help-table">
+                    <tr><td><kbd>Click</kbd></td><td>Select node, show detail panel, focus camera</td></tr>
+                    <tr><td><kbd>Double-click</kbd></td><td>Open file in VS Code editor</td></tr>
+                    <tr><td><kbd>Right-click</kbd></td><td>Pin focus — isolate file + neighbors up to N depth</td></tr>
+                    <tr><td><kbd>Shift+Right-click</kbd></td><td>Blast radius — show impact (all dependents) with depth coloring</td></tr>
+                    <tr><td><kbd>Shift+Click</kbd></td><td>Multi-select — aggregate stats for multiple files</td></tr>
+                    <tr><td><kbd>Scroll</kbd></td><td>Zoom in / out</td></tr>
+                    <tr><td><kbd>Drag</kbd></td><td>Rotate the 3D view</td></tr>
+                    <tr><td><kbd>Background click</kbd></td><td>Clear all selections</td></tr>
+                </table>
+
+                <h3>🎹 Keyboard Shortcuts</h3>
+                <table class="help-table">
+                    <tr><td><kbd>F</kbd></td><td>Fit to view / recenter</td></tr>
+                    <tr><td><kbd>L</kbd></td><td>Toggle node labels</td></tr>
+                    <tr><td><kbd>G</kbd></td><td>Toggle directory groups</td></tr>
+                    <tr><td><kbd>H</kbd></td><td>Cycle heatmap modes</td></tr>
+                    <tr><td><kbd>P</kbd></td><td>Toggle path-finding mode</td></tr>
+                    <tr><td><kbd>D</kbd></td><td>Toggle DAG layout</td></tr>
+                    <tr><td><kbd>O</kbd></td><td>Highlight orphan files</td></tr>
+                    <tr><td><kbd>X</kbd></td><td>Toggle dead code visualization</td></tr>
+                    <tr><td><kbd>C</kbd></td><td>Toggle circular dependencies</td></tr>
+                    <tr><td><kbd>1</kbd>–<kbd>5</kbd></td><td>Set pinned focus / blast depth</td></tr>
+                    <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Timeline: previous / next commit</td></tr>
+                    <tr><td><kbd>Escape</kbd></td><td>Reset all selections and modes</td></tr>
+                </table>
+
+                <h3>🌡️ Heatmap Modes</h3>
+                <table class="help-table">
+                    <tr><td><strong>Off</strong></td><td>Color by programming language</td></tr>
+                    <tr><td><strong>Complexity</strong></td><td>Cyclomatic complexity (branching, loops)</td></tr>
+                    <tr><td><strong>Fan-in</strong></td><td>How many files depend on this file</td></tr>
+                    <tr><td><strong>Fan-out</strong></td><td>How many files this file depends on</td></tr>
+                    <tr><td><strong>Lines of Code</strong></td><td>File size</td></tr>
+                    <tr><td><strong>Last Modified</strong></td><td>Git commit recency</td></tr>
+                    <tr><td><strong>Communities</strong></td><td>Architectural modules (Louvain algorithm)</td></tr>
+                </table>
+
+                <h3>🧩 Community Detection</h3>
+                <p>The Louvain algorithm detects architectural modules by dependency coupling. Each community is named after its hub file (highest fan-in). Use the floating palette to toggle communities on/off.</p>
+
+                <h3>💥 Blast Radius</h3>
+                <p><kbd>Shift+Right-click</kbd> on a file to see all files that transitively depend on it. Nodes are colored by depth of impact: White (source) → Red → Orange → Yellow → Green.</p>
+
+                <h3>▶ Flow Trace</h3>
+                <p>In the detail panel, click the <strong>▶</strong> button next to a function to trace its outgoing call chain across files. Files light up progressively by call depth.</p>
+
+                <h3>⏳ Time Travel</h3>
+                <p>Navigate git history commit by commit. Changed files are highlighted in yellow. Use the timeline slider or arrow keys to step through commits.</p>
+
+                <h3>📤 Export for AI</h3>
+                <p>Export the graph as JSON for AI assistants. Aura also includes a built-in MCP server for direct AI integration.</p>
+
+                <h3>🗺️ Minimap</h3>
+                <p>Toggle with the <strong>🗺️ Map</strong> button. Shows a top-down overview of all nodes. The white rectangle indicates the camera viewport. Click on the minimap to navigate. Drag the header to reposition.</p>
+
+                <h3>🔗 Edge Colors</h3>
+                <table class="help-table">
+                    <tr><td><span style="color:#4fc3f7">━━</span> <strong>include</strong></td><td>C <code>#include "file.h"</code></td></tr>
+                    <tr><td><span style="color:#4fc3f755">━━</span> <strong>system-include</strong></td><td>C <code>#include &lt;stdlib.h&gt;</code></td></tr>
+                    <tr><td><span style="color:#ffd54f">━━</span> <strong>import</strong></td><td>JS/TS <code>import</code></td></tr>
+                    <tr><td><span style="color:#ffd54f88">━━</span> <strong>require</strong></td><td>CommonJS <code>require()</code></td></tr>
+                    <tr><td><span style="color:#ffd54f66">━━</span> <strong>dynamic-import</strong></td><td><code>import()</code> expressions</td></tr>
+                    <tr><td><span style="color:#81c784">━━</span> <strong>function-call</strong></td><td>Cross-file function calls</td></tr>
+                    <tr><td><span style="color:#f06292">━━</span> <strong>extends</strong></td><td>Class / struct inheritance</td></tr>
+                    <tr><td><span style="color:#ba68c8">━━</span> <strong>implements</strong></td><td>Interface / trait implementation</td></tr>
+                    <tr><td><span style="color:#ff8a65">━━</span> <strong>script</strong></td><td>HTML <code>&lt;script src&gt;</code></td></tr>
+                    <tr><td><span style="color:#ce93d8">━━</span> <strong>stylesheet</strong></td><td>HTML <code>&lt;link rel="stylesheet"&gt;</code> / CSS <code>@import</code></td></tr>
+                </table>
+            </div>
+        </div>
     </div>
 
     <!-- Libraries: THREE must load before 3d-force-graph (it checks window.THREE) -->

@@ -11,10 +11,6 @@
   <img src="https://img.shields.io/badge/License-MIT-green" alt="License" />
 </p>
 
-<p align="center">
-  <img src="resources/AuraScreen.png" alt="Aura Visualizer screenshot" />
-</p>
-
 ---
 
 ## Features
@@ -141,6 +137,15 @@ Hold `Shift` and click multiple nodes to select a group. The detail panel shows:
 - Language breakdown
 - Internal links between selected files
 - List of all selected files
+
+### Minimap 🗺️
+
+Toggle with the **🗺️ Map** button in the toolbar. A floating minimap displays a real-time overview of all nodes, projected from the camera's perspective. The white rectangle shows the current viewport.
+
+- **Rotate** the 3D view — the minimap rotates in sync
+- **Drag** inside the minimap — pan the camera in the 3D view
+- **Drag the header** — reposition the minimap panel
+- **Close** with the ✕ button or toggle the toolbar button
 
 ### Time Travel ⏳
 

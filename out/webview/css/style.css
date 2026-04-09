@@ -115,6 +115,14 @@ html, body {
     background-clip: text;
 }
 
+.logo-version {
+    font-size: 10px;
+    opacity: 0.4;
+    font-weight: 400;
+    margin-left: 4px;
+    letter-spacing: 0;
+}
+
 /* Top bar buttons */
 .top-btn {
     background: transparent;
@@ -606,6 +614,27 @@ html, body {
 .symbol-item-clickable { cursor: pointer; }
 .symbol-item-clickable:hover { background: rgba(96,165,250,0.08); }
 
+.flow-trace-btn {
+    background: transparent;
+    border: 1px solid rgba(0, 229, 255, 0.3);
+    color: #00e5ff;
+    font-size: 8px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    padding: 0;
+    transition: background 0.15s, border-color 0.15s;
+}
+.flow-trace-btn:hover {
+    background: rgba(0, 229, 255, 0.15);
+    border-color: #00e5ff;
+}
+
 .symbol-icon { font-size: 12px; }
 .symbol-name { font-weight: 500; }
 .symbol-meta { margin-left: auto; font-size: 10px; opacity: 0.4; }
@@ -1031,6 +1060,23 @@ html, body {
     transform: scale(1.3);
 }
 
+#timeline-slider-tip {
+    position: fixed;
+    z-index: 3000;
+    background: var(--aura-sidebar-bg);
+    border: 1px solid var(--aura-border);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 11px;
+    color: var(--aura-text);
+    white-space: nowrap;
+    pointer-events: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    max-width: 400px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 #timeline-info {
     display: flex;
     align-items: center;
@@ -1079,3 +1125,160 @@ html, body {
    Utility
    ============================================================ */
 .hidden { display: none !important; }
+
+/* ============================================================
+   Help Modal
+   ============================================================ */
+#help-modal {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(4px);
+}
+
+.help-modal-content {
+    background: var(--aura-sidebar-bg);
+    border: 1px solid var(--aura-border);
+    border-radius: 12px;
+    width: 640px;
+    max-width: 90vw;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+}
+
+.help-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 18px;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 1px;
+    border-bottom: 1px solid var(--aura-border);
+    flex-shrink: 0;
+    background: linear-gradient(135deg, rgba(96,165,250,0.08), rgba(167,139,250,0.08));
+}
+
+.help-modal-header button {
+    background: transparent;
+    border: none;
+    color: var(--aura-text-secondary);
+    font-size: 16px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.help-modal-header button:hover {
+    background: rgba(255,255,255,0.1);
+    color: var(--aura-text);
+}
+
+.help-modal-body {
+    padding: 16px 20px;
+    overflow-y: auto;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--aura-text-secondary);
+}
+
+.help-modal-body h3 {
+    color: var(--aura-text);
+    font-size: 14px;
+    margin: 18px 0 8px 0;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.help-modal-body h3:first-child {
+    margin-top: 0;
+}
+
+.help-modal-body p {
+    margin: 6px 0 12px 0;
+    opacity: 0.8;
+}
+
+.help-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 12px;
+}
+
+.help-table td {
+    padding: 4px 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    vertical-align: top;
+}
+
+.help-table td:first-child {
+    white-space: nowrap;
+    width: 140px;
+    font-weight: 500;
+}
+
+.help-table kbd {
+    background: rgba(96,165,250,0.12);
+    border: 1px solid rgba(96,165,250,0.25);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 11px;
+    font-family: monospace;
+    color: #93c5fd;
+}
+
+/* ============================================================
+   Minimap
+   ============================================================ */
+#minimap {
+    position: fixed;
+    bottom: 60px;
+    left: 16px;
+    width: 210px;
+    background: var(--aura-sidebar-bg);
+    border: 1px solid var(--aura-border);
+    border-radius: var(--radius);
+    z-index: 200;
+    font-size: 12px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+}
+.minimap-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--aura-border);
+    cursor: grab;
+    user-select: none;
+    font-size: 11px;
+    opacity: 0.8;
+}
+.minimap-header:active { cursor: grabbing; }
+.minimap-header button {
+    background: none;
+    border: none;
+    color: var(--aura-text);
+    cursor: pointer;
+    font-size: 12px;
+    opacity: 0.6;
+    padding: 0 2px;
+}
+.minimap-header button:hover { opacity: 1; }
+#minimap-canvas {
+    display: block;
+    width: 100%;
+    cursor: move;
+}

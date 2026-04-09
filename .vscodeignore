@@ -6,7 +6,14 @@ tsconfig.json
 vitest.config.ts
 esbuild.js
 .gitignore
+.github/
+Docs/
+tests/
+test/
+**/*.test.*
 PLAN.md
+CHANGELOG.md
+out/**/*.map
 resources/icon_old.png
 resources/aura-icon.png
 resources/aura-icon.svg

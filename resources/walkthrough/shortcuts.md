@@ -17,6 +17,12 @@ Quick access to every feature without leaving the keyboard.
 | `←` `→` | Timeline: previous / next commit |
 | `Escape` | Reset everything — clear all selections, heatmaps, and timeline |
 
+### Toolbar buttons
+
+| Button | Effect |
+|--------|--------|
+| **🗺️ Map** | Toggle the minimap — real-time overview that rotates with the camera |
+
 ### Toolbar sliders
 
 | Slider | Effect |

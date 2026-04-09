@@ -49,6 +49,7 @@ var LANGUAGE_ICONS = {
 
 // Blast radius depth → color (0=source, 1=high, 2=medium, 3+=low)
 var BLAST_COLORS = ['#ffffff', '#f44336', '#ff9800', '#ffc107', '#cddc39', '#66bb6a'];
+var FLOW_COLORS = ['#00e5ff', '#76ff03', '#ffea00', '#ff9100', '#ff3d00', '#d500f9'];
 
 
 var HEATMAP_SCALES = {
