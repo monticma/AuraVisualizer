@@ -344,7 +344,7 @@ ${JSON.stringify(i,null,2)}`);let u=s[c]();return new Language(INTERNAL,u)})}}cl
                 <p>In the detail panel, click the <strong>\u25B6</strong> button next to a function to trace its outgoing call chain across files. Files light up progressively by call depth.</p>
 
                 <h3>\u23F3 Time Travel</h3>
-                <p>Navigate git history commit by commit. Changed files are color-coded: <span style="color:#00ff88">\u25CF green</span> = added, <span style="color:#ff2080">\u25CF pink</span> = removed, <span style="color:#00e5ff">\u25CF cyan</span> = modified. Edges follow the same scheme. Press <kbd>V</kbd> or click <strong>\u21C4</strong> to enter <strong>Compare mode</strong> with a dual slider to diff any two commits.</p>
+                <p>Navigate git history commit by commit. Changed files are color-coded: <span style="color:#00ff88">\u25CF green</span> = added, <span style="color:#ff2080">\u25CF pink</span> = removed, <span style="color:#ffff00">\u25CF yellow</span> = modified. Edges follow the same scheme. Press <kbd>V</kbd> or click <strong>\u21C4</strong> to enter <strong>Compare mode</strong> with a dual slider to diff any two commits.</p>
 
                 <h3>\u{1F4E4} Export for AI</h3>
                 <p>Export the graph as JSON for AI assistants. Aura also includes a built-in MCP server for direct AI integration.</p>

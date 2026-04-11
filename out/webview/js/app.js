@@ -687,7 +687,8 @@
                     !(pinnedNode && !pinnedNodes.has(node)) &&
                     !(heatmapMode === 'community' && activeCommunities.size < Object.keys(communityNames).length &&
                       (communityMap[node.id] === undefined || !activeCommunities.has(communityMap[node.id]))) &&
-                    !(flowTraceMode && !flowTraceNodes.has(node.id));
+                    !(flowTraceMode && !flowTraceNodes.has(node.id)) &&
+                    !(timelineActive && timelineChangedNodes.size > 0 && !timelineChangedNodes.has(node.id));
 
                 // In flow trace mode, force labels on trace nodes even if showLabels is off
                 if (flowTraceMode && flowTraceNodes.has(node.id) && flowTraceDepths[node.id] <= flowTraceAnimDepth) {
@@ -908,7 +909,8 @@
         if (timelineActive && timelineChangedNodes.size > 0) {
             if (timelineAddedNodes.has(node.id)) return '#00ff88';   // neon green = added
             if (timelineRemovedNodes.has(node.id)) return '#ff2080'; // neon pink = removed
-            if (timelineModifiedNodes.has(node.id)) return '#00e5ff'; // neon cyan = modified
+            if (timelineModifiedNodes.has(node.id)) return '#ffff00'; // neon yellow = modified
+            return '#ffffff0a'; // dim unchanged nodes
         }
 
         if (pathMode) {
@@ -1017,12 +1019,17 @@
         }
 
         // Timeline diff link colors
-        if (timelineActive && (timelineAddedLinks.size > 0 || timelineRemovedLinks.size > 0)) {
+        if (timelineActive && timelineChangedNodes.size > 0) {
             var tlSrc = typeof link.source === 'object' ? link.source.id : link.source;
             var tlTgt = typeof link.target === 'object' ? link.target.id : link.target;
             var tlKey = tlSrc + '>' + tlTgt;
             if (timelineAddedLinks.has(tlKey)) return '#00ff88cc';   // neon green
             if (timelineRemovedLinks.has(tlKey)) return '#ff2080cc'; // neon pink
+            // Only show edges between changed nodes; hide all others
+            if (timelineChangedNodes.has(tlSrc) && timelineChangedNodes.has(tlTgt)) {
+                return LINK_COLORS[link.type] || '#ffffff44';
+            }
+            return '#00000000'; // fully hidden
         }
 
         if (pathMode) {
@@ -3677,12 +3684,12 @@
             if (timelineCompareMode && timelineFromPos < maxPos) {
                 timelinePosition = -1;
                 timelineActive = true;
-                // Restore HEAD graph first, then overlay diff colors
-                if (headGraphData && graph) {
-                    restoreHeadGraph();
-                }
-                // Now compute the diff sets between fromPos and HEAD
+                // First compute the diff sets (before restoring, so they survive the refresh)
                 computeCompareDiff(timelineFromPos, maxPos);
+                // Now restore HEAD graph visuals (but don't clear diff sets)
+                if (headGraphData && graph) {
+                    restoreHeadGraphKeepDiff();
+                }
                 if (impactMode) computeTimelineImpact();
                 updateTimelineLabel();
                 updateTimelineButtons();
@@ -3999,6 +4006,59 @@
         timelineModifiedNodes.clear();
         timelineAddedLinks.clear();
         timelineRemovedLinks.clear();
+        refreshGraphVisuals();
+
+        setTimeout(function() {
+            var d = graph.graphData();
+            for (var ui = 0; ui < d.nodes.length; ui++) {
+                delete d.nodes[ui].fx; delete d.nodes[ui].fy; delete d.nodes[ui].fz;
+            }
+        }, 500);
+    }
+
+    // Like restoreHeadGraph but preserves the timeline diff sets (for compare mode at HEAD)
+    function restoreHeadGraphKeepDiff() {
+        if (!headGraphData || !graph) return;
+
+        var newNodes = [];
+        for (var i = 0; i < headGraphData.nodes.length; i++) {
+            var headNode = headGraphData.nodes[i];
+            var existing = findNodeInGraph(headNode.id);
+            if (existing) {
+                existing.linesOfCode = headNode.linesOfCode;
+                existing.complexity = headNode.complexity;
+                existing.symbols = headNode.symbols;
+                existing.fanIn = headNode.fanIn;
+                existing.fanOut = headNode.fanOut;
+                existing.deadExports = headNode.deadExports;
+                existing.cycleIds = headNode.cycleIds;
+                newNodes.push(existing);
+            } else {
+                newNodes.push(Object.assign({}, headNode));
+            }
+        }
+
+        var restoredLinks = [];
+        for (var rl = 0; rl < headGraphData.links.length; rl++) {
+            var hl = headGraphData.links[rl];
+            restoredLinks.push({
+                source: typeof hl.source === 'object' ? hl.source.id : hl.source,
+                target: typeof hl.target === 'object' ? hl.target.id : hl.target,
+                type: hl.type, label: hl.label || ''
+            });
+        }
+
+        for (var rp = 0; rp < newNodes.length; rp++) {
+            var rn = newNodes[rp];
+            if (rn.x !== undefined) { rn.fx = rn.x; rn.fy = rn.y; rn.fz = rn.z; }
+        }
+
+        graphData.nodes = newNodes;
+        graphData.links = restoredLinks;
+        graphData.meta = JSON.parse(JSON.stringify(headGraphData.meta));
+
+        graph.graphData({ nodes: newNodes, links: restoredLinks });
+        // Do NOT clear diff sets — they are pre-computed by computeCompareDiff
         refreshGraphVisuals();
 
         setTimeout(function() {
