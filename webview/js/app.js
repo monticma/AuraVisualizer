@@ -95,6 +95,8 @@
     var impactMode = false; // true when showing impact cascade from timeline changed nodes
     var timelineCompareMode = false;  // dual-slider compare
     var timelineFromPos = 0;          // "from" slider position in compare mode
+    var timelineSavedToPos = -1;      // saved "to" slider position when leaving compare mode
+    var timelineSavedFromPos = -1;    // saved "from" slider position when leaving compare mode
 
     var lastPointerX = -1;
     var lastPointerY = -1;
@@ -688,7 +690,7 @@
                     !(heatmapMode === 'community' && activeCommunities.size < Object.keys(communityNames).length &&
                       (communityMap[node.id] === undefined || !activeCommunities.has(communityMap[node.id]))) &&
                     !(flowTraceMode && !flowTraceNodes.has(node.id)) &&
-                    !(timelineActive && timelineChangedNodes.size > 0 && !timelineChangedNodes.has(node.id));
+                    !(timelineActive && timelineCompareMode && timelineChangedNodes.size > 0 && !timelineChangedNodes.has(node.id));
 
                 // In flow trace mode, force labels on trace nodes even if showLabels is off
                 if (flowTraceMode && flowTraceNodes.has(node.id) && flowTraceDepths[node.id] <= flowTraceAnimDepth) {
@@ -788,6 +790,7 @@
             })
             .linkSource('source')
             .linkTarget('target')
+            .linkVisibility(function(link) { return getLinkVisibility(link); })
             .linkColor(function(link) { return getLinkColor(link); })
             .linkWidth(function(link) { 
                 if (link._isCallEdge) {
@@ -796,12 +799,13 @@
                     var cwTgt = typeof link.target === 'object' ? link.target.id : link.target;
                     return (cwSrc === hoveredSymbolId || cwTgt === hoveredSymbolId) ? 2 : 0;
                 }
-                // Timeline diff: thicker lines for added/removed links
-                if (timelineActive && (timelineAddedLinks.size > 0 || timelineRemovedLinks.size > 0)) {
+                // Timeline diff: thicker lines for added/removed links, hide edges in compare mode
+                if (timelineActive && timelineChangedNodes.size > 0) {
                     var lwSrc = typeof link.source === 'object' ? link.source.id : link.source;
                     var lwTgt = typeof link.target === 'object' ? link.target.id : link.target;
                     var lwKey = lwSrc + '>' + lwTgt;
-                    if (timelineAddedLinks.has(lwKey) || timelineRemovedLinks.has(lwKey)) return 2.5;
+                    if (!timelineCompareMode && (timelineAddedLinks.has(lwKey) || timelineRemovedLinks.has(lwKey))) return 2.5;
+                    if (timelineCompareMode && !(timelineChangedNodes.has(lwSrc) && timelineChangedNodes.has(lwTgt))) return 0;
                 }
                 if (pathMode && highlightedPath.links.has(link)) return 3;
                 if (multiSelectedLinks.has(link)) return 2.5;
@@ -811,6 +815,12 @@
             })
             .linkOpacity(0.4)
             .linkDirectionalArrowLength(function(link) {
+                // In compare mode, hide arrows unless both endpoints are changed
+                if (timelineActive && timelineCompareMode && timelineChangedNodes.size > 0) {
+                    var aaSrc = typeof link.source === 'object' ? link.source.id : link.source;
+                    var aaTgt = typeof link.target === 'object' ? link.target.id : link.target;
+                    if (!(timelineChangedNodes.has(aaSrc) && timelineChangedNodes.has(aaTgt))) return 0;
+                }
                 if (link.type === 'extends' || link.type === 'implements') return 5;
                 return 3;
             })
@@ -822,8 +832,8 @@
                     var cpTgt = typeof link.target === 'object' ? link.target.id : link.target;
                     return (cpSrc === hoveredSymbolId || cpTgt === hoveredSymbolId) ? 3 : 0;
                 }
-                // Animate added/removed links in timeline diff
-                if (timelineActive && (timelineAddedLinks.size > 0 || timelineRemovedLinks.size > 0)) {
+                // Animate added/removed links in timeline diff (single-commit mode only)
+                if (timelineActive && !timelineCompareMode && (timelineAddedLinks.size > 0 || timelineRemovedLinks.size > 0)) {
                     var dpSrc = typeof link.source === 'object' ? link.source.id : link.source;
                     var dpTgt = typeof link.target === 'object' ? link.target.id : link.target;
                     var dpKey = dpSrc + '>' + dpTgt;
@@ -910,7 +920,7 @@
             if (timelineAddedNodes.has(node.id)) return '#00ff88';   // neon green = added
             if (timelineRemovedNodes.has(node.id)) return '#ff2080'; // neon pink = removed
             if (timelineModifiedNodes.has(node.id)) return '#ffff00'; // neon yellow = modified
-            return '#ffffff0a'; // dim unchanged nodes
+            if (timelineCompareMode) return '#ffffff0a'; // dim unchanged nodes in compare mode only
         }
 
         if (pathMode) {
@@ -1006,6 +1016,16 @@
         return size;
     }
 
+    function getLinkVisibility(link) {
+        // In compare mode, only show links where both endpoints are changed
+        if (timelineActive && timelineCompareMode && timelineChangedNodes.size > 0) {
+            var vSrc = typeof link.source === 'object' ? link.source.id : link.source;
+            var vTgt = typeof link.target === 'object' ? link.target.id : link.target;
+            return timelineChangedNodes.has(vSrc) && timelineChangedNodes.has(vTgt);
+        }
+        return true;
+    }
+
     function getLinkColor(link) {
         if (showOrphans) return '#ffffff02';
         if (showDeadCode) return '#ffffff08';
@@ -1023,13 +1043,18 @@
             var tlSrc = typeof link.source === 'object' ? link.source.id : link.source;
             var tlTgt = typeof link.target === 'object' ? link.target.id : link.target;
             var tlKey = tlSrc + '>' + tlTgt;
-            if (timelineAddedLinks.has(tlKey)) return '#00ff88cc';   // neon green
-            if (timelineRemovedLinks.has(tlKey)) return '#ff2080cc'; // neon pink
-            // Only show edges between changed nodes; hide all others
-            if (timelineChangedNodes.has(tlSrc) && timelineChangedNodes.has(tlTgt)) {
-                return LINK_COLORS[link.type] || '#ffffff44';
+            // Show added/removed link colors only in single-commit mode (not compare)
+            if (!timelineCompareMode) {
+                if (timelineAddedLinks.has(tlKey)) return '#00ff88cc';   // neon green
+                if (timelineRemovedLinks.has(tlKey)) return '#ff2080cc'; // neon pink
             }
-            return '#00000000'; // fully hidden
+            if (timelineCompareMode) {
+                // In compare mode: only show edges where both endpoints are changed
+                if (timelineChangedNodes.has(tlSrc) && timelineChangedNodes.has(tlTgt)) {
+                    return LINK_COLORS[link.type] || '#ffffff44';
+                }
+                return '#00000000';
+            }
         }
 
         if (pathMode) {
@@ -1631,14 +1656,26 @@
         if (timelineCompareBtn) timelineCompareBtn.classList.toggle('active', timelineCompareMode);
         if (timelineFromSlider) {
             if (timelineCompareMode) {
-                // Show the from-slider, position it at current slider pos
+                // Show the from-slider; restore saved positions if available
                 timelineFromSlider.min = timelineSlider.min;
                 timelineFromSlider.max = timelineSlider.max;
-                timelineFromSlider.value = timelineSlider.value;
-                timelineFromPos = parseInt(timelineSlider.value);
+                if (timelineSavedFromPos >= 0 && timelineSavedToPos >= 0) {
+                    timelineFromSlider.value = timelineSavedFromPos;
+                    timelineFromPos = timelineSavedFromPos;
+                    timelineSlider.value = timelineSavedToPos;
+                } else {
+                    timelineFromSlider.value = timelineSlider.value;
+                    timelineFromPos = parseInt(timelineSlider.value);
+                }
                 timelineFromSlider.classList.remove('hidden');
                 if (timelineFromControls) timelineFromControls.classList.remove('hidden');
+                // Navigate to show the diff immediately
+                var toPos = parseInt(timelineSlider.value);
+                navigateToCommit(toPos);
             } else {
+                // Save positions before hiding
+                timelineSavedFromPos = parseInt(timelineFromSlider.value);
+                timelineSavedToPos = parseInt(timelineSlider.value);
                 timelineFromSlider.classList.add('hidden');
                 if (timelineFromControls) timelineFromControls.classList.add('hidden');
                 // Refresh to single-commit mode
@@ -1652,8 +1689,10 @@
     function refreshGraphVisuals() {
         if (!graph) return;
         graph.nodeColor(graph.nodeColor())
+             .linkVisibility(graph.linkVisibility())
              .linkWidth(graph.linkWidth())
              .linkColor(graph.linkColor())
+             .linkDirectionalArrowLength(graph.linkDirectionalArrowLength())
              .linkDirectionalParticles(graph.linkDirectionalParticles())
              .nodeThreeObject(graph.nodeThreeObject());
     }
@@ -1662,8 +1701,10 @@
     function refreshGraphColors() {
         if (!graph) return;
         graph.nodeColor(graph.nodeColor())
+             .linkVisibility(graph.linkVisibility())
              .linkWidth(graph.linkWidth())
              .linkColor(graph.linkColor())
+             .linkDirectionalArrowLength(graph.linkDirectionalArrowLength())
              .linkDirectionalParticles(graph.linkDirectionalParticles())
              .nodeThreeObject(graph.nodeThreeObject());
     }
@@ -3502,14 +3543,30 @@
     function setupTimeline() {
         if (!timelineSlider || !timelinePrevBtn || !timelineNextBtn) return;
 
+        // Update tooltip while dragging, navigate only on release
         timelineSlider.addEventListener('input', function() {
+            // In compare mode, clamp blue (to) slider to not go before orange (from)
+            if (timelineCompareMode && timelineFromSlider) {
+                var curTo = parseInt(timelineSlider.value);
+                var curFrom = parseInt(timelineFromSlider.value);
+                if (curTo < curFrom) timelineSlider.value = curFrom;
+            }
+            updateTimelineLabel();
+        });
+        timelineSlider.addEventListener('change', function() {
+            if (timelineCompareMode && timelineFromSlider) {
+                var curTo = parseInt(timelineSlider.value);
+                var curFrom = parseInt(timelineFromSlider.value);
+                if (curTo < curFrom) timelineSlider.value = curFrom;
+            }
             var pos = parseInt(timelineSlider.value);
             navigateToCommit(pos);
         });
 
         timelinePrevBtn.addEventListener('click', function() {
             var pos = parseInt(timelineSlider.value);
-            if (pos > 0) {
+            var minPos = (timelineCompareMode && timelineFromSlider) ? parseInt(timelineFromSlider.value) : 0;
+            if (pos > minPos) {
                 timelineSlider.value = pos - 1;
                 navigateToCommit(pos - 1);
             }
@@ -3539,9 +3596,20 @@
 
         // From-slider (compare mode)
         if (timelineFromSlider) {
+            // Update tooltip while dragging, navigate only on release
             timelineFromSlider.addEventListener('input', function() {
+                // Clamp orange (from) slider to not go after blue (to)
+                var curFrom = parseInt(timelineFromSlider.value);
+                var curTo = parseInt(timelineSlider.value);
+                if (curFrom > curTo) timelineFromSlider.value = curTo;
                 timelineFromPos = parseInt(timelineFromSlider.value);
-                // Navigate to rebuild the diff between from and to
+                updateTimelineLabel();
+            });
+            timelineFromSlider.addEventListener('change', function() {
+                var curFrom = parseInt(timelineFromSlider.value);
+                var curTo = parseInt(timelineSlider.value);
+                if (curFrom > curTo) timelineFromSlider.value = curTo;
+                timelineFromPos = parseInt(timelineFromSlider.value);
                 var toPos = parseInt(timelineSlider.value);
                 navigateToCommit(toPos);
             });
@@ -3564,11 +3632,11 @@
             timelineFromNextBtn.addEventListener('click', function() {
                 if (!timelineFromSlider) return;
                 var pos = parseInt(timelineFromSlider.value);
-                var max = parseInt(timelineFromSlider.max);
-                if (pos < max) {
+                var toPos = parseInt(timelineSlider.value);
+                // Don't go past blue slider
+                if (pos < toPos) {
                     timelineFromSlider.value = pos + 1;
                     timelineFromPos = pos + 1;
-                    var toPos = parseInt(timelineSlider.value);
                     navigateToCommit(toPos);
                 }
             });
@@ -3827,7 +3895,7 @@
                 node.linesOfCode = mod.linesOfCode;
                 node.complexity = mod.complexity;
                 if (mod.symbols) node.symbols = mod.symbols;
-                timelineChangedNodes.add(node.id);
+                if (!timelineCompareMode) timelineChangedNodes.add(node.id);
             }
             nodeIds.add(node.id);
             newNodes.push(node);
@@ -3891,6 +3959,12 @@
             var srcId = typeof headLink.source === 'object' ? headLink.source.id : headLink.source;
             var tgtId = typeof headLink.target === 'object' ? headLink.target.id : headLink.target;
             if (nodeIds.has(srcId) && nodeIds.has(tgtId)) {
+                // In compare mode, skip links unless both endpoints are changed
+                if (timelineCompareMode && timelineChangedNodes.size > 0 &&
+                    !(timelineChangedNodes.has(srcId) && timelineChangedNodes.has(tgtId))) {
+                    newLinkKeys.add(srcId + '>' + tgtId);
+                    continue;
+                }
                 newLinks.push({ source: srcId, target: tgtId, type: headLink.type, label: headLink.label || '' });
                 newLinkKeys.add(srcId + '>' + tgtId);
             }
@@ -3907,13 +3981,18 @@
                         var lKey = modFile + '>' + linkOut.target;
                         // Check if this link already exists
                         if (!newLinkKeys.has(lKey)) {
+                            newLinkKeys.add(lKey);
+                            // In compare mode, skip links unless both endpoints are changed
+                            if (timelineCompareMode && timelineChangedNodes.size > 0 &&
+                                !(timelineChangedNodes.has(modFile) && timelineChangedNodes.has(linkOut.target))) {
+                                continue;
+                            }
                             newLinks.push({
                                 source: modFile,
                                 target: linkOut.target,
                                 type: linkOut.type,
                                 label: ''
                             });
-                            newLinkKeys.add(lKey);
                             // This link exists at target commit but not at HEAD → added
                             if (!headLinkKeys.has(lKey)) {
                                 timelineAddedLinks.add(lKey);
@@ -3937,22 +4016,40 @@
             if (pn.x !== undefined) { pn.fx = pn.x; pn.fy = pn.y; pn.fz = pn.z; }
         }
 
-        // Update the graph
+        // Update the graph — freeze simulation to prevent layout drift
+        newLinks = filterLinksForCompare(newNodes, newLinks);
         graphData.nodes = newNodes;
         graphData.links = newLinks;
         graphData.meta.totalFiles = newNodes.length;
         graphData.meta.totalLinks = newLinks.length;
 
+        var savedCooldown = graph.cooldownTicks();
+        graph.cooldownTicks(0);
         graph.graphData({ nodes: newNodes, links: newLinks });
+        graph.cooldownTicks(savedCooldown);
         refreshGraphVisuals();
+    }
 
-        // Unpin after engine settles
-        setTimeout(function() {
-            var d = graph.graphData();
-            for (var ui = 0; ui < d.nodes.length; ui++) {
-                delete d.nodes[ui].fx; delete d.nodes[ui].fy; delete d.nodes[ui].fz;
+    // Filter links for compare mode: only keep links where both endpoints
+    // are truly visible changed nodes (exist in nodes array AND are colored)
+    function filterLinksForCompare(nodes, links) {
+        if (!timelineCompareMode || timelineChangedNodes.size === 0) return links;
+        var visibleIds = new Set();
+        for (var i = 0; i < nodes.length; i++) {
+            var nid = nodes[i].id;
+            if (timelineAddedNodes.has(nid) || timelineRemovedNodes.has(nid) || timelineModifiedNodes.has(nid)) {
+                visibleIds.add(nid);
             }
-        }, 500);
+        }
+        var filtered = [];
+        for (var j = 0; j < links.length; j++) {
+            var src = typeof links[j].source === 'object' ? links[j].source.id : links[j].source;
+            var tgt = typeof links[j].target === 'object' ? links[j].target.id : links[j].target;
+            if (visibleIds.has(src) && visibleIds.has(tgt)) {
+                filtered.push(links[j]);
+            }
+        }
+        return filtered;
     }
 
     function restoreHeadGraph() {
@@ -4008,12 +4105,13 @@
         timelineRemovedLinks.clear();
         refreshGraphVisuals();
 
+        // Unpin to let simulation settle (back to normal view)
         setTimeout(function() {
             var d = graph.graphData();
             for (var ui = 0; ui < d.nodes.length; ui++) {
                 delete d.nodes[ui].fx; delete d.nodes[ui].fy; delete d.nodes[ui].fz;
             }
-        }, 500);
+        }, 200);
     }
 
     // Like restoreHeadGraph but preserves the timeline diff sets (for compare mode at HEAD)
@@ -4041,9 +4139,13 @@
         var restoredLinks = [];
         for (var rl = 0; rl < headGraphData.links.length; rl++) {
             var hl = headGraphData.links[rl];
+            var rlSrc = typeof hl.source === 'object' ? hl.source.id : hl.source;
+            var rlTgt = typeof hl.target === 'object' ? hl.target.id : hl.target;
+            // In compare mode, only include links where both endpoints are changed
+            if (timelineCompareMode && timelineChangedNodes.size > 0 &&
+                !(timelineChangedNodes.has(rlSrc) && timelineChangedNodes.has(rlTgt))) continue;
             restoredLinks.push({
-                source: typeof hl.source === 'object' ? hl.source.id : hl.source,
-                target: typeof hl.target === 'object' ? hl.target.id : hl.target,
+                source: rlSrc, target: rlTgt,
                 type: hl.type, label: hl.label || ''
             });
         }
@@ -4053,20 +4155,18 @@
             if (rn.x !== undefined) { rn.fx = rn.x; rn.fy = rn.y; rn.fz = rn.z; }
         }
 
+        restoredLinks = filterLinksForCompare(newNodes, restoredLinks);
+
         graphData.nodes = newNodes;
         graphData.links = restoredLinks;
         graphData.meta = JSON.parse(JSON.stringify(headGraphData.meta));
 
+        var savedCooldown2 = graph.cooldownTicks();
+        graph.cooldownTicks(0);
         graph.graphData({ nodes: newNodes, links: restoredLinks });
+        graph.cooldownTicks(savedCooldown2);
         // Do NOT clear diff sets — they are pre-computed by computeCompareDiff
         refreshGraphVisuals();
-
-        setTimeout(function() {
-            var d = graph.graphData();
-            for (var ui = 0; ui < d.nodes.length; ui++) {
-                delete d.nodes[ui].fx; delete d.nodes[ui].fy; delete d.nodes[ui].fz;
-            }
-        }, 500);
     }
 
     function findNodeInGraph(id) {
