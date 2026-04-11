@@ -1216,6 +1216,7 @@
     function handleBackgroundClick() {
         if (pathMode) return;
         var hadSelection = !!selectedNode || multiSelectedNodes.size > 0;
+        var hadPinned = !!pinnedNode || blastMode;
         selectedNode = null;
         multiSelectedNodes.clear();
         multiSelectedLinks.clear();
@@ -1230,7 +1231,7 @@
                  .linkWidth(graph.linkWidth())
                  .linkColor(graph.linkColor())
                  .linkDirectionalParticles(graph.linkDirectionalParticles());
-            if (hadSelection) {
+            if (hadSelection || hadPinned) {
                 graph.nodeThreeObject(graph.nodeThreeObject());
             }
         }
