@@ -86,8 +86,15 @@
     var timelineTotalCount = 0;
     var headGraphData = null;       // snapshot of graph at HEAD for reset
     var timelineActive = false;     // true when navigating history
-    var timelineChangedNodes = new Set(); // nodes touched at current commit (for visual highlight)
+    var timelineChangedNodes = new Set(); // union of add/remove/modify (for impact mode compat)
+    var timelineAddedNodes = new Set();   // files added at current commit (green)
+    var timelineRemovedNodes = new Set(); // files removed at current commit (red)
+    var timelineModifiedNodes = new Set(); // files modified at current commit (yellow)
+    var timelineAddedLinks = new Set();   // link keys added at current commit
+    var timelineRemovedLinks = new Set(); // link keys removed at current commit
     var impactMode = false; // true when showing impact cascade from timeline changed nodes
+    var timelineCompareMode = false;  // dual-slider compare
+    var timelineFromPos = 0;          // "from" slider position in compare mode
 
     var lastPointerX = -1;
     var lastPointerY = -1;
@@ -111,6 +118,11 @@
     var timelinePrevBtn = $('#timeline-prev');
     var timelineNextBtn = $('#timeline-next');
     var timelineImpactBtn = $('#timeline-impact');
+    var timelineCompareBtn = $('#timeline-compare');
+    var timelineFromSlider = $('#timeline-from-slider');
+    var timelineFromPrevBtn = $('#timeline-from-prev');
+    var timelineFromNextBtn = $('#timeline-from-next');
+    var timelineFromControls = $('#timeline-from-controls');
 
     // ============================================================
     // VSCode Message Handling
@@ -783,6 +795,13 @@
                     var cwTgt = typeof link.target === 'object' ? link.target.id : link.target;
                     return (cwSrc === hoveredSymbolId || cwTgt === hoveredSymbolId) ? 2 : 0;
                 }
+                // Timeline diff: thicker lines for added/removed links
+                if (timelineActive && (timelineAddedLinks.size > 0 || timelineRemovedLinks.size > 0)) {
+                    var lwSrc = typeof link.source === 'object' ? link.source.id : link.source;
+                    var lwTgt = typeof link.target === 'object' ? link.target.id : link.target;
+                    var lwKey = lwSrc + '>' + lwTgt;
+                    if (timelineAddedLinks.has(lwKey) || timelineRemovedLinks.has(lwKey)) return 2.5;
+                }
                 if (pathMode && highlightedPath.links.has(link)) return 3;
                 if (multiSelectedLinks.has(link)) return 2.5;
                 if (link.type === 'extends') return highlightLinks.has(link) ? 2.5 : 1;
@@ -801,6 +820,13 @@
                     var cpSrc = typeof link.source === 'object' ? link.source.id : link.source;
                     var cpTgt = typeof link.target === 'object' ? link.target.id : link.target;
                     return (cpSrc === hoveredSymbolId || cpTgt === hoveredSymbolId) ? 3 : 0;
+                }
+                // Animate added/removed links in timeline diff
+                if (timelineActive && (timelineAddedLinks.size > 0 || timelineRemovedLinks.size > 0)) {
+                    var dpSrc = typeof link.source === 'object' ? link.source.id : link.source;
+                    var dpTgt = typeof link.target === 'object' ? link.target.id : link.target;
+                    var dpKey = dpSrc + '>' + dpTgt;
+                    if (timelineAddedLinks.has(dpKey) || timelineRemovedLinks.has(dpKey)) return 4;
                 }
                 if (pathMode && highlightedPath.links.has(link)) return 4;
                 if (multiSelectedLinks.has(link)) return 3;
@@ -880,7 +906,9 @@
         }
 
         if (timelineActive && timelineChangedNodes.size > 0) {
-            if (timelineChangedNodes.has(node.id)) return '#ffd54f';
+            if (timelineAddedNodes.has(node.id)) return '#00ff88';   // neon green = added
+            if (timelineRemovedNodes.has(node.id)) return '#ff2080'; // neon pink = removed
+            if (timelineModifiedNodes.has(node.id)) return '#00e5ff'; // neon cyan = modified
         }
 
         if (pathMode) {
@@ -986,6 +1014,15 @@
             var key = srcId + '>' + tgtId;
             if (cycleLinkKeys.has(key)) return '#ff1744';
             return '#ffffff06';
+        }
+
+        // Timeline diff link colors
+        if (timelineActive && (timelineAddedLinks.size > 0 || timelineRemovedLinks.size > 0)) {
+            var tlSrc = typeof link.source === 'object' ? link.source.id : link.source;
+            var tlTgt = typeof link.target === 'object' ? link.target.id : link.target;
+            var tlKey = tlSrc + '>' + tlTgt;
+            if (timelineAddedLinks.has(tlKey)) return '#00ff88cc';   // neon green
+            if (timelineRemovedLinks.has(tlKey)) return '#ff2080cc'; // neon pink
         }
 
         if (pathMode) {
@@ -1580,6 +1617,29 @@
             clearPinnedFocus();
             refreshGraphVisuals();
         }
+    }
+
+    function toggleCompareMode() {
+        timelineCompareMode = !timelineCompareMode;
+        if (timelineCompareBtn) timelineCompareBtn.classList.toggle('active', timelineCompareMode);
+        if (timelineFromSlider) {
+            if (timelineCompareMode) {
+                // Show the from-slider, position it at current slider pos
+                timelineFromSlider.min = timelineSlider.min;
+                timelineFromSlider.max = timelineSlider.max;
+                timelineFromSlider.value = timelineSlider.value;
+                timelineFromPos = parseInt(timelineSlider.value);
+                timelineFromSlider.classList.remove('hidden');
+                if (timelineFromControls) timelineFromControls.classList.remove('hidden');
+            } else {
+                timelineFromSlider.classList.add('hidden');
+                if (timelineFromControls) timelineFromControls.classList.add('hidden');
+                // Refresh to single-commit mode
+                var pos = parseInt(timelineSlider.value);
+                navigateToCommit(pos);
+            }
+        }
+        updateTimelineLabel();
     }
 
     function refreshGraphVisuals() {
@@ -3305,6 +3365,10 @@
                     // Toggle impact mode (timeline)
                     if (timelineActive) toggleImpactMode();
                     break;
+                case 'v':
+                    // Toggle compare mode (timeline)
+                    if (timelineBar && !timelineBar.classList.contains('hidden')) toggleCompareMode();
+                    break;
                 case '1': case '2': case '3': case '4': case '5':
                     // Set focus depth
                     focusDepth = parseInt(e.key);
@@ -3459,15 +3523,61 @@
             });
         }
 
+        // Compare mode button
+        if (timelineCompareBtn) {
+            timelineCompareBtn.addEventListener('click', function() {
+                toggleCompareMode();
+            });
+        }
+
+        // From-slider (compare mode)
+        if (timelineFromSlider) {
+            timelineFromSlider.addEventListener('input', function() {
+                timelineFromPos = parseInt(timelineFromSlider.value);
+                // Navigate to rebuild the diff between from and to
+                var toPos = parseInt(timelineSlider.value);
+                navigateToCommit(toPos);
+            });
+        }
+
+        // From-slider prev/next buttons (compare mode)
+        if (timelineFromPrevBtn) {
+            timelineFromPrevBtn.addEventListener('click', function() {
+                if (!timelineFromSlider) return;
+                var pos = parseInt(timelineFromSlider.value);
+                if (pos > 0) {
+                    timelineFromSlider.value = pos - 1;
+                    timelineFromPos = pos - 1;
+                    var toPos = parseInt(timelineSlider.value);
+                    navigateToCommit(toPos);
+                }
+            });
+        }
+        if (timelineFromNextBtn) {
+            timelineFromNextBtn.addEventListener('click', function() {
+                if (!timelineFromSlider) return;
+                var pos = parseInt(timelineFromSlider.value);
+                var max = parseInt(timelineFromSlider.max);
+                if (pos < max) {
+                    timelineFromSlider.value = pos + 1;
+                    timelineFromPos = pos + 1;
+                    var toPos = parseInt(timelineSlider.value);
+                    navigateToCommit(toPos);
+                }
+            });
+        }
+
         // Timeline slider hover tooltip
         var sliderTip = document.createElement('div');
         sliderTip.id = 'timeline-slider-tip';
         sliderTip.className = 'hidden';
         document.body.appendChild(sliderTip);
 
-        timelineSlider.addEventListener('mousemove', function(e) {
+        // Attach tooltip to the wrapper so it works on the full track, not just the thumb
+        var sliderWrap = $('#timeline-slider-wrap') || timelineSlider.parentElement;
+        function showSliderTip(e) {
             if (timelineCommits.length === 0) return;
-            var rect = timelineSlider.getBoundingClientRect();
+            var rect = sliderWrap.getBoundingClientRect();
             var ratio = (e.clientX - rect.left) / rect.width;
             ratio = Math.max(0, Math.min(1, ratio));
             var maxPos = parseInt(timelineSlider.max);
@@ -3489,9 +3599,9 @@
             tipX = Math.max(4, Math.min(tipX, window.innerWidth - sliderTip.offsetWidth - 4));
             sliderTip.style.left = tipX + 'px';
             sliderTip.style.top = (rect.top - 32) + 'px';
-        });
-
-        timelineSlider.addEventListener('mouseleave', function() {
+        }
+        sliderWrap.addEventListener('mousemove', showSliderTip);
+        sliderWrap.addEventListener('mouseleave', function() {
             sliderTip.classList.add('hidden');
         });
     }
@@ -3515,6 +3625,13 @@
         timelineSlider.value = maxPos; // start at HEAD
         timelinePosition = -1;
 
+        // Sync from-slider
+        if (timelineFromSlider) {
+            timelineFromSlider.min = 0;
+            timelineFromSlider.max = maxPos;
+            timelineFromSlider.value = maxPos;
+        }
+
         updateTimelineLabel();
         updateTimelineButtons();
         updateTimelineProgress();
@@ -3533,6 +3650,15 @@
             timelineSlider.value = maxPos;
         }
 
+        // Sync from-slider range
+        if (timelineFromSlider) {
+            var fromWasAtHead = parseInt(timelineFromSlider.value) === parseInt(timelineFromSlider.max);
+            timelineFromSlider.max = maxPos;
+            if (fromWasAtHead) {
+                timelineFromSlider.value = maxPos;
+            }
+        }
+
         updateTimelineButtons();
         updateTimelineProgress();
     }
@@ -3547,10 +3673,30 @@
         var maxPos = parseInt(timelineSlider.max);
 
         if (sliderPos >= maxPos) {
-            // Back to HEAD
+            // In compare mode, HEAD is a valid "to" target — compute diff from fromPos to HEAD
+            if (timelineCompareMode && timelineFromPos < maxPos) {
+                timelinePosition = -1;
+                timelineActive = true;
+                // Restore HEAD graph first, then overlay diff colors
+                if (headGraphData && graph) {
+                    restoreHeadGraph();
+                }
+                // Now compute the diff sets between fromPos and HEAD
+                computeCompareDiff(timelineFromPos, maxPos);
+                if (impactMode) computeTimelineImpact();
+                updateTimelineLabel();
+                updateTimelineButtons();
+                return;
+            }
+            // Back to HEAD (no compare)
             timelinePosition = -1;
             timelineActive = false;
             timelineChangedNodes.clear();
+            timelineAddedNodes.clear();
+            timelineRemovedNodes.clear();
+            timelineModifiedNodes.clear();
+            timelineAddedLinks.clear();
+            timelineRemovedLinks.clear();
             // Clear impact mode
             if (impactMode) {
                 impactMode = false;
@@ -3648,6 +3794,11 @@
         var newLinks = [];
         var nodeIds = new Set();
         timelineChangedNodes.clear();
+        timelineAddedNodes.clear();
+        timelineRemovedNodes.clear();
+        timelineModifiedNodes.clear();
+        timelineAddedLinks.clear();
+        timelineRemovedLinks.clear();
 
         // Keep HEAD nodes that aren't removed at target
         for (var ni = 0; ni < headGraphData.nodes.length; ni++) {
@@ -3675,29 +3826,66 @@
             newNodes.push(node);
         }
 
-        // Grab the most recent commit's delta to identify what changed at the current position
-        var currentCommit = timelineCommits[targetCommitIdx];
-        var currentDelta = timelineDeltas[currentCommit.hash];
-        if (currentDelta) {
-            for (var ca = 0; ca < currentDelta.added.length; ca++) {
-                timelineChangedNodes.add(currentDelta.added[ca]);
+        // Grab the delta(s) to build colored diff sets
+        // In compare mode, collect all deltas between fromIdx and targetIdx
+        // In normal mode, just use the current commit's delta
+        var diffStartIdx, diffEndIdx;
+        if (timelineCompareMode) {
+            var maxPos = parseInt(timelineSlider.max);
+            var fromIdx = (maxPos - 1) - timelineFromPos;
+            diffStartIdx = Math.min(fromIdx, targetCommitIdx);
+            diffEndIdx = Math.max(fromIdx, targetCommitIdx);
+        } else {
+            diffStartIdx = targetCommitIdx;
+            diffEndIdx = targetCommitIdx;
+        }
+
+        for (var di = diffStartIdx; di <= diffEndIdx; di++) {
+            var diffCommit = timelineCommits[di];
+            if (!diffCommit) continue;
+            var diffDelta = timelineDeltas[diffCommit.hash];
+            if (!diffDelta) continue;
+
+            for (var ca = 0; ca < diffDelta.added.length; ca++) {
+                var addedId = diffDelta.added[ca];
+                timelineChangedNodes.add(addedId);
+                timelineAddedNodes.add(addedId);
+                timelineRemovedNodes.delete(addedId);
             }
-            for (var cr = 0; cr < currentDelta.removed.length; cr++) {
-                timelineChangedNodes.add(currentDelta.removed[cr]);
+            for (var cr = 0; cr < diffDelta.removed.length; cr++) {
+                var removedId = diffDelta.removed[cr];
+                timelineChangedNodes.add(removedId);
+                timelineRemovedNodes.add(removedId);
+                timelineAddedNodes.delete(removedId);
             }
-            var cmk = Object.keys(currentDelta.modified);
+            var cmk = Object.keys(diffDelta.modified);
             for (var cm = 0; cm < cmk.length; cm++) {
-                timelineChangedNodes.add(cmk[cm]);
+                var modId = cmk[cm];
+                timelineChangedNodes.add(modId);
+                if (!timelineAddedNodes.has(modId) && !timelineRemovedNodes.has(modId)) {
+                    timelineModifiedNodes.add(modId);
+                }
             }
         }
 
+        // Build HEAD link key set for diff comparison
+        var headLinkKeys = new Set();
+        for (var hli = 0; hli < headGraphData.links.length; hli++) {
+            var hl = headGraphData.links[hli];
+            var hSrc = typeof hl.source === 'object' ? hl.source.id : hl.source;
+            var hTgt = typeof hl.target === 'object' ? hl.target.id : hl.target;
+            headLinkKeys.add(hSrc + '>' + hTgt);
+        }
+
         // Rebuild links from HEAD links + modified state
+        var newLinkKeys = new Set();
         for (var li = 0; li < headGraphData.links.length; li++) {
             var headLink = headGraphData.links[li];
             var srcId = typeof headLink.source === 'object' ? headLink.source.id : headLink.source;
             var tgtId = typeof headLink.target === 'object' ? headLink.target.id : headLink.target;
             if (nodeIds.has(srcId) && nodeIds.has(tgtId)) {
                 newLinks.push({ source: srcId, target: tgtId, type: headLink.type, label: headLink.label || '' });
+                newLinkKeys.add(srcId + '>' + tgtId);
             }
         }
 
@@ -3709,28 +3897,32 @@
                 for (var lo = 0; lo < state.linksOut.length; lo++) {
                     var linkOut = state.linksOut[lo];
                     if (nodeIds.has(linkOut.target)) {
+                        var lKey = modFile + '>' + linkOut.target;
                         // Check if this link already exists
-                        var exists = false;
-                        for (var el = 0; el < newLinks.length; el++) {
-                            var es = typeof newLinks[el].source === 'object' ? newLinks[el].source.id : newLinks[el].source;
-                            var et = typeof newLinks[el].target === 'object' ? newLinks[el].target.id : newLinks[el].target;
-                            if (es === modFile && et === linkOut.target && newLinks[el].type === linkOut.type) {
-                                exists = true;
-                                break;
-                            }
-                        }
-                        if (!exists) {
+                        if (!newLinkKeys.has(lKey)) {
                             newLinks.push({
                                 source: modFile,
                                 target: linkOut.target,
                                 type: linkOut.type,
                                 label: ''
                             });
+                            newLinkKeys.add(lKey);
+                            // This link exists at target commit but not at HEAD → added
+                            if (!headLinkKeys.has(lKey)) {
+                                timelineAddedLinks.add(lKey);
+                            }
                         }
                     }
                 }
             }
         }
+
+        // Links in HEAD but not in target graph → removed
+        headLinkKeys.forEach(function(hk) {
+            if (!newLinkKeys.has(hk)) {
+                timelineRemovedLinks.add(hk);
+            }
+        });
 
         // Pin existing nodes so the layout doesn't restart
         for (var pi = 0; pi < newNodes.length; pi++) {
@@ -3802,6 +3994,11 @@
 
         graph.graphData({ nodes: newNodes, links: restoredLinks });
         timelineChangedNodes.clear();
+        timelineAddedNodes.clear();
+        timelineRemovedNodes.clear();
+        timelineModifiedNodes.clear();
+        timelineAddedLinks.clear();
+        timelineRemovedLinks.clear();
         refreshGraphVisuals();
 
         setTimeout(function() {
@@ -3821,9 +4018,87 @@
         return null;
     }
 
+    // Compute diff sets between two slider positions without rebuilding the graph
+    // Used when "to" is HEAD — the graph is already at HEAD, we just color the diffs
+    function computeCompareDiff(fromPos, toPos) {
+        var maxPos = parseInt(timelineSlider.max);
+        timelineChangedNodes.clear();
+        timelineAddedNodes.clear();
+        timelineRemovedNodes.clear();
+        timelineModifiedNodes.clear();
+        timelineAddedLinks.clear();
+        timelineRemovedLinks.clear();
+
+        // Convert slider positions to commit indexes
+        // Walk deltas from the "from" commit to the "to" commit
+        var startIdx = Math.min((maxPos - 1) - fromPos, (maxPos - 1) - toPos);
+        var endIdx = Math.max((maxPos - 1) - fromPos, (maxPos - 1) - toPos);
+        if (startIdx < 0) startIdx = 0;
+
+        for (var di = startIdx; di <= endIdx; di++) {
+            var diffCommit = timelineCommits[di];
+            if (!diffCommit) continue;
+            var diffDelta = timelineDeltas[diffCommit.hash];
+            if (!diffDelta) continue;
+
+            for (var ca = 0; ca < diffDelta.added.length; ca++) {
+                var addedId = diffDelta.added[ca];
+                timelineChangedNodes.add(addedId);
+                timelineAddedNodes.add(addedId);
+                timelineRemovedNodes.delete(addedId);
+            }
+            for (var cr = 0; cr < diffDelta.removed.length; cr++) {
+                var removedId = diffDelta.removed[cr];
+                timelineChangedNodes.add(removedId);
+                timelineRemovedNodes.add(removedId);
+                timelineAddedNodes.delete(removedId);
+            }
+            var cmk = Object.keys(diffDelta.modified);
+            for (var cm = 0; cm < cmk.length; cm++) {
+                var modId = cmk[cm];
+                timelineChangedNodes.add(modId);
+                if (!timelineAddedNodes.has(modId) && !timelineRemovedNodes.has(modId)) {
+                    timelineModifiedNodes.add(modId);
+                }
+            }
+        }
+
+        refreshGraphVisuals();
+    }
+
     function updateTimelineLabel() {
         var maxPos = parseInt(timelineSlider.max);
         var pos = parseInt(timelineSlider.value);
+
+        if (timelineCompareMode) {
+            // Show "from → to" in compare mode
+            var fromPos = parseInt(timelineFromSlider.value);
+            var fromLabel, toLabel;
+
+            if (fromPos >= maxPos) {
+                fromLabel = 'HEAD';
+            } else {
+                var fromIdx = (maxPos - 1) - fromPos;
+                fromLabel = (fromIdx >= 0 && fromIdx < timelineCommits.length)
+                    ? timelineCommits[fromIdx].hash.substring(0, 7) : '?';
+            }
+
+            if (pos >= maxPos) {
+                toLabel = 'HEAD';
+            } else {
+                var toIdx = (maxPos - 1) - pos;
+                toLabel = (toIdx >= 0 && toIdx < timelineCommits.length)
+                    ? timelineCommits[toIdx].hash.substring(0, 7) : '?';
+            }
+
+            $('#timeline-hash').textContent = fromLabel + ' → ' + toLabel;
+            var diffCount = timelineAddedNodes.size + timelineRemovedNodes.size + timelineModifiedNodes.size;
+            $('#timeline-message').textContent = diffCount > 0
+                ? '+' + timelineAddedNodes.size + ' / −' + timelineRemovedNodes.size + ' / ~' + timelineModifiedNodes.size
+                : 'No changes';
+            $('#timeline-date').textContent = '';
+            return;
+        }
 
         if (pos >= maxPos) {
             // HEAD
@@ -3835,7 +4110,11 @@
             if (commitIdx >= 0 && commitIdx < timelineCommits.length) {
                 var commit = timelineCommits[commitIdx];
                 $('#timeline-hash').textContent = commit.hash.substring(0, 7);
-                $('#timeline-message').textContent = commit.message;
+                var diffSummary = '';
+                if (timelineActive && timelineChangedNodes.size > 0) {
+                    diffSummary = ' (+' + timelineAddedNodes.size + ' −' + timelineRemovedNodes.size + ' ~' + timelineModifiedNodes.size + ')';
+                }
+                $('#timeline-message').textContent = commit.message + diffSummary;
                 var d = new Date(commit.date);
                 $('#timeline-date').textContent = d.toLocaleDateString();
             }

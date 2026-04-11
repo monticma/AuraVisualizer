@@ -142,10 +142,14 @@ ${JSON.stringify(i,null,2)}`);let u=s[c]();return new Language(INTERNAL,u)})}}cl
 
     <!-- Timeline Bar (Time Travel) -->
     <div id="timeline-bar" class="hidden">
-        <button id="timeline-prev" class="timeline-btn" title="Previous commit (\u2190)">\u25C0</button>
-        <button id="timeline-next" class="timeline-btn" title="Next commit (\u2192)">\u25B6</button>
-        <button id="timeline-impact" class="timeline-btn impact-btn" title="Show impact cascade (I)">\u{1F4A5}</button>
-        <input type="range" id="timeline-slider" min="0" max="0" value="0" step="1">
+        <div id="timeline-from-controls" class="hidden">
+            <button id="timeline-from-prev" class="timeline-btn from-btn" title="From: previous commit">\u25C0</button>
+            <button id="timeline-from-next" class="timeline-btn from-btn" title="From: next commit">\u25B6</button>
+        </div>
+        <div id="timeline-slider-wrap">
+            <input type="range" id="timeline-from-slider" class="hidden" min="0" max="0" value="0" step="1">
+            <input type="range" id="timeline-slider" min="0" max="0" value="0" step="1">
+        </div>
         <div id="timeline-info">
             <span id="timeline-hash">\u2014</span>
             <span id="timeline-message">\u2014</span>
@@ -153,6 +157,12 @@ ${JSON.stringify(i,null,2)}`);let u=s[c]();return new Language(INTERNAL,u)})}}cl
         </div>
         <div id="timeline-progress" class="hidden">
             <span id="timeline-progress-text">\u23F3 0/0</span>
+        </div>
+        <div id="timeline-right-controls">
+            <button id="timeline-prev" class="timeline-btn" title="Previous commit (\u2190)">\u25C0</button>
+            <button id="timeline-next" class="timeline-btn" title="Next commit (\u2192)">\u25B6</button>
+            <button id="timeline-impact" class="timeline-btn impact-btn" title="Show impact cascade (I)">\u{1F4A5}</button>
+            <button id="timeline-compare" class="timeline-btn compare-btn" title="Compare two commits (V)">\u21C4</button>
         </div>
     </div>
 
@@ -307,6 +317,8 @@ ${JSON.stringify(i,null,2)}`);let u=s[c]();return new Language(INTERNAL,u)})}}cl
                     <tr><td><kbd>X</kbd></td><td>Toggle dead code visualization</td></tr>
                     <tr><td><kbd>C</kbd></td><td>Toggle circular dependencies</td></tr>
                     <tr><td><kbd>1</kbd>\u2013<kbd>5</kbd></td><td>Set pinned focus / blast depth</td></tr>
+                    <tr><td><kbd>V</kbd></td><td>Toggle timeline compare mode (dual slider)</td></tr>
+                    <tr><td><kbd>I</kbd></td><td>Toggle timeline impact cascade</td></tr>
                     <tr><td><kbd>\u2190</kbd> <kbd>\u2192</kbd></td><td>Timeline: previous / next commit</td></tr>
                     <tr><td><kbd>Escape</kbd></td><td>Reset all selections and modes</td></tr>
                 </table>
@@ -332,7 +344,7 @@ ${JSON.stringify(i,null,2)}`);let u=s[c]();return new Language(INTERNAL,u)})}}cl
                 <p>In the detail panel, click the <strong>\u25B6</strong> button next to a function to trace its outgoing call chain across files. Files light up progressively by call depth.</p>
 
                 <h3>\u23F3 Time Travel</h3>
-                <p>Navigate git history commit by commit. Changed files are highlighted in yellow. Use the timeline slider or arrow keys to step through commits.</p>
+                <p>Navigate git history commit by commit. Changed files are color-coded: <span style="color:#00ff88">\u25CF green</span> = added, <span style="color:#ff2080">\u25CF pink</span> = removed, <span style="color:#00e5ff">\u25CF cyan</span> = modified. Edges follow the same scheme. Press <kbd>V</kbd> or click <strong>\u21C4</strong> to enter <strong>Compare mode</strong> with a dual slider to diff any two commits.</p>
 
                 <h3>\u{1F4E4} Export for AI</h3>
                 <p>Export the graph as JSON for AI assistants. Aura also includes a built-in MCP server for direct AI integration.</p>
