@@ -869,9 +869,9 @@
         applySpreadForces();
 
         // Double-click to open file (not natively supported, use DOM event)
-        graphContainer.addEventListener('dblclick', function() {
-            if (hoveredNode) handleNodeDblClick(hoveredNode);
-        });
+        // Remove previous listener to prevent duplication on re-init
+        graphContainer.removeEventListener('dblclick', graphContainerDblClick);
+        graphContainer.addEventListener('dblclick', graphContainerDblClick);
 
         graphContainer.addEventListener('contextmenu', function(e) {
             e.preventDefault();
@@ -1260,6 +1260,10 @@
                 multiSelectedLinks.add(links[i]);
             }
         }
+    }
+
+    function graphContainerDblClick() {
+        if (hoveredNode) handleNodeDblClick(hoveredNode);
     }
 
     // Double-click: open file in VSCode editor, or expand/collapse cluster
