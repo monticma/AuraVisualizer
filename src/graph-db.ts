@@ -10,7 +10,7 @@
 import initSqlJs, { type Database as SqlJsDatabase } from 'sql.js';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
-import type { GraphData, GraphNode } from './analyzer/types';
+import type { GraphData, GraphNode, GraphLink } from './analyzer/types';
 
 // ── Row types returned by queries ──────────────────────────────
 
@@ -328,6 +328,232 @@ export class GraphDB {
 
         // Persist to disk
         this.save();
+    }
+
+    // ── Granular updates (incremental parsing) ─────────────────
+
+    /** Upsert a single node (INSERT OR REPLACE). */
+    upsertNode(node: GraphNode): void {
+        const db = this.ensureDb();
+        db.run(
+            `INSERT OR REPLACE INTO nodes (id, name, language, extension, group_name, size, lines, complexity, fan_in, fan_out, last_modified)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [node.id, node.name, node.language, node.extension, node.group, node.size, node.linesOfCode, node.complexity, node.fanIn, node.fanOut, node.lastModified]
+        );
+    }
+
+    /** Delete a node and ALL associated data (edges from/to, symbols, function_calls). */
+    deleteNode(nodeId: string): void {
+        const db = this.ensureDb();
+        db.run('BEGIN TRANSACTION');
+        try {
+            db.run('DELETE FROM edges WHERE source = ? OR target = ?', [nodeId, nodeId]);
+            db.run('DELETE FROM symbols WHERE node_id = ?', [nodeId]);
+            db.run('DELETE FROM function_calls WHERE caller_file = ? OR callee_file = ?', [nodeId, nodeId]);
+            db.run('DELETE FROM nodes WHERE id = ?', [nodeId]);
+            db.run('COMMIT');
+        } catch (err) {
+            db.run('ROLLBACK');
+            throw err;
+        }
+    }
+
+    /**
+     * Replace all outgoing edges, symbols, and call sites for a single file.
+     * Also upserts the node itself. Does NOT call save() — caller decides when to persist.
+     */
+    replaceFileData(
+        fileId: string,
+        node: GraphNode,
+        outEdges: GraphLink[],
+        callSites: { callerFile: string; callerName: string; calleeFile: string; calleeName: string; callLine: number }[],
+    ): void {
+        const db = this.ensureDb();
+        db.run('BEGIN TRANSACTION');
+        try {
+            // Upsert the node
+            db.run(
+                `INSERT OR REPLACE INTO nodes (id, name, language, extension, group_name, size, lines, complexity, fan_in, fan_out, last_modified)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [node.id, node.name, node.language, node.extension, node.group, node.size, node.linesOfCode, node.complexity, node.fanIn, node.fanOut, node.lastModified]
+            );
+
+            // Replace outgoing edges
+            db.run('DELETE FROM edges WHERE source = ?', [fileId]);
+            for (const e of outEdges) {
+                db.run(
+                    'INSERT OR IGNORE INTO edges (source, target, type, label) VALUES (?, ?, ?, ?)',
+                    [e.source, e.target, e.type, e.label || '']
+                );
+            }
+
+            // Replace symbols
+            db.run('DELETE FROM symbols WHERE node_id = ?', [fileId]);
+            if (node.symbols) {
+                const deadSet = new Set(node.deadExports || []);
+                const ins = 'INSERT OR IGNORE INTO symbols (node_id, name, kind, return_type, params, line, is_dead, visibility, is_static, is_async) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+                for (const fn of node.symbols.functions) {
+                    db.run(ins, [fileId, fn.name, fn.type || 'function', fn.returnType || '', fn.params || '', fn.line || 0, deadSet.has(fn.name) ? 1 : 0, fn.visibility || 'public', fn.isStatic ? 1 : 0, fn.isAsync ? 1 : 0]);
+                }
+                for (const m of node.symbols.methods || []) {
+                    db.run(ins, [fileId, m.name, m.type || 'method', m.returnType || '', m.params || '', m.line || 0, deadSet.has(m.name) ? 1 : 0, m.visibility || 'public', m.isStatic ? 1 : 0, m.isAsync ? 1 : 0]);
+                }
+                for (const s of node.symbols.structs)  db.run(ins, [fileId, s.name, s.type || 'struct', '', '', 0, 0, 'public', 0, 0]);
+                for (const e of node.symbols.enums)     db.run(ins, [fileId, e.name, e.type || 'enum', '', '', 0, 0, 'public', 0, 0]);
+                for (const m of node.symbols.macros)    db.run(ins, [fileId, m.name, m.type || 'macro', '', '', 0, 0, 'public', 0, 0]);
+                for (const c of node.symbols.classes)   db.run(ins, [fileId, c.name, c.type || 'class', '', '', 0, deadSet.has(c.name) ? 1 : 0, 'public', 0, 0]);
+                for (const ex of node.symbols.exports)  db.run(ins, [fileId, ex.name, ex.type || 'export', '', '', 0, deadSet.has(ex.name) ? 1 : 0, 'public', 0, 0]);
+                for (const i of node.symbols.interfaces || [])  db.run(ins, [fileId, i.name, i.type || 'interface', '', '', i.line || 0, 0, i.visibility || 'public', 0, 0]);
+                for (const t of node.symbols.traits || [])      db.run(ins, [fileId, t.name, t.type || 'trait', '', '', t.line || 0, 0, t.visibility || 'public', 0, 0]);
+                for (const ta of node.symbols.typeAliases || []) db.run(ins, [fileId, ta.name, ta.type || 'type_alias', '', '', ta.line || 0, 0, ta.visibility || 'public', 0, 0]);
+            }
+
+            // Replace call sites from this file
+            db.run('DELETE FROM function_calls WHERE caller_file = ?', [fileId]);
+            for (const fc of callSites) {
+                db.run(
+                    'INSERT OR IGNORE INTO function_calls (caller_file, caller_name, callee_file, callee_name, call_line) VALUES (?, ?, ?, ?, ?)',
+                    [fc.callerFile, fc.callerName, fc.calleeFile, fc.calleeName, fc.callLine]
+                );
+            }
+
+            db.run('COMMIT');
+        } catch (err) {
+            db.run('ROLLBACK');
+            throw err;
+        }
+    }
+
+    /** Recompute fan_in / fan_out from the edges table for given node IDs (or all nodes). */
+    updateFanCounts(nodeIds?: string[]): void {
+        const db = this.ensureDb();
+        if (nodeIds && nodeIds.length > 0) {
+            for (const id of nodeIds) {
+                const fanOut = queryOne<{ c: number }>(db, 'SELECT COUNT(*) AS c FROM edges WHERE source = ?', [id]);
+                const fanIn = queryOne<{ c: number }>(db, 'SELECT COUNT(*) AS c FROM edges WHERE target = ?', [id]);
+                db.run('UPDATE nodes SET fan_in = ?, fan_out = ? WHERE id = ?', [fanIn?.c ?? 0, fanOut?.c ?? 0, id]);
+            }
+        } else {
+            db.run(`
+                UPDATE nodes SET
+                    fan_out = (SELECT COUNT(*) FROM edges WHERE edges.source = nodes.id),
+                    fan_in  = (SELECT COUNT(*) FROM edges WHERE edges.target = nodes.id)
+            `);
+        }
+    }
+
+    // ── Export (reconstruct GraphData from DB) ─────────────────
+
+    /** Reconstruct a full GraphData object from the DB. Returns null if DB is empty. */
+    exportGraphData(): GraphData | null {
+        const db = this.ensureDb();
+        const nodes = queryAll<NodeRow>(db, 'SELECT * FROM nodes ORDER BY id');
+        if (nodes.length === 0) return null;
+
+        const edges = queryAll<EdgeRow>(db, 'SELECT * FROM edges ORDER BY source, target');
+        const allSymbols = queryAll<SymbolRow>(db, 'SELECT * FROM symbols ORDER BY node_id');
+        const meta = this.getAllMeta();
+        const cycles = this.getCycles();
+        const fcalls = queryAll<{ caller_file: string; caller_name: string; callee_file: string; callee_name: string; call_line: number }>(
+            db, 'SELECT * FROM function_calls ORDER BY caller_file, call_line'
+        );
+
+        // Group symbols by node_id
+        const symbolsByNode = new Map<string, SymbolRow[]>();
+        for (const s of allSymbols) {
+            let arr = symbolsByNode.get(s.node_id);
+            if (!arr) { arr = []; symbolsByNode.set(s.node_id, arr); }
+            arr.push(s);
+        }
+
+        // Build GraphNode array
+        const graphNodes: GraphNode[] = nodes.map(n => {
+            const syms = symbolsByNode.get(n.id) || [];
+            const deadSymbols = syms.filter(s => s.is_dead).map(s => s.name);
+
+            const functions = syms.filter(s => s.kind === 'function').map(s => ({
+                name: s.name, returnType: s.return_type, params: s.params,
+                line: s.line, type: s.kind, visibility: s.visibility, isStatic: !!s.is_static, isAsync: !!s.is_async,
+            }));
+            const methods = syms.filter(s => s.kind === 'method').map(s => ({
+                name: s.name, returnType: s.return_type, params: s.params,
+                line: s.line, type: s.kind, visibility: s.visibility, isStatic: !!s.is_static, isAsync: !!s.is_async,
+            }));
+            const structs = syms.filter(s => s.kind === 'struct').map(s => ({ name: s.name, type: s.kind }));
+            const enums = syms.filter(s => s.kind === 'enum').map(s => ({ name: s.name, type: s.kind }));
+            const macros = syms.filter(s => s.kind === 'macro').map(s => ({ name: s.name, type: s.kind }));
+            const classes = syms.filter(s => s.kind === 'class').map(s => ({ name: s.name, type: s.kind }));
+            const exports = syms.filter(s => s.kind === 'export').map(s => ({ name: s.name, type: s.kind }));
+            const interfaces = syms.filter(s => s.kind === 'interface').map(s => ({ name: s.name, type: s.kind }));
+            const traits = syms.filter(s => s.kind === 'trait').map(s => ({ name: s.name, type: s.kind }));
+            const typeAliases = syms.filter(s => s.kind === 'type_alias').map(s => ({ name: s.name, type: s.kind }));
+
+            const node: GraphNode = {
+                id: n.id, name: n.name, path: n.id,
+                language: n.language, extension: n.extension,
+                size: n.size, linesOfCode: n.lines,
+                lastModified: n.last_modified, group: n.group_name,
+                fanOut: n.fan_out, fanIn: n.fan_in,
+                complexity: n.complexity, complexityDetails: {},
+            };
+
+            if (syms.length > 0) {
+                node.symbols = {
+                    functions, methods, structs, enums, macros, classes,
+                    exports, interfaces, traits, typeAliases,
+                    totalSymbols: syms.length,
+                };
+            }
+            if (deadSymbols.length > 0) node.deadExports = deadSymbols;
+
+            return node;
+        });
+
+        // Tag nodes with cycle indices
+        const nodeMap = new Map(graphNodes.map(n => [n.id, n]));
+        for (let i = 0; i < cycles.length; i++) {
+            for (const nodeId of cycles[i]) {
+                const node = nodeMap.get(nodeId);
+                if (node) {
+                    if (!node.cycleIds) node.cycleIds = [];
+                    node.cycleIds.push(i);
+                }
+            }
+        }
+
+        const links: GraphLink[] = edges.map(e => ({
+            source: e.source, target: e.target, type: e.type, label: e.label,
+        }));
+
+        const langStats: Record<string, { count: number; totalLOC: number; avgComplexity: number }> =
+            meta['languageStats'] ? JSON.parse(meta['languageStats']) : {};
+        const groups: string[] = meta['groups'] ? JSON.parse(meta['groups']) : [];
+
+        return {
+            meta: {
+                projectName: meta['projectName'] || '',
+                analyzedAt: meta['analyzedAt'] || '',
+                totalFiles: parseInt(meta['totalFiles'] || '0'),
+                totalLinks: parseInt(meta['totalLinks'] || '0'),
+                totalRelationsFound: parseInt(meta['totalRelationsFound'] || '0'),
+                functionCallLinks: parseInt(meta['functionCallLinks'] || '0'),
+                heritageLinks: parseInt(meta['heritageLinks'] || '0'),
+                unresolvedReferences: parseInt(meta['unresolvedReferences'] || '0'),
+                unresolvedSamples: [],
+                deadCodeFiles: parseInt(meta['deadCodeFiles'] || '0'),
+                deadExportsTotal: parseInt(meta['deadExportsTotal'] || '0'),
+                cycles,
+                languageStats: langStats,
+                groups,
+            },
+            nodes: graphNodes,
+            links,
+            functionCalls: fcalls.map(fc => ({
+                callerFile: fc.caller_file, callerName: fc.caller_name,
+                calleeFile: fc.callee_file, calleeName: fc.callee_name,
+                callLine: fc.call_line,
+            })),
+        };
     }
 
     // ── Queries ────────────────────────────────────────────────

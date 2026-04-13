@@ -32,6 +32,8 @@ const GRAMMAR_FILES: Record<string, string> = {
 
 let initialized = false;
 const loadedLanguages = new Map<string, Parser.Language>();
+/** Pool of reusable Parser instances per language. */
+const parserPool = new Map<string, Parser[]>();
 
 /**
  * Resolve the directory containing .wasm grammar files.
@@ -107,15 +109,40 @@ export async function createParser(languageId: string): Promise<Parser> {
 }
 
 /**
+ * Get or create a cached Parser instance for a language.
+ * Reuses the same Parser object across calls (Parser.parse is stateless).
+ */
+async function getCachedParser(languageId: string): Promise<Parser> {
+    let pool = parserPool.get(languageId);
+    if (!pool) { pool = []; parserPool.set(languageId, pool); }
+    let parser = pool.pop();
+    if (!parser) {
+        parser = await createParser(languageId);
+    }
+    return parser;
+}
+
+/** Return a parser to the pool for reuse. */
+function releaseParser(languageId: string, parser: Parser): void {
+    let pool = parserPool.get(languageId);
+    if (!pool) { pool = []; parserPool.set(languageId, pool); }
+    pool.push(parser);
+}
+
+/**
  * Parse source code for a given language, returning the syntax tree.
  */
 export async function parseSource(languageId: string, source: string): Promise<Parser.Tree> {
-    const parser = await createParser(languageId);
-    const tree = parser.parse(source);
-    if (!tree) {
-        throw new Error(`Tree-sitter failed to parse source for language: ${languageId}`);
+    const parser = await getCachedParser(languageId);
+    try {
+        const tree = parser.parse(source);
+        if (!tree) {
+            throw new Error(`Tree-sitter failed to parse source for language: ${languageId}`);
+        }
+        return tree;
+    } finally {
+        releaseParser(languageId, parser);
     }
-    return tree;
 }
 
 /**

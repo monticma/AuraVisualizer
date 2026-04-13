@@ -5,10 +5,11 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
+import { existsSync, readFileSync, readdirSync } from 'fs';
 import { Worker } from 'worker_threads';
 import { WebviewProvider } from './webview/WebviewProvider';
 import { AuraTreeProvider } from './AuraTreeProvider';
-import { analyzeCodebase, scanSingleFile, buildGraph, preParseFiles, type GraphData, type GraphNode, type GraphLink, type FileInfo } from './analyzer/index';
+import { analyzeCodebase, scanSingleFile, buildGraph, preParseFiles, rebuildSingleFile, buildIncrementalContext, restoreIncrementalContext, type GraphData, type GraphNode, type GraphLink, type FileInfo, type IncrementalContext } from './analyzer/index';
 import { isGitRepo } from './analyzer/git-history';
 import type { CommitIndex, CommitDelta } from './analyzer/types';
 import { GraphDB } from './graph-db';
@@ -25,6 +26,7 @@ let refreshTimeout: ReturnType<typeof setTimeout> | undefined;
 let treeProvider: AuraTreeProvider | undefined;
 let isAnalyzing = false;
 let graphDb: GraphDB | undefined;
+let incrementalCtx: IncrementalContext | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
     // Tree View in Activity Bar
@@ -106,8 +108,72 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // Run initial analysis in background (populates tree + sends data to restored panel when ready)
     if (vscode.workspace.workspaceFolders?.length) {
-        refreshAnalysis(context);
+        loadFromDbThenRefresh(context);
     }
+}
+
+/**
+ * Try to load graph data from the cached SQLite DB for instant startup.
+ * Then run a full analysis in the background to pick up any changes since last run.
+ */
+async function loadFromDbThenRefresh(context: vscode.ExtensionContext): Promise<void> {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) { refreshAnalysis(context); return; }
+
+    const rootPath = workspaceFolder.uri.fsPath;
+    const dbPath = path.join(rootPath, '.aura', 'graph.db');
+
+    if (existsSync(dbPath)) {
+        try {
+            if (!graphDb) {
+                graphDb = new GraphDB();
+                await graphDb.open(dbPath);
+            }
+            const cached = graphDb.exportGraphData();
+            if (cached && cached.nodes.length > 0) {
+                cachedGraphData = cached;
+                if (webviewProvider) {
+                    webviewProvider.sendGraphData(cachedGraphData);
+                }
+                treeProvider?.update(cachedGraphData);
+                updateStatusBar();
+                console.log(`[aura] Loaded ${cached.nodes.length} files from cache in DB`);
+            }
+        } catch (err) {
+            console.error('[aura] Failed to load from DB cache:', err);
+        }
+    }
+
+    // Load cached history so the timeline appears instantly
+    const historyDir = path.join(rootPath, '.aura', 'history');
+    const indexPath = path.join(historyDir, 'index.json');
+    if (existsSync(indexPath)) {
+        try {
+            const idx = JSON.parse(readFileSync(indexPath, 'utf-8')) as CommitIndex;
+            commitIndex = idx;
+            if (webviewProvider) {
+                webviewProvider.sendHistoryIndex(commitIndex);
+            }
+            // Load cached deltas
+            for (const commit of idx.commits) {
+                const deltaPath = path.join(historyDir, `${commit.hash}.json`);
+                if (!existsSync(deltaPath)) { continue; }
+                try {
+                    const delta = JSON.parse(readFileSync(deltaPath, 'utf-8')) as CommitDelta;
+                    cachedDeltas.push(delta);
+                    if (webviewProvider) {
+                        webviewProvider.sendHistoryDelta(delta);
+                    }
+                } catch { /* skip corrupted delta */ }
+            }
+            console.log(`[aura] Loaded ${cachedDeltas.length} cached history deltas`);
+        } catch (err) {
+            console.error('[aura] Failed to load cached history:', err);
+        }
+    }
+
+    // Always run full analysis in background to pick up changes
+    refreshAnalysis(context);
 }
 
 function registerOpenFileHandler(): void {
@@ -194,11 +260,28 @@ async function refreshAnalysis(context: vscode.ExtensionContext): Promise<void> 
             () => runAnalysisInWorker(context.extensionUri, rootPath, excludePaths, workspaceFolder.name)
         );
 
+        const oldGraphData = cachedGraphData;
+
         cachedGraphData = result.graphData;
         cachedFiles = result.files;
+        // Restore incremental context from already-computed graph data (no re-parsing)
+        incrementalCtx = restoreIncrementalContext(cachedFiles, cachedGraphData);
 
         if (webviewProvider) {
-            webviewProvider.sendGraphData(cachedGraphData);
+            if (oldGraphData && oldGraphData.nodes.length > 0) {
+                // Already showing data from DB cache — send only the delta
+                const delta = computeGraphDelta(oldGraphData, cachedGraphData, '', false);
+                const hasChanges = delta.changedNodes.length > 0 ||
+                    delta.removedNodeIds.length > 0 ||
+                    delta.addedLinks.length > 0 ||
+                    delta.removedLinks.length > 0;
+                if (hasChanges) {
+                    webviewProvider.sendGraphDelta(delta as unknown as Record<string, unknown>);
+                }
+                // else: nothing changed, no visual update needed
+            } else {
+                webviewProvider.sendGraphData(cachedGraphData);
+            }
         }
 
         treeProvider?.update(cachedGraphData);
@@ -315,6 +398,7 @@ function runAnalysisInWorker(
 
 /**
  * Incrementally update a single file without re-scanning the entire workspace.
+ * Uses rebuildSingleFile() + granular DB methods for O(1) instead of O(N).
  */
 async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise<void> {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -326,33 +410,131 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
 
     if (deleted) {
         cachedFiles = cachedFiles.filter(f => f.id !== relativePath);
-    } else {
-        const newInfo = await scanSingleFile(fileUri.fsPath, rootPath);
-        if (!newInfo) return;
+        if (incrementalCtx) {
+            incrementalCtx.fileMap.delete(relativePath);
+            incrementalCtx.fileSymbols.delete(relativePath);
+        }
+        if (graphDb) {
+            graphDb.deleteNode(relativePath);
+            graphDb.save();
+        }
+        // Update cached graph + send delta
+        if (cachedGraphData) {
+            const removedLinks = cachedGraphData.links
+                .filter(l => l.source === relativePath || l.target === relativePath)
+                .map(l => ({ source: l.source, target: l.target, type: l.type }));
+            cachedGraphData.nodes = cachedGraphData.nodes.filter(n => n.id !== relativePath);
+            cachedGraphData.links = cachedGraphData.links.filter(l => l.source !== relativePath && l.target !== relativePath);
+            cachedGraphData.meta.totalFiles = cachedGraphData.nodes.length;
+            cachedGraphData.meta.totalLinks = cachedGraphData.links.length;
 
-        const idx = cachedFiles.findIndex(f => f.id === relativePath);
-        if (idx >= 0) {
-            cachedFiles[idx] = newInfo;
-        } else {
-            cachedFiles.push(newInfo);
+            if (webviewProvider?.isVisible) {
+                const delta: GraphDelta = {
+                    changedNodes: [],
+                    removedNodeIds: [relativePath],
+                    addedLinks: [],
+                    removedLinks,
+                    meta: cachedGraphData.meta,
+                };
+                webviewProvider.sendGraphDelta(delta as unknown as Record<string, unknown>);
+            }
+        }
+        treeProvider?.update(cachedGraphData);
+        updateStatusBar();
+        return;
+    }
+
+    // -- File changed or created --
+    const newInfo = await scanSingleFile(fileUri.fsPath, rootPath);
+    if (!newInfo) return;
+
+    const idx = cachedFiles.findIndex(f => f.id === relativePath);
+    if (idx >= 0) cachedFiles[idx] = newInfo;
+    else cachedFiles.push(newInfo);
+
+    // Build incremental context if missing (shouldn't happen — refreshAnalysis builds it)
+    if (!incrementalCtx) {
+        incrementalCtx = restoreIncrementalContext(cachedFiles, cachedGraphData!);
+    }
+
+    // Pre-parse single file
+    const trees = await preParseFiles([newInfo]);
+    const tree = trees.get(newInfo.id);
+
+    // Get old outgoing edge targets (for fan-count recalculation)
+    const oldOutEdges = cachedGraphData
+        ? cachedGraphData.links.filter(l => l.source === newInfo.id)
+        : [];
+    const oldTargets = oldOutEdges.map(e => e.target);
+
+    // Rebuild single file
+    const result = rebuildSingleFile(newInfo, incrementalCtx, tree);
+    const newTargets = result.outEdges.map(e => e.target);
+    const affectedIds = [...new Set([newInfo.id, ...oldTargets, ...newTargets])];
+
+    // Update DB
+    if (graphDb) {
+        graphDb.replaceFileData(newInfo.id, result.node, result.outEdges, result.callSites);
+        graphDb.updateFanCounts(affectedIds);
+        graphDb.save();
+    }
+
+    // Build delta BEFORE modifying cachedGraphData
+    const delta: GraphDelta = {
+        changedNodes: [result.node],
+        removedNodeIds: [],
+        addedLinks: [],
+        removedLinks: [],
+        meta: cachedGraphData?.meta ?? {} as GraphData['meta'],
+    };
+
+    // Compute link diff
+    const oldLinkKeys = new Set(oldOutEdges.map(l => `${l.source}|${l.target}|${l.type}`));
+    const newLinkKeys = new Set(result.outEdges.map(e => `${e.source}|${e.target}|${e.type}`));
+    for (const e of result.outEdges) {
+        if (!oldLinkKeys.has(`${e.source}|${e.target}|${e.type}`)) {
+            delta.addedLinks.push(e);
+        }
+    }
+    for (const l of oldOutEdges) {
+        if (!newLinkKeys.has(`${l.source}|${l.target}|${l.type}`)) {
+            delta.removedLinks.push({ source: l.source, target: l.target, type: l.type });
         }
     }
 
-    const oldGraphData = cachedGraphData;
+    // Update cached graph data in-place
+    if (cachedGraphData) {
+        const nodeIdx = cachedGraphData.nodes.findIndex(n => n.id === newInfo.id);
+        if (nodeIdx >= 0) cachedGraphData.nodes[nodeIdx] = result.node;
+        else cachedGraphData.nodes.push(result.node);
 
-    // Rebuild graph from cached files (with Tree-sitter pre-parsing)
-    const projectName = workspaceFolder.name;
-    const astTrees = await preParseFiles(cachedFiles);
-    cachedGraphData = buildGraph(cachedFiles, projectName, {}, astTrees);
+        cachedGraphData.links = cachedGraphData.links.filter(l => l.source !== newInfo.id);
+        cachedGraphData.links.push(...result.outEdges);
 
-    if (webviewProvider?.isVisible && cachedGraphData) {
-        if (oldGraphData) {
-            // Compute delta and send incremental update
-            const delta = computeGraphDelta(oldGraphData, cachedGraphData, relativePath, deleted);
-            webviewProvider.sendGraphDelta(delta as unknown as Record<string, unknown>);
-        } else {
-            webviewProvider.sendGraphData(cachedGraphData);
+        // Sync fan counts from DB for affected nodes
+        if (graphDb) {
+            for (const id of affectedIds) {
+                const dbNode = graphDb.getNodeDetail(id);
+                const cachedNode = cachedGraphData.nodes.find(n => n.id === id);
+                if (dbNode && cachedNode) {
+                    if (cachedNode.fanIn !== dbNode.fan_in || cachedNode.fanOut !== dbNode.fan_out) {
+                        cachedNode.fanIn = dbNode.fan_in;
+                        cachedNode.fanOut = dbNode.fan_out;
+                        if (id !== newInfo.id) {
+                            delta.changedNodes.push(cachedNode);
+                        }
+                    }
+                }
+            }
         }
+
+        cachedGraphData.meta.totalFiles = cachedGraphData.nodes.length;
+        cachedGraphData.meta.totalLinks = cachedGraphData.links.length;
+        delta.meta = cachedGraphData.meta;
+    }
+
+    if (webviewProvider?.isVisible) {
+        webviewProvider.sendGraphDelta(delta as unknown as Record<string, unknown>);
     }
 
     treeProvider?.update(cachedGraphData);
