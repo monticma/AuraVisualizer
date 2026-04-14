@@ -158,6 +158,14 @@ export class WebviewProvider {
         this.panel?.webview.postMessage({ type: 'blastRadius', payload: { nodeId } });
     }
 
+    public sendFilterDirs(dirs: string[]): void {
+        this.panel?.webview.postMessage({ type: 'filterDirs', payload: { dirs } });
+    }
+
+    public sendRefreshComplete(): void {
+        this.panel?.webview.postMessage({ type: 'refreshComplete' });
+    }
+
     public sendTheme(kind: vscode.ColorThemeKind): void {
         this.panel?.webview.postMessage({
             type: 'themeChanged',
@@ -270,7 +278,7 @@ export class WebviewProvider {
         <div id="middle-row">
             <!-- Explorer Panel -->
             <aside id="explorer-panel" class="collapsed">
-                <div class="explorer-header"><h3>Files</h3></div>
+                <div class="explorer-header"><h3>Files</h3><span class="explorer-btns"><button id="explorer-all" title="Check all">All</button><button id="explorer-none" title="Uncheck all">None</button></span></div>
                 <div id="explorer-tree" class="explorer-tree"></div>
             </aside>
 

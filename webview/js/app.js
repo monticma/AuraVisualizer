@@ -59,6 +59,9 @@
     var communityNames = {}; // communityId → { name, files }
     var activeCommunities = new Set(); // communityIds currently visible
 
+    // Directory filter (from Files panel checkboxes)
+    var activeDirs = []; // empty = show all
+
     // Explorer state
     var showExplorer = false;
     var fileTree = {};
@@ -165,6 +168,11 @@
                 if (message.payload) {
                     var statusEl = $('#loading-status');
                     if (statusEl) statusEl.textContent = message.payload.message || 'Analyzing...';
+                }
+                break;
+            case 'refreshComplete':
+                if (loadingOverlay) {
+                    loadingOverlay.style.display = 'none';
                 }
                 break;
             case 'historyIndex':
@@ -324,6 +332,11 @@
         // Clear label cache for changed nodes
         for (var ci = 0; ci < changedNodes.length; ci++) {
             delete labelSpriteCache[changedNodes[ci].name];
+        }
+
+        // Hide loading overlay (refresh complete)
+        if (loadingOverlay) {
+            loadingOverlay.style.display = 'none';
         }
     }
 
@@ -2038,9 +2051,11 @@
                 }
                 var li = document.createElement('li');
                 var typeClass = d.type === 'function-call' ? 'dep-type dep-type-call' : 'dep-type';
+                var labelStr = d.label ? ' <span class="dep-label">' + d.label + '</span>' : '';
                 li.innerHTML =
                     '<span class="dep-arrow">→</span>' +
                     '<span>' + (targetNode ? targetNode.name : targetId) + '</span>' +
+                    labelStr +
                     '<span class="' + typeClass + '">' + d.type + '</span>';
                 li.addEventListener('click', function() {
                     if (targetNode) handleNodeClick(targetNode);
@@ -2068,9 +2083,11 @@
                 }
                 var li = document.createElement('li');
                 var typeClass = d.type === 'function-call' ? 'dep-type dep-type-call' : 'dep-type';
+                var labelStr = d.label ? ' <span class="dep-label">' + d.label + '</span>' : '';
                 li.innerHTML =
                     '<span class="dep-arrow">←</span>' +
                     '<span>' + (sourceNode ? sourceNode.name : sourceId) + '</span>' +
+                    labelStr +
                     '<span class="' + typeClass + '">' + d.type + '</span>';
                 li.addEventListener('click', function() {
                     if (sourceNode) handleNodeClick(sourceNode);
@@ -2172,9 +2189,11 @@
             }
             var liEl = document.createElement('li');
             var typeClass = link.type === 'function-call' ? 'dep-type dep-type-call' : 'dep-type';
+            var labelStr = link.label ? ' <span class="dep-label">' + link.label + '</span>' : '';
             liEl.innerHTML =
                 '<span class="dep-arrow">→</span>' +
                 '<span>' + (srcNode ? srcNode.name : srcId) + ' → ' + (tgtNode ? tgtNode.name : tgtId) + '</span>' +
+                labelStr +
                 '<span class="' + typeClass + '">' + link.type + '</span>';
             depsUl.appendChild(liEl);
         });
@@ -3514,7 +3533,20 @@
             var n = data.nodes[i];
             var langKey = n.language;
             if (langKey === 'c') langKey = n.extension === '.h' ? 'c-header' : 'c-source';
-            if (activeLanguages.has(langKey)) filteredNodes.push(n);
+            if (!activeLanguages.has(langKey)) continue;
+            // Directory filter: only keep files under checked dirs
+            if (activeDirs.length === 0) continue; // nothing checked = nothing shown
+            var inDir = false;
+            for (var d = 0; d < activeDirs.length; d++) {
+                if (n.path === activeDirs[d] || n.path.indexOf(activeDirs[d] + '/') === 0) {
+                    inDir = true;
+                    break;
+                }
+            }
+            // Also keep root-level files (no directory) when all dirs are checked
+            if (!inDir && n.path.indexOf('/') === -1) inDir = true;
+            if (!inDir) continue;
+            filteredNodes.push(n);
         }
         var nodeIds = new Set();
         for (var j = 0; j < filteredNodes.length; j++) nodeIds.add(filteredNodes[j].id);
@@ -4331,6 +4363,29 @@
             }
             saveViewState();
         });
+
+        var explorerAllBtn = $('#explorer-all');
+        var explorerNoneBtn = $('#explorer-none');
+        if (explorerAllBtn) {
+            explorerAllBtn.addEventListener('click', function() {
+                activeDirs = [];
+                var rootKeys = Object.keys(fileTree.children);
+                for (var i = 0; i < rootKeys.length; i++) {
+                    if (fileTree.children[rootKeys[i]].type === 'dir') {
+                        activeDirs.push(fileTree.children[rootKeys[i]].path);
+                    }
+                }
+                updateExplorerCheckboxes();
+                applyFilters();
+            });
+        }
+        if (explorerNoneBtn) {
+            explorerNoneBtn.addEventListener('click', function() {
+                activeDirs = [];
+                updateExplorerCheckboxes();
+                applyFilters();
+            });
+        }
     }
 
     function buildExplorerTree(nodes) {
@@ -4357,6 +4412,15 @@
                     };
                 }
                 current = current.children[part];
+            }
+        }
+
+        // Default: all top-level dirs checked (visible)
+        activeDirs = [];
+        var rootKeys = Object.keys(fileTree.children);
+        for (var k = 0; k < rootKeys.length; k++) {
+            if (fileTree.children[rootKeys[k]].type === 'dir') {
+                activeDirs.push(fileTree.children[rootKeys[k]].path);
             }
         }
         
@@ -4396,6 +4460,27 @@
         if (item.type === 'dir') {
             icon.textContent = '📁';
             nodeEl.dataset.expanded = 'false';
+
+            // Checkbox for directory filtering
+            var cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.className = 'tree-dir-checkbox';
+            cb.dataset.dirPath = item.path;
+            cb.title = 'Show/hide files in ' + item.name;
+            cb.checked = activeDirs.indexOf(item.path) !== -1;
+            cb.addEventListener('click', function(e) {
+                e.stopPropagation();
+            });
+            cb.addEventListener('change', function() {
+                var idx = activeDirs.indexOf(item.path);
+                if (cb.checked && idx === -1) {
+                    activeDirs.push(item.path);
+                } else if (!cb.checked && idx !== -1) {
+                    activeDirs.splice(idx, 1);
+                }
+                applyFilters();
+            });
+            nodeEl.appendChild(cb);
         } else {
             icon.textContent = LANGUAGE_ICONS[item.node.language] || '📄';
             nodeEl.dataset.nodeId = item.node.id;
@@ -4452,6 +4537,14 @@
         }
 
         return container;
+    }
+
+    function updateExplorerCheckboxes() {
+        if (!explorerTree) return;
+        var checkboxes = explorerTree.querySelectorAll('.tree-dir-checkbox');
+        for (var i = 0; i < checkboxes.length; i++) {
+            checkboxes[i].checked = activeDirs.indexOf(checkboxes[i].dataset.dirPath) !== -1;
+        }
     }
 
     function updateExplorerSelection() {

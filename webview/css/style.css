@@ -596,6 +596,13 @@ html, body {
     letter-spacing: 0.5px;
 }
 .dep-type-call { color: #81c784; opacity: 0.7; }
+.dep-label {
+    font-size: 10px;
+    color: #e0a856;
+    opacity: 0.85;
+    margin-left: 4px;
+    font-family: var(--vscode-editor-font-family, monospace);
+}
 
 /* Symbols */
 #symbols-section { padding: 0 0 12px; }
@@ -701,7 +708,7 @@ html, body {
     pointer-events: none;
 }
 
-.explorer-title, .explorer-header {
+.explorer-header {
     padding: 10px 12px;
     font-size: 11px;
     text-transform: uppercase;
@@ -713,6 +720,9 @@ html, body {
     background: var(--vscode-sideBar-background, #0d1117);
     z-index: 1;
     min-width: 260px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
 .explorer-header h3 {
@@ -721,6 +731,25 @@ html, body {
     text-transform: uppercase;
     letter-spacing: 0.5px;
     margin: 0;
+}
+
+.explorer-btns {
+    display: flex;
+    gap: 4px;
+}
+.explorer-btns button {
+    background: rgba(96,165,250,0.12);
+    border: 1px solid rgba(96,165,250,0.25);
+    color: #8bb9fe;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    cursor: pointer;
+    text-transform: none;
+    letter-spacing: 0;
+}
+.explorer-btns button:hover {
+    background: rgba(96,165,250,0.25);
 }
 
 #explorer-tree { padding: 4px 0; }
@@ -740,6 +769,14 @@ html, body {
 .tree-node.selected { background: rgba(96,165,250,0.15); }
 
 .tree-icon { font-size: 14px; flex-shrink: 0; }
+.tree-dir-checkbox {
+    width: 13px;
+    height: 13px;
+    margin: 0;
+    flex-shrink: 0;
+    cursor: pointer;
+    accent-color: #60a5fa;
+}
 .tree-label {
     overflow: hidden;
     white-space: nowrap;

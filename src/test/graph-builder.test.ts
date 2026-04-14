@@ -65,13 +65,18 @@ describe('buildGraph', () => {
     it('detects cross-file function calls', async () => {
         const files = [
             makeFileInfo({
+                id: 'utils.h',
+                content: 'void helper(void);\n',
+                language: 'c', extension: '.h',
+            }),
+            makeFileInfo({
                 id: 'utils.c',
-                content: 'void helper(void) {\n}\n',
+                content: '#include "utils.h"\nvoid helper(void) {\n}\n',
                 language: 'c', extension: '.c',
             }),
             makeFileInfo({
                 id: 'main.c',
-                content: 'void main() {\n    helper();\n}\n',
+                content: '#include "utils.h"\nvoid main() {\n    helper();\n}\n',
                 language: 'c', extension: '.c',
             }),
         ];

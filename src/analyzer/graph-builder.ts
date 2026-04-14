@@ -208,6 +208,49 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
     }
 
     // Phase 3: Detect cross-file function calls (within same language family)
+    // Build import reachability graph to avoid false links between unrelated files.
+    // A function-call link is only created if the caller can reach the callee's
+    // definition file (or a header that exposes it) through the import graph.
+    const importGraph = new Map<string, Set<string>>();
+    for (const rel of allRelations) {
+        const resolved = resolveTarget(rel.target, rel.source, fileMap);
+        if (!resolved || resolved === rel.source) continue;
+        if (!importGraph.has(rel.source)) importGraph.set(rel.source, new Set());
+        importGraph.get(rel.source)!.add(resolved);
+    }
+    // For header-based languages (C/C++), also link a header to the files that include it
+    // so we can traverse: caller.c → utils.h → utils.c
+    const includedBy = new Map<string, Set<string>>(); // header → set of files that include it
+    for (const [src, targets] of importGraph) {
+        for (const tgt of targets) {
+            const tgtFile = fileMap.get(tgt);
+            if (tgtFile && HEADER_EXTS.has(tgtFile.extension)) {
+                if (!includedBy.has(tgt)) includedBy.set(tgt, new Set());
+                includedBy.get(tgt)!.add(src);
+            }
+        }
+    }
+
+    function isReachableViaImports(source: string, target: string): boolean {
+        // Direct import
+        if (importGraph.get(source)?.has(target)) return true;
+        // Via shared header: source imports header H, and target also imports H
+        // or target is the .c paired with a .h that source imports
+        const sourceImports = importGraph.get(source);
+        if (!sourceImports) return false;
+        const targetImports = importGraph.get(target);
+        for (const imported of sourceImports) {
+            const imp = fileMap.get(imported);
+            if (!imp || !HEADER_EXTS.has(imp.extension)) continue;
+            // source → header.h, does target also import header.h?
+            if (targetImports?.has(imported)) return true;
+            // source → header.h, is target the implementation of header.h? (same basename)
+            const baseName = imported.replace(/\.[^.]+$/, '');
+            if (target.startsWith(baseName + '.')) return true;
+        }
+        return false;
+    }
+
     const functionCallLinks: GraphLink[] = [];
 
     for (const file of files) {
@@ -232,6 +275,7 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
         );
 
         const family = LANG_FAMILY[file.language] || file.language;
+        const hasHeaders = HEADER_EXTS.size > 0 && (file.language === 'c' || file.language === 'cpp');
         for (const callName of calls) {
             if (ownFunctions.has(callName)) continue;
 
@@ -239,14 +283,15 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
             const definedIn = globalFunctionIndex.get(key);
             if (definedIn) {
                 for (const defFileId of definedIn) {
-                    if (defFileId !== file.id) {
-                        functionCallLinks.push({
-                            source: file.id,
-                            target: defFileId,
-                            type: 'function-call',
-                            label: `${callName}()`
-                        });
-                    }
+                    if (defFileId === file.id) continue;
+                    // For C/C++, only link if files are connected via imports
+                    if (hasHeaders && !isReachableViaImports(file.id, defFileId)) continue;
+                    functionCallLinks.push({
+                        source: file.id,
+                        target: defFileId,
+                        type: 'function-call',
+                        label: `${callName}()`
+                    });
                 }
             }
         }
@@ -339,6 +384,8 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
     const unresolvedCount = { count: 0, targets: [] as { from: string; ref: string }[] };
 
     for (const relation of allRelations) {
+        // system-include relations are used for reachability only; skip visible links unless opted in
+        if (relation.type === 'system-include' && !options.includeSystemHeaders) continue;
         const resolvedTarget = resolveTarget(relation.target, relation.source, fileMap);
         if (resolvedTarget) {
             if (resolvedTarget !== relation.source) {
@@ -566,6 +613,7 @@ export interface IncrementalContext {
     fileMap: Map<string, FileInfo>;
     globalFunctionIndex: Map<string, string[]>;
     fileSymbols: Map<string, FileSymbols>;
+    importGraph: Map<string, Set<string>>; // fileId → set of resolved import targets
 }
 
 /**
@@ -599,7 +647,28 @@ export function buildIncrementalContext(files: FileInfo[], astTrees?: Map<string
         }
     }
 
-    return { fileMap, globalFunctionIndex, fileSymbols };
+    return { fileMap, globalFunctionIndex, fileSymbols, importGraph: buildImportGraph(files, fileMap, astTrees) };
+}
+
+/** Build import graph: fileId → set of resolved import targets (used for C/C++ reachability). */
+function buildImportGraph(files: FileInfo[], fileMap: Map<string, FileInfo>, astTrees?: Map<string, Parser.Tree>): Map<string, Set<string>> {
+    const importGraph = new Map<string, Set<string>>();
+    for (const file of files) {
+        const tree = astTrees?.get(file.id);
+        const parser = getParser(file.language);
+        if (!parser) continue;
+        const rels = tree && parser.usesTreeSitter
+            ? parser.parseAST(tree, file, {})
+            : parser.parse(file, {});
+        for (const rel of rels) {
+            const resolved = resolveTarget(rel.target, rel.source, fileMap);
+            if (resolved && resolved !== rel.source) {
+                if (!importGraph.has(rel.source)) importGraph.set(rel.source, new Set());
+                importGraph.get(rel.source)!.add(resolved);
+            }
+        }
+    }
+    return importGraph;
 }
 
 /**
@@ -643,7 +712,16 @@ export function restoreIncrementalContext(files: FileInfo[], graphData: GraphDat
         }
     }
 
-    return { fileMap, globalFunctionIndex, fileSymbols };
+    // Rebuild importGraph from include-type links
+    const importGraph = new Map<string, Set<string>>();
+    for (const link of graphData.links) {
+        if (link.type === 'include' || link.type === 'system-include') {
+            if (!importGraph.has(link.source)) importGraph.set(link.source, new Set());
+            importGraph.get(link.source)!.add(link.target);
+        }
+    }
+
+    return { fileMap, globalFunctionIndex, fileSymbols, importGraph };
 }
 
 /**
@@ -712,6 +790,30 @@ export function rebuildSingleFile(
     }
 
     // Phase 3: Detect cross-file function calls
+    // Update import graph for this file
+    const localImportTargets = new Set<string>();
+    for (const rel of relations) {
+        const resolved = resolveTarget(rel.target, rel.source, fileMap);
+        if (resolved && resolved !== rel.source) localImportTargets.add(resolved);
+    }
+    ctx.importGraph.set(file.id, localImportTargets);
+
+    function isReachableFromFile(target: string): boolean {
+        if (localImportTargets.has(target)) return true;
+        // Check via shared header using the full import graph
+        const targetImports = ctx.importGraph.get(target);
+        for (const imported of localImportTargets) {
+            const imp = fileMap.get(imported);
+            if (!imp || !HEADER_EXTS.has(imp.extension)) continue;
+            // target also imports this header?
+            if (targetImports?.has(imported)) return true;
+            // target is the .c implementation of this .h? (same basename)
+            const baseName = imported.replace(/\.[^.]+$/, '');
+            if (target.startsWith(baseName + '.')) return true;
+        }
+        return false;
+    }
+
     const functionCallLinks: GraphLink[] = [];
     if (SYMBOL_LANGUAGES.has(file.language) && !HEADER_EXTS.has(file.extension) && parser) {
         let calls: string[];
@@ -724,6 +826,7 @@ export function rebuildSingleFile(
         }
         const ownFunctions = new Set(symbols ? symbols.functions.map(f => f.name) : []);
         const family = LANG_FAMILY[file.language] || file.language;
+        const hasHeaders = file.language === 'c' || file.language === 'cpp';
 
         for (const callName of calls) {
             if (ownFunctions.has(callName)) continue;
@@ -731,9 +834,9 @@ export function rebuildSingleFile(
             const definedIn = globalFunctionIndex.get(key);
             if (definedIn) {
                 for (const defFileId of definedIn) {
-                    if (defFileId !== file.id) {
-                        functionCallLinks.push({ source: file.id, target: defFileId, type: 'function-call', label: `${callName}()` });
-                    }
+                    if (defFileId === file.id) continue;
+                    if (hasHeaders && !isReachableFromFile(defFileId)) continue;
+                    functionCallLinks.push({ source: file.id, target: defFileId, type: 'function-call', label: `${callName}()` });
                 }
             }
         }
@@ -787,6 +890,7 @@ export function rebuildSingleFile(
     // Phase 5: Resolve targets and build outEdges
     const outEdges: GraphLink[] = [];
     for (const rel of relations) {
+        if (rel.type === 'system-include' && !options.includeSystemHeaders) continue;
         const resolved = resolveTarget(rel.target, rel.source, fileMap);
         if (resolved && resolved !== rel.source) {
             outEdges.push({ source: rel.source, target: resolved, type: rel.type, label: rel.label });

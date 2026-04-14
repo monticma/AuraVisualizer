@@ -63,7 +63,6 @@ export class AuraTreeProvider implements vscode.TreeDataProvider<AuraTreeItem> {
         }
 
         if (!element) {
-            // Root level — the 4 sections
             return [
                 new AuraTreeItem({ kind: 'header', label: 'Stats', icon: 'graph' }, vscode.TreeItemCollapsibleState.Expanded),
                 new AuraTreeItem({ kind: 'header', label: 'Most Complex', icon: 'flame' }, vscode.TreeItemCollapsibleState.Collapsed),

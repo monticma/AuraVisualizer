@@ -277,8 +277,10 @@ async function refreshAnalysis(context: vscode.ExtensionContext): Promise<void> 
                     delta.removedLinks.length > 0;
                 if (hasChanges) {
                     webviewProvider.sendGraphDelta(delta as unknown as Record<string, unknown>);
+                } else {
+                    // Nothing changed — tell webview to dismiss loading overlay
+                    webviewProvider.sendRefreshComplete();
                 }
-                // else: nothing changed, no visual update needed
             } else {
                 webviewProvider.sendGraphData(cachedGraphData);
             }
