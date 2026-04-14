@@ -362,10 +362,14 @@ export class WebviewProvider {
 
     <!-- Timeline Bar (Time Travel) -->
     <div id="timeline-bar" class="hidden">
-        <button id="timeline-prev" class="timeline-btn" title="Previous commit (←)">◀</button>
-        <button id="timeline-next" class="timeline-btn" title="Next commit (→)">▶</button>
-        <button id="timeline-impact" class="timeline-btn impact-btn" title="Show impact cascade (I)">💥</button>
-        <input type="range" id="timeline-slider" min="0" max="0" value="0" step="1">
+        <div id="timeline-from-controls" class="hidden">
+            <button id="timeline-from-prev" class="timeline-btn from-btn" title="From: previous commit">◀</button>
+            <button id="timeline-from-next" class="timeline-btn from-btn" title="From: next commit">▶</button>
+        </div>
+        <div id="timeline-slider-wrap">
+            <input type="range" id="timeline-from-slider" class="hidden" min="0" max="0" value="0" step="1">
+            <input type="range" id="timeline-slider" min="0" max="0" value="0" step="1">
+        </div>
         <div id="timeline-info">
             <span id="timeline-hash">—</span>
             <span id="timeline-message">—</span>
@@ -373,6 +377,12 @@ export class WebviewProvider {
         </div>
         <div id="timeline-progress" class="hidden">
             <span id="timeline-progress-text">⏳ 0/0</span>
+        </div>
+        <div id="timeline-right-controls">
+            <button id="timeline-prev" class="timeline-btn" title="Previous commit (←)">◀</button>
+            <button id="timeline-next" class="timeline-btn" title="Next commit (→)">▶</button>
+            <button id="timeline-impact" class="timeline-btn impact-btn" title="Show impact cascade (I)">💥</button>
+            <button id="timeline-compare" class="timeline-btn compare-btn" title="Compare two commits (V)">⇄</button>
         </div>
     </div>
 
@@ -527,6 +537,8 @@ export class WebviewProvider {
                     <tr><td><kbd>X</kbd></td><td>Toggle dead code visualization</td></tr>
                     <tr><td><kbd>C</kbd></td><td>Toggle circular dependencies</td></tr>
                     <tr><td><kbd>1</kbd>–<kbd>5</kbd></td><td>Set pinned focus / blast depth</td></tr>
+                    <tr><td><kbd>V</kbd></td><td>Toggle timeline compare mode (dual slider)</td></tr>
+                    <tr><td><kbd>I</kbd></td><td>Toggle timeline impact cascade</td></tr>
                     <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Timeline: previous / next commit</td></tr>
                     <tr><td><kbd>Escape</kbd></td><td>Reset all selections and modes</td></tr>
                 </table>
@@ -552,7 +564,7 @@ export class WebviewProvider {
                 <p>In the detail panel, click the <strong>▶</strong> button next to a function to trace its outgoing call chain across files. Files light up progressively by call depth.</p>
 
                 <h3>⏳ Time Travel</h3>
-                <p>Navigate git history commit by commit. Changed files are highlighted in yellow. Use the timeline slider or arrow keys to step through commits.</p>
+                <p>Navigate git history commit by commit. Changed files are color-coded: <span style="color:#00ff88">● green</span> = added, <span style="color:#ff2080">● pink</span> = removed, <span style="color:#ffff00">● yellow</span> = modified. Edges follow the same scheme. Press <kbd>V</kbd> or click <strong>⇄</strong> to enter <strong>Compare mode</strong> with a dual slider to diff any two commits.</p>
 
                 <h3>📤 Export for AI</h3>
                 <p>Export the graph as JSON for AI assistants. Aura also includes a built-in MCP server for direct AI integration.</p>
