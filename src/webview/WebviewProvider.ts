@@ -574,6 +574,15 @@ export class WebviewProvider {
                 <h3>⏳ Time Travel</h3>
                 <p>Navigate git history commit by commit. Changed files are color-coded: <span style="color:#00ff88">● green</span> = added, <span style="color:#ff2080">● pink</span> = removed, <span style="color:#ffff00">● yellow</span> = modified. Edges follow the same scheme. Press <kbd>V</kbd> or click <strong>⇄</strong> to enter <strong>Compare mode</strong> with a dual slider to diff any two commits.</p>
 
+                <h3>📂 Directory Filtering</h3>
+                <p>In the <strong>File Explorer</strong> panel, each directory has a checkbox to show/hide its files in the graph. Use the <strong>All</strong> / <strong>None</strong> buttons for batch selection. Directories are checked by default.</p>
+
+                <h3>🔗 Function Call Labels</h3>
+                <p>In the detail panel, <code>function-call</code> links display the actual function name (e.g. <code>helper()</code>). For C/C++, function-call links are only created between files connected via <code>#include</code> — no false positives.</p>
+
+                <h3>⚡ Instant Startup</h3>
+                <p>The graph is cached in a local SQLite database (<code>.aura/graph.db</code>). On next launch, the cached graph loads instantly while a background re-scan picks up changes and sends a delta update. File saves trigger incremental O(1) updates.</p>
+
                 <h3>📤 Export for AI</h3>
                 <p>Export the graph as JSON for AI assistants. Aura also includes a built-in MCP server for direct AI integration.</p>
 

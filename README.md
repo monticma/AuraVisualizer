@@ -149,14 +149,19 @@ Toggle with the **🗺️ Map** button in the toolbar. A floating minimap displa
 
 ### Time Travel ⏳
 
-Navigate your project's git history commit by commit. A timeline bar at the bottom lets you scrub through commits. Changed files are highlighted in yellow at each step.
+Navigate your project's git history commit by commit. A timeline bar at the bottom lets you scrub through commits. Changed files are color-coded: 🟢 green = added, 🔴 pink = removed, 🟡 yellow = modified. Edges follow the same color scheme.
 
 | Control | Action |
 |---------|--------|
 | Timeline slider | Jump to any commit |
 | `←` / `→` arrows | Step through commits |
 | Prev / Next buttons | Navigate history |
+| `I` | Toggle impact cascade from changed files |
 | `Escape` | Return to HEAD |
+
+### Visual Diff Between Commits 🔀
+
+Press `V` or click the **⇄ Compare** button to enter **Compare mode**. A second slider appears — drag both sliders to diff any two commits. Files that changed between those commits are highlighted; unchanged nodes are dimmed. Compare mode shows the cumulative diff across the selected range.
 
 ### Search
 
@@ -165,6 +170,8 @@ Type in the search box (2+ characters) to find files by name or path. Results ap
 ### File Explorer Panel
 
 Toggle a tree-view panel showing all files organized by directory. Click a file to select it in the graph.
+
+**Directory filtering**: Each directory has a checkbox to show/hide its files in the graph. Use the **All** / **None** buttons at the top for batch selection. Directories are checked by default.
 
 ### Filter by Language
 
@@ -180,7 +187,15 @@ Toggle language buttons in the filter bar to show/hide files by type. Multiple l
 
 ### Incremental Updates
 
-When `autoRefresh` is enabled, the graph updates automatically whenever you save a file — no manual re-scan needed.
+When `autoRefresh` is enabled, the graph updates automatically whenever you save a file — no manual re-scan needed. Only the changed file is re-parsed and its edges recalculated (O(1) instead of O(N)).
+
+**Instant startup**: The graph is persisted to a local SQLite database (`.aura/graph.db`). On next launch, the cached graph loads instantly while a background re-scan picks up any changes and sends a delta update.
+
+### Function Call Labels
+
+In the detail panel, dependency links of type `function-call` display the actual function name (e.g. `helper()`) next to the target file. This makes it easy to see exactly which function creates each cross-file link.
+
+For **C/C++ projects**, function-call links are only created between files connected via `#include` — preventing false positives between unrelated files that happen to define functions with the same name.
 
 ---
 
@@ -219,6 +234,8 @@ You can also open the visualizer from the **Aura** icon in the Activity Bar or v
 | `X` | Toggle dead code visualization |
 | `C` | Toggle circular dependencies |
 | `1`–`5` | Set pinned focus depth |
+| `V` | Toggle timeline compare mode (dual slider) |
+| `I` | Toggle timeline impact cascade |
 | `←` `→` | Timeline: previous / next commit |
 | `Escape` | Reset all — clear selections, heatmaps, timeline |
 
