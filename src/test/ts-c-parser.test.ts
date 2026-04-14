@@ -34,13 +34,14 @@ describe('TreeSitterCParser.parseAST', () => {
         expect(rels[1]).toMatchObject({ source: 'src/main.c', target: 'config.h', type: 'include' });
     });
 
-    it('ignores system includes by default', async () => {
+    it('always emits system includes with system-include type', async () => {
         const content = '#include <stdio.h>\n#include "local.h"\n';
         const t = await tree(content);
         const file = makeFileInfo({ id: 'src/main.c', content, language: 'c', extension: '.c' });
         const rels = parser.parseAST(t, file);
-        expect(rels).toHaveLength(1);
-        expect(rels[0].target).toBe('local.h');
+        expect(rels).toHaveLength(2);
+        expect(rels[0]).toMatchObject({ target: 'stdio.h', type: 'system-include' });
+        expect(rels[1]).toMatchObject({ target: 'local.h', type: 'include' });
     });
 
     it('includes system headers when option set', async () => {

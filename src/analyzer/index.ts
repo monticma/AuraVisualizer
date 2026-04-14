@@ -16,5 +16,6 @@ export async function analyzeCodebase(targetPath: string, options: AnalyzeOption
 }
 
 export { scanSingleFile, buildGraph, preParseFiles };
+export { rebuildSingleFile, buildIncrementalContext, restoreIncrementalContext, type IncrementalContext } from './graph-builder';
 export type { GraphData, GraphNode, GraphLink, GraphMeta, FileInfo, CommitIndex, CommitDelta } from './types';
 export { isGitRepo, getCommitIndex, getFileAtCommit, getFileListAtCommit } from './git-history';

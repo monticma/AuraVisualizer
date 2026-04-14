@@ -57,8 +57,8 @@ export class TreeSitterCParser extends BaseParser {
                         type: 'include',
                         label: `#include "${target}"`,
                     });
-                } else if (pathNode.type === 'system_lib_string' && includeSystem) {
-                    // #include <stdio.h>
+                } else if (pathNode.type === 'system_lib_string') {
+                    // #include <stdio.h>  — always emit so reachability graph is complete
                     const target = raw.slice(1, -1); // remove angle brackets
                     relations.push({
                         source: sourceId,

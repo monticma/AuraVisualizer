@@ -3,7 +3,7 @@ import { GraphDB } from '../graph-db';
 import { buildGraph, preParseFiles } from '../analyzer/graph-builder';
 import { initTreeSitter } from '../analyzer/tree-sitter-loader';
 import { makeFileInfo } from './helpers';
-import type { GraphData } from '../analyzer/types';
+import type { GraphData, GraphNode, GraphLink } from '../analyzer/types';
 import { join } from 'path';
 import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
@@ -224,6 +224,26 @@ describe('GraphDB', () => {
         const communities = db.getCommunities();
         expect(communities).toHaveLength(0);
     });
+
+    it('exportGraphData round-trips through import', async () => {
+        const original = await makeTestGraph();
+        db.importGraphData(original);
+        const exported = db.exportGraphData();
+        expect(exported).not.toBeNull();
+        expect(exported!.nodes).toHaveLength(original.nodes.length);
+        expect(exported!.links).toHaveLength(original.links.length);
+        expect(exported!.meta.projectName).toBe('TestProject');
+        expect(exported!.meta.totalFiles).toBe(original.meta.totalFiles);
+        // Verify node fields survive round-trip
+        const mainNode = exported!.nodes.find(n => n.id === 'main.c');
+        expect(mainNode).toBeDefined();
+        expect(mainNode!.language).toBe('c');
+        expect(mainNode!.complexity).toBeGreaterThanOrEqual(1);
+    });
+
+    it('exportGraphData returns null for empty db', () => {
+        expect(db.exportGraphData()).toBeNull();
+    });
 });
 
 // ── Phase 1b: Enriched schema tests ───────────────────────────
@@ -425,5 +445,210 @@ describe('GraphDB — enriched schema (Phase 1b)', () => {
         expect(start!).toHaveProperty('visibility');
         expect(start!).toHaveProperty('isStatic');
         expect(start!).toHaveProperty('isAsync');
+    });
+});
+
+// ── Phase 2: Granular update methods ──────────────────────────
+
+function makeNode(overrides: Partial<GraphNode> = {}): GraphNode {
+    return {
+        id: 'file.ts', name: 'file.ts', path: 'file.ts',
+        language: 'typescript', extension: '.ts', size: 200, linesOfCode: 15,
+        lastModified: 100, group: 'src', fanOut: 0, fanIn: 0,
+        complexity: 3, complexityDetails: {},
+        symbols: {
+            functions: [{ name: 'hello', returnType: 'void', params: '()', line: 1, type: 'function' }],
+            structs: [], enums: [], macros: [], classes: [], exports: [],
+            interfaces: [], traits: [], typeAliases: [], methods: [],
+            totalSymbols: 1,
+        },
+        ...overrides,
+    };
+}
+
+describe('GraphDB — granular updates', () => {
+    let db: GraphDB;
+    let tmpDir: string;
+    let dbPath: string;
+
+    beforeEach(async () => {
+        tmpDir = mkdtempSync(join(tmpdir(), 'aura-granular-'));
+        dbPath = join(tmpDir, 'graph.db');
+        db = new GraphDB();
+        await db.open(dbPath);
+    });
+
+    afterEach(() => {
+        db.close();
+        rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    // ── upsertNode ────────────────────────────────────────────
+
+    it('upsertNode inserts a new node', () => {
+        db.upsertNode(makeNode());
+        const nodes = db.getAllNodes();
+        expect(nodes).toHaveLength(1);
+        expect(nodes[0].id).toBe('file.ts');
+        expect(nodes[0].complexity).toBe(3);
+    });
+
+    it('upsertNode replaces an existing node', () => {
+        db.upsertNode(makeNode());
+        db.upsertNode(makeNode({ complexity: 10, linesOfCode: 50 }));
+        const nodes = db.getAllNodes();
+        expect(nodes).toHaveLength(1);
+        expect(nodes[0].complexity).toBe(10);
+        expect(nodes[0].lines).toBe(50);
+    });
+
+    // ── deleteNode ────────────────────────────────────────────
+
+    it('deleteNode removes node and all associated data', () => {
+        // Seed via full import
+        db.importGraphData(makeEnrichedGraph());
+        expect(db.getAllNodes()).toHaveLength(2);
+
+        db.deleteNode('child.ts');
+        expect(db.getAllNodes()).toHaveLength(1);
+        expect(db.getAllNodes()[0].id).toBe('base.ts');
+        // Edges from/to child.ts should be gone
+        const edges = db.getAllEdges();
+        expect(edges.filter(e => e.source === 'child.ts' || e.target === 'child.ts')).toHaveLength(0);
+        // Symbols for child.ts should be gone
+        const detail = db.getNodeDetail('child.ts');
+        expect(detail).toBeNull();
+    });
+
+    it('deleteNode is a no-op for unknown id', () => {
+        db.upsertNode(makeNode());
+        db.deleteNode('nonexistent.ts');
+        expect(db.getAllNodes()).toHaveLength(1);
+    });
+
+    // ── replaceFileData ───────────────────────────────────────
+
+    it('replaceFileData inserts node + edges + symbols + calls', () => {
+        const node = makeNode();
+        const edges: GraphLink[] = [
+            { source: 'file.ts', target: 'dep.ts', type: 'import', label: 'foo' },
+        ];
+        const calls = [
+            { callerFile: 'file.ts', callerName: 'hello', calleeFile: 'dep.ts', calleeName: 'bar', callLine: 5 },
+        ];
+        // Need a target node for the edge
+        db.upsertNode(makeNode({ id: 'dep.ts', name: 'dep.ts' }));
+        db.replaceFileData('file.ts', node, edges, calls);
+
+        expect(db.getAllNodes()).toHaveLength(2);
+        const allEdges = db.getAllEdges();
+        expect(allEdges).toHaveLength(1);
+        expect(allEdges[0].source).toBe('file.ts');
+        expect(allEdges[0].target).toBe('dep.ts');
+
+        const syms = db.searchSymbols('hello');
+        expect(syms).toHaveLength(1);
+
+        const fcalls = db.getFunctionCalls('file.ts');
+        expect(fcalls).toHaveLength(1);
+        expect(fcalls[0].callee_name).toBe('bar');
+    });
+
+    it('replaceFileData replaces old edges/symbols/calls on re-call', () => {
+        const node = makeNode();
+        const edgesV1: GraphLink[] = [
+            { source: 'file.ts', target: 'old-dep.ts', type: 'import', label: '' },
+        ];
+        db.upsertNode(makeNode({ id: 'old-dep.ts', name: 'old-dep.ts' }));
+        db.upsertNode(makeNode({ id: 'new-dep.ts', name: 'new-dep.ts' }));
+        db.replaceFileData('file.ts', node, edgesV1, []);
+
+        // Now "edit" the file — new dependency, new symbol
+        const nodeV2 = makeNode({
+            complexity: 7,
+            symbols: {
+                functions: [{ name: 'goodbye', returnType: 'string', params: '()', line: 2, type: 'function' }],
+                structs: [], enums: [], macros: [], classes: [], exports: [],
+                interfaces: [], traits: [], typeAliases: [], methods: [],
+                totalSymbols: 1,
+            },
+        });
+        const edgesV2: GraphLink[] = [
+            { source: 'file.ts', target: 'new-dep.ts', type: 'import', label: '' },
+        ];
+        db.replaceFileData('file.ts', nodeV2, edgesV2, []);
+
+        // Old edge gone, new edge present
+        const edges = db.getAllEdges();
+        expect(edges.filter(e => e.source === 'file.ts')).toHaveLength(1);
+        expect(edges.find(e => e.target === 'old-dep.ts')).toBeUndefined();
+        expect(edges.find(e => e.target === 'new-dep.ts')).toBeDefined();
+
+        // Old symbol gone, new symbol present
+        expect(db.searchSymbols('hello')).toHaveLength(0);
+        expect(db.searchSymbols('goodbye')).toHaveLength(1);
+
+        // Node updated
+        const detail = db.getNodeDetail('file.ts');
+        expect(detail!.complexity).toBe(7);
+    });
+
+    it('replaceFileData does not touch incoming edges from other files', () => {
+        // Setup: A → B, B → C. Now replace B — A → B should survive.
+        db.upsertNode(makeNode({ id: 'a.ts', name: 'a.ts' }));
+        db.upsertNode(makeNode({ id: 'b.ts', name: 'b.ts' }));
+        db.upsertNode(makeNode({ id: 'c.ts', name: 'c.ts' }));
+
+        // A imports B
+        db.replaceFileData('a.ts', makeNode({ id: 'a.ts', name: 'a.ts' }),
+            [{ source: 'a.ts', target: 'b.ts', type: 'import', label: '' }], []);
+        // B imports C
+        db.replaceFileData('b.ts', makeNode({ id: 'b.ts', name: 'b.ts' }),
+            [{ source: 'b.ts', target: 'c.ts', type: 'import', label: '' }], []);
+
+        // Now replace B with no outgoing edges
+        db.replaceFileData('b.ts', makeNode({ id: 'b.ts', name: 'b.ts' }), [], []);
+
+        const edges = db.getAllEdges();
+        // A → B should still exist (incoming to B, managed by A)
+        expect(edges.find(e => e.source === 'a.ts' && e.target === 'b.ts')).toBeDefined();
+        // B → C should be gone (outgoing from B)
+        expect(edges.find(e => e.source === 'b.ts' && e.target === 'c.ts')).toBeUndefined();
+    });
+
+    // ── updateFanCounts ───────────────────────────────────────
+
+    it('updateFanCounts recomputes counts for specific nodes', () => {
+        db.upsertNode(makeNode({ id: 'a.ts', name: 'a.ts', fanIn: 0, fanOut: 0 }));
+        db.upsertNode(makeNode({ id: 'b.ts', name: 'b.ts', fanIn: 0, fanOut: 0 }));
+        db.upsertNode(makeNode({ id: 'c.ts', name: 'c.ts', fanIn: 0, fanOut: 0 }));
+        db.replaceFileData('a.ts', makeNode({ id: 'a.ts', name: 'a.ts' }),
+            [{ source: 'a.ts', target: 'b.ts', type: 'import', label: '' },
+             { source: 'a.ts', target: 'c.ts', type: 'import', label: '' }], []);
+
+        db.updateFanCounts(['a.ts', 'b.ts', 'c.ts']);
+
+        const a = db.getNodeDetail('a.ts')!;
+        expect(a.fan_out).toBe(2);
+        expect(a.fan_in).toBe(0);
+        const b = db.getNodeDetail('b.ts')!;
+        expect(b.fan_in).toBe(1);
+        expect(b.fan_out).toBe(0);
+    });
+
+    it('updateFanCounts with no args updates all nodes', () => {
+        db.upsertNode(makeNode({ id: 'a.ts', name: 'a.ts', fanIn: 99, fanOut: 99 }));
+        db.upsertNode(makeNode({ id: 'b.ts', name: 'b.ts', fanIn: 99, fanOut: 99 }));
+        db.replaceFileData('a.ts', makeNode({ id: 'a.ts', name: 'a.ts' }),
+            [{ source: 'a.ts', target: 'b.ts', type: 'import', label: '' }], []);
+
+        db.updateFanCounts();
+
+        const a = db.getNodeDetail('a.ts')!;
+        expect(a.fan_out).toBe(1);
+        expect(a.fan_in).toBe(0);
+        const b = db.getNodeDetail('b.ts')!;
+        expect(b.fan_in).toBe(1);
+        expect(b.fan_out).toBe(0);
     });
 });
