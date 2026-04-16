@@ -19,10 +19,13 @@ The MCP server starts automatically and registers itself in `.vscode/mcp.json`. 
 | `find_path` | Shortest path between two files |
 | `find_cycles` | All circular dependency cycles |
 | `find_dead_code` | Unused exports across the codebase |
+| `find_unused_functions` | Functions/methods never called anywhere — even within their own file |
 | `get_hotspots` | Most complex or impactful files |
 | `search_symbols` | Find functions, classes, exports by name |
+| `find_heritage` | Inheritance and implementation relationships (extends/implements) |
 | `get_architecture` | High-level overview by language |
 | `get_communities` | Architectural modules detected by Louvain algorithm |
+| `generate_documentation` | Full documentation payload in one call: overview, modules, hotspots, cycles, dead code |
 
 ### Export for AI
 

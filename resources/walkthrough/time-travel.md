@@ -15,13 +15,18 @@ Navigate your project's git history and watch the dependency graph evolve over t
 | Timeline slider | Jump to any scanned commit |
 | Prev / Next buttons | Step one commit at a time |
 | `←` / `→` arrow keys | Quick navigation |
+| `I` | Toggle impact cascade from changed files |
 | `Escape` | Return to HEAD (current state) |
 
 ### What you see
 
-- **Changed files** are highlighted in yellow at each commit
+- **Added files** glow green, **removed files** glow pink, **modified files** glow yellow
+- **Edges** follow the same color scheme (green = new link, pink = removed, yellow = changed)
 - Commit info shows: short hash, message, and date
 - Progress indicator: ⏳ X/Y commits while scanning
-- Files that were added, removed, or modified across history are reflected in the graph
+
+### Visual Diff — Compare any two commits
+
+Press `V` or click the **⇄ Compare** button to enter **Compare mode**. A second slider appears — drag both sliders to diff any two commits. Files changed between those commits are highlighted; unchanged nodes and edges are dimmed. This shows the cumulative structural impact across a range of commits.
 
 This is useful for understanding how your codebase architecture evolved and when complexity was introduced.

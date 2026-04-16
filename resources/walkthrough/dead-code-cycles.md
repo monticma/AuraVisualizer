@@ -10,6 +10,10 @@ Press `X` or click the **Dead Code** button to highlight files with unused expor
 - The detail panel lists each unused symbol with a ⚠️ label
 - Great for finding exports that nothing imports
 
+### Unused Functions
+
+The MCP tool `find_unused_functions` goes further: it detects functions and methods that are **never called anywhere** — not even within their own file. Use it via AI assistants to clean up dead logic after refactoring.
+
 ### Circular Dependencies 🔄
 
 Press `C` or click the **Cycles** button to highlight all files involved in dependency loops.

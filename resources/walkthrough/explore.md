@@ -23,4 +23,8 @@ Filter buttons at the bottom show only languages present in your project.
 - **Recenter** (`F`) — Fit the entire graph in view
 - **🗺️ Map** — Toggle the minimap — a real-time overview that rotates with the camera. Drag inside to pan the viewport.
 
-**Detail panel** — Click any node to see: file path, LOC, complexity, fan-in/out, symbols (functions, structs, enums), dependencies, and dependents.
+**Detail panel** — Click any node to see: file path, LOC, complexity, fan-in/out, symbols (functions, structs, enums), dependencies, and dependents. Function-call links show the actual function name (e.g. `helper()`) next to the target file.
+
+**File Explorer** — Toggle the tree panel to browse files by directory. Each directory has a **checkbox** to filter it in/out of the graph. Use **All** / **None** buttons for batch selection.
+
+**Instant startup** — The graph is cached in `.aura/graph.db`. On next launch, it loads instantly from the database while a background re-scan picks up any changes.

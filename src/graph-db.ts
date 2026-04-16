@@ -705,6 +705,24 @@ export class GraphDB {
         );
     }
 
+    /** Find functions/methods never called anywhere (not even within their own file). */
+    getUnusedFunctions(fileId?: string, includeMethods: boolean = true): { nodeId: string; name: string; kind: string; line: number; visibility: string }[] {
+        const db = this.ensureDb();
+        const kinds = includeMethods ? "('function', 'method')" : "('function')";
+        const fileFilter = fileId ? ' AND s.node_id = ?' : '';
+        const params = fileId ? [fileId] : [];
+        return queryAll(db, `
+            SELECT s.node_id AS nodeId, s.name, s.kind, s.line, s.visibility
+            FROM symbols s
+            WHERE s.kind IN ${kinds}${fileFilter}
+              AND NOT EXISTS (
+                SELECT 1 FROM function_calls fc
+                WHERE fc.callee_name = s.name AND fc.callee_file = s.node_id
+              )
+            ORDER BY s.node_id, s.line
+        `, params);
+    }
+
     /** Get all nodes. */
     getAllNodes(): NodeRow[] {
         return queryAll<NodeRow>(this.ensureDb(), 'SELECT * FROM nodes ORDER BY id');

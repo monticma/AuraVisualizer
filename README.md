@@ -270,8 +270,10 @@ The MCP server exposes your codebase graph to AI tools via stdio transport. It r
 | `find_path` | `from`, `to` | Shortest dependency path between two files |
 | `find_cycles` | — | All circular dependency cycles |
 | `find_dead_code` | — | Unused exports across the codebase |
+| `find_unused_functions` | `file`, `include_methods` | Functions/methods never called anywhere |
 | `get_hotspots` | `limit`, `sort_by` | Most complex / impactful files |
 | `search_symbols` | `query`, `kind` | Find functions, classes, exports by name |
+| `find_heritage` | `file` | Inheritance and implementation relationships (extends/implements) |
 | `get_architecture` | — | High-level overview by language |
 | `get_communities` | — | Architectural modules detected by Louvain algorithm |
 | `generate_documentation` | `hotspot_limit` | Full documentation payload: overview, modules, hotspots, cycles, dead code, inter-module links |

@@ -13,6 +13,8 @@ Quick access to every feature without leaving the keyboard.
 | `O` | Highlight orphan files |
 | `X` | Toggle dead code visualization |
 | `C` | Toggle circular dependencies |
+| `I` | Toggle timeline impact cascade |
+| `V` | Toggle timeline compare mode (dual slider) |
 | `1`–`5` | Set pinned focus depth (1 to 5 levels) |
 | `←` `→` | Timeline: previous / next commit |
 | `Escape` | Reset everything — clear all selections, heatmaps, and timeline |

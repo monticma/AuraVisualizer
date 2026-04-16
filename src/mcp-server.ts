@@ -160,6 +160,17 @@ const TOOLS = [
             },
         },
     },
+    {
+        name: 'find_unused_functions',
+        description: 'Find functions and methods that are never called anywhere in the codebase — not even within their own file. Useful for identifying dead logic that can be safely removed.',
+        inputSchema: {
+            type: 'object' as const,
+            properties: {
+                file: { type: 'string', description: 'Optional file path to limit the search to a single file' },
+                include_methods: { type: 'boolean', description: 'Include class methods (default: true). Set to false for standalone functions only.' },
+            },
+        },
+    },
 ];
 
 // ── Tool handlers ──────────────────────────────────────────────
@@ -219,6 +230,20 @@ function handleTool(db: GraphDB, name: string, args: Record<string, unknown>): u
                 files: Object.entries(byFile).map(([file, symbols]) => ({ file, symbols })),
                 totalSymbols: dead.length,
                 totalFiles: Object.keys(byFile).length,
+            };
+        }
+        case 'find_unused_functions': {
+            const file = args.file as string | undefined;
+            const includeMethods = args.include_methods !== false;
+            const unused = db.getUnusedFunctions(file, includeMethods);
+            const byFileUnused: Record<string, { name: string; kind: string; line: number; visibility: string }[]> = {};
+            for (const u of unused) {
+                (byFileUnused[u.nodeId] ??= []).push({ name: u.name, kind: u.kind, line: u.line, visibility: u.visibility });
+            }
+            return {
+                files: Object.entries(byFileUnused).map(([f, fns]) => ({ file: f, functions: fns })),
+                totalFunctions: unused.length,
+                totalFiles: Object.keys(byFileUnused).length,
             };
         }
         case 'get_hotspots': {
