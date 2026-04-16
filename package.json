@@ -2,7 +2,7 @@
   "name": "aura-visualizer-3D",
   "displayName": "Aura 3D Visualizer",
   "description": "Visualize your codebase in 3D directly in VSCode — interactive dependency graph with force-directed layout",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "publisher": "monticma-aura",
   "icon": "resources/aura-star-icon.png",
   "repository": {
@@ -143,6 +143,14 @@
             "description": "**Click** a node to see file details. **Double-click** to open the file in the editor. **Right-click** to pin focus on a file and its neighbors.\n\nUse the mouse wheel to zoom and drag to rotate.",
             "media": {
               "markdown": "resources/walkthrough/explore.md"
+            }
+          },
+          {
+            "id": "tabbed-views",
+            "title": "Switch Between Views",
+            "description": "Use the **tab bar** to switch between 7 views: 3D Graph, Treemap, Matrix (DSM), Chord Diagram, Metrics Dashboard, Timeline Chart, and File Table.\n\nEach view offers a different perspective on your architecture.",
+            "media": {
+              "markdown": "resources/walkthrough/views.md"
             }
           },
           {

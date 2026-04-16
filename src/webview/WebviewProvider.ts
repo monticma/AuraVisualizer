@@ -274,8 +274,19 @@ export class WebviewProvider {
             </div>
         </header>
 
+        <!-- Tab Bar -->
+        <nav id="tab-bar">
+            <button class="tab-btn active" data-tab="graph">✦ 3D Graph</button>
+            <button class="tab-btn" data-tab="treemap">🗺️ Treemap</button>
+            <button class="tab-btn" data-tab="dsm">🗑️ Matrix</button>
+            <button class="tab-btn" data-tab="chord">🎵 Chord</button>
+            <button class="tab-btn" data-tab="metrics">📊 Metrics</button>
+            <button class="tab-btn" data-tab="timeline">📈 Timeline</button>
+            <button class="tab-btn" data-tab="table">📋 Table</button>
+        </nav>
+
         <!-- Middle Row: Explorer + Graph + Detail -->
-        <div id="middle-row">
+        <div id="middle-row" class="tab-content active" data-tab="graph">
             <!-- Explorer Panel -->
             <aside id="explorer-panel" class="collapsed">
                 <div class="explorer-header"><h3>Files</h3><span class="explorer-btns"><button id="explorer-all" title="Check all">All</button><button id="explorer-none" title="Uncheck all">None</button></span></div>
@@ -367,6 +378,107 @@ export class WebviewProvider {
         </div>
     </aside>
     </div><!-- /middle-row -->
+
+    <!-- Metrics View -->
+    <div id="metrics-view" class="tab-content" data-tab="metrics"></div>
+
+    <!-- Treemap View -->
+    <div id="treemap-view" class="tab-content" data-tab="treemap">
+        <div class="treemap-toolbar">
+            <div id="treemap-breadcrumb"><span class="treemap-crumb treemap-crumb-root" data-path="">root</span></div>
+            <div class="treemap-controls">
+                <label>Size: <select id="treemap-size-metric">
+                    <option value="linesOfCode" selected>LOC</option>
+                    <option value="complexity">Complexity</option>
+                    <option value="size">File size</option>
+                </select></label>
+                <label>Color: <select id="treemap-color-metric">
+                    <option value="complexity" selected>Complexity</option>
+                    <option value="fanIn">Fan-in</option>
+                    <option value="fanOut">Fan-out</option>
+                    <option value="language">Language</option>
+                </select></label>
+            </div>
+        </div>
+        <div id="treemap-container"></div>
+    </div>
+
+    <!-- Chord Diagram View -->
+    <div id="chord-view" class="tab-content" data-tab="chord">
+        <div class="chord-toolbar">
+            <div class="chord-controls">
+                <label>Group by: <select id="chord-group-by">
+                    <option value="directory" selected>Directory</option>
+                    <option value="language">Language</option>
+                    <option value="community">Community</option>
+                </select></label>
+                <span class="chord-stats" id="chord-stats"></span>
+            </div>
+        </div>
+        <div id="chord-container"></div>
+    </div>
+
+    <!-- Timeline Chart View -->
+    <div id="timeline-view" class="tab-content" data-tab="timeline">
+        <div class="tchart-toolbar">
+            <div class="tchart-controls">
+                <label>Metric: <select id="tchart-metric">
+                    <option value="loc" selected>Lines of Code</option>
+                    <option value="files">File Count</option>
+                    <option value="complexity">Avg Complexity</option>
+                    <option value="totalComplexity">Total Complexity</option>
+                </select></label>
+                <span class="tchart-stats" id="tchart-stats"></span>
+            </div>
+        </div>
+        <div id="tchart-container"></div>
+    </div>
+
+    <!-- DSM View -->
+    <div id="dsm-view" class="tab-content" data-tab="dsm">
+        <div class="dsm-toolbar">
+            <div class="dsm-controls">
+                <label>Group by: <select id="dsm-group-by">
+                    <option value="directory" selected>Directory</option>
+                    <option value="language">Language</option>
+                    <option value="community">Community</option>
+                </select></label>
+                <label>Sort: <select id="dsm-sort">
+                    <option value="group" selected>Group</option>
+                    <option value="name">Name</option>
+                    <option value="fanIn">Fan-in</option>
+                    <option value="fanOut">Fan-out</option>
+                </select></label>
+                <span class="dsm-stats" id="dsm-stats"></span>
+            </div>
+        </div>
+        <div id="dsm-container"></div>
+    </div>
+
+    <!-- Table View -->
+    <div id="table-view" class="tab-content" data-tab="table">
+        <div class="table-toolbar">
+            <span class="search-icon">⌕</span>
+            <input type="text" id="table-search" placeholder="Filter files..." autocomplete="off">
+        </div>
+        <div class="table-scroll">
+            <table class="aura-table">
+                <thead>
+                    <tr>
+                        <th data-col="name">File</th>
+                        <th data-col="language">Lang</th>
+                        <th data-col="loc" class="num">LOC</th>
+                        <th data-col="complexity" class="num">Complexity</th>
+                        <th data-col="fanIn" class="num">Fan-in</th>
+                        <th data-col="fanOut" class="num">Fan-out</th>
+                        <th data-col="symbols" class="num">Symbols</th>
+                        <th data-col="group">Folder</th>
+                    </tr>
+                </thead>
+                <tbody id="table-body"></tbody>
+            </table>
+        </div>
+    </div>
 
     <!-- Timeline Bar (Time Travel) -->
     <div id="timeline-bar" class="hidden">
@@ -588,6 +700,18 @@ export class WebviewProvider {
 
                 <h3>🗺️ Minimap</h3>
                 <p>Toggle with the <strong>🗺️ Map</strong> button. Shows a top-down overview of all nodes. The white rectangle indicates the camera viewport. Click on the minimap to navigate. Drag the header to reposition.</p>
+
+                <h3>📑 Tabbed Views</h3>
+                <p>Switch between <strong>7 tabs</strong> in the tab bar for different perspectives:</p>
+                <table class="help-table">
+                    <tr><td><strong>✦ 3D Graph</strong></td><td>Interactive 3D force-directed dependency graph</td></tr>
+                    <tr><td><strong>🗺️ Treemap</strong></td><td>Files nested by directory, sized by LOC/complexity</td></tr>
+                    <tr><td><strong>🗑️ Matrix</strong></td><td>N×N Dependency Structure Matrix (DSM)</td></tr>
+                    <tr><td><strong>🎵 Chord</strong></td><td>Dependency flows between groups (directories/languages/communities)</td></tr>
+                    <tr><td><strong>📊 Metrics</strong></td><td>Bar charts of LOC, complexity, fan-in/out</td></tr>
+                    <tr><td><strong>📈 Timeline</strong></td><td>Metric evolution over git history</td></tr>
+                    <tr><td><strong>📋 Table</strong></td><td>Sortable, filterable file spreadsheet</td></tr>
+                </table>
 
                 <h3>🔗 Edge Colors</h3>
                 <table class="help-table">

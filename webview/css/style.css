@@ -32,9 +32,10 @@ html, body {
    ============================================================ */
 #app-layout {
     display: grid;
-    grid-template-rows: 48px 1fr auto auto;
+    grid-template-rows: 48px 36px 1fr auto auto;
     grid-template-areas:
         "topbar"
+        "tabbar"
         "middle"
         "filterbar"
         "timeline";
@@ -43,9 +44,43 @@ html, body {
     overflow: hidden;
 }
 
-#middle-row {
-    grid-area: middle;
+/* ============================================================
+   Tab Bar
+   ============================================================ */
+#tab-bar {
+    grid-area: tabbar;
     display: flex;
+    align-items: stretch;
+    background: var(--aura-sidebar-bg);
+    border-bottom: 1px solid var(--aura-border);
+    padding: 0 12px;
+    gap: 0;
+    z-index: 100;
+}
+.tab-btn {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--aura-fg);
+    opacity: 0.5;
+    padding: 0 16px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+.tab-btn:hover { opacity: 0.8; }
+.tab-btn.active {
+    opacity: 1;
+    border-bottom-color: var(--aura-accent);
+    color: var(--aura-accent);
+}
+.tab-content { display: none; grid-area: middle; }
+.tab-content.active { display: flex; }
+
+#middle-row {
     overflow: hidden;
     min-height: 0;
     position: relative;
@@ -1411,4 +1446,691 @@ html, body {
     display: block;
     width: 100%;
     cursor: move;
+}
+
+/* ============================================================
+   Metrics View
+   ============================================================ */
+#metrics-view {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    gap: 24px;
+    flex-direction: column;
+}
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+    width: 100%;
+}
+.metric-card {
+    background: var(--aura-sidebar-bg);
+    border: 1px solid var(--aura-border);
+    border-radius: var(--radius);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.metric-card-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.6;
+}
+.metric-card-value {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--aura-accent);
+}
+.metric-card-sub {
+    font-size: 11px;
+    opacity: 0.5;
+}
+.metrics-section {
+    width: 100%;
+}
+.metrics-section h3 {
+    font-size: 14px;
+    margin-bottom: 12px;
+    opacity: 0.8;
+}
+.metrics-bar-chart {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+}
+.metrics-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+}
+.metrics-bar-label {
+    min-width: 120px;
+    text-align: right;
+    opacity: 0.7;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.metrics-bar-track {
+    flex: 1;
+    height: 18px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+.metrics-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.4s ease;
+    min-width: 2px;
+}
+.metrics-bar-value {
+    min-width: 50px;
+    font-size: 11px;
+    opacity: 0.6;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   Treemap View
+   ============================================================ */
+#treemap-view {
+    flex: 1;
+    overflow: hidden;
+    flex-direction: column;
+    min-height: 0;
+}
+.treemap-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--aura-border);
+    flex-shrink: 0;
+    gap: 12px;
+}
+#treemap-breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    flex-wrap: wrap;
+    min-width: 0;
+}
+.treemap-crumb {
+    cursor: pointer;
+    opacity: 0.6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: all 0.15s;
+}
+.treemap-crumb:hover { opacity: 1; background: rgba(255,255,255,0.06); }
+.treemap-crumb:last-child { opacity: 1; color: var(--aura-accent); cursor: default; }
+.treemap-crumb-sep { opacity: 0.3; font-size: 10px; }
+.treemap-controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-shrink: 0;
+}
+.treemap-controls label {
+    font-size: 11px;
+    opacity: 0.7;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.treemap-controls select {
+    background: var(--aura-input-bg);
+    border: 1px solid var(--aura-input-border);
+    color: var(--aura-fg);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 11px;
+    cursor: pointer;
+}
+#treemap-container {
+    flex: 1;
+    position: relative;
+    overflow: auto;
+    min-height: 0;
+}
+.treemap-cell {
+    position: absolute;
+    overflow: hidden;
+    box-sizing: border-box;
+    border: 1px solid rgba(0,0,0,0.4);
+    transition: opacity 0.15s;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+}
+.treemap-cell:hover {
+    opacity: 0.85;
+    z-index: 1;
+}
+.treemap-cell-label {
+    font-size: 10px;
+    padding: 3px 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.9), 0 0 4px rgba(0,0,0,0.7);
+    pointer-events: none;
+    line-height: 1.2;
+    background: rgba(0,0,0,0.25);
+}
+.treemap-cell-value {
+    font-size: 9px;
+    padding: 0 5px;
+    opacity: 0.85;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.9), 0 0 4px rgba(0,0,0,0.7);
+    pointer-events: none;
+}
+.treemap-cell.treemap-dir {
+    border: 2px solid rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.03);
+}
+.treemap-cell.treemap-dir > .treemap-cell-label {
+    font-weight: 600;
+    font-size: 11px;
+    background: rgba(0,0,0,0.3);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.treemap-tooltip {
+    position: fixed;
+    background: var(--aura-sidebar-bg);
+    border: 1px solid var(--aura-border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 12px;
+    z-index: 1000;
+    pointer-events: none;
+    max-width: 300px;
+    backdrop-filter: blur(12px);
+    display: none;
+}
+.treemap-tooltip.visible { display: block; }
+.treemap-tooltip-title { font-weight: 600; margin-bottom: 4px; }
+.treemap-tooltip-meta { opacity: 0.7; font-size: 11px; line-height: 1.5; }
+
+/* ============================================================
+   DSM (Dependency Structure Matrix) View
+   ============================================================ */
+#dsm-view {
+    flex: 1;
+    overflow: hidden;
+    flex-direction: column;
+    min-height: 0;
+}
+.dsm-toolbar {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--aura-border);
+    flex-shrink: 0;
+    gap: 12px;
+}
+.dsm-controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.dsm-controls label {
+    font-size: 11px;
+    opacity: 0.7;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.dsm-controls select {
+    background: var(--aura-input-bg);
+    border: 1px solid var(--aura-input-border);
+    color: var(--aura-fg);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 11px;
+    cursor: pointer;
+}
+.dsm-stats {
+    font-size: 11px;
+    opacity: 0.5;
+    margin-left: auto;
+}
+#dsm-container {
+    flex: 1;
+    overflow: auto;
+    min-height: 0;
+    position: relative;
+}
+.dsm-wrapper {
+    display: inline-block;
+    position: relative;
+}
+.dsm-table {
+    border-collapse: collapse;
+    font-size: 10px;
+    line-height: 1;
+}
+.dsm-table th,
+.dsm-table td {
+    box-sizing: border-box;
+    padding: 0;
+    text-align: center;
+    border: 1px solid rgba(255,255,255,0.04);
+}
+.dsm-corner {
+    position: sticky;
+    top: 0;
+    left: 0;
+    z-index: 3;
+    background: var(--aura-sidebar-bg);
+}
+.dsm-col-hdr {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--aura-sidebar-bg);
+    min-width: 24px;
+    height: 120px;
+    vertical-align: bottom;
+    padding: 4px 2px !important;
+    white-space: nowrap;
+}
+.dsm-col-hdr > span {
+    display: block;
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    max-height: 110px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 9px;
+    opacity: 0.7;
+}
+.dsm-row-hdr {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: var(--aura-sidebar-bg);
+    text-align: right;
+    padding: 2px 6px 2px 4px !important;
+    white-space: nowrap;
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 9px;
+    opacity: 0.7;
+}
+.dsm-cell {
+    width: 24px;
+    height: 24px;
+    min-width: 24px;
+    cursor: default;
+    transition: opacity 0.1s;
+}
+.dsm-cell:hover {
+    opacity: 0.7;
+    outline: 1px solid var(--aura-accent);
+    z-index: 1;
+    position: relative;
+}
+.dsm-cell-diag {
+    background: rgba(255,255,255,0.06);
+}
+.dsm-cell-dep {
+    cursor: pointer;
+}
+.dsm-row-hdr:hover,
+.dsm-col-hdr:hover {
+    opacity: 1;
+    color: var(--aura-accent);
+}
+.dsm-highlight-row td { background-color: rgba(88,166,255,0.06) !important; }
+.dsm-highlight-col { background-color: rgba(88,166,255,0.06) !important; }
+.dsm-group-sep-row > td {
+    border-top: 2px solid rgba(88,166,255,0.25);
+}
+.dsm-group-sep-col {
+    border-left: 2px solid rgba(88,166,255,0.25) !important;
+}
+.dsm-tooltip {
+    position: fixed;
+    background: var(--aura-sidebar-bg);
+    border: 1px solid var(--aura-border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 12px;
+    z-index: 1000;
+    pointer-events: none;
+    max-width: 350px;
+    backdrop-filter: blur(12px);
+    display: none;
+}
+.dsm-tooltip.visible { display: block; }
+.dsm-tooltip-title { font-weight: 600; margin-bottom: 4px; }
+.dsm-tooltip-meta { opacity: 0.7; font-size: 11px; line-height: 1.5; }
+
+/* ============================================================
+   Chord Diagram View
+   ============================================================ */
+#chord-view {
+    flex: 1;
+    overflow: hidden;
+    flex-direction: column;
+    min-height: 0;
+}
+.chord-toolbar {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--aura-border);
+    flex-shrink: 0;
+    gap: 12px;
+}
+.chord-controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.chord-controls label {
+    font-size: 11px;
+    opacity: 0.7;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.chord-controls select {
+    background: var(--aura-input-bg);
+    border: 1px solid var(--aura-input-border);
+    color: var(--aura-fg);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 11px;
+    cursor: pointer;
+}
+.chord-stats {
+    font-size: 11px;
+    opacity: 0.5;
+    margin-left: auto;
+}
+#chord-container {
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+#chord-container svg {
+    width: 100%;
+    height: 100%;
+}
+.chord-arc {
+    stroke: var(--aura-border);
+    stroke-width: 0.5;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+.chord-ribbon {
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+.chord-label {
+    font-size: 11px;
+    fill: var(--aura-fg);
+    dominant-baseline: central;
+    pointer-events: none;
+}
+.chord-dimmed {
+    opacity: 0.08 !important;
+}
+.chord-tooltip {
+    position: fixed;
+    background: var(--aura-sidebar-bg);
+    border: 1px solid var(--aura-border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 12px;
+    z-index: 1000;
+    pointer-events: none;
+    max-width: 350px;
+    backdrop-filter: blur(12px);
+    display: none;
+}
+.chord-tooltip.visible { display: block; }
+.chord-tooltip-title { font-weight: 600; margin-bottom: 4px; }
+.chord-tooltip-meta { opacity: 0.7; font-size: 11px; line-height: 1.5; }
+.chord-legend {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 12px;
+    font-size: 10px;
+    opacity: 0.7;
+}
+.chord-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.chord-legend-swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+/* ============================================================
+   Timeline Chart View
+   ============================================================ */
+#timeline-view {
+    flex: 1;
+    overflow: hidden;
+    flex-direction: column;
+    min-height: 0;
+}
+.tchart-toolbar {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--aura-border);
+    flex-shrink: 0;
+    gap: 12px;
+}
+.tchart-controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.tchart-controls label {
+    font-size: 11px;
+    opacity: 0.7;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.tchart-controls select {
+    background: var(--aura-input-bg);
+    border: 1px solid var(--aura-input-border);
+    color: var(--aura-fg);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 11px;
+    cursor: pointer;
+}
+.tchart-stats {
+    font-size: 11px;
+    opacity: 0.5;
+    margin-left: auto;
+}
+#tchart-container {
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+#tchart-container svg {
+    width: 100%;
+    height: 100%;
+}
+.tchart-no-data {
+    padding: 24px;
+    opacity: 0.5;
+    text-align: center;
+    line-height: 1.8;
+}
+.tchart-axis-label {
+    font-size: 10px;
+    fill: var(--aura-fg);
+    opacity: 0.5;
+}
+.tchart-grid-line {
+    stroke: var(--aura-border);
+    stroke-opacity: 0.3;
+    stroke-dasharray: 3 3;
+}
+.tchart-line {
+    fill: none;
+    stroke: #4fc3f7;
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+}
+.tchart-area {
+    fill: url(#tchart-gradient);
+    opacity: 0.3;
+}
+.tchart-dot {
+    fill: #4fc3f7;
+    stroke: var(--aura-bg);
+    stroke-width: 1.5;
+    cursor: pointer;
+    transition: r 0.15s;
+}
+.tchart-dot:hover { r: 5; }
+.tchart-crosshair {
+    stroke: var(--aura-fg);
+    stroke-opacity: 0.2;
+    stroke-dasharray: 3 3;
+    pointer-events: none;
+}
+.tchart-tooltip {
+    position: fixed;
+    background: var(--aura-sidebar-bg);
+    border: 1px solid var(--aura-border);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 12px;
+    z-index: 1000;
+    pointer-events: none;
+    max-width: 350px;
+    backdrop-filter: blur(12px);
+    display: none;
+}
+.tchart-tooltip.visible { display: block; }
+.tchart-tooltip-title { font-weight: 600; margin-bottom: 4px; }
+.tchart-tooltip-meta { opacity: 0.7; font-size: 11px; line-height: 1.5; }
+
+/* ============================================================
+   Table View
+   ============================================================ */
+#table-view {
+    flex: 1;
+    overflow: hidden;
+    flex-direction: column;
+    padding: 12px;
+}
+#table-view .table-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    flex-shrink: 0;
+}
+#table-view .table-toolbar input {
+    flex: 1;
+    max-width: 300px;
+    padding: 6px 10px;
+    background: var(--aura-input-bg);
+    border: 1px solid var(--aura-input-border);
+    border-radius: 6px;
+    color: var(--aura-fg);
+    font-size: 12px;
+    outline: none;
+}
+#table-view .table-toolbar input:focus {
+    border-color: var(--aura-accent);
+}
+.table-scroll {
+    flex: 1;
+    overflow: auto;
+    border-radius: var(--radius);
+    border: 1px solid var(--aura-border);
+}
+.aura-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+.aura-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+.aura-table th {
+    background: var(--aura-sidebar-bg);
+    border-bottom: 1px solid var(--aura-border);
+    padding: 8px 10px;
+    text-align: left;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    opacity: 0.8;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+.aura-table th:hover { opacity: 1; }
+.aura-table th.sorted-asc::after { content: ' ▲'; font-size: 9px; }
+.aura-table th.sorted-desc::after { content: ' ▼'; font-size: 9px; }
+.aura-table td {
+    padding: 6px 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 300px;
+}
+.aura-table tr:hover td {
+    background: rgba(96,165,250,0.06);
+}
+.aura-table tr.selected td {
+    background: rgba(96,165,250,0.12);
+}
+.aura-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.aura-table .lang-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
 }

@@ -197,6 +197,22 @@ In the detail panel, dependency links of type `function-call` display the actual
 
 For **C/C++ projects**, function-call links are only created between files connected via `#include` — preventing false positives between unrelated files that happen to define functions with the same name.
 
+### Tabbed Views
+
+Switch between **7 visualization tabs** for different perspectives on your codebase:
+
+| Tab | Description |
+|-----|-------------|
+| **✦ 3D Graph** | Interactive 3D force-directed dependency graph (default) |
+| **🗺️ Treemap** | Files nested by directory, sized by LOC or complexity, colored by metric. Click to zoom into subdirectories, breadcrumb navigation to zoom out. |
+| **🗑️ Matrix** | N×N Dependency Structure Matrix (DSM). Rows and columns are files; a colored cell means a dependency exists. Red cells with ↺ indicate circular dependencies. Group by directory, language, or community. |
+| **🎵 Chord** | Chord diagram showing dependency flows between groups (directories, languages, or communities). Ribbon thickness reflects flow volume. Hover to highlight a group and its connections. |
+| **📊 Metrics** | Dashboard with bar charts: LOC, complexity, fan-in, fan-out by language and top files. |
+| **📈 Timeline** | Line chart showing metric evolution over git history (LOC, file count, avg complexity, total complexity). Requires Time Travel scan. |
+| **📋 Table** | Sortable, filterable spreadsheet of all files with LOC, complexity, fan-in/out, symbols, and folder. |
+
+All tabs share the same live data and update when the graph is refreshed.
+
 ---
 
 ## Getting Started
