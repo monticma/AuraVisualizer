@@ -277,6 +277,7 @@ export class WebviewProvider {
         <!-- Tab Bar -->
         <nav id="tab-bar">
             <button class="tab-btn active" data-tab="graph">✦ 3D Graph</button>
+            <button class="tab-btn" data-tab="callgraph">🕸️ Call Graph</button>
             <button class="tab-btn" data-tab="treemap">🗺️ Treemap</button>
             <button class="tab-btn" data-tab="dsm">🗑️ Matrix</button>
             <button class="tab-btn" data-tab="chord">🎵 Chord</button>
@@ -378,6 +379,43 @@ export class WebviewProvider {
         </div>
     </aside>
     </div><!-- /middle-row -->
+
+    <!-- Call Graph View -->
+    <div id="callgraph-view" class="tab-content" data-tab="callgraph">
+        <div class="callgraph-toolbar">
+            <div class="callgraph-controls">
+                <label>Mode: <select id="callgraph-mode">
+                    <option value="symbol" selected>Symbol</option>
+                    <option value="file">File</option>
+                </select></label>
+                <label>Color by: <select id="callgraph-color-by">
+                    <option value="language" selected>Language</option>
+                    <option value="group">Directory</option>
+                    <option value="community">Community</option>
+                </select></label>
+                <label>Min weight: <select id="callgraph-min-weight">
+                    <option value="1" selected>1+</option>
+                    <option value="2">2+</option>
+                    <option value="3">3+</option>
+                    <option value="5">5+</option>
+                </select></label>
+                <label>Max nodes: <select id="callgraph-max-nodes">
+                    <option value="150">150</option>
+                    <option value="250" selected>250</option>
+                    <option value="400">400</option>
+                    <option value="600">600</option>
+                </select></label>
+                <label>Perf: <select id="callgraph-perf">
+                    <option value="auto" selected>Auto</option>
+                    <option value="quality">Quality</option>
+                    <option value="balanced">Balanced</option>
+                    <option value="performance">Performance</option>
+                </select></label>
+                <span class="callgraph-stats" id="callgraph-stats"></span>
+            </div>
+        </div>
+        <div id="callgraph-container"></div>
+    </div>
 
     <!-- Metrics View -->
     <div id="metrics-view" class="tab-content" data-tab="metrics"></div>

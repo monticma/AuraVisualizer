@@ -66,6 +66,16 @@
     var activeTab = 'graph';
     var graphPaused = false;
 
+    // Call Graph tab state
+    var callGraph = null;
+    var callGraphData = null;
+    var callGraphPaused = false;
+    var callGraphMode = 'symbol';
+    var callGraphColorBy = 'language';
+    var callGraphMinWeight = 1;
+    var callGraphMaxNodes = 250;
+    var callGraphPerfPreset = 'auto';
+
     // Explorer state
     var showExplorer = false;
     var fileTree = {};
@@ -248,6 +258,9 @@
             });
         });
         buildExplorerTree(graphData.nodes);
+        if (activeTab === 'callgraph') {
+            renderCallGraph();
+        }
         // Request saved view state from extension (pull model — guarantees graph is ready)
         vscode.postMessage({ type: 'requestViewState' });
     }
@@ -342,6 +355,10 @@
         // Hide loading overlay (refresh complete)
         if (loadingOverlay) {
             loadingOverlay.style.display = 'none';
+        }
+
+        if (activeTab === 'callgraph') {
+            renderCallGraph();
         }
     }
 
@@ -4599,6 +4616,7 @@
         setupTreemap();
         setupDSM();
         setupChord();
+        setupCallGraph();
         setupTimelineChart();
     }
 
@@ -4663,11 +4681,18 @@
             pauseGraph();
         }
 
+        if (tabName === 'callgraph') {
+            resumeCallGraph();
+        } else {
+            pauseCallGraph();
+        }
+
         // Render tab content
         if (tabName === 'metrics') renderMetrics();
         if (tabName === 'treemap') renderTreemap();
         if (tabName === 'dsm') renderDSM();
         if (tabName === 'chord') renderChord();
+        if (tabName === 'callgraph') renderCallGraph();
         if (tabName === 'timeline') renderTimelineChart();
         if (tabName === 'table') renderTable();
     }
@@ -4682,6 +4707,282 @@
         if (!graphPaused || !graph) return;
         graphPaused = false;
         graph.resumeAnimation();
+    }
+
+    function pauseCallGraph() {
+        if (callGraphPaused || !callGraph) return;
+        callGraphPaused = true;
+        callGraph.pauseAnimation();
+    }
+
+    function resumeCallGraph() {
+        if (!callGraphPaused || !callGraph) return;
+        callGraphPaused = false;
+        callGraph.resumeAnimation();
+    }
+
+    // ============================================================
+    // Call Graph View
+    // ============================================================
+    function setupCallGraph() {
+        var modeSel = $('#callgraph-mode');
+        var colorSel = $('#callgraph-color-by');
+        var minWeightSel = $('#callgraph-min-weight');
+        var maxNodesSel = $('#callgraph-max-nodes');
+        var perfSel = $('#callgraph-perf');
+
+        if (modeSel) modeSel.addEventListener('change', function() {
+            callGraphMode = this.value === 'file' ? 'file' : 'symbol';
+            renderCallGraph();
+        });
+        if (colorSel) colorSel.addEventListener('change', function() {
+            callGraphColorBy = this.value;
+            renderCallGraph();
+        });
+        if (minWeightSel) minWeightSel.addEventListener('change', function() {
+            callGraphMinWeight = parseInt(this.value || '1', 10) || 1;
+            renderCallGraph();
+        });
+        if (maxNodesSel) maxNodesSel.addEventListener('change', function() {
+            callGraphMaxNodes = parseInt(this.value || '250', 10) || 250;
+            renderCallGraph();
+        });
+        if (perfSel) perfSel.addEventListener('change', function() {
+            callGraphPerfPreset = this.value || 'auto';
+            renderCallGraph();
+        });
+    }
+
+    function buildCallGraphData(maxNodesLimit) {
+        if (!graphData) return null;
+        var fcalls = graphData.functionCalls || [];
+        if (!fcalls || fcalls.length === 0) return { nodes: [], links: [], meta: { calls: 0, unresolved: 0 } };
+
+        var nodeMeta = {};
+        var nodesSrc = graphData.nodes || [];
+        for (var i = 0; i < nodesSrc.length; i++) {
+            var n = nodesSrc[i];
+            nodeMeta[n.id] = {
+                language: n.language || 'unknown',
+                group: n.group || '.',
+                name: n.name || n.id,
+            };
+        }
+
+        var symbolMeta = {};
+        for (var i = 0; i < nodesSrc.length; i++) {
+            var n = nodesSrc[i];
+            if (!n.symbols) continue;
+            var funcs = n.symbols.functions || [];
+            var methods = n.symbols.methods || [];
+            for (var f = 0; f < funcs.length; f++) {
+                symbolMeta[n.id + '::' + funcs[f].name] = { kind: 'function', line: funcs[f].line || 0 };
+            }
+            for (var m = 0; m < methods.length; m++) {
+                symbolMeta[n.id + '::' + methods[m].name] = { kind: 'method', line: methods[m].line || 0 };
+            }
+        }
+
+        var agg = {};
+        var unresolved = 0;
+
+        for (var i = 0; i < fcalls.length; i++) {
+            var c = fcalls[i];
+            var source = callGraphMode === 'file'
+                ? c.callerFile
+                : (c.callerFile + '::' + c.callerName);
+            var target = callGraphMode === 'file'
+                ? c.calleeFile
+                : (c.calleeFile + '::' + c.calleeName);
+
+            if (!source || !target || source === target) continue;
+
+            if (callGraphMode === 'symbol') {
+                if (!symbolMeta[source] || !symbolMeta[target]) unresolved++;
+            }
+
+            var key = source + '|' + target;
+            if (!agg[key]) agg[key] = { source: source, target: target, weight: 0, lines: [] };
+            agg[key].weight += 1;
+            if (agg[key].lines.length < 5) agg[key].lines.push(c.callLine || 0);
+        }
+
+        var links = [];
+        var degree = {};
+        var fanIn = {};
+        var fanOut = {};
+        var keys = Object.keys(agg);
+        for (var i = 0; i < keys.length; i++) {
+            var l = agg[keys[i]];
+            if (l.weight < callGraphMinWeight) continue;
+            links.push({ source: l.source, target: l.target, weight: l.weight, sampleLines: l.lines });
+            degree[l.source] = (degree[l.source] || 0) + l.weight;
+            degree[l.target] = (degree[l.target] || 0) + l.weight;
+            fanOut[l.source] = (fanOut[l.source] || 0) + l.weight;
+            fanIn[l.target] = (fanIn[l.target] || 0) + l.weight;
+        }
+
+        // Keep highest-degree nodes first for readability/perf
+        var nodeIds = Object.keys(degree).sort(function(a, b) { return (degree[b] || 0) - (degree[a] || 0); });
+        var limit = maxNodesLimit || callGraphMaxNodes;
+        if (nodeIds.length > limit) nodeIds = nodeIds.slice(0, limit);
+        var nodeSet = new Set(nodeIds);
+
+        links = links.filter(function(l) { return nodeSet.has(l.source) && nodeSet.has(l.target); });
+
+        var nodes = [];
+        for (var i = 0; i < nodeIds.length; i++) {
+            var id = nodeIds[i];
+            if (callGraphMode === 'file') {
+                var fmeta = nodeMeta[id] || { language: 'unknown', group: '.', name: id.split('/').pop() || id };
+                nodes.push({
+                    id: id,
+                    file: id,
+                    label: fmeta.name,
+                    symbol: id,
+                    kind: 'file',
+                    line: 0,
+                    language: fmeta.language,
+                    group: fmeta.group,
+                    degree: degree[id] || 0,
+                    fanIn: fanIn[id] || 0,
+                    fanOut: fanOut[id] || 0,
+                });
+            } else {
+                var sep = id.lastIndexOf('::');
+                var file = sep >= 0 ? id.slice(0, sep) : id;
+                var sym = sep >= 0 ? id.slice(sep + 2) : id;
+                var fmeta = nodeMeta[file] || { language: 'unknown', group: '.', name: file.split('/').pop() || file };
+                var smeta = symbolMeta[id] || { kind: 'unknown', line: 0 };
+                nodes.push({
+                    id: id,
+                    file: file,
+                    label: sym + ' @ ' + (fmeta.name || file),
+                    symbol: sym,
+                    kind: smeta.kind || 'unknown',
+                    line: smeta.line || 0,
+                    language: fmeta.language,
+                    group: fmeta.group,
+                    degree: degree[id] || 0,
+                    fanIn: fanIn[id] || 0,
+                    fanOut: fanOut[id] || 0,
+                });
+            }
+        }
+
+        return { nodes: nodes, links: links, meta: { calls: fcalls.length, unresolved: unresolved } };
+    }
+
+    function resolveCallGraphPerfProfile() {
+        var calls = (graphData && graphData.functionCalls) ? graphData.functionCalls.length : 0;
+        var score = calls;
+        var preset = callGraphPerfPreset;
+
+        if (preset === 'auto') {
+            if (score > 12000) preset = 'performance';
+            else if (score > 3500) preset = 'balanced';
+            else preset = 'quality';
+        }
+
+        if (preset === 'quality') {
+            return { name: 'quality', maxNodesCap: 600, alphaDecay: 0.02, velocityDecay: 0.22, particles: 2, camZ: 320 };
+        }
+        if (preset === 'performance') {
+            return { name: 'performance', maxNodesCap: 220, alphaDecay: 0.05, velocityDecay: 0.33, particles: 0, camZ: 360 };
+        }
+        return { name: 'balanced', maxNodesCap: 350, alphaDecay: 0.03, velocityDecay: 0.26, particles: 1, camZ: 340 };
+    }
+
+    function getCallGraphNodeColor(n) {
+        if (callGraphColorBy === 'group') {
+            var hash = 0;
+            var g = n.group || '.';
+            for (var i = 0; i < g.length; i++) hash = ((hash << 5) - hash) + g.charCodeAt(i);
+            var idx = Math.abs(hash) % GROUP_COLORS.length;
+            return GROUP_COLORS[idx];
+        }
+        if (callGraphColorBy === 'community') {
+            var cid = communityMap[n.file] || 0;
+            return communityColors[cid] || GROUP_COLORS[cid % GROUP_COLORS.length];
+        }
+        return LANGUAGE_COLORS[n.language] || '#9fb3c8';
+    }
+
+    function renderCallGraph() {
+        var container = $('#callgraph-container');
+        if (!container) return;
+        if (!graphData) return;
+
+        var perfProfile = resolveCallGraphPerfProfile();
+        var effectiveLimit = Math.min(callGraphMaxNodes, perfProfile.maxNodesCap);
+        callGraphData = buildCallGraphData(effectiveLimit);
+        if (!callGraphData || callGraphData.nodes.length === 0 || callGraphData.links.length === 0) {
+            container.innerHTML = '<div class="callgraph-empty">No function call graph available for current filters</div>';
+            var statsEmpty = $('#callgraph-stats');
+            if (statsEmpty) statsEmpty.textContent = '0 nodes · 0 links';
+            return;
+        }
+
+        var statsEl = $('#callgraph-stats');
+        if (statsEl) {
+            statsEl.textContent = callGraphData.nodes.length + ' nodes · ' + callGraphData.links.length +
+                ' links · ' + callGraphData.meta.calls + ' calls' +
+                (callGraphData.meta.unresolved > 0 ? ' · ' + callGraphData.meta.unresolved + ' unresolved' : '') +
+                ' · perf:' + perfProfile.name;
+        }
+
+        if (!callGraph) {
+            container.innerHTML = '';
+            callGraph = ForceGraph3D({ controlType: 'orbit' })(container)
+                .backgroundColor('#0b1220')
+                .nodeLabel(function(n) {
+                    var lbl = '<b>' + escapeHtml(n.label || n.id) + '</b>';
+                    lbl += '<br>' + escapeHtml(n.file || '');
+                    if (n.kind && n.kind !== 'file') lbl += '<br>kind: ' + escapeHtml(n.kind);
+                    if (n.line) lbl += '<br>line: ' + n.line;
+                    lbl += '<br>fan-in: ' + (n.fanIn || 0) + ' · fan-out: ' + (n.fanOut || 0);
+                    lbl += '<br>degree: ' + (n.degree || 0);
+                    return lbl;
+                })
+                .linkLabel(function(l) {
+                    var src = l.source && l.source.id ? l.source.id : l.source;
+                    var tgt = l.target && l.target.id ? l.target.id : l.target;
+                    var txt = '<b>' + escapeHtml(String(src)) + '</b> → <b>' + escapeHtml(String(tgt)) + '</b>';
+                    txt += '<br>weight: ' + (l.weight || 0);
+                    if (l.sampleLines && l.sampleLines.length) {
+                        txt += '<br>sample lines: ' + l.sampleLines.join(', ');
+                    }
+                    return txt;
+                })
+                .nodeColor(function(n) { return getCallGraphNodeColor(n); })
+                .nodeRelSize(4)
+                .nodeVal(function(n) { return Math.max(1, Math.sqrt(n.degree || 1)); })
+                .linkColor(function(l) {
+                    var alpha = Math.min(0.8, 0.15 + (Math.log((l.weight || 1) + 1) / 6));
+                    return 'rgba(129, 163, 200,' + alpha.toFixed(3) + ')';
+                })
+                .linkWidth(function(l) { return Math.max(0.7, Math.min(4, Math.log((l.weight || 1) + 1))); })
+                .linkDirectionalArrowLength(2)
+                .linkDirectionalArrowRelPos(0.9)
+                .linkDirectionalParticles(perfProfile.particles)
+                .linkDirectionalParticleSpeed(function(l) { return 0.002 + Math.min(0.01, (l.weight || 1) * 0.0008); })
+                .onNodeClick(function(node) {
+                    if (!node || !node.file) return;
+                    vscode.postMessage({ type: 'openFile', payload: { path: node.file, line: node.line || undefined } });
+                });
+        }
+
+        callGraph.graphData(callGraphData);
+        callGraph.numDimensions(3);
+        callGraph.d3AlphaDecay(perfProfile.alphaDecay);
+        callGraph.d3VelocityDecay(perfProfile.velocityDecay);
+        callGraph.linkDirectionalParticles(perfProfile.particles);
+
+        requestAnimationFrame(function() {
+            if (callGraph && activeTab === 'callgraph') {
+                callGraph.cameraPosition({ x: 0, y: 0, z: perfProfile.camZ }, { x: 0, y: 0, z: 0 }, 700);
+            }
+        });
     }
 
     // ============================================================

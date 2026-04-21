@@ -1934,6 +1934,70 @@ html, body {
 }
 
 /* ============================================================
+   Call Graph View
+   ============================================================ */
+#callgraph-view {
+    flex: 1;
+    overflow: hidden;
+    flex-direction: column;
+    min-height: 0;
+}
+.callgraph-toolbar {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--aura-border);
+    flex-shrink: 0;
+    gap: 12px;
+}
+.callgraph-controls {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.callgraph-controls label {
+    font-size: 11px;
+    opacity: 0.7;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.callgraph-controls select {
+    background: var(--aura-input-bg);
+    border: 1px solid var(--aura-input-border);
+    color: var(--aura-fg);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 11px;
+    cursor: pointer;
+}
+.callgraph-stats {
+    font-size: 11px;
+    opacity: 0.5;
+    margin-left: auto;
+}
+#callgraph-container {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    overflow: hidden;
+}
+#callgraph-container canvas {
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
+}
+.callgraph-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    opacity: 0.55;
+    font-size: 13px;
+}
+
+/* ============================================================
    Timeline Chart View
    ============================================================ */
 #timeline-view {

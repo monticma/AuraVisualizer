@@ -70,6 +70,36 @@ export interface OverviewRow {
     avg_complexity: number;
 }
 
+export interface CallGraphNodeRow {
+    id: string;
+    file: string;
+    symbol: string;
+    kind: 'function' | 'method' | 'unknown';
+    line: number;
+    language: string;
+    group: string;
+    fan_in: number;
+    fan_out: number;
+}
+
+export interface CallGraphLinkRow {
+    source: string;
+    target: string;
+    weight: number;
+    sample_lines: number[];
+}
+
+export interface CallGraphData {
+    mode: 'symbol' | 'file';
+    nodes: CallGraphNodeRow[];
+    links: CallGraphLinkRow[];
+    meta: {
+        totalSymbols: number;
+        totalCalls: number;
+        unresolvedSymbols: number;
+    };
+}
+
 // ── Schema ─────────────────────────────────────────────────────
 
 const SCHEMA = `
@@ -743,6 +773,257 @@ export class GraphDB {
             );
         }
         return queryAll(db, 'SELECT * FROM function_calls ORDER BY caller_file, call_line');
+    }
+
+    /**
+     * Build a function-call graph from function_calls.
+     * mode='symbol' => nodes are file::symbol
+     * mode='file'   => nodes are files
+     */
+    getCallGraphData(options?: {
+        mode?: 'symbol' | 'file';
+        minWeight?: number;
+        includeMethods?: boolean;
+        fileId?: string;
+    }): CallGraphData {
+        const db = this.ensureDb();
+        const mode = options?.mode || 'symbol';
+        const minWeight = Math.max(1, options?.minWeight || 1);
+        const includeMethods = options?.includeMethods !== false;
+
+        const whereFile = options?.fileId ? 'WHERE caller_file = ? OR callee_file = ?' : '';
+        const fileParams = options?.fileId ? [options.fileId, options.fileId] : [];
+
+        const calls = queryAll<{ caller_file: string; caller_name: string; callee_file: string; callee_name: string; call_line: number }>(
+            db,
+            `SELECT caller_file, caller_name, callee_file, callee_name, call_line
+             FROM function_calls ${whereFile}
+             ORDER BY caller_file, call_line`,
+            fileParams,
+        );
+
+        const symbolRows = queryAll<{
+            node_id: string;
+            name: string;
+            kind: string;
+            line: number;
+            language: string;
+            group_name: string;
+        }>(db, `
+            SELECT s.node_id, s.name, s.kind, s.line, n.language, n.group_name
+            FROM symbols s
+            JOIN nodes n ON n.id = s.node_id
+            WHERE s.kind IN (${includeMethods ? "'function','method'" : "'function'"})
+        `);
+
+        const symbolMeta = new Map<string, {
+            kind: 'function' | 'method' | 'unknown';
+            line: number;
+            language: string;
+            group: string;
+        }>();
+        for (const s of symbolRows) {
+            const key = `${s.node_id}::${s.name}`;
+            symbolMeta.set(key, {
+                kind: (s.kind === 'function' || s.kind === 'method') ? s.kind : 'unknown',
+                line: s.line || 0,
+                language: s.language || 'unknown',
+                group: s.group_name || '.',
+            });
+        }
+
+        if (mode === 'file') {
+            const nodeSet = new Set<string>();
+            const linkMap = new Map<string, { source: string; target: string; weight: number; sample_lines: number[] }>();
+            let unresolved = 0;
+            for (const c of calls) {
+                const source = c.caller_file;
+                const target = c.callee_file;
+                if (!source || !target || source === target) continue;
+                nodeSet.add(source);
+                nodeSet.add(target);
+                if (!symbolMeta.has(`${c.caller_file}::${c.caller_name}`) || !symbolMeta.has(`${c.callee_file}::${c.callee_name}`)) {
+                    unresolved++;
+                }
+                const key = `${source}|${target}`;
+                const rec = linkMap.get(key) || { source, target, weight: 0, sample_lines: [] };
+                rec.weight += 1;
+                if (rec.sample_lines.length < 5) rec.sample_lines.push(c.call_line);
+                linkMap.set(key, rec);
+            }
+
+            const nodeRows = queryAll<{ id: string; language: string; group_name: string }>(
+                db,
+                nodeSet.size > 0
+                    ? `SELECT id, language, group_name FROM nodes WHERE id IN (${Array.from(nodeSet).map(() => '?').join(',')})`
+                    : 'SELECT id, language, group_name FROM nodes WHERE 1=0',
+                Array.from(nodeSet),
+            );
+
+            const fanIn = new Map<string, number>();
+            const fanOut = new Map<string, number>();
+            const links = Array.from(linkMap.values()).filter(l => l.weight >= minWeight);
+            for (const l of links) {
+                fanOut.set(l.source, (fanOut.get(l.source) || 0) + l.weight);
+                fanIn.set(l.target, (fanIn.get(l.target) || 0) + l.weight);
+            }
+
+            const nodes: CallGraphNodeRow[] = nodeRows.map(n => ({
+                id: n.id,
+                file: n.id,
+                symbol: n.id.split('/').pop() || n.id,
+                kind: 'unknown',
+                line: 0,
+                language: n.language || 'unknown',
+                group: n.group_name || '.',
+                fan_in: fanIn.get(n.id) || 0,
+                fan_out: fanOut.get(n.id) || 0,
+            }));
+
+            return {
+                mode,
+                nodes,
+                links: links.map(l => ({
+                    source: l.source,
+                    target: l.target,
+                    weight: l.weight,
+                    sample_lines: l.sample_lines,
+                })),
+                meta: {
+                    totalSymbols: symbolRows.length,
+                    totalCalls: calls.length,
+                    unresolvedSymbols: unresolved,
+                },
+            };
+        }
+
+        const nodeMap = new Map<string, CallGraphNodeRow>();
+        const linkMap = new Map<string, { source: string; target: string; weight: number; sample_lines: number[] }>();
+        let unresolved = 0;
+
+        for (const c of calls) {
+            const source = `${c.caller_file}::${c.caller_name}`;
+            const target = `${c.callee_file}::${c.callee_name}`;
+            if (!source || !target || source === target) continue;
+
+            const sm = symbolMeta.get(source);
+            const tm = symbolMeta.get(target);
+            if (!sm || !tm) {
+                unresolved++;
+            }
+
+            if (!includeMethods && ((sm && sm.kind === 'method') || (tm && tm.kind === 'method'))) {
+                continue;
+            }
+
+            if (!nodeMap.has(source)) {
+                nodeMap.set(source, {
+                    id: source,
+                    file: c.caller_file,
+                    symbol: c.caller_name,
+                    kind: sm?.kind || 'unknown',
+                    line: sm?.line || 0,
+                    language: sm?.language || 'unknown',
+                    group: sm?.group || '.',
+                    fan_in: 0,
+                    fan_out: 0,
+                });
+            }
+            if (!nodeMap.has(target)) {
+                nodeMap.set(target, {
+                    id: target,
+                    file: c.callee_file,
+                    symbol: c.callee_name,
+                    kind: tm?.kind || 'unknown',
+                    line: tm?.line || 0,
+                    language: tm?.language || 'unknown',
+                    group: tm?.group || '.',
+                    fan_in: 0,
+                    fan_out: 0,
+                });
+            }
+
+            const key = `${source}|${target}`;
+            const rec = linkMap.get(key) || { source, target, weight: 0, sample_lines: [] };
+            rec.weight += 1;
+            if (rec.sample_lines.length < 5) rec.sample_lines.push(c.call_line);
+            linkMap.set(key, rec);
+        }
+
+        const links = Array.from(linkMap.values()).filter(l => l.weight >= minWeight);
+        for (const l of links) {
+            const s = nodeMap.get(l.source);
+            const t = nodeMap.get(l.target);
+            if (s) s.fan_out += l.weight;
+            if (t) t.fan_in += l.weight;
+        }
+
+        return {
+            mode,
+            nodes: Array.from(nodeMap.values()),
+            links: links.map(l => ({
+                source: l.source,
+                target: l.target,
+                weight: l.weight,
+                sample_lines: l.sample_lines,
+            })),
+            meta: {
+                totalSymbols: symbolRows.length,
+                totalCalls: calls.length,
+                unresolvedSymbols: unresolved,
+            },
+        };
+    }
+
+    /** Top symbols/files by call fan-in/fan-out. */
+    getCallHotspots(limit: number = 20, sortBy: 'fan_in' | 'fan_out' = 'fan_in', mode: 'symbol' | 'file' = 'symbol'):
+    { id: string; file: string; symbol: string; kind: string; fan_in: number; fan_out: number; language: string; group: string }[] {
+        const data = this.getCallGraphData({ mode });
+        const rows = data.nodes
+            .map(n => ({
+                id: n.id,
+                file: n.file,
+                symbol: n.symbol,
+                kind: n.kind,
+                fan_in: n.fan_in,
+                fan_out: n.fan_out,
+                language: n.language,
+                group: n.group,
+            }))
+            .sort((a, b) => (sortBy === 'fan_out' ? b.fan_out - a.fan_out : b.fan_in - a.fan_in));
+        return rows.slice(0, limit);
+    }
+
+    /** Shortest call path between two nodes (symbol or file ids, depending on mode). */
+    findCallPath(from: string, to: string, mode: 'symbol' | 'file' = 'symbol', maxDepth: number = 20): string[] | null {
+        if (!from || !to) return null;
+        if (from === to) return [from];
+
+        const data = this.getCallGraphData({ mode });
+        const adj = new Map<string, string[]>();
+        for (const l of data.links) {
+            const arr = adj.get(l.source) || [];
+            arr.push(l.target);
+            adj.set(l.source, arr);
+        }
+
+        const queue: { id: string; route: string[]; depth: number }[] = [{ id: from, route: [from], depth: 0 }];
+        const seen = new Set<string>([from]);
+
+        while (queue.length > 0) {
+            const cur = queue.shift()!;
+            if (cur.depth >= maxDepth) continue;
+            const next = adj.get(cur.id) || [];
+            for (const n of next) {
+                if (seen.has(n)) continue;
+                const route = cur.route.concat([n]);
+                if (n === to) return route;
+                seen.add(n);
+                queue.push({ id: n, route, depth: cur.depth + 1 });
+            }
+        }
+
+        return null;
     }
 
     /**

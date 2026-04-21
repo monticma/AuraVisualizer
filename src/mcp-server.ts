@@ -6,7 +6,7 @@
  *
  * Reads the SQLite database at AURA_DB_PATH (env var) and serves:
  *   - 3 resources  (overview, nodes, node detail)
- *   - 11 tools     (find_dependencies, find_dependents, find_path, etc.)
+ *   - 14 tools     (find_dependencies, find_dependents, find_path, call graph tools, etc.)
  *
  * Transport: stdio (standard for local MCP servers).
  * Launched by VS Code's MCP configuration (.vscode/mcp.json).
@@ -169,6 +169,45 @@ const TOOLS = [
                 file: { type: 'string', description: 'Optional file path to limit the search to a single file' },
                 include_methods: { type: 'boolean', description: 'Include class methods (default: true). Set to false for standalone functions only.' },
             },
+        },
+    },
+    {
+        name: 'get_call_graph',
+        description: 'Build a function-call graph from the function_calls table. Mode can be symbol-level (file::function) or file-level aggregation.',
+        inputSchema: {
+            type: 'object' as const,
+            properties: {
+                mode: { type: 'string', description: 'Graph mode: "symbol" (default) or "file"' },
+                min_weight: { type: 'number', description: 'Minimum edge weight to include (default: 1)' },
+                include_methods: { type: 'boolean', description: 'Include methods in symbol mode (default: true)' },
+                file: { type: 'string', description: 'Optional file filter (only calls touching this file)' },
+            },
+        },
+    },
+    {
+        name: 'get_call_hotspots',
+        description: 'Rank files/symbols by incoming or outgoing call volume using function_calls data.',
+        inputSchema: {
+            type: 'object' as const,
+            properties: {
+                limit: { type: 'number', description: 'Maximum number of results (default: 20)' },
+                sort_by: { type: 'string', description: 'Sort criterion: "fan_in" (default) or "fan_out"' },
+                mode: { type: 'string', description: 'Hotspot mode: "symbol" (default) or "file"' },
+            },
+        },
+    },
+    {
+        name: 'find_call_path',
+        description: 'Find shortest path in the function-call graph between two nodes (symbol IDs or file IDs depending on mode).',
+        inputSchema: {
+            type: 'object' as const,
+            properties: {
+                from: { type: 'string', description: 'Source node id (e.g. src/a.ts::foo in symbol mode)' },
+                to: { type: 'string', description: 'Target node id' },
+                mode: { type: 'string', description: 'Path mode: "symbol" (default) or "file"' },
+                max_depth: { type: 'number', description: 'Maximum BFS depth (default: 20)' },
+            },
+            required: ['from', 'to'],
         },
     },
 ];
@@ -455,6 +494,52 @@ function handleTool(db: GraphDB, name: string, args: Record<string, unknown>): u
                 inter_module_links: interModuleLinks,
                 note: 'Use this data to generate comprehensive project documentation. Modules represent dependency-coupled groups detected via Louvain algorithm. Hotspots are files with highest complexity × fan-in. Critical dependencies are files imported by the most other files.',
             };
+        }
+        case 'get_call_graph': {
+            const modeArg = (args.mode as string) || 'symbol';
+            const mode = modeArg === 'file' ? 'file' : 'symbol';
+            const minWeight = Math.max(1, (args.min_weight as number) || 1);
+            const includeMethods = args.include_methods !== false;
+            const file = args.file as string | undefined;
+            const graph = db.getCallGraphData({ mode, minWeight, includeMethods, fileId: file });
+            return {
+                mode,
+                min_weight: minWeight,
+                include_methods: includeMethods,
+                file: file || null,
+                meta: graph.meta,
+                totals: {
+                    nodes: graph.nodes.length,
+                    links: graph.links.length,
+                },
+                nodes: graph.nodes,
+                links: graph.links,
+            };
+        }
+        case 'get_call_hotspots': {
+            const limit = (args.limit as number) || 20;
+            const sortArg = (args.sort_by as string) || 'fan_in';
+            const sortBy = sortArg === 'fan_out' ? 'fan_out' : 'fan_in';
+            const modeArg = (args.mode as string) || 'symbol';
+            const mode = modeArg === 'file' ? 'file' : 'symbol';
+            const hotspots = db.getCallHotspots(limit, sortBy, mode);
+            return {
+                mode,
+                sort_by: sortBy,
+                total: hotspots.length,
+                hotspots,
+            };
+        }
+        case 'find_call_path': {
+            const from = args.from as string;
+            const to = args.to as string;
+            const modeArg = (args.mode as string) || 'symbol';
+            const mode = modeArg === 'file' ? 'file' : 'symbol';
+            const maxDepth = (args.max_depth as number) || 20;
+            const path = db.findCallPath(from, to, mode, maxDepth);
+            return path
+                ? { from, to, mode, max_depth: maxDepth, path, length: path.length - 1 }
+                : { from, to, mode, max_depth: maxDepth, path: null, message: 'No call path found between these nodes' };
         }
         default:
             throw new Error(`Unknown tool: ${name}`);
