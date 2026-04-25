@@ -382,38 +382,6 @@ export class WebviewProvider {
 
     <!-- Call Graph View -->
     <div id="callgraph-view" class="tab-content" data-tab="callgraph">
-        <div class="callgraph-toolbar">
-            <div class="callgraph-controls">
-                <label>Mode: <select id="callgraph-mode">
-                    <option value="symbol" selected>Symbol</option>
-                    <option value="file">File</option>
-                </select></label>
-                <label>Color by: <select id="callgraph-color-by">
-                    <option value="language" selected>Language</option>
-                    <option value="group">Directory</option>
-                    <option value="community">Community</option>
-                </select></label>
-                <label>Min weight: <select id="callgraph-min-weight">
-                    <option value="1" selected>1+</option>
-                    <option value="2">2+</option>
-                    <option value="3">3+</option>
-                    <option value="5">5+</option>
-                </select></label>
-                <label>Max nodes: <select id="callgraph-max-nodes">
-                    <option value="150">150</option>
-                    <option value="250" selected>250</option>
-                    <option value="400">400</option>
-                    <option value="600">600</option>
-                </select></label>
-                <label>Perf: <select id="callgraph-perf">
-                    <option value="auto" selected>Auto</option>
-                    <option value="quality">Quality</option>
-                    <option value="balanced">Balanced</option>
-                    <option value="performance">Performance</option>
-                </select></label>
-                <span class="callgraph-stats" id="callgraph-stats"></span>
-            </div>
-        </div>
         <div id="callgraph-container"></div>
     </div>
 
@@ -546,7 +514,7 @@ export class WebviewProvider {
 
     <!-- Bottom Filter Bar -->
     <footer id="filter-bar">
-        <div class="filter-group" id="language-filters">
+        <div class="filter-group graph-only" id="language-filters">
             <button class="filter-btn active" data-lang="c-source" data-color="#4fc3f7">
                 <span class="filter-dot" style="background:#4fc3f7"></span> .c
             </button>
@@ -578,8 +546,8 @@ export class WebviewProvider {
                 <span class="filter-dot" style="background:#ffb74d"></span> Rust
             </button>
         </div>
-        <div class="filter-separator"></div>
-        <div class="filter-group">
+        <div class="filter-separator graph-only"></div>
+        <div class="filter-group graph-only">
             <button class="filter-btn" id="btn-dag-mode" title="Hierarchical mode">⊞ DAG</button>
             <button class="filter-btn" id="btn-highlight-orphans" title="Orphan nodes">◎ Orphans</button>
             <button class="filter-btn" id="btn-dead-code" title="Dead code detection">☠️ Dead</button>
@@ -589,8 +557,8 @@ export class WebviewProvider {
             <button class="filter-btn" id="btn-labels" title="Show file names">🏷️ Names</button>
             <button class="filter-btn" id="btn-recenter" title="Recenter view">🎯 Center</button>
         </div>
-        <div class="filter-separator"></div>
-        <div class="filter-group">
+        <div class="filter-separator graph-only"></div>
+        <div class="filter-group graph-only">
             <select id="heatmap-select" class="filter-select" title="Coloring mode">
                 <option value="off">🎨 By language</option>
                 <option value="complexity">🔥 Complexity</option>
@@ -601,27 +569,76 @@ export class WebviewProvider {
                 <option value="community">🧩 Communities</option>
             </select>
         </div>
-        <div class="filter-separator"></div>
-        <div class="filter-group">
+        <div class="filter-separator graph-only"></div>
+        <div class="filter-group graph-only">
             <label class="filter-label">
                 Node size
                 <input type="range" id="node-size-slider" min="1" max="10" value="4" step="0.5">
             </label>
         </div>
-        <div class="filter-separator"></div>
-        <div class="filter-group">
+        <div class="filter-separator graph-only"></div>
+        <div class="filter-group graph-only">
             <label class="filter-label">
                 Spread
                 <input type="range" id="spread-slider" min="1" max="5" value="1" step="0.5">
             </label>
         </div>
-        <div class="filter-separator"></div>
-        <div class="filter-group">
+        <div class="filter-separator graph-only"></div>
+        <div class="filter-group graph-only">
             <label class="filter-label">
                 Depth
                 <input type="range" id="depth-slider" min="1" max="5" value="1" step="1">
                 <span id="depth-value">1</span>
             </label>
+        </div>
+
+        <div class="filter-separator callgraph-bottom hidden" id="callgraph-sep"></div>
+        <div class="filter-group callgraph-bottom hidden" id="callgraph-controls-bottom">
+            <label class="filter-label">Mode
+                <select id="callgraph-mode" class="filter-select">
+                    <option value="symbol" selected>Symbol</option>
+                    <option value="file">File</option>
+                </select>
+            </label>
+            <label class="filter-label">Color by
+                <select id="callgraph-color-by" class="filter-select">
+                    <option value="language" selected>Language</option>
+                    <option value="group">Directory</option>
+                    <option value="community">Community</option>
+                </select>
+            </label>
+            <label class="filter-label">Min weight
+                <select id="callgraph-min-weight" class="filter-select">
+                    <option value="1" selected>1+</option>
+                    <option value="2">2+</option>
+                    <option value="3">3+</option>
+                    <option value="5">5+</option>
+                </select>
+            </label>
+            <label class="filter-label">Max nodes
+                <select id="callgraph-max-nodes" class="filter-select">
+                    <option value="150">150</option>
+                    <option value="250" selected>250</option>
+                    <option value="400">400</option>
+                    <option value="600">600</option>
+                </select>
+            </label>
+            <label class="filter-label">Perf
+                <select id="callgraph-perf" class="filter-select">
+                    <option value="auto" selected>Auto</option>
+                    <option value="quality">Quality</option>
+                    <option value="balanced">Balanced</option>
+                    <option value="performance">Performance</option>
+                </select>
+            </label>
+            <button class="filter-btn" id="btn-callgraph-labels" title="Show symbol/file names">🏷️ Names</button>
+            <label class="filter-label">Node size
+                <input type="range" id="callgraph-node-size-slider" min="1" max="10" value="4" step="0.5">
+            </label>
+            <label class="filter-label">Spread
+                <input type="range" id="callgraph-spread-slider" min="1" max="5" value="1" step="0.5">
+            </label>
+            <span class="callgraph-stats" id="callgraph-stats"></span>
         </div>
     </footer>
     </div><!-- /app-layout -->

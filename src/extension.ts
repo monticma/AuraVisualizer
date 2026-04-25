@@ -271,10 +271,13 @@ async function refreshAnalysis(context: vscode.ExtensionContext): Promise<void> 
             if (oldGraphData && oldGraphData.nodes.length > 0) {
                 // Already showing data from DB cache — send only the delta
                 const delta = computeGraphDelta(oldGraphData, cachedGraphData, '', false);
+                const oldCallCount = oldGraphData.functionCalls?.length || 0;
+                const newCallCount = cachedGraphData.functionCalls?.length || 0;
                 const hasChanges = delta.changedNodes.length > 0 ||
                     delta.removedNodeIds.length > 0 ||
                     delta.addedLinks.length > 0 ||
-                    delta.removedLinks.length > 0;
+                    delta.removedLinks.length > 0 ||
+                    oldCallCount !== newCallCount;
                 if (hasChanges) {
                     webviewProvider.sendGraphDelta(delta as unknown as Record<string, unknown>);
                 } else {
@@ -427,6 +430,9 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
                 .map(l => ({ source: l.source, target: l.target, type: l.type }));
             cachedGraphData.nodes = cachedGraphData.nodes.filter(n => n.id !== relativePath);
             cachedGraphData.links = cachedGraphData.links.filter(l => l.source !== relativePath && l.target !== relativePath);
+            cachedGraphData.functionCalls = (cachedGraphData.functionCalls || []).filter(fc =>
+                fc.callerFile !== relativePath && fc.calleeFile !== relativePath
+            );
             cachedGraphData.meta.totalFiles = cachedGraphData.nodes.length;
             cachedGraphData.meta.totalLinks = cachedGraphData.links.length;
 
@@ -437,6 +443,7 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
                     addedLinks: [],
                     removedLinks,
                     meta: cachedGraphData.meta,
+                    functionCalls: cachedGraphData.functionCalls || [],
                 };
                 webviewProvider.sendGraphDelta(delta as unknown as Record<string, unknown>);
             }
@@ -488,6 +495,7 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
         addedLinks: [],
         removedLinks: [],
         meta: cachedGraphData?.meta ?? {} as GraphData['meta'],
+        functionCalls: cachedGraphData?.functionCalls ?? [],
     };
 
     // Compute link diff
@@ -513,6 +521,11 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
         cachedGraphData.links = cachedGraphData.links.filter(l => l.source !== newInfo.id);
         cachedGraphData.links.push(...result.outEdges);
 
+        const existingCalls = cachedGraphData.functionCalls || [];
+        cachedGraphData.functionCalls = existingCalls
+            .filter(fc => fc.callerFile !== newInfo.id)
+            .concat(result.callSites);
+
         // Sync fan counts from DB for affected nodes
         if (graphDb) {
             for (const id of affectedIds) {
@@ -533,6 +546,7 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
         cachedGraphData.meta.totalFiles = cachedGraphData.nodes.length;
         cachedGraphData.meta.totalLinks = cachedGraphData.links.length;
         delta.meta = cachedGraphData.meta;
+        delta.functionCalls = cachedGraphData.functionCalls || [];
     }
 
     if (webviewProvider?.isVisible) {
@@ -549,6 +563,7 @@ interface GraphDelta {
     addedLinks: GraphLink[];
     removedLinks: { source: string; target: string; type: string }[];
     meta: GraphData['meta'];
+    functionCalls?: NonNullable<GraphData['functionCalls']>;
 }
 
 function computeGraphDelta(
@@ -562,7 +577,8 @@ function computeGraphDelta(
         removedNodeIds: [],
         addedLinks: [],
         removedLinks: [],
-        meta: newGraph.meta
+        meta: newGraph.meta,
+        functionCalls: newGraph.functionCalls || [],
     };
 
     if (deleted) {

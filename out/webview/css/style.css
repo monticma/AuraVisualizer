@@ -418,7 +418,8 @@ html, body {
     margin: 0 2px;
 }
 
-#heatmap-select {
+#heatmap-select,
+.filter-select {
     background: var(--aura-input-bg);
     border: 1px solid var(--aura-input-border);
     color: var(--aura-fg);
@@ -431,7 +432,9 @@ html, body {
 
 #node-size-slider,
 #spread-slider,
-#depth-slider {
+#depth-slider,
+#callgraph-node-size-slider,
+#callgraph-spread-slider {
     width: 60px;
     accent-color: var(--aura-accent);
 }
@@ -1941,47 +1944,19 @@ html, body {
     overflow: hidden;
     flex-direction: column;
     min-height: 0;
-}
-.callgraph-toolbar {
-    display: flex;
-    align-items: center;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--aura-border);
-    flex-shrink: 0;
-    gap: 12px;
-}
-.callgraph-controls {
-    display: flex;
-    gap: 12px;
-    align-items: center;
-    flex-wrap: wrap;
-}
-.callgraph-controls label {
-    font-size: 11px;
-    opacity: 0.7;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
-.callgraph-controls select {
-    background: var(--aura-input-bg);
-    border: 1px solid var(--aura-input-border);
-    color: var(--aura-fg);
-    border-radius: 4px;
-    padding: 2px 6px;
-    font-size: 11px;
-    cursor: pointer;
+    width: 100%;
 }
 .callgraph-stats {
     font-size: 11px;
     opacity: 0.5;
-    margin-left: auto;
+    margin-left: 6px;
 }
 #callgraph-container {
     flex: 1;
     min-height: 0;
     position: relative;
     overflow: hidden;
+    width: 100%;
 }
 #callgraph-container canvas {
     width: 100% !important;
@@ -1995,6 +1970,33 @@ html, body {
     height: 100%;
     opacity: 0.55;
     font-size: 13px;
+}
+
+.callgraph-bottom {
+    display: none !important;
+}
+
+body.callgraph-mode .callgraph-bottom {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+}
+
+body.callgraph-mode .graph-only {
+    display: none !important;
+}
+
+body.callgraph-mode #filter-bar {
+    justify-content: center;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+}
+
+body.callgraph-mode #callgraph-controls-bottom {
+    justify-content: center;
+    width: 100%;
+    flex-wrap: nowrap;
+    gap: 6px;
 }
 
 /* ============================================================

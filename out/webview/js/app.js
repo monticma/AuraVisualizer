@@ -75,6 +75,13 @@
     var callGraphMinWeight = 1;
     var callGraphMaxNodes = 250;
     var callGraphPerfPreset = 'auto';
+    var callGraphShowLabels = false;
+    var callGraphNodeSizeMultiplier = 4;
+    var callGraphSpreadMultiplier = 1;
+    var callGraphHasFramed = false;
+    var callGraphResizeObserver = null;
+    var callGraphDirty = true;
+    var callGraphRenderKey = '';
 
     // Explorer state
     var showExplorer = false;
@@ -258,6 +265,9 @@
             });
         });
         buildExplorerTree(graphData.nodes);
+        callGraphDirty = true;
+        callGraphRenderKey = '';
+        callGraphHasFramed = false;
         if (activeTab === 'callgraph') {
             renderCallGraph();
         }
@@ -330,6 +340,13 @@
             keptLinks.push(addedLinks[al]);
         }
         graphData.links = keptLinks;
+
+        if (delta.functionCalls) {
+            graphData.functionCalls = delta.functionCalls;
+        }
+        callGraphDirty = true;
+        callGraphRenderKey = '';
+        callGraphHasFramed = false;
 
         // Update meta
         if (delta.meta) graphData.meta = delta.meta;
@@ -2839,6 +2856,12 @@
             heatmapMode: heatmapMode,
             nodeSizeMultiplier: nodeSizeMultiplier,
             spreadMultiplier: spreadMultiplier,
+            callGraphShowLabels: callGraphShowLabels,
+            callGraphNodeSizeMultiplier: callGraphNodeSizeMultiplier,
+            callGraphSpreadMultiplier: callGraphSpreadMultiplier,
+            callGraphMode: callGraphMode,
+            callGraphColorBy: callGraphColorBy,
+            callGraphMinWeight: callGraphMinWeight,
             focusDepth: focusDepth,
             showExplorer: showExplorer,
             showMinimap: !$('#minimap').classList.contains('hidden')
@@ -2896,6 +2919,36 @@
             spreadMultiplier = state.spreadMultiplier;
             var ss = $('#spread-slider');
             if (ss) ss.value = spreadMultiplier;
+        }
+        if (typeof state.callGraphShowLabels === 'boolean') {
+            callGraphShowLabels = state.callGraphShowLabels;
+            var cgl = $('#btn-callgraph-labels');
+            if (cgl) cgl.classList.toggle('active', callGraphShowLabels);
+        }
+        if (typeof state.callGraphNodeSizeMultiplier === 'number') {
+            callGraphNodeSizeMultiplier = state.callGraphNodeSizeMultiplier;
+            var cgn = $('#callgraph-node-size-slider');
+            if (cgn) cgn.value = callGraphNodeSizeMultiplier;
+        }
+        if (typeof state.callGraphSpreadMultiplier === 'number') {
+            callGraphSpreadMultiplier = state.callGraphSpreadMultiplier;
+            var cgs = $('#callgraph-spread-slider');
+            if (cgs) cgs.value = callGraphSpreadMultiplier;
+        }
+        if (state.callGraphMode) {
+            callGraphMode = state.callGraphMode;
+            var cgm = $('#callgraph-mode');
+            if (cgm) cgm.value = callGraphMode;
+        }
+        if (state.callGraphColorBy) {
+            callGraphColorBy = state.callGraphColorBy;
+            var cgc = $('#callgraph-color-by');
+            if (cgc) cgc.value = callGraphColorBy;
+        }
+        if (typeof state.callGraphMinWeight === 'number') {
+            callGraphMinWeight = state.callGraphMinWeight;
+            var cgw = $('#callgraph-min-weight');
+            if (cgw) cgw.value = String(callGraphMinWeight);
         }
         if (typeof state.focusDepth === 'number') {
             focusDepth = state.focusDepth;
@@ -2971,6 +3024,7 @@
                     if (btn.classList.contains('active')) activeLanguages.add(lang);
                     else activeLanguages.delete(lang);
                     applyFilters();
+                    if (activeTab === 'callgraph') renderCallGraph();
                     saveViewState();
                 });
             })(langBtns[i]);
@@ -4624,6 +4678,7 @@
         if (tabName === activeTab) return;
         var prevTab = activeTab;
         activeTab = tabName;
+        document.body.classList.toggle('callgraph-mode', tabName === 'callgraph');
 
         // Update buttons
         var tabBtns = document.querySelectorAll('.tab-btn');
@@ -4642,7 +4697,7 @@
         var timeBar = $('#timeline-bar');
         var overlays = ['#heatmap-legend', '#community-palette', '#minimap', '#tooltip'];
 
-        if (tabName !== 'graph') {
+        if (tabName !== 'graph' && tabName !== 'callgraph') {
             // Leaving graph — hide overlays, filter bar, timeline
             // Save visibility state only when leaving the graph tab
             if (prevTab === 'graph') {
@@ -4661,15 +4716,23 @@
                 if (el) el.classList.add('hidden');
             }
         } else {
-            // Returning to graph — restore everything
-            if (filterBar && filterBar._wasVisible !== false) filterBar.style.display = '';
-            if (timeBar && timeBar._wasVisible) {
-                timeBar.classList.remove('hidden');
-            }
-            for (var i = 0; i < overlays.length; i++) {
-                var el = $(overlays[i]);
-                if (el && el._wasVisible) {
-                    el.classList.remove('hidden');
+            // Returning to graph/callgraph — filter bar visible in both, timeline/overlays only on graph
+            if (filterBar) filterBar.style.display = '';
+            if (tabName === 'graph') {
+                if (timeBar && timeBar._wasVisible) {
+                    timeBar.classList.remove('hidden');
+                }
+                for (var i = 0; i < overlays.length; i++) {
+                    var el = $(overlays[i]);
+                    if (el && el._wasVisible) {
+                        el.classList.remove('hidden');
+                    }
+                }
+            } else {
+                if (timeBar) timeBar.classList.add('hidden');
+                for (var i = 0; i < overlays.length; i++) {
+                    var el = $(overlays[i]);
+                    if (el) el.classList.add('hidden');
                 }
             }
         }
@@ -4692,7 +4755,20 @@
         if (tabName === 'treemap') renderTreemap();
         if (tabName === 'dsm') renderDSM();
         if (tabName === 'chord') renderChord();
-        if (tabName === 'callgraph') renderCallGraph();
+        if (tabName === 'callgraph') {
+            renderCallGraph();
+            requestAnimationFrame(function() {
+                if (activeTab === 'callgraph') {
+                    renderCallGraph();
+                    requestAnimationFrame(function() {
+                        if (activeTab === 'callgraph') renderCallGraph();
+                    });
+                }
+            });
+            setTimeout(function() {
+                if (activeTab === 'callgraph') renderCallGraph();
+            }, 120);
+        }
         if (tabName === 'timeline') renderTimelineChart();
         if (tabName === 'table') renderTable();
     }
@@ -4730,33 +4806,92 @@
         var minWeightSel = $('#callgraph-min-weight');
         var maxNodesSel = $('#callgraph-max-nodes');
         var perfSel = $('#callgraph-perf');
+        var labelsBtn = $('#btn-callgraph-labels');
+        var nodeSizeSel = $('#callgraph-node-size-slider');
+        var spreadSel = $('#callgraph-spread-slider');
 
         if (modeSel) modeSel.addEventListener('change', function() {
             callGraphMode = this.value === 'file' ? 'file' : 'symbol';
+            callGraphHasFramed = false;
+            callGraphDirty = true;
             renderCallGraph();
+            saveViewState();
         });
         if (colorSel) colorSel.addEventListener('change', function() {
             callGraphColorBy = this.value;
-            renderCallGraph();
+            if (callGraph) {
+                callGraph.nodeColor(callGraph.nodeColor());
+                callGraph.linkColor(callGraph.linkColor());
+            }
+            saveViewState();
         });
         if (minWeightSel) minWeightSel.addEventListener('change', function() {
             callGraphMinWeight = parseInt(this.value || '1', 10) || 1;
+            callGraphDirty = true;
             renderCallGraph();
+            saveViewState();
         });
         if (maxNodesSel) maxNodesSel.addEventListener('change', function() {
             callGraphMaxNodes = parseInt(this.value || '250', 10) || 250;
-            renderCallGraph();
+            saveViewState();
         });
         if (perfSel) perfSel.addEventListener('change', function() {
             callGraphPerfPreset = this.value || 'auto';
-            renderCallGraph();
+            saveViewState();
+        });
+        if (labelsBtn) labelsBtn.addEventListener('click', function() {
+            callGraphShowLabels = !callGraphShowLabels;
+            labelsBtn.classList.toggle('active', callGraphShowLabels);
+            if (callGraph) callGraph.nodeThreeObject(callGraph.nodeThreeObject());
+            saveViewState();
+        });
+        if (nodeSizeSel) nodeSizeSel.addEventListener('input', function() {
+            callGraphNodeSizeMultiplier = parseFloat(this.value || '4') || 4;
+            if (callGraph) {
+                callGraph.nodeVal(callGraph.nodeVal());
+                callGraph.nodeThreeObject(callGraph.nodeThreeObject());
+            }
+            saveViewState();
+        });
+        if (spreadSel) spreadSel.addEventListener('input', function() {
+            callGraphSpreadMultiplier = parseFloat(this.value || '1') || 1;
+            if (callGraph) {
+                var charge = callGraph.d3Force('charge');
+                if (charge && typeof charge.strength === 'function') {
+                    charge.strength(-120 * callGraphSpreadMultiplier);
+                }
+                callGraph.d3ReheatSimulation();
+            }
+            saveViewState();
         });
     }
 
     function buildCallGraphData(maxNodesLimit) {
         if (!graphData) return null;
         var fcalls = graphData.functionCalls || [];
-        if (!fcalls || fcalls.length === 0) return { nodes: [], links: [], meta: { calls: 0, unresolved: 0 } };
+        var usedFallback = false;
+
+        // Fallback: reuse existing file-level function-call links if functionCalls
+        // are missing from the payload (DB cache / delta timing), no re-parse.
+        if (!fcalls || fcalls.length === 0) {
+            var fLinks = (graphData.links || []).filter(function(l) { return l.type === 'function-call'; });
+            if (fLinks.length > 0) {
+                fcalls = fLinks.map(function(l) {
+                    var src = typeof l.source === 'object' ? l.source.id : l.source;
+                    var tgt = typeof l.target === 'object' ? l.target.id : l.target;
+                    return {
+                        callerFile: src,
+                        callerName: '<file>',
+                        calleeFile: tgt,
+                        calleeName: '<file>',
+                        callLine: 0,
+                    };
+                });
+                usedFallback = true;
+            }
+        }
+
+        if (!fcalls || fcalls.length === 0) return { nodes: [], links: [], meta: { calls: 0, unresolved: 0, fallback: false } };
 
         var nodeMeta = {};
         var nodesSrc = graphData.nodes || [];
@@ -4783,11 +4918,31 @@
             }
         }
 
+        function toLangKey(language, filePath) {
+            if (language === 'c') {
+                return filePath && filePath.endsWith('.h') ? 'c-header' : 'c-source';
+            }
+            return language || 'unknown';
+        }
+
+        function isLangAllowed(langKey) {
+            // Keep unresolved endpoints visible; language filters apply only
+            // when we can reliably resolve a known language.
+            if (!langKey || langKey === 'unknown') return true;
+            return activeLanguages.has(langKey);
+        }
+
         var agg = {};
         var unresolved = 0;
 
         for (var i = 0; i < fcalls.length; i++) {
             var c = fcalls[i];
+            var srcMeta = nodeMeta[c.callerFile] || null;
+            var tgtMeta = nodeMeta[c.calleeFile] || null;
+            var srcLang = toLangKey(srcMeta ? srcMeta.language : 'unknown', c.callerFile || '');
+            var tgtLang = toLangKey(tgtMeta ? tgtMeta.language : 'unknown', c.calleeFile || '');
+            if (!isLangAllowed(srcLang) || !isLangAllowed(tgtLang)) continue;
+
             var source = callGraphMode === 'file'
                 ? c.callerFile
                 : (c.callerFile + '::' + c.callerName);
@@ -4822,9 +4977,9 @@
             fanIn[l.target] = (fanIn[l.target] || 0) + l.weight;
         }
 
-        // Keep highest-degree nodes first for readability/perf
+        // Keep stable ordering, but do not cap nodes in the UI.
         var nodeIds = Object.keys(degree).sort(function(a, b) { return (degree[b] || 0) - (degree[a] || 0); });
-        var limit = maxNodesLimit || callGraphMaxNodes;
+        var limit = maxNodesLimit || Number.MAX_SAFE_INTEGER;
         if (nodeIds.length > limit) nodeIds = nodeIds.slice(0, limit);
         var nodeSet = new Set(nodeIds);
 
@@ -4870,27 +5025,11 @@
             }
         }
 
-        return { nodes: nodes, links: links, meta: { calls: fcalls.length, unresolved: unresolved } };
+        return { nodes: nodes, links: links, meta: { calls: fcalls.length, unresolved: unresolved, fallback: usedFallback } };
     }
 
     function resolveCallGraphPerfProfile() {
-        var calls = (graphData && graphData.functionCalls) ? graphData.functionCalls.length : 0;
-        var score = calls;
-        var preset = callGraphPerfPreset;
-
-        if (preset === 'auto') {
-            if (score > 12000) preset = 'performance';
-            else if (score > 3500) preset = 'balanced';
-            else preset = 'quality';
-        }
-
-        if (preset === 'quality') {
-            return { name: 'quality', maxNodesCap: 600, alphaDecay: 0.02, velocityDecay: 0.22, particles: 2, camZ: 320 };
-        }
-        if (preset === 'performance') {
-            return { name: 'performance', maxNodesCap: 220, alphaDecay: 0.05, velocityDecay: 0.33, particles: 0, camZ: 360 };
-        }
-        return { name: 'balanced', maxNodesCap: 350, alphaDecay: 0.03, velocityDecay: 0.26, particles: 1, camZ: 340 };
+        return { name: 'quality', maxNodesCap: Number.MAX_SAFE_INTEGER, alphaDecay: 0.03, velocityDecay: 0.5, particles: 0, camZ: 320 };
     }
 
     function getCallGraphNodeColor(n) {
@@ -4908,13 +5047,43 @@
         return LANGUAGE_COLORS[n.language] || '#9fb3c8';
     }
 
+    function getCallGraphRenderKey() {
+        var callCount = (graphData && graphData.functionCalls) ? graphData.functionCalls.length : 0;
+        var linkCount = (graphData && graphData.links) ? graphData.links.length : 0;
+        var analyzedAt = graphData && graphData.meta ? graphData.meta.analyzedAt : '';
+        return [analyzedAt, callCount, linkCount, callGraphMode, callGraphMinWeight].join('|');
+    }
+
     function renderCallGraph() {
         var container = $('#callgraph-container');
         if (!container) return;
         if (!graphData) return;
+        if (activeTab !== 'callgraph') return;
+        if (container.clientWidth <= 4 || container.clientHeight <= 4) {
+            requestAnimationFrame(function() {
+                if (activeTab === 'callgraph') renderCallGraph();
+            });
+            setTimeout(function() {
+                if (activeTab === 'callgraph') renderCallGraph();
+            }, 100);
+            return;
+        }
 
         var perfProfile = resolveCallGraphPerfProfile();
-        var effectiveLimit = Math.min(callGraphMaxNodes, perfProfile.maxNodesCap);
+        var effectiveLimit = perfProfile.maxNodesCap;
+        var renderKey = getCallGraphRenderKey();
+
+        if (callGraph && !callGraphDirty && callGraphRenderKey === renderKey) {
+            callGraph.width(container.clientWidth);
+            callGraph.height(container.clientHeight);
+            callGraph.nodeColor(callGraph.nodeColor());
+            callGraph.linkColor(callGraph.linkColor());
+            callGraph.nodeThreeObject(callGraph.nodeThreeObject());
+            callGraph.nodeVal(callGraph.nodeVal());
+            container.style.visibility = '';
+            return;
+        }
+
         callGraphData = buildCallGraphData(effectiveLimit);
         if (!callGraphData || callGraphData.nodes.length === 0 || callGraphData.links.length === 0) {
             container.innerHTML = '<div class="callgraph-empty">No function call graph available for current filters</div>';
@@ -4928,13 +5097,15 @@
             statsEl.textContent = callGraphData.nodes.length + ' nodes · ' + callGraphData.links.length +
                 ' links · ' + callGraphData.meta.calls + ' calls' +
                 (callGraphData.meta.unresolved > 0 ? ' · ' + callGraphData.meta.unresolved + ' unresolved' : '') +
-                ' · perf:' + perfProfile.name;
+                (callGraphData.meta.fallback ? ' · fallback:file-links' : '') +
+                ' · min weight:' + callGraphMinWeight;
         }
 
         if (!callGraph) {
             container.innerHTML = '';
-            callGraph = ForceGraph3D({ controlType: 'orbit' })(container)
-                .backgroundColor('#0b1220')
+            callGraph = ForceGraph3D({ controlType: 'trackball' })(container)
+                .backgroundColor('#0d1117')
+                .showNavInfo(false)
                 .nodeLabel(function(n) {
                     var lbl = '<b>' + escapeHtml(n.label || n.id) + '</b>';
                     lbl += '<br>' + escapeHtml(n.file || '');
@@ -4944,6 +5115,18 @@
                     lbl += '<br>degree: ' + (n.degree || 0);
                     return lbl;
                 })
+                .nodeThreeObject(function(n) {
+                    if (!callGraphShowLabels) return null;
+                    var text = callGraphMode === 'file' ? (n.label || n.id) : (n.symbol || n.label || n.file || n.id);
+                    var sprite = getLabelSprite(text);
+                    if (sprite) {
+                        if (sprite.material) sprite.material.sizeAttenuation = true;
+                        sprite.position.y = Math.cbrt(Math.max(1, n.degree || 1)) * callGraphNodeSizeMultiplier + 2;
+                        return sprite;
+                    }
+                    return null;
+                })
+                .nodeThreeObjectExtend(true)
                 .linkLabel(function(l) {
                     var src = l.source && l.source.id ? l.source.id : l.source;
                     var tgt = l.target && l.target.id ? l.target.id : l.target;
@@ -4956,31 +5139,75 @@
                 })
                 .nodeColor(function(n) { return getCallGraphNodeColor(n); })
                 .nodeRelSize(4)
-                .nodeVal(function(n) { return Math.max(1, Math.sqrt(n.degree || 1)); })
-                .linkColor(function(l) {
-                    var alpha = Math.min(0.8, 0.15 + (Math.log((l.weight || 1) + 1) / 6));
-                    return 'rgba(129, 163, 200,' + alpha.toFixed(3) + ')';
-                })
-                .linkWidth(function(l) { return Math.max(0.7, Math.min(4, Math.log((l.weight || 1) + 1))); })
+                .nodeVal(function(n) { return Math.max(1, Math.sqrt(n.degree || 1) * callGraphNodeSizeMultiplier); })
+                .linkColor(function() { return LINK_COLORS['function-call'] || '#81c784aa'; })
+                .linkWidth(function(l) { return Math.max(0.5, Math.min(2.5, Math.log((l.weight || 1) + 1))); })
                 .linkDirectionalArrowLength(2)
                 .linkDirectionalArrowRelPos(0.9)
                 .linkDirectionalParticles(perfProfile.particles)
-                .linkDirectionalParticleSpeed(function(l) { return 0.002 + Math.min(0.01, (l.weight || 1) * 0.0008); })
+                .linkDirectionalParticleWidth(0)
+                .linkDirectionalParticleColor(function() { return LINK_COLORS['function-call'] || '#81c784aa'; })
+                .linkDirectionalParticleSpeed(function() { return 0; })
                 .onNodeClick(function(node) {
                     if (!node || !node.file) return;
                     vscode.postMessage({ type: 'openFile', payload: { path: node.file, line: node.line || undefined } });
+                })
+                .onEngineStop(function() {
+                    if (!callGraph || callGraphHasFramed) return;
+                    callGraphHasFramed = true;
+                    callGraph.zoomToFit(500, 50);
+                })
+                .warmupTicks(0)
+                .cooldownTicks(220)
+                .d3AlphaDecay(0.03)
+                .d3VelocityDecay(0.5);
+
+            // Match Graph 3D interaction feel (faster rotation/zoom/pan).
+            var cgControls = callGraph.controls && callGraph.controls();
+            if (cgControls) {
+                if (typeof cgControls.rotateSpeed === 'number') cgControls.rotateSpeed = 4.5;
+                if (typeof cgControls.zoomSpeed === 'number') cgControls.zoomSpeed = 1.8;
+                if (typeof cgControls.panSpeed === 'number') cgControls.panSpeed = 1.2;
+                if (typeof cgControls.dynamicDampingFactor === 'number') cgControls.dynamicDampingFactor = 0.15;
+                if ('staticMoving' in cgControls) cgControls.staticMoving = false;
+            }
+
+            if (!callGraphResizeObserver) {
+                callGraphResizeObserver = new ResizeObserver(function() {
+                    if (!callGraph || activeTab !== 'callgraph') return;
+                    var w = container.clientWidth;
+                    var h = container.clientHeight;
+                    if (w > 4 && h > 4) {
+                        callGraph.width(w);
+                        callGraph.height(h);
+                        callGraph.d3ReheatSimulation();
+                    }
                 });
+                callGraphResizeObserver.observe(container);
+            }
         }
 
         callGraph.graphData(callGraphData);
+        callGraph.width(container.clientWidth);
+        callGraph.height(container.clientHeight);
         callGraph.numDimensions(3);
-        callGraph.d3AlphaDecay(perfProfile.alphaDecay);
-        callGraph.d3VelocityDecay(perfProfile.velocityDecay);
+        callGraph.d3AlphaDecay(0.03);
+        callGraph.d3VelocityDecay(0.5);
+        var charge = callGraph.d3Force('charge');
+        if (charge && typeof charge.strength === 'function') {
+            charge.strength(-120 * callGraphSpreadMultiplier);
+        }
+        callGraph.d3ReheatSimulation();
         callGraph.linkDirectionalParticles(perfProfile.particles);
+        callGraph.nodeThreeObject(callGraph.nodeThreeObject());
+        callGraph.nodeVal(callGraph.nodeVal());
+        callGraphRenderKey = renderKey;
+        callGraphDirty = false;
 
         requestAnimationFrame(function() {
-            if (callGraph && activeTab === 'callgraph') {
-                callGraph.cameraPosition({ x: 0, y: 0, z: perfProfile.camZ }, { x: 0, y: 0, z: 0 }, 700);
+            if (callGraph && activeTab === 'callgraph' && callGraphHasFramed) {
+                callGraph.width(container.clientWidth);
+                callGraph.height(container.clientHeight);
             }
         });
     }
