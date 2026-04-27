@@ -5,7 +5,7 @@
  * no landing overlay, supports VSCode integration (open file, focus node).
  */
 
-(function() {
+(function () {
     'use strict';
 
     // VSCode API
@@ -111,7 +111,7 @@
     // ============================================================
     // DOM References
     // ============================================================
-    var $ = function(sel) { return document.querySelector(sel); };
+    var $ = function (sel) { return document.querySelector(sel); };
 
     var graphContainer = $('#graph-container');
     var loadingOverlay = $('#loading-overlay');
@@ -136,7 +136,7 @@
     // ============================================================
     // VSCode Message Handling
     // ============================================================
-    window.addEventListener('message', function(event) {
+    window.addEventListener('message', function (event) {
         var message = event.data;
         switch (message.type) {
             case 'graphData':
@@ -240,8 +240,8 @@
             console.error('[aura] initGraph error:', e);
         }
         // Hide overlay after the graph has rendered its first frame
-        requestAnimationFrame(function() {
-            requestAnimationFrame(function() {
+        requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
                 if (loadingOverlay) {
                     loadingOverlay.style.display = 'none';
                 }
@@ -348,7 +348,7 @@
     function setupRefresh() {
         var btn = $('#btn-refresh');
         if (btn) {
-            btn.addEventListener('click', function() {
+            btn.addEventListener('click', function () {
                 vscode.postMessage({ type: 'requestRefresh' });
                 // Switch back to 3D Graph so the user sees the refresh
                 if (activeTab !== 'graph') switchTab('graph');
@@ -361,7 +361,7 @@
         }
         var exportBtn = $('#btn-export');
         if (exportBtn) {
-            exportBtn.addEventListener('click', function() {
+            exportBtn.addEventListener('click', function () {
                 vscode.postMessage({ type: 'requestExport' });
             });
         }
@@ -371,15 +371,15 @@
         var helpModal = $('#help-modal');
         var helpClose = $('#help-modal-close');
         if (helpBtn && helpModal) {
-            helpBtn.addEventListener('click', function() {
+            helpBtn.addEventListener('click', function () {
                 helpModal.classList.toggle('hidden');
             });
             if (helpClose) {
-                helpClose.addEventListener('click', function() {
+                helpClose.addEventListener('click', function () {
                     helpModal.classList.add('hidden');
                 });
             }
-            helpModal.addEventListener('click', function(e) {
+            helpModal.addEventListener('click', function (e) {
                 if (e.target === helpModal) helpModal.classList.add('hidden');
             });
         }
@@ -389,13 +389,13 @@
         var minimapEl = $('#minimap');
         var minimapClose = $('#minimap-close');
         if (minimapBtn && minimapEl) {
-            minimapBtn.addEventListener('click', function() {
+            minimapBtn.addEventListener('click', function () {
                 minimapEl.classList.toggle('hidden');
                 minimapBtn.classList.toggle('active', !minimapEl.classList.contains('hidden'));
                 saveViewState();
             });
             if (minimapClose) {
-                minimapClose.addEventListener('click', function() {
+                minimapClose.addEventListener('click', function () {
                     minimapEl.classList.add('hidden');
                     minimapBtn.classList.remove('active');
                     saveViewState();
@@ -425,9 +425,9 @@
 
         metricRanges = {
             complexity: { min: Infinity, max: -Infinity },
-            fanIn:      { min: Infinity, max: -Infinity },
-            fanOut:     { min: Infinity, max: -Infinity },
-            loc:        { min: Infinity, max: -Infinity },
+            fanIn: { min: Infinity, max: -Infinity },
+            fanOut: { min: Infinity, max: -Infinity },
+            loc: { min: Infinity, max: -Infinity },
             lastModified: { min: Infinity, max: -Infinity }
         };
 
@@ -586,7 +586,7 @@
         // Renumber remaining communities 0..k-1
         var finalRemap = {};
         var finalId = 0;
-        var sortedKeys = Object.keys(commFiles).map(Number).sort(function(a, b) { return a - b; });
+        var sortedKeys = Object.keys(commFiles).map(Number).sort(function (a, b) { return a - b; });
         for (var sk = 0; sk < sortedKeys.length; sk++) {
             finalRemap[sortedKeys[sk]] = finalId++;
         }
@@ -615,7 +615,7 @@
             activeCommunities.add(ci2);
             var files = newCommFiles[ci2] || [];
             var isOthers = (singletonFiles.length > 0 && ci2 === finalId - 1);
-            communityNames[ci2] = { name: isOthers ? 'Others' : nameCommunity(files), files: files.map(function(f) { return f.id; }) };
+            communityNames[ci2] = { name: isOthers ? 'Others' : nameCommunity(files), files: files.map(function (f) { return f.id; }) };
         }
     }
 
@@ -636,12 +636,12 @@
 
         // Sort communities by file count descending
         var ids = Object.keys(communityNames).map(Number);
-        ids.sort(function(a, b) {
+        ids.sort(function (a, b) {
             return (communityNames[b].files.length) - (communityNames[a].files.length);
         });
 
         for (var i = 0; i < ids.length; i++) {
-            (function(cid) {
+            (function (cid) {
                 var info = communityNames[cid];
                 var item = document.createElement('div');
                 item.className = 'community-item' + (activeCommunities.has(cid) ? '' : ' dimmed');
@@ -649,7 +649,7 @@
                     '<span class="community-swatch" style="background:' + (communityColors[cid] || '#888') + '"></span>' +
                     '<span class="community-name">' + escapeHtml(info.name) + '</span>' +
                     '<span class="community-count">' + info.files.length + '</span>';
-                item.addEventListener('click', function() {
+                item.addEventListener('click', function () {
                     if (activeCommunities.has(cid)) activeCommunities.delete(cid);
                     else activeCommunities.add(cid);
                     item.classList.toggle('dimmed', !activeCommunities.has(cid));
@@ -693,12 +693,12 @@
             .graphData(filtered)
             .nodeId('id')
             .nodeLabel('')
-            .nodeColor(function(node) { return getNodeColor(node); })
+            .nodeColor(function (node) { return getNodeColor(node); })
             .nodeRelSize(1)
-            .nodeVal(function(node) { return getNodeSize(node); })
+            .nodeVal(function (node) { return getNodeSize(node); })
             .nodeOpacity(0.92)
             .nodeThreeObjectExtend(true)
-            .nodeThreeObject(function(node) {
+            .nodeThreeObject(function (node) {
                 var T = window.THREE;
                 var isSelected = (selectedNode && selectedNode.id === node.id) || multiSelectedNodes.has(node);
                 var isBlastSource = blastMode && pinnedNode && (node.id === pinnedNode.id || (impactMode && blastDepths[node.id] === 0));
@@ -708,7 +708,7 @@
                     !(showCycles && !cycleNodeIds.has(node.id)) &&
                     !(pinnedNode && !pinnedNodes.has(node)) &&
                     !(heatmapMode === 'community' && activeCommunities.size < Object.keys(communityNames).length &&
-                      (communityMap[node.id] === undefined || !activeCommunities.has(communityMap[node.id]))) &&
+                        (communityMap[node.id] === undefined || !activeCommunities.has(communityMap[node.id]))) &&
                     !(flowTraceMode && !flowTraceNodes.has(node.id)) &&
                     !(timelineActive && timelineCompareMode && timelineChangedNodes.size > 0 && !timelineChangedNodes.has(node.id));
 
@@ -810,9 +810,9 @@
             })
             .linkSource('source')
             .linkTarget('target')
-            .linkVisibility(function(link) { return getLinkVisibility(link); })
-            .linkColor(function(link) { return getLinkColor(link); })
-            .linkWidth(function(link) { 
+            .linkVisibility(function (link) { return getLinkVisibility(link); })
+            .linkColor(function (link) { return getLinkColor(link); })
+            .linkWidth(function (link) {
                 if (link._isCallEdge) {
                     if (!hoveredSymbolId) return 0;
                     var cwSrc = typeof link.source === 'object' ? link.source.id : link.source;
@@ -831,10 +831,10 @@
                 if (multiSelectedLinks.has(link)) return 2.5;
                 if (link.type === 'extends') return highlightLinks.has(link) ? 2.5 : 1;
                 if (link.type === 'implements') return highlightLinks.has(link) ? 2 : 0.8;
-                return highlightLinks.has(link) ? 2 : 0.5; 
+                return highlightLinks.has(link) ? 2 : 0.5;
             })
             .linkOpacity(0.4)
-            .linkDirectionalArrowLength(function(link) {
+            .linkDirectionalArrowLength(function (link) {
                 // In compare mode, hide arrows unless both endpoints are changed
                 if (timelineActive && timelineCompareMode && timelineChangedNodes.size > 0) {
                     var aaSrc = typeof link.source === 'object' ? link.source.id : link.source;
@@ -845,7 +845,7 @@
                 return 3;
             })
             .linkDirectionalArrowRelPos(1)
-            .linkDirectionalParticles(function(link) { 
+            .linkDirectionalParticles(function (link) {
                 if (link._isCallEdge) {
                     if (!hoveredSymbolId) return 0;
                     var cpSrc = typeof link.source === 'object' ? link.source.id : link.source;
@@ -863,13 +863,13 @@
                 if (multiSelectedLinks.has(link)) return 3;
                 if (link.type === 'extends') return 2;
                 if (link.type === 'implements') return 3;
-                return highlightLinks.has(link) ? 3 : 0; 
+                return highlightLinks.has(link) ? 3 : 0;
             })
-            .linkDirectionalParticleWidth(function(link) {
+            .linkDirectionalParticleWidth(function (link) {
                 if (link.type === 'implements') return 1.2;
                 return 2;
             })
-            .linkDirectionalParticleSpeed(function(link) {
+            .linkDirectionalParticleSpeed(function (link) {
                 if (link.type === 'implements') return 0.008;
                 return 0.005;
             })
@@ -893,16 +893,16 @@
         graphContainer.removeEventListener('dblclick', graphContainerDblClick);
         graphContainer.addEventListener('dblclick', graphContainerDblClick);
 
-        graphContainer.addEventListener('contextmenu', function(e) {
+        graphContainer.addEventListener('contextmenu', function (e) {
             e.preventDefault();
         });
 
-        setTimeout(function() {
+        setTimeout(function () {
             graph.zoomToFit(500, 50);
         }, 1500);
 
         // Handle webview resize (e.g. when side editor opens/closes)
-        var resizeObserver = new ResizeObserver(function() {
+        var resizeObserver = new ResizeObserver(function () {
             if (graph) {
                 graph.width(graphContainer.clientWidth);
                 graph.height(graphContainer.clientHeight);
@@ -993,11 +993,11 @@
             var value;
             switch (heatmapMode) {
                 case 'complexity': value = node.complexity || 1; break;
-                case 'fanIn':      value = node.fanIn; break;
-                case 'fanOut':     value = node.fanOut; break;
-                case 'loc':        value = node.linesOfCode; break;
+                case 'fanIn': value = node.fanIn; break;
+                case 'fanOut': value = node.fanOut; break;
+                case 'loc': value = node.linesOfCode; break;
                 case 'lastModified': value = node.lastModified || 0; break;
-                default:           value = 0;
+                default: value = 0;
             }
             var norm = normalizeMetric(value, heatmapMode);
             var color = heatmapColor(norm, HEATMAP_SCALES[heatmapMode]);
@@ -1176,8 +1176,8 @@
 
         if (graph) {
             graph.nodeColor(graph.nodeColor())
-                 .linkWidth(graph.linkWidth())
-                 .linkDirectionalParticles(graph.linkDirectionalParticles());
+                .linkWidth(graph.linkWidth())
+                .linkDirectionalParticles(graph.linkDirectionalParticles());
             if (symbolChanged) {
                 graph.linkColor(graph.linkColor());
             }
@@ -1209,9 +1209,9 @@
                 highlightedPath.links.clear();
                 if (graph) {
                     graph.nodeColor(graph.nodeColor())
-                         .linkWidth(graph.linkWidth())
-                         .linkColor(graph.linkColor())
-                         .linkDirectionalParticles(graph.linkDirectionalParticles());
+                        .linkWidth(graph.linkWidth())
+                        .linkColor(graph.linkColor())
+                        .linkDirectionalParticles(graph.linkDirectionalParticles());
                 }
             }
             return;
@@ -1271,7 +1271,7 @@
         multiSelectedLinks.clear();
         if (multiSelectedNodes.size < 2 || !graphData) return;
         var selectedIds = new Set();
-        multiSelectedNodes.forEach(function(n) { selectedIds.add(n.id); });
+        multiSelectedNodes.forEach(function (n) { selectedIds.add(n.id); });
         var links = graphData.links;
         for (var i = 0; i < links.length; i++) {
             var srcId = typeof links[i].source === 'object' ? links[i].source.id : links[i].source;
@@ -1321,9 +1321,9 @@
         updateExplorerSelection();
         if (graph) {
             graph.nodeColor(graph.nodeColor())
-                 .linkWidth(graph.linkWidth())
-                 .linkColor(graph.linkColor())
-                 .linkDirectionalParticles(graph.linkDirectionalParticles());
+                .linkWidth(graph.linkWidth())
+                .linkColor(graph.linkColor())
+                .linkDirectionalParticles(graph.linkDirectionalParticles());
             if (hadSelection || hadPinned) {
                 graph.nodeThreeObject(graph.nodeThreeObject());
             }
@@ -1582,7 +1582,7 @@
         flowTraceAnimDepth = 0;
         refreshGraphColors();
 
-        flowTraceTimer = setInterval(function() {
+        flowTraceTimer = setInterval(function () {
             flowTraceAnimDepth++;
             refreshGraphColors();
             if (flowTraceAnimDepth >= flowTraceMaxDepth) {
@@ -1713,24 +1713,24 @@
     function refreshGraphVisuals() {
         if (!graph) return;
         graph.nodeColor(graph.nodeColor())
-             .linkVisibility(graph.linkVisibility())
-             .linkWidth(graph.linkWidth())
-             .linkColor(graph.linkColor())
-             .linkDirectionalArrowLength(graph.linkDirectionalArrowLength())
-             .linkDirectionalParticles(graph.linkDirectionalParticles())
-             .nodeThreeObject(graph.nodeThreeObject());
+            .linkVisibility(graph.linkVisibility())
+            .linkWidth(graph.linkWidth())
+            .linkColor(graph.linkColor())
+            .linkDirectionalArrowLength(graph.linkDirectionalArrowLength())
+            .linkDirectionalParticles(graph.linkDirectionalParticles())
+            .nodeThreeObject(graph.nodeThreeObject());
     }
 
     // Light refresh: update colors without reheating the simulation
     function refreshGraphColors() {
         if (!graph) return;
         graph.nodeColor(graph.nodeColor())
-             .linkVisibility(graph.linkVisibility())
-             .linkWidth(graph.linkWidth())
-             .linkColor(graph.linkColor())
-             .linkDirectionalArrowLength(graph.linkDirectionalArrowLength())
-             .linkDirectionalParticles(graph.linkDirectionalParticles())
-             .nodeThreeObject(graph.nodeThreeObject());
+            .linkVisibility(graph.linkVisibility())
+            .linkWidth(graph.linkWidth())
+            .linkColor(graph.linkColor())
+            .linkDirectionalArrowLength(graph.linkDirectionalArrowLength())
+            .linkDirectionalParticles(graph.linkDirectionalParticles())
+            .nodeThreeObject(graph.nodeThreeObject());
     }
 
     // ============================================================
@@ -1805,7 +1805,7 @@
         tooltip.style.left = '50%';
         tooltip.style.top = '60px';
         tooltip.style.transform = 'translateX(-50%)';
-        setTimeout(function() {
+        setTimeout(function () {
             tooltip.classList.add('hidden');
             tooltip.style.transform = '';
         }, 2500);
@@ -1881,10 +1881,10 @@
         }
         $('#panel-loc').textContent = node.linesOfCode.toLocaleString();
         $('#panel-size').textContent = formatBytes(node.size);
-        
+
         if (node.lastModified) {
             var date = new Date(node.lastModified);
-            $('#panel-mtime').textContent = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            $('#panel-mtime').textContent = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         } else {
             $('#panel-mtime').textContent = '—';
         }
@@ -1907,7 +1907,7 @@
             var explodeBtn = document.createElement('button');
             explodeBtn.className = 'explode-btn';
             explodeBtn.textContent = explodedNode && explodedNode.id === node.id ? '⊖ Collapse' : '⊕ Explode File';
-            explodeBtn.addEventListener('click', function() {
+            explodeBtn.addEventListener('click', function () {
                 if (explodedNode && explodedNode.id === node.id) {
                     collapseExplosion();
                 } else {
@@ -1925,8 +1925,8 @@
                 traceBtn.className = 'flow-trace-btn';
                 traceBtn.textContent = '▶';
                 traceBtn.title = 'Trace call flow from ' + fn.name;
-                (function(funcName, fileId) {
-                    traceBtn.addEventListener('click', function(e) {
+                (function (funcName, fileId) {
+                    traceBtn.addEventListener('click', function (e) {
                         e.stopPropagation();
                         startFlowTrace(fileId, funcName);
                     });
@@ -1944,8 +1944,8 @@
                 metaSpan.className = 'symbol-meta';
                 metaSpan.textContent = fn.returnType + '(' + shortenParams(fn.params) + ') L' + fn.line;
                 item.appendChild(metaSpan);
-                (function(line) {
-                    item.addEventListener('dblclick', function() {
+                (function (line) {
+                    item.addEventListener('dblclick', function () {
                         vscode.postMessage({ type: 'openFile', payload: { path: node.path, line: line } });
                     });
                 })(fn.line);
@@ -2050,7 +2050,7 @@
         depsUl.innerHTML = '';
         $('#deps-count').textContent = deps.length;
         for (var dd = 0; dd < deps.length; dd++) {
-            (function(d) {
+            (function (d) {
                 var targetId = typeof d.target === 'object' ? d.target.id : d.target;
                 var targetNode = null;
                 for (var x = 0; x < graphData.nodes.length; x++) {
@@ -2064,7 +2064,7 @@
                     '<span>' + (targetNode ? targetNode.name : targetId) + '</span>' +
                     labelStr +
                     '<span class="' + typeClass + '">' + d.type + '</span>';
-                li.addEventListener('click', function() {
+                li.addEventListener('click', function () {
                     if (targetNode) handleNodeClick(targetNode);
                 });
                 depsUl.appendChild(li);
@@ -2082,7 +2082,7 @@
         depUl.innerHTML = '';
         $('#dependents-count').textContent = dependents.length;
         for (var rr = 0; rr < dependents.length; rr++) {
-            (function(d) {
+            (function (d) {
                 var sourceId = typeof d.source === 'object' ? d.source.id : d.source;
                 var sourceNode = null;
                 for (var x = 0; x < graphData.nodes.length; x++) {
@@ -2096,7 +2096,7 @@
                     '<span>' + (sourceNode ? sourceNode.name : sourceId) + '</span>' +
                     labelStr +
                     '<span class="' + typeClass + '">' + d.type + '</span>';
-                li.addEventListener('click', function() {
+                li.addEventListener('click', function () {
                     if (sourceNode) handleNodeClick(sourceNode);
                 });
                 depUl.appendChild(li);
@@ -2110,7 +2110,7 @@
         detailPanel.classList.remove('collapsed');
 
         var nodes = [];
-        multiSelectedNodes.forEach(function(n) { nodes.push(n); });
+        multiSelectedNodes.forEach(function (n) { nodes.push(n); });
 
         var totalLoc = 0;
         var totalComplexity = 0;
@@ -2167,14 +2167,14 @@
             '<div class="dead-exports-header" style="color:#93c5fd">📌 Selected files <span class="dead-count" style="background:rgba(147,197,253,0.2);color:#93c5fd">' +
             nodes.length + '</span></div>';
         for (var fi = 0; fi < nodes.length; fi++) {
-            (function(node) {
+            (function (node) {
                 var fItem = document.createElement('div');
                 fItem.className = 'symbol-item symbol-item-clickable';
                 fItem.innerHTML =
                     '<span class="symbol-icon">' + (LANGUAGE_ICONS[node.language] || '📄') + '</span>' +
                     '<span class="symbol-name">' + node.name + '</span>' +
                     '<span class="symbol-meta">' + node.linesOfCode + ' lines</span>';
-                fItem.addEventListener('click', function() {
+                fItem.addEventListener('click', function () {
                     handleNodeClick(node);
                 });
                 filesSection.appendChild(fItem);
@@ -2186,7 +2186,7 @@
         var depsUl = $('#panel-deps');
         depsUl.innerHTML = '';
         $('#deps-count').textContent = multiSelectedLinks.size;
-        multiSelectedLinks.forEach(function(link) {
+        multiSelectedLinks.forEach(function (link) {
             var srcId = typeof link.source === 'object' ? link.source.id : link.source;
             var tgtId = typeof link.target === 'object' ? link.target.id : link.target;
             var srcNode = null, tgtNode = null;
@@ -2217,7 +2217,7 @@
     }
 
     function setupPanelClose() {
-        $('#panel-close').addEventListener('click', function() {
+        $('#panel-close').addEventListener('click', function () {
             detailPanel.classList.add('collapsed');
             selectedNode = null;
             if (multiSelectedNodes.size > 0) {
@@ -2283,7 +2283,7 @@
 
         // Build call edges (not shown immediately — revealed on symbol hover)
         var allCallEdges = [];
-        var subIdSet = new Set(subNodes.map(function(n) { return n.id; }));
+        var subIdSet = new Set(subNodes.map(function (n) { return n.id; }));
         if (graphData && graphData.functionCalls) {
             for (var fc = 0; fc < graphData.functionCalls.length; fc++) {
                 var call = graphData.functionCalls[fc];
@@ -2319,7 +2319,7 @@
 
         explosionData = {
             parentId: node.id,
-            subNodeIds: subNodes.map(function(n) { return n.id; })
+            subNodeIds: subNodes.map(function (n) { return n.id; })
         };
 
         var newNodes = currentData.nodes.concat(subNodes);
@@ -2332,8 +2332,8 @@
         var currentData = graph.graphData();
         var subIds = new Set(explosionData.subNodeIds);
 
-        var filteredNodes = currentData.nodes.filter(function(n) { return !subIds.has(n.id); });
-        var filteredLinks = currentData.links.filter(function(l) { return !l._isExplosionLink; });
+        var filteredNodes = currentData.nodes.filter(function (n) { return !subIds.has(n.id); });
+        var filteredLinks = currentData.links.filter(function (l) { return !l._isExplosionLink; });
 
         graph.graphData({ nodes: filteredNodes, links: filteredLinks });
         explodedNode = null;
@@ -2487,7 +2487,7 @@
                     _clusterGroup: groupName,
                     _clusterColor: color,
                     _clusterCount: members.length,
-                    _memberIds: members.map(function(n) { return n.id; })
+                    _memberIds: members.map(function (n) { return n.id; })
                 });
                 for (var mi = 0; mi < members.length; mi++) {
                     nodeToCluster[members[mi].id] = clusterId;
@@ -2539,7 +2539,7 @@
     // Search
     // ============================================================
     function setupSearch() {
-        searchInput.addEventListener('input', function(e) {
+        searchInput.addEventListener('input', function (e) {
             var query = e.target.value.trim().toLowerCase();
             if (query.length < 2 || !graphData) {
                 searchResults.classList.add('hidden');
@@ -2563,18 +2563,18 @@
 
             searchResults.innerHTML = '';
             for (var r = 0; r < results.length; r++) {
-                (function(node) {
+                (function (node) {
                     var item = document.createElement('div');
                     item.className = 'search-result-item';
                     item.innerHTML =
                         '<span style="color:' + (LANGUAGE_COLORS[node.language] || '#fff') + '">' +
-                            (LANGUAGE_ICONS[node.language] || '📄') +
+                        (LANGUAGE_ICONS[node.language] || '📄') +
                         '</span>' +
                         '<div>' +
-                            '<div class="result-name">' + highlightMatch(node.name, query) + '</div>' +
-                            '<div class="result-path">' + escapeHtml(node.path) + '</div>' +
+                        '<div class="result-name">' + highlightMatch(node.name, query) + '</div>' +
+                        '<div class="result-path">' + escapeHtml(node.path) + '</div>' +
                         '</div>';
-                    item.addEventListener('click', function() {
+                    item.addEventListener('click', function () {
                         handleNodeClick(node);
                         searchResults.classList.add('hidden');
                         searchInput.value = node.name;
@@ -2586,13 +2586,13 @@
             searchResults.classList.remove('hidden');
         });
 
-        document.addEventListener('click', function(e) {
+        document.addEventListener('click', function (e) {
             if (!e.target.closest('#search-container')) {
                 searchResults.classList.add('hidden');
             }
         });
 
-        searchInput.addEventListener('keydown', function(e) {
+        searchInput.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') {
                 searchResults.classList.add('hidden');
                 searchInput.blur();
@@ -2604,9 +2604,9 @@
         var idx = text.toLowerCase().indexOf(query);
         if (idx === -1) return escapeHtml(text);
         return escapeHtml(text.slice(0, idx)) +
-               '<strong style="color:#60a5fa">' +
-               escapeHtml(text.slice(idx, idx + query.length)) + '</strong>' +
-               escapeHtml(text.slice(idx + query.length));
+            '<strong style="color:#60a5fa">' +
+            escapeHtml(text.slice(idx, idx + query.length)) + '</strong>' +
+            escapeHtml(text.slice(idx + query.length));
     }
 
     function escapeHtml(str) {
@@ -2722,23 +2722,23 @@
         var queue = [[start, []]];
         var visited = new Set();
         visited.add(start.id);
-        
+
         var adj = {};
         var links = graphData.links;
         for (var i = 0; i < links.length; i++) {
             var l = links[i];
             var sId = typeof l.source === 'object' ? l.source.id : l.source;
             if (!adj[sId]) adj[sId] = [];
-            
+
             var tNode = typeof l.target === 'object' ? l.target : findNode(typeof l.target === 'object' ? l.target.id : l.target);
             adj[sId].push({ target: tNode, link: l });
         }
-        
+
         while (queue.length > 0) {
             var current = queue.shift();
             var currNode = current[0];
             var pathLinks = current[1];
-            
+
             if (currNode.id === end.id) {
                 highlightedPath.links = new Set(pathLinks);
                 var nodesInPath = new Set();
@@ -2750,17 +2750,17 @@
                     nodesInPath.add(findNode(ntId));
                 }
                 highlightedPath.nodes = nodesInPath;
-                
+
                 if (graph) {
                     graph.nodeColor(graph.nodeColor())
-                         .linkWidth(graph.linkWidth())
-                         .linkColor(graph.linkColor())
-                         .linkDirectionalParticles(graph.linkDirectionalParticles());
-                    graph.zoomToFit(1000, 50, function(n) { return nodesInPath.has(n); });
+                        .linkWidth(graph.linkWidth())
+                        .linkColor(graph.linkColor())
+                        .linkDirectionalParticles(graph.linkDirectionalParticles());
+                    graph.zoomToFit(1000, 50, function (n) { return nodesInPath.has(n); });
                 }
                 return;
             }
-            
+
             var neighbors = adj[currNode.id] || [];
             for (var k = 0; k < neighbors.length; k++) {
                 var n = neighbors[k].target;
@@ -2773,7 +2773,7 @@
                 }
             }
         }
-        
+
         // No path found
         pathNodes = [];
         highlightedPath.nodes.clear();
@@ -2947,8 +2947,8 @@
     function setupFilters() {
         var langBtns = document.querySelectorAll('#language-filters .filter-btn');
         for (var i = 0; i < langBtns.length; i++) {
-            (function(btn) {
-                btn.addEventListener('click', function() {
+            (function (btn) {
+                btn.addEventListener('click', function () {
                     var lang = btn.dataset.lang;
                     btn.classList.toggle('active');
                     if (btn.classList.contains('active')) activeLanguages.add(lang);
@@ -2959,7 +2959,7 @@
             })(langBtns[i]);
         }
 
-        $('#btn-dag-mode').addEventListener('click', function() {
+        $('#btn-dag-mode').addEventListener('click', function () {
             dagMode = !dagMode;
             $('#btn-dag-mode').classList.toggle('active', dagMode);
             if (graph) {
@@ -2974,12 +2974,12 @@
             saveViewState();
         });
 
-        $('#btn-highlight-orphans').addEventListener('click', function() {
+        $('#btn-highlight-orphans').addEventListener('click', function () {
             showOrphans = !showOrphans;
             $('#btn-highlight-orphans').classList.toggle('active', showOrphans);
             if (showOrphans) {
                 if (showDeadCode) { showDeadCode = false; $('#btn-dead-code').classList.remove('active'); }
-                if (showCycles)   { showCycles = false;   $('#btn-cycles').classList.remove('active'); }
+                if (showCycles) { showCycles = false; $('#btn-cycles').classList.remove('active'); }
             }
             if (graph) {
                 graph.nodeColor(graph.nodeColor());
@@ -2990,12 +2990,12 @@
             saveViewState();
         });
 
-        $('#btn-dead-code').addEventListener('click', function() {
+        $('#btn-dead-code').addEventListener('click', function () {
             showDeadCode = !showDeadCode;
             $('#btn-dead-code').classList.toggle('active', showDeadCode);
             if (showDeadCode) {
                 if (showOrphans) { showOrphans = false; $('#btn-highlight-orphans').classList.remove('active'); }
-                if (showCycles)  { showCycles = false;   $('#btn-cycles').classList.remove('active'); }
+                if (showCycles) { showCycles = false; $('#btn-cycles').classList.remove('active'); }
             }
             if (graph) {
                 graph.nodeColor(graph.nodeColor());
@@ -3006,12 +3006,12 @@
             saveViewState();
         });
 
-        $('#btn-cycles').addEventListener('click', function() {
+        $('#btn-cycles').addEventListener('click', function () {
             showCycles = !showCycles;
             $('#btn-cycles').classList.toggle('active', showCycles);
             if (showCycles) {
-                if (showOrphans)  { showOrphans = false;  $('#btn-highlight-orphans').classList.remove('active'); }
-                if (showDeadCode) { showDeadCode = false;  $('#btn-dead-code').classList.remove('active'); }
+                if (showOrphans) { showOrphans = false; $('#btn-highlight-orphans').classList.remove('active'); }
+                if (showDeadCode) { showDeadCode = false; $('#btn-dead-code').classList.remove('active'); }
                 // Build cycle sets from graphData.meta.cycles
                 cycleNodeIds.clear();
                 cycleLinkKeys.clear();
@@ -3031,7 +3031,7 @@
                 graph.nodeColor(graph.nodeColor());
                 graph.nodeVal(graph.nodeVal());
                 graph.linkColor(graph.linkColor());
-                graph.linkWidth(function(link) {
+                graph.linkWidth(function (link) {
                     if (showCycles) {
                         var srcId = typeof link.source === 'object' ? link.source.id : link.source;
                         var tgtId = typeof link.target === 'object' ? link.target.id : link.target;
@@ -3044,12 +3044,12 @@
             saveViewState();
         });
 
-        $('#btn-group-dirs').addEventListener('click', function() {
+        $('#btn-group-dirs').addEventListener('click', function () {
             toggleDirectoryGroups();
             saveViewState();
         });
 
-        $('#btn-path-mode').addEventListener('click', function() {
+        $('#btn-path-mode').addEventListener('click', function () {
             pathMode = !pathMode;
             $('#btn-path-mode').classList.toggle('active', pathMode);
             pathNodes = [];
@@ -3057,21 +3057,21 @@
             highlightedPath.links.clear();
             if (graph) {
                 graph.nodeColor(graph.nodeColor())
-                     .linkWidth(graph.linkWidth())
-                     .linkColor(graph.linkColor())
-                     .linkDirectionalParticles(graph.linkDirectionalParticles());
+                    .linkWidth(graph.linkWidth())
+                    .linkColor(graph.linkColor())
+                    .linkDirectionalParticles(graph.linkDirectionalParticles());
             }
             saveViewState();
         });
 
-        $('#btn-labels').addEventListener('click', function() {
+        $('#btn-labels').addEventListener('click', function () {
             showLabels = !showLabels;
             $('#btn-labels').classList.toggle('active', showLabels);
             if (graph) graph.nodeThreeObject(graph.nodeThreeObject());
             saveViewState();
         });
 
-        $('#btn-recenter').addEventListener('click', function() {
+        $('#btn-recenter').addEventListener('click', function () {
             if (!graph) return;
             selectedNode = null;
             highlightNodes.clear();
@@ -3082,7 +3082,7 @@
             graph.nodeColor(graph.nodeColor());
         });
 
-        $('#heatmap-select').addEventListener('change', function(e) {
+        $('#heatmap-select').addEventListener('change', function (e) {
             setHeatmapMode(e.target.value);
             saveViewState();
         });
@@ -3092,34 +3092,34 @@
         var cpSelectNone = $('#community-select-none');
         var cpClose = $('#community-palette-close');
         if (cpSelectAll) {
-            cpSelectAll.addEventListener('click', function() {
+            cpSelectAll.addEventListener('click', function () {
                 for (var k in communityNames) activeCommunities.add(Number(k));
                 buildCommunityList();
                 if (graph) { graph.nodeColor(graph.nodeColor()); graph.linkColor(graph.linkColor()); graph.nodeThreeObject(graph.nodeThreeObject()); }
             });
         }
         if (cpSelectNone) {
-            cpSelectNone.addEventListener('click', function() {
+            cpSelectNone.addEventListener('click', function () {
                 activeCommunities.clear();
                 buildCommunityList();
                 if (graph) { graph.nodeColor(graph.nodeColor()); graph.linkColor(graph.linkColor()); graph.nodeThreeObject(graph.nodeThreeObject()); }
             });
         }
         if (cpClose) {
-            cpClose.addEventListener('click', function() {
+            cpClose.addEventListener('click', function () {
                 hideCommunityPalette();
             });
         }
 
         // Community palette drag
-        (function() {
+        (function () {
             var palette = $('#community-palette');
             var header = palette ? palette.querySelector('.community-palette-header') : null;
             if (!header) return;
             var dragging = false;
             var offsetX = 0, offsetY = 0;
 
-            header.addEventListener('mousedown', function(e) {
+            header.addEventListener('mousedown', function (e) {
                 if (e.target.tagName === 'BUTTON') return;
                 dragging = true;
                 var rect = palette.getBoundingClientRect();
@@ -3132,7 +3132,7 @@
                 e.preventDefault();
             });
 
-            document.addEventListener('mousemove', function(e) {
+            document.addEventListener('mousemove', function (e) {
                 if (!dragging) return;
                 var x = e.clientX - offsetX;
                 var y = e.clientY - offsetY;
@@ -3143,7 +3143,7 @@
                 palette.style.top = y + 'px';
             });
 
-            document.addEventListener('mouseup', function() {
+            document.addEventListener('mouseup', function () {
                 dragging = false;
             });
         })();
@@ -3151,7 +3151,7 @@
         // ============================================================
         // Minimap — 2D top-down overview with camera viewport rectangle
         // ============================================================
-        (function() {
+        (function () {
             var container = $('#minimap');
             var canvas = $('#minimap-canvas');
             var header = container ? container.querySelector('.minimap-header') : null;
@@ -3162,7 +3162,7 @@
             // --- Drag logic ---
             var dragging = false;
             var offsetX = 0, offsetY = 0;
-            header.addEventListener('mousedown', function(e) {
+            header.addEventListener('mousedown', function (e) {
                 if (e.target.tagName === 'BUTTON') return;
                 dragging = true;
                 var rect = container.getBoundingClientRect();
@@ -3174,14 +3174,14 @@
                 container.style.bottom = 'auto';
                 e.preventDefault();
             });
-            document.addEventListener('mousemove', function(e) {
+            document.addEventListener('mousemove', function (e) {
                 if (!dragging) return;
                 var x = Math.max(0, Math.min(e.clientX - offsetX, window.innerWidth - 60));
                 var y = Math.max(0, Math.min(e.clientY - offsetY, window.innerHeight - 40));
                 container.style.left = x + 'px';
                 container.style.top = y + 'px';
             });
-            document.addEventListener('mouseup', function() { dragging = false; });
+            document.addEventListener('mouseup', function () { dragging = false; });
 
             // --- Helpers: camera-view projection with fixed centroid ---
             // Projects world positions onto the camera's screen plane
@@ -3222,7 +3222,7 @@
                     var n = nodes[i];
                     if (n.x === undefined) continue;
                     var rx = n.x - wcx, ry = n.y - wcy, rz = n.z - wcz;
-                    var u =  m.elements[0] * rx + m.elements[4] * ry + m.elements[8]  * rz;
+                    var u = m.elements[0] * rx + m.elements[4] * ry + m.elements[8] * rz;
                     var v = -(m.elements[1] * rx + m.elements[5] * ry + m.elements[9] * rz);
                     pts.push({ node: n, u: u, v: v });
                 }
@@ -3231,7 +3231,7 @@
                 var ctrl = graph.controls();
                 var target = ctrl.target;
                 var trx = target.x - wcx, try_ = target.y - wcy, trz = target.z - wcz;
-                var tu =  m.elements[0] * trx + m.elements[4] * try_ + m.elements[8]  * trz;
+                var tu = m.elements[0] * trx + m.elements[4] * try_ + m.elements[8] * trz;
                 var tv = -(m.elements[1] * trx + m.elements[5] * try_ + m.elements[9] * trz);
 
                 return {
@@ -3282,7 +3282,7 @@
                 );
             }
 
-            canvas.addEventListener('mousedown', function(e) {
+            canvas.addEventListener('mousedown', function (e) {
                 if (!graph) return;
                 draggingViewport = true;
                 lastDragX = e.clientX;
@@ -3293,12 +3293,12 @@
             // Handle drag on both canvas (while cursor is over it) and
             // document (when cursor leaves canvas during drag)
             canvas.addEventListener('mousemove', handleMinimapDrag);
-            document.addEventListener('mousemove', function(e) {
+            document.addEventListener('mousemove', function (e) {
                 if (!draggingViewport) return;
                 handleMinimapDrag(e);
             });
 
-            document.addEventListener('mouseup', function() {
+            document.addEventListener('mouseup', function () {
                 draggingViewport = false;
             });
 
@@ -3355,18 +3355,18 @@
                     ctx.strokeStyle = 'rgba(255,255,255,0.7)';
                     ctx.lineWidth = 1;
                     ctx.strokeRect(vpCx - vpHalfW, vpCy - vpHalfH, vpHalfW * 2, vpHalfH * 2);
-                } catch (ignored) {}
+                } catch (ignored) { }
             }
             requestAnimationFrame(renderMinimap);
         })();
 
-        $('#node-size-slider').addEventListener('input', function(e) {
+        $('#node-size-slider').addEventListener('input', function (e) {
             nodeSizeMultiplier = parseFloat(e.target.value);
             if (graph) graph.nodeVal(graph.nodeVal());
             saveViewState();
         });
 
-        $('#spread-slider').addEventListener('input', function(e) {
+        $('#spread-slider').addEventListener('input', function (e) {
             spreadMultiplier = parseFloat(e.target.value);
             if (graph) {
                 applySpreadForces();
@@ -3375,7 +3375,7 @@
             saveViewState();
         });
 
-        $('#depth-slider').addEventListener('input', function(e) {
+        $('#depth-slider').addEventListener('input', function (e) {
             focusDepth = parseInt(e.target.value);
             $('#depth-value').textContent = focusDepth;
             // Re-apply if already pinned or in impact mode
@@ -3393,7 +3393,7 @@
         // ============================================================
         var HEATMAP_MODES = ['off', 'complexity', 'fanIn', 'fanOut', 'loc', 'lastModified', 'community'];
 
-        document.addEventListener('keydown', function(e) {
+        document.addEventListener('keydown', function (e) {
             // Ignore when typing in an input
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
             if (!graph) return;
@@ -3517,10 +3517,10 @@
                         updateTimelineButtons();
                     }
                     graph.nodeColor(graph.nodeColor())
-                         .linkWidth(graph.linkWidth())
-                         .linkColor(graph.linkColor())
-                         .linkDirectionalParticles(graph.linkDirectionalParticles())
-                         .nodeThreeObject(graph.nodeThreeObject());
+                        .linkWidth(graph.linkWidth())
+                        .linkColor(graph.linkColor())
+                        .linkDirectionalParticles(graph.linkDirectionalParticles())
+                        .nodeThreeObject(graph.nodeThreeObject());
                     break;
             }
         });
@@ -3587,7 +3587,7 @@
         if (!timelineSlider || !timelinePrevBtn || !timelineNextBtn) return;
 
         // Update tooltip while dragging, navigate only on release
-        timelineSlider.addEventListener('input', function() {
+        timelineSlider.addEventListener('input', function () {
             // In compare mode, clamp blue (to) slider to not go before orange (from)
             if (timelineCompareMode && timelineFromSlider) {
                 var curTo = parseInt(timelineSlider.value);
@@ -3596,7 +3596,7 @@
             }
             updateTimelineLabel();
         });
-        timelineSlider.addEventListener('change', function() {
+        timelineSlider.addEventListener('change', function () {
             if (timelineCompareMode && timelineFromSlider) {
                 var curTo = parseInt(timelineSlider.value);
                 var curFrom = parseInt(timelineFromSlider.value);
@@ -3606,7 +3606,7 @@
             navigateToCommit(pos);
         });
 
-        timelinePrevBtn.addEventListener('click', function() {
+        timelinePrevBtn.addEventListener('click', function () {
             var pos = parseInt(timelineSlider.value);
             var minPos = (timelineCompareMode && timelineFromSlider) ? parseInt(timelineFromSlider.value) : 0;
             if (pos > minPos) {
@@ -3615,7 +3615,7 @@
             }
         });
 
-        timelineNextBtn.addEventListener('click', function() {
+        timelineNextBtn.addEventListener('click', function () {
             var pos = parseInt(timelineSlider.value);
             var max = parseInt(timelineSlider.max);
             if (pos < max) {
@@ -3625,14 +3625,14 @@
         });
 
         if (timelineImpactBtn) {
-            timelineImpactBtn.addEventListener('click', function() {
+            timelineImpactBtn.addEventListener('click', function () {
                 toggleImpactMode();
             });
         }
 
         // Compare mode button
         if (timelineCompareBtn) {
-            timelineCompareBtn.addEventListener('click', function() {
+            timelineCompareBtn.addEventListener('click', function () {
                 toggleCompareMode();
             });
         }
@@ -3640,7 +3640,7 @@
         // From-slider (compare mode)
         if (timelineFromSlider) {
             // Update tooltip while dragging, navigate only on release
-            timelineFromSlider.addEventListener('input', function() {
+            timelineFromSlider.addEventListener('input', function () {
                 // Clamp orange (from) slider to not go after blue (to)
                 var curFrom = parseInt(timelineFromSlider.value);
                 var curTo = parseInt(timelineSlider.value);
@@ -3648,7 +3648,7 @@
                 timelineFromPos = parseInt(timelineFromSlider.value);
                 updateTimelineLabel();
             });
-            timelineFromSlider.addEventListener('change', function() {
+            timelineFromSlider.addEventListener('change', function () {
                 var curFrom = parseInt(timelineFromSlider.value);
                 var curTo = parseInt(timelineSlider.value);
                 if (curFrom > curTo) timelineFromSlider.value = curTo;
@@ -3660,7 +3660,7 @@
 
         // From-slider prev/next buttons (compare mode)
         if (timelineFromPrevBtn) {
-            timelineFromPrevBtn.addEventListener('click', function() {
+            timelineFromPrevBtn.addEventListener('click', function () {
                 if (!timelineFromSlider) return;
                 var pos = parseInt(timelineFromSlider.value);
                 if (pos > 0) {
@@ -3672,7 +3672,7 @@
             });
         }
         if (timelineFromNextBtn) {
-            timelineFromNextBtn.addEventListener('click', function() {
+            timelineFromNextBtn.addEventListener('click', function () {
                 if (!timelineFromSlider) return;
                 var pos = parseInt(timelineFromSlider.value);
                 var toPos = parseInt(timelineSlider.value);
@@ -3719,7 +3719,7 @@
             sliderTip.style.top = (rect.top - 32) + 'px';
         }
         sliderWrap.addEventListener('mousemove', showSliderTip);
-        sliderWrap.addEventListener('mouseleave', function() {
+        sliderWrap.addEventListener('mouseleave', function () {
             sliderTip.classList.add('hidden');
         });
     }
@@ -4052,7 +4052,7 @@
         }
 
         // Links in HEAD but not in target graph → removed
-        headLinkKeys.forEach(function(hk) {
+        headLinkKeys.forEach(function (hk) {
             if (!newLinkKeys.has(hk)) {
                 timelineRemovedLinks.add(hk);
             }
@@ -4154,7 +4154,7 @@
         refreshGraphVisuals();
 
         // Unpin to let simulation settle (back to normal view)
-        setTimeout(function() {
+        setTimeout(function () {
             var d = graph.graphData();
             for (var ui = 0; ui < d.nodes.length; ui++) {
                 delete d.nodes[ui].fx; delete d.nodes[ui].fy; delete d.nodes[ui].fz;
@@ -4364,7 +4364,7 @@
     // ============================================================
     function setupExplorer() {
         if (!toggleExplorerBtn) return;
-        toggleExplorerBtn.addEventListener('click', function() {
+        toggleExplorerBtn.addEventListener('click', function () {
             showExplorer = !showExplorer;
             if (showExplorer) {
                 explorerPanel.classList.remove('collapsed');
@@ -4379,7 +4379,7 @@
         var explorerAllBtn = $('#explorer-all');
         var explorerNoneBtn = $('#explorer-none');
         if (explorerAllBtn) {
-            explorerAllBtn.addEventListener('click', function() {
+            explorerAllBtn.addEventListener('click', function () {
                 activeDirs = [];
                 var rootKeys = Object.keys(fileTree.children);
                 for (var i = 0; i < rootKeys.length; i++) {
@@ -4392,7 +4392,7 @@
             });
         }
         if (explorerNoneBtn) {
-            explorerNoneBtn.addEventListener('click', function() {
+            explorerNoneBtn.addEventListener('click', function () {
                 activeDirs = [];
                 updateExplorerCheckboxes();
                 applyFilters();
@@ -4402,7 +4402,7 @@
 
     function buildExplorerTree(nodes) {
         fileTree = { name: 'root', type: 'dir', children: {}, path: '' };
-        
+
         for (var i = 0; i < nodes.length; i++) {
             var node = nodes[i];
             var parts = node.path.split('/');
@@ -4435,7 +4435,7 @@
                 activeDirs.push(fileTree.children[rootKeys[k]].path);
             }
         }
-        
+
         renderExplorerTree();
     }
 
@@ -4443,8 +4443,8 @@
         if (!explorerTree) return;
         explorerTree.innerHTML = '';
         var rootFragment = document.createDocumentFragment();
-        
-        var keys = Object.keys(fileTree.children).sort(function(a, b) {
+
+        var keys = Object.keys(fileTree.children).sort(function (a, b) {
             var aObj = fileTree.children[a];
             var bObj = fileTree.children[b];
             if (aObj.type === 'dir' && bObj.type === 'file') return -1;
@@ -4461,14 +4461,14 @@
 
     function createTreeNode(item, depth) {
         var container = document.createElement('div');
-        
+
         var nodeEl = document.createElement('div');
         nodeEl.className = 'tree-node';
         nodeEl.style.paddingLeft = (12 + depth * 16) + 'px';
-        
+
         var icon = document.createElement('span');
         icon.className = 'tree-icon';
-        
+
         if (item.type === 'dir') {
             icon.textContent = '📁';
             nodeEl.dataset.expanded = 'false';
@@ -4480,10 +4480,10 @@
             cb.dataset.dirPath = item.path;
             cb.title = 'Show/hide files in ' + item.name;
             cb.checked = activeDirs.indexOf(item.path) !== -1;
-            cb.addEventListener('click', function(e) {
+            cb.addEventListener('click', function (e) {
                 e.stopPropagation();
             });
-            cb.addEventListener('change', function() {
+            cb.addEventListener('change', function () {
                 var idx = activeDirs.indexOf(item.path);
                 if (cb.checked && idx === -1) {
                     activeDirs.push(item.path);
@@ -4509,8 +4509,8 @@
         if (item.type === 'dir') {
             var childrenContainer = document.createElement('div');
             childrenContainer.className = 'tree-children collapsed';
-            
-            var keys = Object.keys(item.children).sort(function(a, b) {
+
+            var keys = Object.keys(item.children).sort(function (a, b) {
                 var aObj = item.children[a];
                 var bObj = item.children[b];
                 if (aObj.type === 'dir' && bObj.type === 'file') return -1;
@@ -4523,7 +4523,7 @@
             }
             container.appendChild(childrenContainer);
 
-            nodeEl.addEventListener('click', function(e) {
+            nodeEl.addEventListener('click', function (e) {
                 e.stopPropagation();
                 var isExpanded = nodeEl.dataset.expanded === 'true';
                 nodeEl.dataset.expanded = !isExpanded;
@@ -4532,7 +4532,7 @@
                 else childrenContainer.classList.remove('collapsed');
             });
         } else {
-            nodeEl.addEventListener('click', function(e) {
+            nodeEl.addEventListener('click', function (e) {
                 e.stopPropagation();
                 if (item.node) {
                     handleNodeClick(item.node);
@@ -4540,7 +4540,7 @@
                 }
             });
             // Double-click: open in editor
-            nodeEl.addEventListener('dblclick', function(e) {
+            nodeEl.addEventListener('dblclick', function (e) {
                 e.stopPropagation();
                 if (item.node) {
                     vscode.postMessage({ type: 'openFile', payload: { path: item.node.path } });
@@ -4591,7 +4591,7 @@
     function setupTabs() {
         var tabBtns = document.querySelectorAll('.tab-btn');
         for (var i = 0; i < tabBtns.length; i++) {
-            tabBtns[i].addEventListener('click', function() {
+            tabBtns[i].addEventListener('click', function () {
                 switchTab(this.dataset.tab);
             });
         }
@@ -4755,26 +4755,26 @@
         html += '</div>';
 
         // Top 10 largest files
-        var sorted = nodes.slice().sort(function(a, b) { return (b.linesOfCode || 0) - (a.linesOfCode || 0); });
+        var sorted = nodes.slice().sort(function (a, b) { return (b.linesOfCode || 0) - (a.linesOfCode || 0); });
         html += '<div class="metrics-section"><h3>Top 10 Largest Files</h3>';
         html += buildFileBarChart(sorted.slice(0, 10), 'linesOfCode', maxLoc);
         html += '</div>';
 
         // Top 10 most complex files
-        var sortedCx = nodes.slice().sort(function(a, b) { return (b.complexity || 0) - (a.complexity || 0); });
+        var sortedCx = nodes.slice().sort(function (a, b) { return (b.complexity || 0) - (a.complexity || 0); });
         html += '<div class="metrics-section"><h3>Top 10 Most Complex Files</h3>';
         html += buildFileBarChart(sortedCx.slice(0, 10), 'complexity', maxComplexity);
         html += '</div>';
 
         // Top 10 highest fan-in
-        var sortedFi = nodes.slice().sort(function(a, b) { return (b.fanIn || 0) - (a.fanIn || 0); });
+        var sortedFi = nodes.slice().sort(function (a, b) { return (b.fanIn || 0) - (a.fanIn || 0); });
         html += '<div class="metrics-section"><h3>Top 10 Highest Fan-in (Most Depended On)</h3>';
         html += buildFileBarChart(sortedFi.slice(0, 10), 'fanIn', maxFanIn);
         html += '</div>';
 
         // LOC by folder (top 15)
-        var folderEntries = Object.keys(folderLoc).map(function(k) { return { key: k, value: folderLoc[k] }; });
-        folderEntries.sort(function(a, b) { return b.value - a.value; });
+        var folderEntries = Object.keys(folderLoc).map(function (k) { return { key: k, value: folderLoc[k] }; });
+        folderEntries.sort(function (a, b) { return b.value - a.value; });
         var folderObj = {};
         var folderMax = 0;
         for (var i = 0; i < Math.min(folderEntries.length, 15); i++) {
@@ -4804,7 +4804,7 @@
 
     function buildBarChart(dataObj, colorMap, maxVal) {
         var html = '<div class="metrics-bar-chart">';
-        var keys = Object.keys(dataObj).sort(function(a, b) { return dataObj[b] - dataObj[a]; });
+        var keys = Object.keys(dataObj).sort(function (a, b) { return dataObj[b] - dataObj[a]; });
         for (var i = 0; i < keys.length; i++) {
             var k = keys[i];
             var v = dataObj[k];
@@ -4854,12 +4854,12 @@
     function setupTreemap() {
         var sizeSelect = $('#treemap-size-metric');
         var colorSelect = $('#treemap-color-metric');
-        if (sizeSelect) sizeSelect.addEventListener('change', function() {
+        if (sizeSelect) sizeSelect.addEventListener('change', function () {
             treemapSizeMetric = this.value;
             treemapRenderedW = 0; treemapRenderedH = 0; // force full re-render
             renderTreemap();
         });
-        if (colorSelect) colorSelect.addEventListener('change', function() {
+        if (colorSelect) colorSelect.addEventListener('change', function () {
             treemapColorMetric = this.value;
             treemapRenderedW = 0; treemapRenderedH = 0;
             renderTreemap();
@@ -4867,10 +4867,10 @@
 
         // Re-render on resize only if container grew
         var resizeTimer = null;
-        window.addEventListener('resize', function() {
+        window.addEventListener('resize', function () {
             if (activeTab === 'treemap') {
                 clearTimeout(resizeTimer);
-                resizeTimer = setTimeout(function() {
+                resizeTimer = setTimeout(function () {
                     var container = $('#treemap-container');
                     if (!container) return;
                     var rect = container.getBoundingClientRect();
@@ -4965,7 +4965,7 @@
         if (totalValue <= 0) return;
 
         // Sort descending by value
-        items.sort(function(a, b) { return b.value - a.value; });
+        items.sort(function (a, b) { return b.value - a.value; });
 
         layoutStrip(items, 0, x, y, w, h, totalValue);
     }
@@ -5083,7 +5083,7 @@
         if (!container || !graphData) return;
 
         // Defer to next frame so the tab-content is visible and has dimensions
-        requestAnimationFrame(function() { renderTreemapInner(container); });
+        requestAnimationFrame(function () { renderTreemapInner(container); });
     }
 
     function renderTreemapInner(container) {
@@ -5202,7 +5202,7 @@
         }
 
         // Event delegation
-        container.onmousemove = function(e) {
+        container.onmousemove = function (e) {
             var cell = e.target.closest('.treemap-file');
             if (cell) {
                 var nodeId = cell.dataset.nodeId;
@@ -5224,11 +5224,11 @@
                 treemapTooltipEl.classList.remove('visible');
             }
         };
-        container.onmouseleave = function() {
+        container.onmouseleave = function () {
             if (treemapTooltipEl) treemapTooltipEl.classList.remove('visible');
         };
 
-        container.onclick = function(e) {
+        container.onclick = function (e) {
             var dirCell = e.target.closest('.treemap-dir');
             var fileCell = e.target.closest('.treemap-file');
             if (fileCell) {
@@ -5313,7 +5313,7 @@
         // Click handlers
         var crumbs = bc.querySelectorAll('.treemap-crumb');
         for (var i = 0; i < crumbs.length; i++) {
-            crumbs[i].addEventListener('click', function() {
+            crumbs[i].addEventListener('click', function () {
                 treemapZoomPath = this.dataset.path;
                 treemapRenderedW = 0; treemapRenderedH = 0;
                 renderTreemap();
@@ -5329,7 +5329,7 @@
 
     function setupChord() {
         var groupSelect = $('#chord-group-by');
-        if (groupSelect) groupSelect.addEventListener('change', function() {
+        if (groupSelect) groupSelect.addEventListener('change', function () {
             chordGroupBy = this.value;
             renderChord();
         });
@@ -5468,10 +5468,10 @@
             var x2i = cx + r1 * Math.cos(a1), y2i = cy + r1 * Math.sin(a1);
             var large = (a2 - a1) > Math.PI ? 1 : 0;
             return 'M' + x1o + ',' + y1o +
-                   ' A' + r2 + ',' + r2 + ' 0 ' + large + ' 1 ' + x2o + ',' + y2o +
-                   ' L' + x1i + ',' + y1i +
-                   ' A' + r1 + ',' + r1 + ' 0 ' + large + ' 0 ' + x2i + ',' + y2i +
-                   ' Z';
+                ' A' + r2 + ',' + r2 + ' 0 ' + large + ' 1 ' + x2o + ',' + y2o +
+                ' L' + x1i + ',' + y1i +
+                ' A' + r1 + ',' + r1 + ' 0 ' + large + ' 0 ' + x2i + ',' + y2i +
+                ' Z';
         }
 
         // Ribbon path: quad bezier through center
@@ -5482,11 +5482,11 @@
             var tx1 = cx + r * Math.cos(tgtStart), ty1 = cy + r * Math.sin(tgtStart);
             var tx2 = cx + r * Math.cos(tgtEnd), ty2 = cy + r * Math.sin(tgtEnd);
             return 'M' + sx1 + ',' + sy1 +
-                   ' A' + r + ',' + r + ' 0 0 1 ' + sx2 + ',' + sy2 +
-                   ' Q' + cx + ',' + cy + ' ' + tx1 + ',' + ty1 +
-                   ' A' + r + ',' + r + ' 0 0 1 ' + tx2 + ',' + ty2 +
-                   ' Q' + cx + ',' + cy + ' ' + sx1 + ',' + sy1 +
-                   ' Z';
+                ' A' + r + ',' + r + ' 0 0 1 ' + sx2 + ',' + sy2 +
+                ' Q' + cx + ',' + cy + ' ' + tx1 + ',' + ty1 +
+                ' A' + r + ',' + r + ' 0 0 1 ' + tx2 + ',' + ty2 +
+                ' Q' + cx + ',' + cy + ' ' + sx1 + ',' + sy1 +
+                ' Z';
         }
 
         // Assign sub-arc angles for ribbons
@@ -5618,7 +5618,7 @@
         }
 
         // Interactions
-        svg.addEventListener('mouseover', function(e) {
+        svg.addEventListener('mouseover', function (e) {
             var ribbon = e.target.closest('.chord-ribbon');
             var arc = e.target.closest('.chord-arc');
 
@@ -5688,14 +5688,14 @@
             }
         });
 
-        svg.addEventListener('mousemove', function(e) {
+        svg.addEventListener('mousemove', function (e) {
             if (chordTooltipEl.classList.contains('visible')) {
                 chordTooltipEl.style.left = (e.clientX + 12) + 'px';
                 chordTooltipEl.style.top = (e.clientY + 12) + 'px';
             }
         });
 
-        svg.addEventListener('mouseleave', function() {
+        svg.addEventListener('mouseleave', function () {
             var allRibbons = svg.querySelectorAll('.chord-ribbon');
             var allArcs = svg.querySelectorAll('.chord-arc');
             for (var r = 0; r < allRibbons.length; r++) {
@@ -5716,7 +5716,7 @@
 
     function setupTimelineChart() {
         var metricSelect = $('#tchart-metric');
-        if (metricSelect) metricSelect.addEventListener('change', function() {
+        if (metricSelect) metricSelect.addEventListener('change', function () {
             tchartMetric = this.value;
             renderTimelineChart();
         });
@@ -6024,7 +6024,7 @@
         }
 
         // Interactions
-        svg.addEventListener('mouseover', function(e) {
+        svg.addEventListener('mouseover', function (e) {
             var dot = e.target.closest('.tchart-dot');
             if (dot) {
                 var idx = parseInt(dot.dataset.idx);
@@ -6047,14 +6047,14 @@
             }
         });
 
-        svg.addEventListener('mousemove', function(e) {
+        svg.addEventListener('mousemove', function (e) {
             if (tchartTooltipEl.classList.contains('visible')) {
                 tchartTooltipEl.style.left = (e.clientX + 12) + 'px';
                 tchartTooltipEl.style.top = (e.clientY + 12) + 'px';
             }
         });
 
-        svg.addEventListener('mouseleave', function() {
+        svg.addEventListener('mouseleave', function () {
             crosshair.style.display = 'none';
             if (tchartTooltipEl) tchartTooltipEl.classList.remove('visible');
         });
@@ -6070,11 +6070,11 @@
     function setupDSM() {
         var groupSelect = $('#dsm-group-by');
         var sortSelect = $('#dsm-sort');
-        if (groupSelect) groupSelect.addEventListener('change', function() {
+        if (groupSelect) groupSelect.addEventListener('change', function () {
             dsmGroupBy = this.value;
             renderDSM();
         });
-        if (sortSelect) sortSelect.addEventListener('change', function() {
+        if (sortSelect) sortSelect.addEventListener('change', function () {
             dsmSortBy = this.value;
             renderDSM();
         });
@@ -6095,7 +6095,7 @@
         var MAX = 200;
         var sortedNodes = nodes.slice();
         if (sortedNodes.length > MAX) {
-            sortedNodes.sort(function(a, b) { return (b.fanIn + b.fanOut) - (a.fanIn + a.fanOut); });
+            sortedNodes.sort(function (a, b) { return (b.fanIn + b.fanOut) - (a.fanIn + a.fanOut); });
             sortedNodes = sortedNodes.slice(0, MAX);
         }
 
@@ -6111,7 +6111,7 @@
         }
 
         // Sort nodes
-        sortedNodes.sort(function(a, b) {
+        sortedNodes.sort(function (a, b) {
             if (dsmSortBy === 'group') {
                 var ga = groupKey(a), gb = groupKey(b);
                 if (ga !== gb) return ga < gb ? -1 : 1;
@@ -6210,7 +6210,7 @@
         }
 
         // Interactions: hover highlight row/col, tooltip
-        container.addEventListener('mouseover', function(e) {
+        container.addEventListener('mouseover', function (e) {
             var cell = e.target.closest('.dsm-cell');
             var rowHdr = e.target.closest('.dsm-row-hdr');
             var colHdr = e.target.closest('.dsm-col-hdr');
@@ -6270,14 +6270,14 @@
             }
         });
 
-        container.addEventListener('mousemove', function(e) {
+        container.addEventListener('mousemove', function (e) {
             if (dsmTooltipEl.classList.contains('visible')) {
                 dsmTooltipEl.style.left = (e.clientX + 12) + 'px';
                 dsmTooltipEl.style.top = (e.clientY + 12) + 'px';
             }
         });
 
-        container.addEventListener('mouseleave', function() {
+        container.addEventListener('mouseleave', function () {
             if (dsmTooltipEl) dsmTooltipEl.classList.remove('visible');
             var prevRows = container.querySelectorAll('.dsm-highlight-row');
             for (var i = 0; i < prevRows.length; i++) prevRows[i].classList.remove('dsm-highlight-row');
@@ -6286,7 +6286,7 @@
         });
 
         // Click on dep cell → open source file
-        container.addEventListener('click', function(e) {
+        container.addEventListener('click', function (e) {
             var cell = e.target.closest('.dsm-cell-dep');
             if (cell) {
                 var ri = parseInt(cell.dataset.row);
@@ -6313,15 +6313,15 @@
         var filtered = nodes;
         if (tableFilter) {
             var lf = tableFilter.toLowerCase();
-            filtered = nodes.filter(function(n) {
+            filtered = nodes.filter(function (n) {
                 return n.id.toLowerCase().indexOf(lf) !== -1 ||
-                       (n.language || '').toLowerCase().indexOf(lf) !== -1 ||
-                       (n.group || '').toLowerCase().indexOf(lf) !== -1;
+                    (n.language || '').toLowerCase().indexOf(lf) !== -1 ||
+                    (n.group || '').toLowerCase().indexOf(lf) !== -1;
             });
         }
 
         // Sort
-        filtered.sort(function(a, b) {
+        filtered.sort(function (a, b) {
             var va, vb;
             switch (tableSortCol) {
                 case 'name': va = a.id.toLowerCase(); vb = b.id.toLowerCase(); break;
@@ -6371,8 +6371,8 @@
         // Click handler — select node & open in editor on dblclick
         var rows = tbody.querySelectorAll('tr');
         for (var i = 0; i < rows.length; i++) {
-            rows[i].addEventListener('click', (function(row) {
-                return function() {
+            rows[i].addEventListener('click', (function (row) {
+                return function () {
                     var allRows = tbody.querySelectorAll('tr');
                     for (var j = 0; j < allRows.length; j++) allRows[j].classList.remove('selected');
                     row.classList.add('selected');
@@ -6381,8 +6381,8 @@
                     if (node) selectedNode = node;
                 };
             })(rows[i]));
-            rows[i].addEventListener('dblclick', (function(row) {
-                return function() {
+            rows[i].addEventListener('dblclick', (function (row) {
+                return function () {
                     vscode.postMessage({ type: 'openFile', payload: { path: row.dataset.id } });
                 };
             })(rows[i]));
@@ -6392,8 +6392,8 @@
     function setupTableInteractions() {
         var ths = document.querySelectorAll('.aura-table th');
         for (var i = 0; i < ths.length; i++) {
-            ths[i].addEventListener('click', (function(th) {
-                return function() {
+            ths[i].addEventListener('click', (function (th) {
+                return function () {
                     var col = th.dataset.col;
                     if (tableSortCol === col) {
                         tableSortAsc = !tableSortAsc;
@@ -6408,7 +6408,7 @@
 
         var tableSearchInput = $('#table-search');
         if (tableSearchInput) {
-            tableSearchInput.addEventListener('input', function() {
+            tableSearchInput.addEventListener('input', function () {
                 tableFilter = this.value;
                 renderTable();
             });

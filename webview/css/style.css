@@ -98,7 +98,7 @@ html, body {
     padding: 0 20px;
     background: var(--aura-sidebar-bg);
     border-bottom: 1px solid var(--aura-border);
-    z-index: 100;
+    z-index: 300;
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
 }
@@ -259,9 +259,10 @@ html, body {
     border-radius: var(--radius);
     max-height: 300px;
     overflow-y: auto;
-    z-index: 200;
+    z-index: 400;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
 }
 
 #search-results.hidden { display: none; }
