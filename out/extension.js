@@ -49,6 +49,7 @@ ${JSON.stringify(s,null,2)}`);let u=i[l]();return new Language(INTERNAL,u)})}}cl
         <!-- Tab Bar -->
         <nav id="tab-bar">
             <button class="tab-btn active" data-tab="graph">\u2726 3D Graph</button>
+            <button class="tab-btn" data-tab="calls">\u{1F517} Calls</button>
             <button class="tab-btn" data-tab="treemap">\u{1F5FA}\uFE0F Treemap</button>
             <button class="tab-btn" data-tab="dsm">\u{1F5D1}\uFE0F Matrix</button>
             <button class="tab-btn" data-tab="chord">\u{1F3B5} Chord</button>
@@ -250,6 +251,11 @@ ${JSON.stringify(s,null,2)}`);let u=i[l]();return new Language(INTERNAL,u)})}}cl
                 <tbody id="table-body"></tbody>
             </table>
         </div>
+    </div>
+
+    <!-- Calls View (Function Call Graph) -->
+    <div id="calls-view" class="tab-content" data-tab="calls">
+        <div id="calls-container"></div>
     </div>
 
     <!-- Timeline Bar (Time Travel) -->

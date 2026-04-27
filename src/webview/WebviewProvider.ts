@@ -277,6 +277,7 @@ export class WebviewProvider {
         <!-- Tab Bar -->
         <nav id="tab-bar">
             <button class="tab-btn active" data-tab="graph">✦ 3D Graph</button>
+            <button class="tab-btn" data-tab="calls">🔗 Calls</button>
             <button class="tab-btn" data-tab="treemap">🗺️ Treemap</button>
             <button class="tab-btn" data-tab="dsm">🗑️ Matrix</button>
             <button class="tab-btn" data-tab="chord">🎵 Chord</button>
@@ -478,6 +479,11 @@ export class WebviewProvider {
                 <tbody id="table-body"></tbody>
             </table>
         </div>
+    </div>
+
+    <!-- Calls View (Function Call Graph) -->
+    <div id="calls-view" class="tab-content" data-tab="calls">
+        <div id="calls-container"></div>
     </div>
 
     <!-- Timeline Bar (Time Travel) -->

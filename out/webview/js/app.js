@@ -66,6 +66,11 @@
     var activeTab = 'graph';
     var graphPaused = false;
 
+    // Calls Graph
+    var callsGraph = null;
+    var callsGraphData = null;
+    var callsHoveredNode = null;
+
     // Explorer state
     var showExplorer = false;
     var fileTree = {};
@@ -227,6 +232,7 @@
         selectedNode = null;
         explodedNode = null;
         explosionData = null;
+        clearCallsGraph();
 
         graphData = data;
         headGraphData = JSON.parse(JSON.stringify(data));
@@ -257,6 +263,9 @@
             // No graph yet — can't apply delta, need full data
             return;
         }
+
+        // Clear calls graph so it gets rebuilt from updated data
+        clearCallsGraph();
 
         var removedSet = new Set(delta.removedNodeIds || []);
         var changedMap = {};
@@ -4659,8 +4668,11 @@
         // Pause/resume WebGL
         if (tabName === 'graph') {
             resumeGraph();
+        } else if (tabName === 'calls') {
+            resumeCallsGraph();
         } else {
             pauseGraph();
+            pauseCallsGraph();
         }
 
         // Render tab content
@@ -4670,6 +4682,7 @@
         if (tabName === 'chord') renderChord();
         if (tabName === 'timeline') renderTimelineChart();
         if (tabName === 'table') renderTable();
+        if (tabName === 'calls') renderCalls();
     }
 
     function pauseGraph() {
@@ -4682,6 +4695,286 @@
         if (!graphPaused || !graph) return;
         graphPaused = false;
         graph.resumeAnimation();
+    }
+
+    // ============================================================
+    // Calls Graph — Function-level call visualization
+    // ============================================================
+    function pauseCallsGraph() {
+        if (callsGraph) {
+            callsGraph.pauseAnimation();
+        }
+    }
+
+    function clearCallsGraph() {
+        if (callsGraph) {
+            if (callsGraph._destructor) callsGraph._destructor();
+            callsGraph = null;
+        }
+        callsGraphData = null;
+        callsHoveredNode = null;
+        var container = $('#calls-container');
+        if (container) container.innerHTML = '';
+    }
+
+    function resumeCallsGraph() {
+        if (callsGraph) {
+            callsGraph.resumeAnimation();
+        }
+    }
+
+    function buildCallsGraphData() {
+        if (!graphData) return null;
+
+        // Build function nodes from functionCalls + node symbols
+        var funcNodes = {};  // key: "filePath::funcName" -> node
+        var funcNodeList = [];
+        var callLinks = [];
+
+        // Index all function symbols from graphData.nodes
+        var fileSymbolMap = {};
+        for (var ni = 0; ni < graphData.nodes.length; ni++) {
+            var fnode = graphData.nodes[ni];
+            var funcs = [];
+            if (fnode.symbols && fnode.symbols.functions) {
+                for (var fi = 0; fi < fnode.symbols.functions.length; fi++) {
+                    funcs.push(fnode.symbols.functions[fi]);
+                }
+            }
+            if (fnode.symbols && fnode.symbols.methods) {
+                for (var mi = 0; mi < fnode.symbols.methods.length; mi++) {
+                    funcs.push(fnode.symbols.methods[mi]);
+                }
+            }
+            fileSymbolMap[fnode.id] = {
+                file: fnode,
+                functions: funcs
+            };
+        }
+
+        // Add all functions as nodes
+        var addedFuncs = {};
+        for (var fileId in fileSymbolMap) {
+            var entry = fileSymbolMap[fileId];
+            var fileNode = entry.file;
+            var funcs = entry.functions;
+            for (var fi = 0; fi < funcs.length; fi++) {
+                var func = funcs[fi];
+                var funcId = fileId + '::' + func.name;
+                if (addedFuncs[funcId]) continue;
+                addedFuncs[funcId] = true;
+
+                funcNodes[funcId] = {
+                    id: funcId,
+                    name: func.name,
+                    funcName: func.name,
+                    fileId: fileId,
+                    fileName: fileNode.name,
+                    filePath: fileNode.path,
+                    language: fileNode.language,
+                    extension: fileNode.extension,
+                    line: func.line || 0,
+                    params: func.params || '',
+                    returnType: func.returnType || '',
+                    kind: func.type || 'function',
+                    fanIn: 0,
+                    fanOut: 0
+                };
+            }
+        }
+
+        // Add functions that appear in functionCalls but not in symbols
+        if (graphData.functionCalls) {
+            for (var ci = 0; ci < graphData.functionCalls.length; ci++) {
+                var call = graphData.functionCalls[ci];
+                var callerId = call.callerFile + '::' + call.callerName;
+                var calleeId = call.calleeFile + '::' + call.calleeName;
+
+                if (!addedFuncs[callerId]) {
+                    addedFuncs[callerId] = true;
+                    var fileEntry = fileSymbolMap[call.callerFile];
+                    var fNode = fileEntry ? fileEntry.file : null;
+                    funcNodes[callerId] = {
+                        id: callerId,
+                        name: call.callerName,
+                        funcName: call.callerName,
+                        fileId: call.callerFile,
+                        fileName: fNode ? fNode.name : call.callerFile.split('/').pop(),
+                        filePath: call.callerFile,
+                        language: fNode ? fNode.language : 'unknown',
+                        extension: fNode ? fNode.extension : '',
+                        line: call.callLine || 0,
+                        params: '',
+                        returnType: '',
+                        kind: 'function',
+                        fanIn: 0,
+                        fanOut: 0
+                    };
+                }
+
+                if (!addedFuncs[calleeId]) {
+                    addedFuncs[calleeId] = true;
+                    var calleeFileEntry = fileSymbolMap[call.calleeFile];
+                    var cfNode = calleeFileEntry ? calleeFileEntry.file : null;
+                    funcNodes[calleeId] = {
+                        id: calleeId,
+                        name: call.calleeName,
+                        funcName: call.calleeName,
+                        fileId: call.calleeFile,
+                        fileName: cfNode ? cfNode.name : call.calleeFile.split('/').pop(),
+                        filePath: call.calleeFile,
+                        language: cfNode ? cfNode.language : 'unknown',
+                        extension: cfNode ? cfNode.extension : '',
+                        line: 0,
+                        params: '',
+                        returnType: '',
+                        kind: 'function',
+                        fanIn: 0,
+                        fanOut: 0
+                    };
+                }
+            }
+        }
+
+        // Build call links from functionCalls
+        var linkSet = {};
+        if (graphData.functionCalls) {
+            for (var ci = 0; ci < graphData.functionCalls.length; ci++) {
+                var call = graphData.functionCalls[ci];
+                var callerId = call.callerFile + '::' + call.callerName;
+                var calleeId = call.calleeFile + '::' + call.calleeName;
+
+                var linkKey = callerId + '>' + calleeId;
+                if (linkSet[linkKey]) continue;
+                linkSet[linkKey] = true;
+
+                // Count fan-in/fan-out
+                if (funcNodes[callerId]) funcNodes[callerId].fanOut++;
+                if (funcNodes[calleeId]) funcNodes[calleeId].fanIn++;
+
+                callLinks.push({
+                    source: callerId,
+                    target: calleeId,
+                    type: 'function-call',
+                    label: call.callerName + '() → ' + call.calleeName + '()',
+                    callLine: call.callLine
+                });
+            }
+        }
+
+        funcNodeList = Object.values(funcNodes);
+
+        return {
+            nodes: funcNodeList,
+            links: callLinks
+        };
+    }
+
+    function renderCalls() {
+        var container = $('#calls-container');
+        if (!container || !graphData) return;
+
+        if (callsGraph) {
+            // Already rendered, just resume
+            resumeCallsGraph();
+            return;
+        }
+
+        // Build function-level data
+        var fdata = buildCallsGraphData();
+        if (!fdata || fdata.nodes.length === 0) {
+            container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;opacity:0.5;font-size:14px;">No function call data available.<br>Run a full analysis first (Ctrl+Shift+A → Refresh).</div>';
+            return;
+        }
+
+        callsGraphData = fdata;
+
+        // Show stats
+        container.innerHTML = '';
+
+        var T = window.THREE;
+        var nodeColorFn = function (node) {
+            return LANGUAGE_COLORS[node.language] || '#81c784';
+        };
+        var nodeSizeFn = function (node) {
+            var s = Math.max(1, node.fanIn + node.fanOut);
+            return Math.cbrt(s) * 2;
+        };
+
+        callsGraph = ForceGraph3D()(container)
+            .graphData(callsGraphData)
+            .nodeId('id')
+            .nodeLabel(function (node) {
+                return node.name + '()\n' + node.fileName + '\nfan-in: ' + node.fanIn + ' | fan-out: ' + node.fanOut;
+            })
+            .nodeColor(nodeColorFn)
+            .nodeRelSize(1)
+            .nodeVal(nodeSizeFn)
+            .nodeOpacity(0.92)
+            .nodeThreeObjectExtend(true)
+            .nodeThreeObject(function (node) {
+                var hasLabel = callsHoveredNode && callsHoveredNode.id === node.id;
+                if (!hasLabel) return null;
+
+                var group = new T.Group();
+                var sprite = getLabelSprite(node.name + '()');
+                if (sprite) {
+                    sprite.position.y = Math.sqrt(nodeSizeFn(node)) * 2 + 2;
+                    group.add(sprite);
+                }
+                return group;
+            })
+            .linkSource('source')
+            .linkTarget('target')
+            .linkColor(function () { return '#81c784aa'; })
+            .linkWidth(function (link) {
+                var isHovered = callsHoveredNode &&
+                    (link.source.id === callsHoveredNode.id || link.target.id === callsHoveredNode.id);
+                return isHovered ? 2 : 0.5;
+            })
+            .linkOpacity(0.4)
+            .linkDirectionalArrowLength(function (link) {
+                var isHovered = callsHoveredNode &&
+                    (link.source.id === callsHoveredNode.id || link.target.id === callsHoveredNode.id);
+                return isHovered ? 5 : 3;
+            })
+            .linkDirectionalArrowRelPos(1)
+            .linkDirectionalParticles(function (link) {
+                var isHovered = callsHoveredNode &&
+                    (link.source.id === callsHoveredNode.id || link.target.id === callsHoveredNode.id);
+                return isHovered ? 3 : 0;
+            })
+            .linkDirectionalParticleWidth(2)
+            .linkDirectionalParticleSpeed(0.005)
+            .backgroundColor('#0d1117')
+            .showNavInfo(false)
+            .onNodeHover(function (node) {
+                callsHoveredNode = node;
+                if (callsGraph) {
+                    callsGraph.nodeThreeObject(callsGraph.nodeThreeObject());
+                    callsGraph.linkWidth(callsGraph.linkWidth());
+                }
+            })
+            .onNodeClick(function (node) {
+                // Open file at function line
+                if (node.fileId && node.line) {
+                    vscode.postMessage({
+                        type: 'openFile',
+                        payload: { path: node.filePath, line: node.line }
+                    });
+                }
+            })
+            .warmupTicks(50)
+            .cooldownTicks(100)
+            .d3AlphaDecay(0.03)
+            .d3VelocityDecay(0.5);
+
+        // Zoom to fit after layout settles
+        setTimeout(function () {
+            if (callsGraph && fdata.nodes.length > 0 && fdata.nodes.length <= 300) {
+                callsGraph.zoomToFit(400, 100);
+            }
+        }, 2000);
     }
 
     // ============================================================
