@@ -294,22 +294,6 @@ html, body {
 
 #graph-container canvas { display: block; }
 
-#calls-view {
-    overflow: hidden;
-    min-height: 0;
-    position: relative;
-}
-
-#calls-container {
-    flex: 1;
-    min-width: 0;
-    min-height: 0;
-    position: relative;
-    overflow: hidden;
-}
-
-#calls-container canvas { display: block; }
-
 /* ============================================================
    Loading Overlay
    ============================================================ */
@@ -391,7 +375,7 @@ html, body {
 }
 
 /* ============================================================
-   Filter Bar
+   Filter Bar (3D Graph)
    ============================================================ */
 #filter-bar {
     grid-area: filterbar;
@@ -435,7 +419,8 @@ html, body {
     margin: 0 2px;
 }
 
-#heatmap-select {
+#heatmap-select,
+.filter-select {
     background: var(--aura-input-bg);
     border: 1px solid var(--aura-input-border);
     color: var(--aura-fg);
@@ -648,6 +633,15 @@ html, body {
     letter-spacing: 0.5px;
 }
 .dep-type-call { color: #81c784; opacity: 0.7; }
+.dep-call-count {
+    font-size: 10px;
+    color: #81c784;
+    background: rgba(129, 199, 132, 0.12);
+    padding: 1px 5px;
+    border-radius: 8px;
+    margin-left: 4px;
+    font-weight: 600;
+}
 .dep-label {
     font-size: 10px;
     color: #e0a856;

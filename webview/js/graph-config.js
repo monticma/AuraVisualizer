@@ -56,6 +56,7 @@ var HEATMAP_SCALES = {
     complexity: ['#1a237e', '#1565c0', '#2e7d32', '#f9a825', '#e65100', '#b71c1c'],
     fanIn:      ['#1a237e', '#1565c0', '#2e7d32', '#f9a825', '#e65100', '#b71c1c'],
     fanOut:     ['#1a237e', '#1565c0', '#2e7d32', '#f9a825', '#e65100', '#b71c1c'],
+    callVolume: ['#1a237e', '#1565c0', '#2e7d32', '#f9a825', '#e65100', '#b71c1c'],
     loc:        ['#1a237e', '#1565c0', '#2e7d32', '#f9a825', '#e65100', '#b71c1c'],
     lastModified: ['#0d47a1', '#1976d2', '#64b5f6', '#ffb74d', '#e53935', '#b71c1c']
 };
@@ -65,6 +66,7 @@ var HEATMAP_LABELS = {
     complexity: 'Complexity',
     fanIn:      'Fan-in',
     fanOut:     'Fan-out',
+    callVolume: 'Call volume',
     loc:        'Lines of code',
     lastModified: 'Last modified',
     community:  'Communities'

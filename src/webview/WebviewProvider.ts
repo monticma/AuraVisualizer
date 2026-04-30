@@ -78,6 +78,15 @@ export class WebviewProvider {
             this.disposables = [];
             this.onDisposeEmitter.fire();
         });
+
+        this.panel.onDidChangeViewState(({ webviewPanel }) => {
+            if (this.webviewReady) {
+                this.panel?.webview.postMessage({
+                    type: 'visibilityChanged',
+                    payload: { visible: webviewPanel.visible }
+                });
+            }
+        });
     }
 
     private setupMessageHandler(): void {
@@ -277,7 +286,6 @@ export class WebviewProvider {
         <!-- Tab Bar -->
         <nav id="tab-bar">
             <button class="tab-btn active" data-tab="graph">✦ 3D Graph</button>
-            <button class="tab-btn" data-tab="calls">🔗 Calls</button>
             <button class="tab-btn" data-tab="treemap">🗺️ Treemap</button>
             <button class="tab-btn" data-tab="dsm">🗑️ Matrix</button>
             <button class="tab-btn" data-tab="chord">🎵 Chord</button>
@@ -481,11 +489,6 @@ export class WebviewProvider {
         </div>
     </div>
 
-    <!-- Calls View (Function Call Graph) -->
-    <div id="calls-view" class="tab-content" data-tab="calls">
-        <div id="calls-container"></div>
-    </div>
-
     <!-- Timeline Bar (Time Travel) -->
     <div id="timeline-bar" class="hidden">
         <div id="timeline-from-controls" class="hidden">
@@ -564,6 +567,7 @@ export class WebviewProvider {
                 <option value="complexity">🔥 Complexity</option>
                 <option value="fanIn">📥 Fan-in</option>
                 <option value="fanOut">📤 Fan-out</option>
+                <option value="callVolume">🔗 Call volume</option>
                 <option value="loc">📏 Lines of code</option>
                 <option value="lastModified">📆 Last update</option>
                 <option value="community">🧩 Communities</option>

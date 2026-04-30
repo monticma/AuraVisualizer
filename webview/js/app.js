@@ -66,11 +66,6 @@
     var activeTab = 'graph';
     var graphPaused = false;
 
-    // Calls Graph
-    var callsGraph = null;
-    var callsGraphData = null;
-    var callsHoveredNode = null;
-
     // Explorer state
     var showExplorer = false;
     var fileTree = {};
@@ -196,11 +191,32 @@
             case 'restoreViewState':
                 if (message.payload) applyViewState(message.payload);
                 break;
+            case 'visibilityChanged':
+                if (message.payload) {
+                    if (message.payload.visible) {
+                        if (activeTab === 'graph') resumeGraph();
+                    } else {
+                        pauseGraph();
+                    }
+                }
+                break;
         }
     });
 
     // Tell the extension we're ready
     vscode.postMessage({ type: 'ready' });
+
+    // Pause/resume the active graph when the webview visibility changes
+    // (e.g. when the user switches to another VS Code tab)
+    document.addEventListener('visibilitychange', function () {
+        if (document.hidden) {
+            pauseGraph();
+        } else {
+            if (activeTab === 'graph') {
+                resumeGraph();
+            }
+        }
+    });
 
     // ============================================================
     // Initialization
@@ -232,10 +248,10 @@
         selectedNode = null;
         explodedNode = null;
         explosionData = null;
-        clearCallsGraph();
 
         graphData = data;
         headGraphData = JSON.parse(JSON.stringify(data));
+        computeCallCounts();
         computeMetricRanges();
         computeCommunities();
         updateStats(graphData.meta);
@@ -263,9 +279,6 @@
             // No graph yet — can't apply delta, need full data
             return;
         }
-
-        // Clear calls graph so it gets rebuilt from updated data
-        clearCallsGraph();
 
         var removedSet = new Set(delta.removedNodeIds || []);
         var changedMap = {};
@@ -331,6 +344,7 @@
         if (delta.meta) graphData.meta = delta.meta;
 
         // Recompute ranges and stats
+        computeCallCounts();
         computeMetricRanges();
         updateStats(graphData.meta);
 
@@ -436,6 +450,7 @@
             complexity: { min: Infinity, max: -Infinity },
             fanIn: { min: Infinity, max: -Infinity },
             fanOut: { min: Infinity, max: -Infinity },
+            callVolume: { min: Infinity, max: -Infinity },
             loc: { min: Infinity, max: -Infinity },
             lastModified: { min: Infinity, max: -Infinity }
         };
@@ -448,11 +463,73 @@
             metricRanges.fanIn.max = Math.max(metricRanges.fanIn.max, n.fanIn);
             metricRanges.fanOut.min = Math.min(metricRanges.fanOut.min, n.fanOut);
             metricRanges.fanOut.max = Math.max(metricRanges.fanOut.max, n.fanOut);
+            var cv = (n.callsIn || 0) + (n.callsOut || 0);
+            metricRanges.callVolume.min = Math.min(metricRanges.callVolume.min, cv);
+            metricRanges.callVolume.max = Math.max(metricRanges.callVolume.max, cv);
             metricRanges.loc.min = Math.min(metricRanges.loc.min, n.linesOfCode);
             metricRanges.loc.max = Math.max(metricRanges.loc.max, n.linesOfCode);
             var mtime = n.lastModified || 0;
             metricRanges.lastModified.min = Math.min(metricRanges.lastModified.min, mtime);
             metricRanges.lastModified.max = Math.max(metricRanges.lastModified.max, mtime);
+        }
+    }
+
+    /**
+     * Aggregate per-(callerFile, calleeFile) call counts from graphData.functionCalls
+     * and annotate function-call links with `callCount` + `callPairs` (sample list of
+     * "caller→callee" pairs for tooltips). Also computes per-node `callsIn`/`callsOut`
+     * totals used by the "Call volume" heatmap.
+     */
+    function computeCallCounts() {
+        if (!graphData) return;
+        var calls = graphData.functionCalls || [];
+        // Map<callerFile, Map<calleeFile, { count, pairs: Map<"caller→callee", count> }>>
+        var byPair = {};
+        for (var i = 0; i < calls.length; i++) {
+            var c = calls[i];
+            if (!byPair[c.callerFile]) byPair[c.callerFile] = {};
+            var inner = byPair[c.callerFile];
+            if (!inner[c.calleeFile]) inner[c.calleeFile] = { count: 0, pairs: {} };
+            var slot = inner[c.calleeFile];
+            slot.count++;
+            var key = c.callerName + ' → ' + c.calleeName;
+            slot.pairs[key] = (slot.pairs[key] || 0) + 1;
+        }
+        // Reset per-node totals
+        for (var ni = 0; ni < graphData.nodes.length; ni++) {
+            graphData.nodes[ni].callsIn = 0;
+            graphData.nodes[ni].callsOut = 0;
+        }
+        var nodeById = {};
+        for (var nj = 0; nj < graphData.nodes.length; nj++) nodeById[graphData.nodes[nj].id] = graphData.nodes[nj];
+        for (var caller in byPair) {
+            var srcN = nodeById[caller];
+            for (var callee in byPair[caller]) {
+                var s = byPair[caller][callee];
+                if (srcN) srcN.callsOut += s.count;
+                var tgtN = nodeById[callee];
+                if (tgtN) tgtN.callsIn += s.count;
+            }
+        }
+        // Annotate function-call links
+        var links = graphData.links || [];
+        for (var li = 0; li < links.length; li++) {
+            var l = links[li];
+            if (l.type !== 'function-call') continue;
+            var sId = typeof l.source === 'object' ? l.source.id : l.source;
+            var tId = typeof l.target === 'object' ? l.target.id : l.target;
+            var bucket = byPair[sId] && byPair[sId][tId];
+            if (bucket) {
+                l.callCount = bucket.count;
+                // Top 5 pair labels for tooltip
+                var pairList = [];
+                for (var k in bucket.pairs) pairList.push({ k: k, n: bucket.pairs[k] });
+                pairList.sort(function (a, b) { return b.n - a.n; });
+                l.callPairs = pairList.slice(0, 5);
+            } else {
+                l.callCount = 1;
+                l.callPairs = [];
+            }
         }
     }
 
@@ -840,9 +917,29 @@
                 if (multiSelectedLinks.has(link)) return 2.5;
                 if (link.type === 'extends') return highlightLinks.has(link) ? 2.5 : 1;
                 if (link.type === 'implements') return highlightLinks.has(link) ? 2 : 0.8;
+                if (link.type === 'function-call' && link.callCount > 1) {
+                    // Logarithmic scaling: 1 call = 0.5, 10 = ~1.5, 100 = ~2.5, 1000 = ~3.5
+                    var w = 0.5 + Math.log(link.callCount) * 0.5;
+                    if (highlightLinks.has(link)) w += 1;
+                    return Math.min(w, 4);
+                }
                 return highlightLinks.has(link) ? 2 : 0.5;
             })
             .linkOpacity(0.4)
+            .linkLabel(function (link) {
+                if (link._isCallEdge || link._isExplosionLink) return '';
+                if (link.type === 'function-call' && link.callCount) {
+                    var lines = ['<b>' + link.callCount + ' call' + (link.callCount > 1 ? 's' : '') + '</b>'];
+                    if (link.callPairs && link.callPairs.length) {
+                        for (var p = 0; p < link.callPairs.length; p++) {
+                            var pp = link.callPairs[p];
+                            lines.push('  ' + pp.k + (pp.n > 1 ? ' (×' + pp.n + ')' : ''));
+                        }
+                    }
+                    return '<div style="font-family:monospace;font-size:11px;line-height:1.5;background:rgba(13,17,23,0.95);padding:6px 8px;border-radius:4px;border:1px solid #30363d;color:#c9d1d9;">' + lines.join('<br>') + '</div>';
+                }
+                return link.label || link.type || '';
+            })
             .linkDirectionalArrowLength(function (link) {
                 // In compare mode, hide arrows unless both endpoints are changed
                 if (timelineActive && timelineCompareMode && timelineChangedNodes.size > 0) {
@@ -1004,6 +1101,7 @@
                 case 'complexity': value = node.complexity || 1; break;
                 case 'fanIn': value = node.fanIn; break;
                 case 'fanOut': value = node.fanOut; break;
+                case 'callVolume': value = (node.callsIn || 0) + (node.callsOut || 0); break;
                 case 'loc': value = node.linesOfCode; break;
                 case 'lastModified': value = node.lastModified || 0; break;
                 default: value = 0;
@@ -2068,10 +2166,14 @@
                 var li = document.createElement('li');
                 var typeClass = d.type === 'function-call' ? 'dep-type dep-type-call' : 'dep-type';
                 var labelStr = d.label ? ' <span class="dep-label">' + d.label + '</span>' : '';
+                var countStr = (d.type === 'function-call' && d.callCount && d.callCount > 1)
+                    ? ' <span class="dep-call-count" title="Number of distinct call sites">×' + d.callCount + '</span>'
+                    : '';
                 li.innerHTML =
                     '<span class="dep-arrow">→</span>' +
                     '<span>' + (targetNode ? targetNode.name : targetId) + '</span>' +
                     labelStr +
+                    countStr +
                     '<span class="' + typeClass + '">' + d.type + '</span>';
                 li.addEventListener('click', function () {
                     if (targetNode) handleNodeClick(targetNode);
@@ -2100,10 +2202,14 @@
                 var li = document.createElement('li');
                 var typeClass = d.type === 'function-call' ? 'dep-type dep-type-call' : 'dep-type';
                 var labelStr = d.label ? ' <span class="dep-label">' + d.label + '</span>' : '';
+                var countStr = (d.type === 'function-call' && d.callCount && d.callCount > 1)
+                    ? ' <span class="dep-call-count" title="Number of distinct call sites">×' + d.callCount + '</span>'
+                    : '';
                 li.innerHTML =
                     '<span class="dep-arrow">←</span>' +
                     '<span>' + (sourceNode ? sourceNode.name : sourceId) + '</span>' +
                     labelStr +
+                    countStr +
                     '<span class="' + typeClass + '">' + d.type + '</span>';
                 li.addEventListener('click', function () {
                     if (sourceNode) handleNodeClick(sourceNode);
@@ -4665,14 +4771,11 @@
             }
         }
 
-        // Pause/resume WebGL
+        // Pause/resume WebGL — always pause the inactive graph
         if (tabName === 'graph') {
             resumeGraph();
-        } else if (tabName === 'calls') {
-            resumeCallsGraph();
         } else {
             pauseGraph();
-            pauseCallsGraph();
         }
 
         // Render tab content
@@ -4682,7 +4785,6 @@
         if (tabName === 'chord') renderChord();
         if (tabName === 'timeline') renderTimelineChart();
         if (tabName === 'table') renderTable();
-        if (tabName === 'calls') renderCalls();
     }
 
     function pauseGraph() {
@@ -4695,286 +4797,6 @@
         if (!graphPaused || !graph) return;
         graphPaused = false;
         graph.resumeAnimation();
-    }
-
-    // ============================================================
-    // Calls Graph — Function-level call visualization
-    // ============================================================
-    function pauseCallsGraph() {
-        if (callsGraph) {
-            callsGraph.pauseAnimation();
-        }
-    }
-
-    function clearCallsGraph() {
-        if (callsGraph) {
-            if (callsGraph._destructor) callsGraph._destructor();
-            callsGraph = null;
-        }
-        callsGraphData = null;
-        callsHoveredNode = null;
-        var container = $('#calls-container');
-        if (container) container.innerHTML = '';
-    }
-
-    function resumeCallsGraph() {
-        if (callsGraph) {
-            callsGraph.resumeAnimation();
-        }
-    }
-
-    function buildCallsGraphData() {
-        if (!graphData) return null;
-
-        // Build function nodes from functionCalls + node symbols
-        var funcNodes = {};  // key: "filePath::funcName" -> node
-        var funcNodeList = [];
-        var callLinks = [];
-
-        // Index all function symbols from graphData.nodes
-        var fileSymbolMap = {};
-        for (var ni = 0; ni < graphData.nodes.length; ni++) {
-            var fnode = graphData.nodes[ni];
-            var funcs = [];
-            if (fnode.symbols && fnode.symbols.functions) {
-                for (var fi = 0; fi < fnode.symbols.functions.length; fi++) {
-                    funcs.push(fnode.symbols.functions[fi]);
-                }
-            }
-            if (fnode.symbols && fnode.symbols.methods) {
-                for (var mi = 0; mi < fnode.symbols.methods.length; mi++) {
-                    funcs.push(fnode.symbols.methods[mi]);
-                }
-            }
-            fileSymbolMap[fnode.id] = {
-                file: fnode,
-                functions: funcs
-            };
-        }
-
-        // Add all functions as nodes
-        var addedFuncs = {};
-        for (var fileId in fileSymbolMap) {
-            var entry = fileSymbolMap[fileId];
-            var fileNode = entry.file;
-            var funcs = entry.functions;
-            for (var fi = 0; fi < funcs.length; fi++) {
-                var func = funcs[fi];
-                var funcId = fileId + '::' + func.name;
-                if (addedFuncs[funcId]) continue;
-                addedFuncs[funcId] = true;
-
-                funcNodes[funcId] = {
-                    id: funcId,
-                    name: func.name,
-                    funcName: func.name,
-                    fileId: fileId,
-                    fileName: fileNode.name,
-                    filePath: fileNode.path,
-                    language: fileNode.language,
-                    extension: fileNode.extension,
-                    line: func.line || 0,
-                    params: func.params || '',
-                    returnType: func.returnType || '',
-                    kind: func.type || 'function',
-                    fanIn: 0,
-                    fanOut: 0
-                };
-            }
-        }
-
-        // Add functions that appear in functionCalls but not in symbols
-        if (graphData.functionCalls) {
-            for (var ci = 0; ci < graphData.functionCalls.length; ci++) {
-                var call = graphData.functionCalls[ci];
-                var callerId = call.callerFile + '::' + call.callerName;
-                var calleeId = call.calleeFile + '::' + call.calleeName;
-
-                if (!addedFuncs[callerId]) {
-                    addedFuncs[callerId] = true;
-                    var fileEntry = fileSymbolMap[call.callerFile];
-                    var fNode = fileEntry ? fileEntry.file : null;
-                    funcNodes[callerId] = {
-                        id: callerId,
-                        name: call.callerName,
-                        funcName: call.callerName,
-                        fileId: call.callerFile,
-                        fileName: fNode ? fNode.name : call.callerFile.split('/').pop(),
-                        filePath: call.callerFile,
-                        language: fNode ? fNode.language : 'unknown',
-                        extension: fNode ? fNode.extension : '',
-                        line: call.callLine || 0,
-                        params: '',
-                        returnType: '',
-                        kind: 'function',
-                        fanIn: 0,
-                        fanOut: 0
-                    };
-                }
-
-                if (!addedFuncs[calleeId]) {
-                    addedFuncs[calleeId] = true;
-                    var calleeFileEntry = fileSymbolMap[call.calleeFile];
-                    var cfNode = calleeFileEntry ? calleeFileEntry.file : null;
-                    funcNodes[calleeId] = {
-                        id: calleeId,
-                        name: call.calleeName,
-                        funcName: call.calleeName,
-                        fileId: call.calleeFile,
-                        fileName: cfNode ? cfNode.name : call.calleeFile.split('/').pop(),
-                        filePath: call.calleeFile,
-                        language: cfNode ? cfNode.language : 'unknown',
-                        extension: cfNode ? cfNode.extension : '',
-                        line: 0,
-                        params: '',
-                        returnType: '',
-                        kind: 'function',
-                        fanIn: 0,
-                        fanOut: 0
-                    };
-                }
-            }
-        }
-
-        // Build call links from functionCalls
-        var linkSet = {};
-        if (graphData.functionCalls) {
-            for (var ci = 0; ci < graphData.functionCalls.length; ci++) {
-                var call = graphData.functionCalls[ci];
-                var callerId = call.callerFile + '::' + call.callerName;
-                var calleeId = call.calleeFile + '::' + call.calleeName;
-
-                var linkKey = callerId + '>' + calleeId;
-                if (linkSet[linkKey]) continue;
-                linkSet[linkKey] = true;
-
-                // Count fan-in/fan-out
-                if (funcNodes[callerId]) funcNodes[callerId].fanOut++;
-                if (funcNodes[calleeId]) funcNodes[calleeId].fanIn++;
-
-                callLinks.push({
-                    source: callerId,
-                    target: calleeId,
-                    type: 'function-call',
-                    label: call.callerName + '() → ' + call.calleeName + '()',
-                    callLine: call.callLine
-                });
-            }
-        }
-
-        funcNodeList = Object.values(funcNodes);
-
-        return {
-            nodes: funcNodeList,
-            links: callLinks
-        };
-    }
-
-    function renderCalls() {
-        var container = $('#calls-container');
-        if (!container || !graphData) return;
-
-        if (callsGraph) {
-            // Already rendered, just resume
-            resumeCallsGraph();
-            return;
-        }
-
-        // Build function-level data
-        var fdata = buildCallsGraphData();
-        if (!fdata || fdata.nodes.length === 0) {
-            container.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;opacity:0.5;font-size:14px;">No function call data available.<br>Run a full analysis first (Ctrl+Shift+A → Refresh).</div>';
-            return;
-        }
-
-        callsGraphData = fdata;
-
-        // Show stats
-        container.innerHTML = '';
-
-        var T = window.THREE;
-        var nodeColorFn = function (node) {
-            return LANGUAGE_COLORS[node.language] || '#81c784';
-        };
-        var nodeSizeFn = function (node) {
-            var s = Math.max(1, node.fanIn + node.fanOut);
-            return Math.cbrt(s) * 2;
-        };
-
-        callsGraph = ForceGraph3D()(container)
-            .graphData(callsGraphData)
-            .nodeId('id')
-            .nodeLabel(function (node) {
-                return node.name + '()\n' + node.fileName + '\nfan-in: ' + node.fanIn + ' | fan-out: ' + node.fanOut;
-            })
-            .nodeColor(nodeColorFn)
-            .nodeRelSize(1)
-            .nodeVal(nodeSizeFn)
-            .nodeOpacity(0.92)
-            .nodeThreeObjectExtend(true)
-            .nodeThreeObject(function (node) {
-                var hasLabel = callsHoveredNode && callsHoveredNode.id === node.id;
-                if (!hasLabel) return null;
-
-                var group = new T.Group();
-                var sprite = getLabelSprite(node.name + '()');
-                if (sprite) {
-                    sprite.position.y = Math.sqrt(nodeSizeFn(node)) * 2 + 2;
-                    group.add(sprite);
-                }
-                return group;
-            })
-            .linkSource('source')
-            .linkTarget('target')
-            .linkColor(function () { return '#81c784aa'; })
-            .linkWidth(function (link) {
-                var isHovered = callsHoveredNode &&
-                    (link.source.id === callsHoveredNode.id || link.target.id === callsHoveredNode.id);
-                return isHovered ? 2 : 0.5;
-            })
-            .linkOpacity(0.4)
-            .linkDirectionalArrowLength(function (link) {
-                var isHovered = callsHoveredNode &&
-                    (link.source.id === callsHoveredNode.id || link.target.id === callsHoveredNode.id);
-                return isHovered ? 5 : 3;
-            })
-            .linkDirectionalArrowRelPos(1)
-            .linkDirectionalParticles(function (link) {
-                var isHovered = callsHoveredNode &&
-                    (link.source.id === callsHoveredNode.id || link.target.id === callsHoveredNode.id);
-                return isHovered ? 3 : 0;
-            })
-            .linkDirectionalParticleWidth(2)
-            .linkDirectionalParticleSpeed(0.005)
-            .backgroundColor('#0d1117')
-            .showNavInfo(false)
-            .onNodeHover(function (node) {
-                callsHoveredNode = node;
-                if (callsGraph) {
-                    callsGraph.nodeThreeObject(callsGraph.nodeThreeObject());
-                    callsGraph.linkWidth(callsGraph.linkWidth());
-                }
-            })
-            .onNodeClick(function (node) {
-                // Open file at function line
-                if (node.fileId && node.line) {
-                    vscode.postMessage({
-                        type: 'openFile',
-                        payload: { path: node.filePath, line: node.line }
-                    });
-                }
-            })
-            .warmupTicks(50)
-            .cooldownTicks(100)
-            .d3AlphaDecay(0.03)
-            .d3VelocityDecay(0.5);
-
-        // Zoom to fit after layout settles
-        setTimeout(function () {
-            if (callsGraph && fdata.nodes.length > 0 && fdata.nodes.length <= 300) {
-                callsGraph.zoomToFit(400, 100);
-            }
-        }, 2000);
     }
 
     // ============================================================
