@@ -3,7 +3,7 @@
 Each **node** is a file. Each **edge** is a dependency (import, include, function call, inheritance).
 Node size reflects lines of code. Edge color reflects dependency type.
 
-Aura supports **10 languages**: C, JavaScript, TypeScript, Python, Java, Go, Rust, CSS, HTML, and C headers — all parsed with Tree-sitter AST analysis.
+Aura supports **13 languages**: C, JavaScript, TypeScript, Python, Java, Go, Rust, Kotlin, Ruby, Swift, CSS, HTML, and C headers — all parsed with Tree-sitter AST analysis.
 Filter buttons at the bottom show only languages present in your project.
 
 **Mouse controls:**
@@ -23,8 +23,8 @@ Filter buttons at the bottom show only languages present in your project.
 - **Recenter** (`F`) — Fit the entire graph in view
 - **🗺️ Map** — Toggle the minimap — a real-time overview that rotates with the camera. Drag inside to pan the viewport.
 
-**Detail panel** — Click any node to see: file path, LOC, complexity, fan-in/out, symbols (functions, structs, enums), dependencies, and dependents. Function-call links show the actual function name (e.g. `helper()`) next to the target file.
+**Detail panel** — Click any node to see: file path, LOC, complexity, fan-in/out, symbols (functions, structs, enums), dependencies, and dependents. Function-call links show the actual function name (e.g. `helper()`) next to the target file, with a green `×N` badge when several distinct call sites connect the same pair of files. In the 3D Graph itself, function-call edges are **scaled in width** by call count and **hovering an edge** reveals a tooltip listing the top caller → callee pairs.
 
-**File Explorer** — Toggle the tree panel to browse files by directory. Each directory has a **checkbox** to filter it in/out of the graph. Use **All** / **None** buttons for batch selection.
+**File Explorer** — Toggle the tree panel to browse files by directory. Each directory has a **checkbox** to filter it in/out of the graph. Use **All** / **None** buttons for batch selection. Files containing functions show a **chevron** — click it to expand the list of every function in the file; click any function to **open the file at that exact line**.
 
 **Instant startup** — The graph is cached in `.aura/graph.db`. On next launch, it loads instantly from the database while a background re-scan picks up any changes.

@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Languages-C%20%7C%20JS%20%7C%20TS%20%7C%20Python%20%7C%20Java%20%7C%20Go%20%7C%20Rust%20%7C%20CSS%20%7C%20HTML-blue" alt="Languages" />
+  <img src="https://img.shields.io/badge/Languages-C%20%7C%20JS%20%7C%20TS%20%7C%20Python%20%7C%20Java%20%7C%20Go%20%7C%20Rust%20%7C%20Kotlin%20%7C%20Ruby%20%7C%20Swift%20%7C%20CSS%20%7C%20HTML-blue" alt="Languages" />
   <img src="https://img.shields.io/badge/VS%20Code-%3E%3D1.85-007ACC" alt="VS Code" />
   <img src="https://img.shields.io/badge/License-MIT-green" alt="License" />
 </p>
@@ -38,11 +38,14 @@ Powered by **Tree-sitter** AST parsing (WASM) for accurate, structural code anal
 | Java | `.java` | 🔴 Red |
 | Go | `.go` | 🩵 Cyan |
 | Rust | `.rs` | 🟠 Orange |
+| Kotlin | `.kt`, `.kts` | 🟣 Purple |
+| Ruby | `.rb` | ❤️ Red |
+| Swift | `.swift` | 🟥 Coral |
 | CSS | `.css` | 🟣 Purple |
 | HTML | `.html` | 🟧 Coral |
 
-Cross-file **function calls** are detected for C, JS/TS, Python, Java, Go, and Rust.
-**Inheritance edges** (`extends` / `implements`) are detected for JS/TS, Python, Java, Go (struct embedding), and Rust (trait impl).
+Cross-file **function calls** are detected for C, JS/TS, Python, Java, Go, Rust, Kotlin, Ruby, and Swift.
+**Inheritance edges** (`extends` / `implements`) are detected for JS/TS, Python, Java, Go (struct embedding), Rust (trait impl), Kotlin, and Swift (protocol conformance).
 Language filter buttons are **dynamic** — only languages present in the current analysis are shown.
 
 ### Interactive Exploration
@@ -68,6 +71,7 @@ Color every node by a metric to spot hotspots at a glance. Press `H` to cycle th
 | **Complexity** | Cyclomatic complexity (branching, loops) |
 | **Fan-in** | How many files depend on this file |
 | **Fan-out** | How many files this file depends on |
+| **Call volume** | Total cross-file function calls in + out for this file |
 | **Lines of Code** | File size |
 | **Last Modified** | Git commit recency |
 | **Communities** | Architectural modules detected by Louvain algorithm |
@@ -193,9 +197,17 @@ When `autoRefresh` is enabled, the graph updates automatically whenever you save
 
 ### Function Call Labels
 
-In the detail panel, dependency links of type `function-call` display the actual function name (e.g. `helper()`) next to the target file. This makes it easy to see exactly which function creates each cross-file link.
+In the detail panel, dependency links of type `function-call` display the actual function name (e.g. `helper()`) next to the target file. A green `×N` badge shows when multiple distinct call sites exist between the same pair of files.
+
+In the 3D Graph, function-call edges have **logarithmic width** scaled to call count, and **hovering an edge** displays a tooltip listing the top 5 caller → callee function pairs.
 
 For **C/C++ projects**, function-call links are only created between files connected via `#include` — preventing false positives between unrelated files that happen to define functions with the same name.
+
+### Symbols in the File Explorer
+
+Files in the side Explorer panel that contain functions or methods show a **chevron** to their left. Click it to reveal an indented list of every function/method in the file (sorted by line number). Click any function to **open the file in the editor and jump to that exact line**.
+
+This turns the Explorer into a fast outline / go-to-symbol navigator across your whole project.
 
 ### Tabbed Views
 

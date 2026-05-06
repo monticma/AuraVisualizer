@@ -831,6 +831,38 @@ html, body {
 
 .tree-children.collapsed { display: none; }
 
+.tree-sym-toggle {
+    display: inline-block;
+    width: 14px;
+    font-size: 11px;
+    opacity: 0.85;
+    color: var(--aura-fg);
+    cursor: pointer;
+    flex-shrink: 0;
+    text-align: center;
+    user-select: none;
+    transition: transform 0.12s ease;
+}
+.tree-sym-toggle:hover { opacity: 1; }
+.tree-sym-toggle[data-expanded="true"] { transform: rotate(90deg); }
+
+.tree-sym-node {
+    font-size: 11px;
+    opacity: 0.78;
+    padding: 2px 8px;
+}
+.tree-sym-node:hover { opacity: 1; }
+.tree-sym-icon {
+    font-size: 11px;
+    color: #81c784;
+    font-style: italic;
+    font-family: monospace;
+}
+.tree-sym-label {
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 11px;
+}
+
 /* ============================================================
    Heatmap Legend
    ============================================================ */

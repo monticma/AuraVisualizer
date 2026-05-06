@@ -548,6 +548,15 @@ export class WebviewProvider {
             <button class="filter-btn active" data-lang="rust" data-color="#ffb74d">
                 <span class="filter-dot" style="background:#ffb74d"></span> Rust
             </button>
+            <button class="filter-btn active" data-lang="kotlin" data-color="#b39ddb">
+                <span class="filter-dot" style="background:#b39ddb"></span> Kotlin
+            </button>
+            <button class="filter-btn active" data-lang="ruby" data-color="#ef5350">
+                <span class="filter-dot" style="background:#ef5350"></span> Ruby
+            </button>
+            <button class="filter-btn active" data-lang="swift" data-color="#ff7043">
+                <span class="filter-dot" style="background:#ff7043"></span> Swift
+            </button>
         </div>
         <div class="filter-separator"></div>
         <div class="filter-group">

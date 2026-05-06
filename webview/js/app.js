@@ -4647,6 +4647,77 @@
                 else childrenContainer.classList.remove('collapsed');
             });
         } else {
+            // Collect symbols (functions + methods) for this file
+            var syms = [];
+            if (item.node.symbols) {
+                if (item.node.symbols.functions) {
+                    for (var sf = 0; sf < item.node.symbols.functions.length; sf++) {
+                        syms.push(item.node.symbols.functions[sf]);
+                    }
+                }
+                if (item.node.symbols.methods) {
+                    for (var sm = 0; sm < item.node.symbols.methods.length; sm++) {
+                        syms.push(item.node.symbols.methods[sm]);
+                    }
+                }
+            }
+
+            var symContainer = null;
+            var symToggle = null;
+            if (syms.length > 0) {
+                // Sort by line number
+                syms.sort(function (a, b) { return (a.line || 0) - (b.line || 0); });
+
+                symToggle = document.createElement('span');
+                symToggle.className = 'tree-sym-toggle';
+                symToggle.textContent = '▶';
+                symToggle.title = syms.length + ' function' + (syms.length > 1 ? 's' : '');
+                nodeEl.insertBefore(symToggle, icon);
+
+                symContainer = document.createElement('div');
+                symContainer.className = 'tree-children tree-symbols collapsed';
+
+                for (var si = 0; si < syms.length; si++) {
+                    (function (sym) {
+                        var symEl = document.createElement('div');
+                        symEl.className = 'tree-node tree-sym-node';
+                        symEl.style.paddingLeft = (12 + (depth + 1) * 16) + 'px';
+
+                        var symIcon = document.createElement('span');
+                        symIcon.className = 'tree-icon tree-sym-icon';
+                        symIcon.textContent = sym.type === 'method' ? 'ƒ' : 'ƒ';
+
+                        var symLabel = document.createElement('span');
+                        symLabel.className = 'tree-label tree-sym-label';
+                        symLabel.textContent = sym.name + (sym.params ? '()' : '');
+                        symLabel.title = sym.name + (sym.params || '()') + (sym.line ? ' — line ' + sym.line : '');
+
+                        symEl.appendChild(symIcon);
+                        symEl.appendChild(symLabel);
+
+                        symEl.addEventListener('click', function (e) {
+                            e.stopPropagation();
+                            vscode.postMessage({
+                                type: 'openFile',
+                                payload: { path: item.node.path, line: sym.line || 1 }
+                            });
+                        });
+
+                        symContainer.appendChild(symEl);
+                    })(syms[si]);
+                }
+
+                container.appendChild(symContainer);
+
+                symToggle.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    var isOpen = symToggle.dataset.expanded === 'true';
+                    symToggle.dataset.expanded = !isOpen;
+                    if (isOpen) symContainer.classList.add('collapsed');
+                    else symContainer.classList.remove('collapsed');
+                });
+            }
+
             nodeEl.addEventListener('click', function (e) {
                 e.stopPropagation();
                 if (item.node) {

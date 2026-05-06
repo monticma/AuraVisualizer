@@ -28,6 +28,9 @@ const GRAMMAR_FILES: Record<string, string> = {
     'csharp':      'tree-sitter-c_sharp.wasm',
     'css':         'tree-sitter-css.wasm',
     'html':        'tree-sitter-html.wasm',
+    'kotlin':      'tree-sitter-kotlin.wasm',
+    'ruby':        'tree-sitter-ruby.wasm',
+    'swift':       'tree-sitter-swift.wasm',
 };
 
 let initialized = false;

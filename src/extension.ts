@@ -178,31 +178,50 @@ async function loadFromDbThenRefresh(context: vscode.ExtensionContext): Promise<
 
 function registerOpenFileHandler(): void {
     if (!webviewProvider) return;
-    webviewProvider.onOpenFile(async ({ path: filePath, line }) => {
+    let openQueue: Promise<void> = Promise.resolve();
+    webviewProvider.onOpenFile(({ path: filePath, line }) => {
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
         if (!workspaceFolder) return;
 
         const fullPath = path.join(workspaceFolder.uri.fsPath, filePath);
         const uri = vscode.Uri.file(fullPath);
 
-        try {
-            const doc = await vscode.workspace.openTextDocument(uri);
-            const editor = await vscode.window.showTextDocument(doc, {
-                viewColumn: vscode.ViewColumn.Beside,
-                preserveFocus: false
-            });
-
-            if (line && line > 0) {
-                const position = new vscode.Position(line - 1, 0);
-                editor.selection = new vscode.Selection(position, position);
-                editor.revealRange(
-                    new vscode.Range(position, position),
-                    vscode.TextEditorRevealType.InCenter
+        // Serialize openings to avoid racing showTextDocument calls
+        // (rapid clicks could otherwise spawn duplicate editors via ViewColumn.Beside)
+        openQueue = openQueue.then(async () => {
+            try {
+                // Reuse existing editor if the file is already visible
+                const existing = vscode.window.visibleTextEditors.find(
+                    e => e.document.uri.fsPath === uri.fsPath
                 );
+                let editor: vscode.TextEditor;
+                if (existing) {
+                    editor = await vscode.window.showTextDocument(existing.document, {
+                        viewColumn: existing.viewColumn,
+                        preserveFocus: false,
+                        preview: false
+                    });
+                } else {
+                    const doc = await vscode.workspace.openTextDocument(uri);
+                    editor = await vscode.window.showTextDocument(doc, {
+                        viewColumn: vscode.ViewColumn.Beside,
+                        preserveFocus: false,
+                        preview: false
+                    });
+                }
+
+                if (line && line > 0) {
+                    const position = new vscode.Position(line - 1, 0);
+                    editor.selection = new vscode.Selection(position, position);
+                    editor.revealRange(
+                        new vscode.Range(position, position),
+                        vscode.TextEditorRevealType.InCenter
+                    );
+                }
+            } catch {
+                // File may not exist
             }
-        } catch {
-            // File may not exist
-        }
+        });
     });
 }
 

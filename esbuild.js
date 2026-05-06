@@ -126,6 +126,9 @@ async function copyTreeSitterWasms() {
         'tree-sitter-css.wasm',
         'tree-sitter-html.wasm',
         'tree-sitter-c_sharp.wasm',
+        'tree-sitter-kotlin.wasm',
+        'tree-sitter-ruby.wasm',
+        'tree-sitter-swift.wasm',
     ]);
     if (fs.existsSync(grammarsDir)) {
         const wasmFiles = fs.readdirSync(grammarsDir).filter(f => NEEDED_GRAMMARS.has(f));

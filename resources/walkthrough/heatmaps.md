@@ -6,6 +6,7 @@ Color every node by a metric to spot hotspots instantly.
 - �→🔴 **Complexity** — Cyclomatic complexity (branching, loops)
 - 🟢→🔴 **Fan-in** — How many files depend on this file
 - 🟢→🔴 **Fan-out** — How many files this file depends on
+- 🟢→🔴 **Call volume** — Total cross-file function calls in + out (combines fan-in and fan-out weighted by call count)
 - 🟢→🔴 **Lines of Code** — File size
 - 🟢→🔴 **Last Modified** — Recent changes appear in red
 - 🧩 **Communities** — Architectural modules detected by Louvain algorithm

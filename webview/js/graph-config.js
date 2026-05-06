@@ -14,7 +14,10 @@ var LANGUAGE_COLORS = {
     'html':       '#ff8a65',
     'java':       '#e57373',
     'go':         '#4dd0e1',
-    'rust':       '#ffb74d'
+    'rust':       '#ffb74d',
+    'kotlin':     '#b39ddb',
+    'ruby':       '#ef5350',
+    'swift':      '#ff7043'
 };
 
 var LINK_COLORS = {
@@ -44,7 +47,10 @@ var LANGUAGE_ICONS = {
     'html':       '🟠',
     'java':       '☕',
     'go':         '🐹',
-    'rust':       '🦀'
+    'rust':       '🦀',
+    'kotlin':     '🎯',
+    'ruby':       '💎',
+    'swift':      '🐦'
 };
 
 // Blast radius depth → color (0=source, 1=high, 2=medium, 3+=low)

@@ -10,6 +10,9 @@ import { TreeSitterPyParser } from './parsers/ts-py-parser';
 import { TreeSitterJavaParser } from './parsers/ts-java-parser';
 import { TreeSitterGoParser } from './parsers/ts-go-parser';
 import { TreeSitterRustParser } from './parsers/ts-rust-parser';
+import { TreeSitterKotlinParser } from './parsers/ts-kotlin-parser';
+import { TreeSitterRubyParser } from './parsers/ts-ruby-parser';
+import { TreeSitterSwiftParser } from './parsers/ts-swift-parser';
 import { HTMLParser } from './parsers/html-parser';
 import { CSSParser } from './parsers/css-parser';
 import { computeComplexity } from './complexity';
@@ -27,6 +30,9 @@ const PARSERS: Record<string, BaseParser> = {
     'java': new TreeSitterJavaParser(),
     'go': new TreeSitterGoParser(),
     'rust': new TreeSitterRustParser(),
+    'kotlin': new TreeSitterKotlinParser(),
+    'ruby': new TreeSitterRubyParser(),
+    'swift': new TreeSitterSwiftParser(),
     'html': new HTMLParser(),
     'css': new CSSParser()
 };
@@ -34,10 +40,11 @@ const PARSERS: Record<string, BaseParser> = {
 /** Language family scoping: match calls within compatible language groups. */
 const LANG_FAMILY: Record<string, string> = {
     'c': 'c', 'javascript': 'js', 'typescript': 'js', 'python': 'py',
-    'java': 'java', 'go': 'go', 'rust': 'rust'
+    'java': 'java', 'go': 'go', 'rust': 'rust',
+    'kotlin': 'kotlin', 'ruby': 'ruby', 'swift': 'swift'
 };
 
-const SYMBOL_LANGUAGES = new Set(['c', 'javascript', 'typescript', 'python', 'java', 'go', 'rust']);
+const SYMBOL_LANGUAGES = new Set(['c', 'javascript', 'typescript', 'python', 'java', 'go', 'rust', 'kotlin', 'ruby', 'swift']);
 const HEADER_EXTS = new Set(['.h', '.hpp', '.d.ts']);
 
 /**
