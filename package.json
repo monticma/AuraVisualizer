@@ -2,7 +2,7 @@
   "name": "aura-visualizer-3D",
   "displayName": "Aura 3D Visualizer",
   "description": "Visualize your codebase in 3D directly in VSCode — interactive dependency graph with force-directed layout",
-  "version": "1.1.3",
+  "version": "1.1.4",
   "publisher": "monticma-aura",
   "icon": "resources/aura-star-icon.png",
   "repository": {
@@ -24,7 +24,8 @@
   ],
   "activationEvents": [
     "onCommand:auraVisualizer.open",
-    "onWebviewPanel:auraVisualizer.graphView"
+    "onWebviewPanel:auraVisualizer.graphView",
+    "onUri"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -120,6 +121,75 @@
           "type": "boolean",
           "default": true,
           "description": "Automatically refresh visualization when files are saved"
+        },
+        "auraVisualizer.linkStyle": {
+          "type": "string",
+          "enum": [
+            "straight",
+            "curved"
+          ],
+          "enumDescriptions": [
+            "Render graph edges as straight lines",
+            "Render graph edges as curved lines"
+          ],
+          "default": "straight",
+          "description": "Style of edges in the 3D graph: straight lines or curved lines"
+        },
+        "auraVisualizer.linkCurvature": {
+          "type": "number",
+          "default": 0.25,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Curvature amount when linkStyle is 'curved' (0 = straight, 1 = highly curved)"
+        },
+        "auraVisualizer.selectedNodeEffect": {
+          "type": "string",
+          "enum": [
+            "glow",
+            "bloom"
+          ],
+          "enumDescriptions": [
+            "Soft additive sphere halo around the selected node (default)",
+            "Real post-processing bloom (UnrealBloomPass) applied to the whole scene"
+          ],
+          "default": "glow",
+          "description": "Visual effect used to highlight the selected node"
+        },
+        "auraVisualizer.bloomStrength": {
+          "type": "number",
+          "default": 1.2,
+          "minimum": 0,
+          "maximum": 5,
+          "description": "Bloom intensity when selectedNodeEffect is 'bloom'"
+        },
+        "auraVisualizer.bloomRadius": {
+          "type": "number",
+          "default": 0.6,
+          "minimum": 0,
+          "maximum": 2,
+          "description": "Bloom radius when selectedNodeEffect is 'bloom'"
+        },
+        "auraVisualizer.bloomThreshold": {
+          "type": "number",
+          "default": 0.0,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Bloom luminance threshold when selectedNodeEffect is 'bloom'"
+        },
+        "auraVisualizer.savedQueries": {
+          "type": "array",
+          "default": [],
+          "description": "Globally saved Aura Query Language favorites (shared across workspaces)",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "expr": { "type": "string" },
+              "mode": { "type": "string", "enum": ["highlight", "filter", "select"] }
+            },
+            "required": ["name", "expr"]
+          }
         }
       }
     },

@@ -5,12 +5,14 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import type { GraphData } from '../analyzer/index';
+import type { GraphDB } from '../graph-db';
 
 export class WebviewProvider {
     public static readonly viewType = 'auraVisualizer.graphView';
     private panel: vscode.WebviewPanel | undefined;
     private readonly extensionUri: vscode.Uri;
     private readonly workspaceState: vscode.Memento;
+    private readonly getGraphDB: () => GraphDB | undefined;
     private disposables: vscode.Disposable[] = [];
     private onOpenFileEmitter = new vscode.EventEmitter<{ path: string; line?: number }>();
     public readonly onOpenFile = this.onOpenFileEmitter.event;
@@ -22,10 +24,16 @@ export class WebviewProvider {
     private webviewReady = false;
 
     private static readonly VIEW_STATE_KEY = 'aura.viewState';
+    private static readonly SAVED_QUERIES_KEY = 'aura.savedQueries';
 
-    constructor(extensionUri: vscode.Uri, workspaceState: vscode.Memento) {
+    constructor(
+        extensionUri: vscode.Uri,
+        workspaceState: vscode.Memento,
+        getGraphDB: () => GraphDB | undefined = () => undefined
+    ) {
         this.extensionUri = extensionUri;
         this.workspaceState = workspaceState;
+        this.getGraphDB = getGraphDB;
     }
 
     public show(): vscode.WebviewPanel {
@@ -128,6 +136,62 @@ export class WebviewProvider {
                     case 'requestViewState':
                         this.sendSavedViewState();
                         break;
+                    case 'requestSavedQueries': {
+                        const db = this.getGraphDB();
+                        let queries: Array<{ id: string; name: string; expr: string; mode: string }> = [];
+                        if (db && db.isOpen) {
+                            try {
+                                queries = db.listSavedQueries().map(q => ({
+                                    id: q.id, name: q.name, expr: q.expr, mode: q.mode
+                                }));
+                            } catch (err) {
+                                console.error('[aura] listSavedQueries failed:', err);
+                            }
+                        }
+                        this.panel?.webview.postMessage({
+                            type: 'savedQueries',
+                            payload: { queries }
+                        });
+                        break;
+                    }
+                    case 'addSavedQuery': {
+                        const db = this.getGraphDB();
+                        const p = (message.payload || {}) as { id?: string; name?: string; expr?: string; mode?: string };
+                        if (!db || !db.isOpen) {
+                            vscode.window.showErrorMessage('Aura: Cannot save query — database not yet available. Run an analysis first.');
+                            break;
+                        }
+                        if (!p.expr) break;
+                        try {
+                            const id = p.id || ('q_' + Date.now() + '_' + Math.floor(Math.random() * 1e6));
+                            const name = (p.name && p.name.trim()) || p.expr;
+                            db.addSavedQuery({ id, name, expr: p.expr, mode: p.mode || 'highlight' });
+                            const queries = db.listSavedQueries().map(q => ({
+                                id: q.id, name: q.name, expr: q.expr, mode: q.mode
+                            }));
+                            this.panel?.webview.postMessage({ type: 'savedQueries', payload: { queries } });
+                        } catch (err) {
+                            const msg = err instanceof Error ? err.message : String(err);
+                            vscode.window.showErrorMessage('Aura: Failed to save query — ' + msg);
+                        }
+                        break;
+                    }
+                    case 'deleteSavedQuery': {
+                        const db = this.getGraphDB();
+                        const p = (message.payload || {}) as { id?: string };
+                        if (!db || !db.isOpen || !p.id) break;
+                        try {
+                            db.deleteSavedQuery(p.id);
+                            const queries = db.listSavedQueries().map(q => ({
+                                id: q.id, name: q.name, expr: q.expr, mode: q.mode
+                            }));
+                            this.panel?.webview.postMessage({ type: 'savedQueries', payload: { queries } });
+                        } catch (err) {
+                            const msg = err instanceof Error ? err.message : String(err);
+                            vscode.window.showErrorMessage('Aura: Failed to delete query — ' + msg);
+                        }
+                        break;
+                    }
                 }
             },
             null,
@@ -173,6 +237,36 @@ export class WebviewProvider {
 
     public sendRefreshComplete(): void {
         this.panel?.webview.postMessage({ type: 'refreshComplete' });
+    }
+
+    public applyQuery(expr: string, mode?: string): void {
+        const send = () => this.panel?.webview.postMessage({
+            type: 'applyQuery',
+            payload: { expr, mode: mode || 'highlight' }
+        });
+        if (this.webviewReady) {
+            send();
+        } else {
+            // Defer until ready
+            const dispose = this.onDidDispose(() => dispose.dispose());
+            const interval = setInterval(() => {
+                if (this.webviewReady) {
+                    clearInterval(interval);
+                    send();
+                }
+            }, 50);
+        }
+    }
+
+    public sendGraphConfig(config: {
+        linkStyle: string;
+        linkCurvature: number;
+        selectedNodeEffect?: string;
+        bloomStrength?: number;
+        bloomRadius?: number;
+        bloomThreshold?: number;
+    }): void {
+        this.panel?.webview.postMessage({ type: 'graphConfig', payload: config });
     }
 
     public sendTheme(kind: vscode.ColorThemeKind): void {
@@ -231,6 +325,9 @@ export class WebviewProvider {
         const configUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'graph-config.js')
         );
+        const queryUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'query.js')
+        );
         const forceGraphUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'lib', '3d-force-graph.min.js')
         );
@@ -239,6 +336,24 @@ export class WebviewProvider {
         );
 
         const nonce = getNonce();
+
+        // Read user-facing graph rendering settings so the webview can apply them at boot
+        const cfg = vscode.workspace.getConfiguration('auraVisualizer');
+        const linkStyle = cfg.get<string>('linkStyle', 'straight');
+        const linkCurvatureSetting = cfg.get<number>('linkCurvature', 0.25);
+        const linkCurvature = linkStyle === 'curved' ? linkCurvatureSetting : 0;
+        const selectedNodeEffect = cfg.get<string>('selectedNodeEffect', 'glow');
+        const bloomStrength = cfg.get<number>('bloomStrength', 1.2);
+        const bloomRadius = cfg.get<number>('bloomRadius', 0.6);
+        const bloomThreshold = cfg.get<number>('bloomThreshold', 0.0);
+        const auraConfigJson = JSON.stringify({
+            linkStyle,
+            linkCurvature,
+            selectedNodeEffect,
+            bloomStrength,
+            bloomRadius,
+            bloomThreshold
+        });
 
         return `<!DOCTYPE html>
 <html lang="en">
@@ -293,6 +408,31 @@ export class WebviewProvider {
             <button class="tab-btn" data-tab="timeline">📈 Timeline</button>
             <button class="tab-btn" data-tab="table">📋 Table</button>
         </nav>
+
+        <!-- Query Bar (collapsible) -->
+        <section id="query-bar" class="collapsed" aria-label="Query filter">
+            <div class="qb-row qb-main">
+                <button id="qb-toggle" class="qb-toggle" title="Toggle query bar (Ctrl+K)">🔍</button>
+                <div class="qb-input-wrap">
+                    <input type="text" id="qb-input" class="qb-input"
+                        placeholder='complexity > 20 AND fanIn > 5'
+                        spellcheck="false" autocomplete="off" />
+                    <div id="qb-suggest" class="qb-suggest hidden"></div>
+                </div>
+                <select id="qb-mode" class="qb-mode" title="How matches are applied">
+                    <option value="highlight" selected>Highlight</option>
+                    <option value="filter">Filter</option>
+                    <option value="select">Select</option>
+                </select>
+                <span id="qb-status" class="qb-status">—</span>
+                <button id="qb-clear" class="qb-btn" title="Clear query (Esc)">✕</button>
+                <button id="qb-save" class="qb-btn" title="Save current query as favorite">⭐</button>
+                <button id="qb-open-list" class="qb-btn" title="Open saved queries">📚</button>
+            </div>
+            <div class="qb-row qb-error-row">
+                <span id="qb-error" class="qb-error hidden"></span>
+            </div>
+        </section>
 
         <!-- Middle Row: Explorer + Graph + Detail -->
         <div id="middle-row" class="tab-content active" data-tab="graph">
@@ -628,6 +768,21 @@ export class WebviewProvider {
         <div id="community-list"></div>
     </div>
 
+    <!-- Saved Queries Modal (overlay) -->
+    <div id="queries-modal" class="hidden">
+        <div class="queries-modal-header">
+            <span>⭐ Saved Queries</span>
+            <div class="queries-modal-actions">
+                <button id="queries-modal-close" title="Close">✕</button>
+            </div>
+        </div>
+        <div id="queries-modal-list"></div>
+        <div class="queries-modal-footer">
+            <button id="queries-modal-select" class="qm-btn qm-primary" title="Apply selected query">Select</button>
+            <button id="queries-modal-delete" class="qm-btn qm-danger" title="Delete selected query">Delete</button>
+        </div>
+    </div>
+
     <!-- Tooltip (overlay, outside grid) -->
     <div id="tooltip" class="hidden">
         <div class="tooltip-name" id="tooltip-name">—</div>
@@ -750,10 +905,12 @@ export class WebviewProvider {
     </div>
 
     <!-- Libraries: THREE must load before 3d-force-graph (it checks window.THREE) -->
+    <script nonce="${nonce}">window.AURA_CONFIG = ${auraConfigJson};</script>
     <script nonce="${nonce}" src="${threeUri}"></script>
     <script nonce="${nonce}" src="${forceGraphUri}"></script>
     <!-- App Logic -->
     <script nonce="${nonce}" src="${configUri}"></script>
+    <script nonce="${nonce}" src="${queryUri}"></script>
     <script nonce="${nonce}" src="${appUri}"></script>
 </body>
 </html>`;

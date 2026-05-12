@@ -130,6 +130,14 @@ CREATE TABLE IF NOT EXISTS function_calls (
     PRIMARY KEY (caller_file, caller_name, callee_file, callee_name, call_line)
 );
 
+CREATE TABLE IF NOT EXISTS saved_queries (
+    id         TEXT PRIMARY KEY,
+    name       TEXT NOT NULL,
+    expr       TEXT NOT NULL,
+    mode       TEXT NOT NULL DEFAULT 'highlight',
+    created_at INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source);
 CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target);
 CREATE INDEX IF NOT EXISTS idx_symbols_node ON symbols(node_id);
@@ -225,6 +233,31 @@ export class GraphDB {
         if (!this.db || !this.dbPath) return;
         const data = this.db.export();
         writeFileSync(this.dbPath, Buffer.from(data));
+    }
+
+    // ── Saved queries (Aura Query Language favorites) ──────────
+
+    listSavedQueries(): Array<{ id: string; name: string; expr: string; mode: string; createdAt: number }> {
+        const db = this.ensureDb();
+        return queryAll<{ id: string; name: string; expr: string; mode: string; created_at: number }>(
+            db,
+            'SELECT id, name, expr, mode, created_at FROM saved_queries ORDER BY created_at DESC'
+        ).map(r => ({ id: r.id, name: r.name, expr: r.expr, mode: r.mode, createdAt: r.created_at }));
+    }
+
+    addSavedQuery(q: { id: string; name: string; expr: string; mode: string }): void {
+        const db = this.ensureDb();
+        db.run(
+            'INSERT OR REPLACE INTO saved_queries (id, name, expr, mode, created_at) VALUES (?, ?, ?, ?, ?)',
+            [q.id, q.name, q.expr, q.mode || 'highlight', Date.now()]
+        );
+        this.save();
+    }
+
+    deleteSavedQuery(id: string): void {
+        const db = this.ensureDb();
+        db.run('DELETE FROM saved_queries WHERE id = ?', [id]);
+        this.save();
     }
 
     // ── Import (full replace after each analysis) ──────────────

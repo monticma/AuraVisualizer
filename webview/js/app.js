@@ -33,6 +33,20 @@
     var nodeSizeMultiplier = 4;
     var spreadMultiplier = 1;
     var focusDepth = 1;
+
+    // Query filter state (Aura Query Language — see query.js)
+    var queryActive = false;
+    var queryMode = 'highlight'; // 'highlight' | 'filter' | 'select'
+    var queryExpr = '';
+    var queryFn = null;
+    var querySet = new Set(); // ids of matching nodes
+    var savedQueries = [];        // [{id, name, expr, mode}]
+    var queryActiveFavId = null;
+    var modalSelectedId = null;   // currently highlighted row in saved-queries modal
+    var queryHistory = [];        // recent expressions, oldest first
+    var queryHistoryCursor = -1;  // -1 = not navigating
+    var queryHistoryDraft = '';   // input snapshot when entering history
+    var QUERY_HISTORY_MAX = 30;
     var heatmapMode = 'off';
     var showGroups = false;
     var expandedGroups = new Set();
@@ -168,6 +182,25 @@
             case 'themeChanged':
                 // Could adapt colors here if needed
                 break;
+            case 'graphConfig':
+                if (message.payload) {
+                    window.AURA_CONFIG = Object.assign({}, window.AURA_CONFIG || {}, message.payload);
+                    if (graph && typeof graph.linkCurvature === 'function') {
+                        var cfg = window.AURA_CONFIG;
+                        var curv = (cfg.linkStyle === 'curved')
+                            ? (typeof cfg.linkCurvature === 'number' ? cfg.linkCurvature : 0.25)
+                            : 0;
+                        graph.linkCurvature(curv);
+                    }
+                    if (typeof applySelectedNodeEffect === 'function') {
+                        applySelectedNodeEffect();
+                    }
+                    // Force re-render of selected node visual (glow vs bloom geometry)
+                    if (graph && typeof graph.nodeThreeObject === 'function') {
+                        graph.nodeThreeObject(graph.nodeThreeObject());
+                    }
+                }
+                break;
             case 'progress':
                 if (message.payload) {
                     var statusEl = $('#loading-status');
@@ -190,6 +223,32 @@
                 break;
             case 'restoreViewState':
                 if (message.payload) applyViewState(message.payload);
+                break;
+            case 'savedQueries':
+                if (message.payload) {
+                    if (Array.isArray(message.payload)) {
+                        savedQueries = message.payload;
+                    } else if (Array.isArray(message.payload.queries)) {
+                        savedQueries = message.payload.queries;
+                    } else {
+                        savedQueries = [];
+                    }
+                    renderSavedQueriesModal();
+                }
+                break;
+            case 'applyQuery':
+                if (message.payload && typeof message.payload.expr === 'string') {
+                    var qbInput = $('#qb-input');
+                    var qbMode = $('#qb-mode');
+                    var qbBar = $('#query-bar');
+                    if (qbBar) qbBar.classList.remove('collapsed');
+                    if (qbInput) qbInput.value = message.payload.expr;
+                    if (qbMode && message.payload.mode) {
+                        qbMode.value = message.payload.mode;
+                        queryMode = message.payload.mode;
+                    }
+                    runQueryFromInput(message.payload.expr, true);
+                }
                 break;
             case 'visibilityChanged':
                 if (message.payload) {
@@ -229,6 +288,8 @@
         setupExplorer();
         setupTimeline();
         setupTabs();
+        setupQueryBar();
+        vscode.postMessage({ type: 'requestSavedQueries' });
     }
 
     if (document.readyState === 'loading') {
@@ -256,6 +317,13 @@
         computeCommunities();
         updateStats(graphData.meta);
         updateLanguageButtons(graphData.nodes);
+        // Re-evaluate active query against the new dataset
+        if (queryActive && queryFn) {
+            evaluateQuery();
+            applyQuerySelectMode();
+            var totalQ = graphData.nodes.length;
+            setQueryStatus(querySet.size + ' / ' + totalQ + ' match', querySet.size > 0 ? 'match' : '');
+        }
         try {
             initGraph(graphData);
         } catch (e) {
@@ -778,10 +846,13 @@
         graph = ForceGraph3D()(graphContainer)
             .graphData(filtered)
             .nodeId('id')
-            .nodeLabel('')
-            .nodeColor(function (node) { return getNodeColor(node); })
+            .nodeLabel('')            .nodeColor(function (node) { return getNodeColor(node); })
             .nodeRelSize(1)
             .nodeVal(function (node) { return getNodeSize(node); })
+            .nodeVisibility(function (node) {
+                if (queryActive && queryMode === 'filter' && !querySet.has(node.id)) return false;
+                return true;
+            })
             .nodeOpacity(0.92)
             .nodeThreeObjectExtend(true)
             .nodeThreeObject(function (node) {
@@ -856,31 +927,60 @@
                     group.add(new T.Mesh(blastGlowGeo, blastGlowMat));
                 }
 
-                // Glow effect for selected node
+                // Selected-node highlight: either soft additive halo ("glow")
+                // or a bright emissive core picked up by UnrealBloomPass ("bloom").
                 if (isSelected) {
                     var nodeRadius = Math.cbrt(getNodeSize(node) || 1) * 1;
-                    var glowGeo = new T.SphereGeometry(nodeRadius * 3, 16, 16);
-                    var glowMat = new T.MeshBasicMaterial({
-                        color: 0x60a5fa,
-                        transparent: true,
-                        opacity: 0.25,
-                        blending: T.AdditiveBlending,
-                        depthWrite: false
-                    });
-                    var glow = new T.Mesh(glowGeo, glowMat);
-                    group.add(glow);
+                    var auraCfg = window.AURA_CONFIG || {};
+                    var effect = auraCfg.selectedNodeEffect === 'bloom' ? 'bloom' : 'glow';
 
-                    // Inner brighter core
-                    var coreGeo = new T.SphereGeometry(nodeRadius * 1.8, 16, 16);
-                    var coreMat = new T.MeshBasicMaterial({
-                        color: 0x93c5fd,
-                        transparent: true,
-                        opacity: 0.4,
-                        blending: T.AdditiveBlending,
-                        depthWrite: false
-                    });
-                    var core = new T.Mesh(coreGeo, coreMat);
-                    group.add(core);
+                    if (effect === 'bloom') {
+                        // Bright emissive sphere — only this mesh is on the bloom layer,
+                        // so the selective UnrealBloomPass blooms ONLY this object.
+                        // Use the node's own color so the bloom matches it.
+                        var bloomColorStr = getNodeColor(node) || '#93c5fd';
+                        var bloomColor;
+                        try {
+                            bloomColor = new T.Color(bloomColorStr);
+                        } catch (e) {
+                            bloomColor = new T.Color(0x93c5fd);
+                        }
+                        var bloomGeo = new T.SphereGeometry(nodeRadius * 1.6, 24, 24);
+                        var bloomMat = new T.MeshBasicMaterial({
+                            color: bloomColor,
+                            transparent: false,
+                            toneMapped: false
+                        });
+                        var bloomMesh = new T.Mesh(bloomGeo, bloomMat);
+                        // Enable bloom layer in addition to layer 0 so it also
+                        // appears in the normal scene render (otherwise it would
+                        // only show up in the offscreen bloom buffer).
+                        bloomMesh.layers.enable(BLOOM_LAYER);
+                        group.add(bloomMesh);
+                    } else {
+                        var glowGeo = new T.SphereGeometry(nodeRadius * 3, 16, 16);
+                        var glowMat = new T.MeshBasicMaterial({
+                            color: 0x60a5fa,
+                            transparent: true,
+                            opacity: 0.25,
+                            blending: T.AdditiveBlending,
+                            depthWrite: false
+                        });
+                        var glow = new T.Mesh(glowGeo, glowMat);
+                        group.add(glow);
+
+                        // Inner brighter core
+                        var coreGeo = new T.SphereGeometry(nodeRadius * 1.8, 16, 16);
+                        var coreMat = new T.MeshBasicMaterial({
+                            color: 0x93c5fd,
+                            transparent: true,
+                            opacity: 0.4,
+                            blending: T.AdditiveBlending,
+                            depthWrite: false
+                        });
+                        var core = new T.Mesh(coreGeo, coreMat);
+                        group.add(core);
+                    }
                 }
 
                 // Label sprite
@@ -896,6 +996,10 @@
             })
             .linkSource('source')
             .linkTarget('target')
+            .linkCurvature(function () {
+                var cfg = window.AURA_CONFIG || {};
+                return (cfg.linkStyle === 'curved') ? (typeof cfg.linkCurvature === 'number' ? cfg.linkCurvature : 0.25) : 0;
+            })
             .linkVisibility(function (link) { return getLinkVisibility(link); })
             .linkColor(function (link) { return getLinkColor(link); })
             .linkWidth(function (link) {
@@ -1007,6 +1111,9 @@
             graph.zoomToFit(500, 50);
         }, 1500);
 
+        // Apply selected-node bloom post-processing if configured
+        applySelectedNodeEffect();
+
         // Handle webview resize (e.g. when side editor opens/closes)
         var resizeObserver = new ResizeObserver(function () {
             if (graph) {
@@ -1018,9 +1125,163 @@
     }
 
     // ============================================================
+    // Selected-node selective bloom post-processing
+    // Only objects on layer BLOOM_LAYER receive bloom — the rest of
+    // the scene is rendered normally and composited on top.
+    // ============================================================
+    var BLOOM_LAYER = 1;
+    var bloomState = null; // { prePass, compositePass, bloomPass, bloomComposer }
+
+    function disposeBloomState() {
+        if (!bloomState || !graph || typeof graph.postProcessingComposer !== 'function') {
+            bloomState = null;
+            return;
+        }
+        try {
+            var composer = graph.postProcessingComposer();
+            if (composer && composer.passes) {
+                [bloomState.prePass, bloomState.compositePass].forEach(function (p) {
+                    var idx = composer.passes.indexOf(p);
+                    if (idx !== -1) composer.passes.splice(idx, 1);
+                });
+            }
+            if (bloomState.bloomComposer && typeof bloomState.bloomComposer.dispose === 'function') {
+                bloomState.bloomComposer.dispose();
+            }
+            if (bloomState.bloomPass && typeof bloomState.bloomPass.dispose === 'function') {
+                bloomState.bloomPass.dispose();
+            }
+        } catch (e) { /* noop */ }
+        bloomState = null;
+    }
+
+    function buildBloomState(strength, radius, threshold) {
+        var T = window.THREE;
+        if (!T || !T.UnrealBloomPass || !T.EffectComposer || !T.RenderPass || !T.ShaderPass) {
+            console.warn('[aura] Bloom requires UnrealBloomPass/EffectComposer in THREE bundle');
+            return null;
+        }
+        var scene = graph.scene();
+        var camera = graph.camera();
+        var renderer = graph.renderer();
+        if (!scene || !camera || !renderer) return null;
+
+        var w = renderer.domElement.width || graphContainer.clientWidth;
+        var h = renderer.domElement.height || graphContainer.clientHeight;
+
+        // Offscreen composer that renders ONLY bloom-layer objects, then blooms them.
+        var bloomComposer = new T.EffectComposer(renderer);
+        bloomComposer.renderToScreen = false;
+        bloomComposer.addPass(new T.RenderPass(scene, camera));
+        var bloomPass = new T.UnrealBloomPass(new T.Vector2(w, h), strength, radius, threshold);
+        bloomComposer.addPass(bloomPass);
+
+        // Pre-pass: temporarily restrict the camera to the bloom layer, render the
+        // bloom composer to its offscreen target, then restore the camera mask.
+        var prePass = {
+            enabled: true,
+            needsSwap: false,
+            clear: false,
+            renderToScreen: false,
+            render: function (rdr, writeBuffer, readBuffer, deltaTime) {
+                var savedMask = camera.layers.mask;
+                camera.layers.set(BLOOM_LAYER);
+                bloomComposer.render(deltaTime);
+                camera.layers.mask = savedMask;
+            },
+            setSize: function (sw, sh) {
+                bloomComposer.setSize(sw, sh);
+                bloomPass.setSize(sw, sh);
+            },
+            dispose: function () {
+                if (typeof bloomComposer.dispose === 'function') bloomComposer.dispose();
+            }
+        };
+
+        // Final composite: base scene (readBuffer from previous RenderPass) + bloom texture.
+        var compositeMaterial = new T.ShaderMaterial({
+            uniforms: {
+                baseTexture: { value: null },
+                bloomTexture: { value: bloomComposer.renderTarget2.texture }
+            },
+            vertexShader: [
+                'varying vec2 vUv;',
+                'void main() {',
+                '  vUv = uv;',
+                '  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+                '}'
+            ].join('\n'),
+            fragmentShader: [
+                'uniform sampler2D baseTexture;',
+                'uniform sampler2D bloomTexture;',
+                'varying vec2 vUv;',
+                'void main() {',
+                '  vec4 base  = texture2D(baseTexture, vUv);',
+                '  vec4 bloom = texture2D(bloomTexture, vUv);',
+                '  gl_FragColor = base + bloom;',
+                '}'
+            ].join('\n'),
+            defines: {}
+        });
+        var compositePass = new T.ShaderPass(compositeMaterial, 'baseTexture');
+        compositePass.needsSwap = true;
+
+        return {
+            prePass: prePass,
+            compositePass: compositePass,
+            bloomPass: bloomPass,
+            bloomComposer: bloomComposer
+        };
+    }
+
+    function applySelectedNodeEffect() {
+        if (!graph || typeof graph.postProcessingComposer !== 'function') return;
+        var T = window.THREE;
+        if (!T) return;
+
+        var cfg = window.AURA_CONFIG || {};
+        var wantBloom = cfg.selectedNodeEffect === 'bloom';
+
+        var composer;
+        try { composer = graph.postProcessingComposer(); } catch (e) { composer = null; }
+        if (!composer || !composer.passes) return;
+
+        if (!wantBloom) {
+            disposeBloomState();
+            return;
+        }
+
+        var strength = typeof cfg.bloomStrength === 'number' ? cfg.bloomStrength : 1.2;
+        var radius = typeof cfg.bloomRadius === 'number' ? cfg.bloomRadius : 0.6;
+        var threshold = typeof cfg.bloomThreshold === 'number' ? cfg.bloomThreshold : 0.0;
+
+        if (bloomState) {
+            // Live-update params on the existing pass
+            bloomState.bloomPass.strength = strength;
+            bloomState.bloomPass.radius = radius;
+            bloomState.bloomPass.threshold = threshold;
+            return;
+        }
+
+        var built = buildBloomState(strength, radius, threshold);
+        if (!built) return;
+        bloomState = built;
+
+        // Insert pre-pass at the very beginning, composite at the end so the
+        // sequence is: [bloomPrePass, RenderPass (3d-force-graph), compositePass].
+        composer.passes.unshift(built.prePass);
+        composer.addPass(built.compositePass);
+    }
+
+    // ============================================================
     // Node Visuals
     // ============================================================
     function getNodeColor(node) {
+        // Query filter (highlight mode dims non-matching nodes)
+        if (queryActive && queryMode === 'highlight' && !querySet.has(node.id)) {
+            return '#ffffff0a';
+        }
+
         if (showOrphans) {
             if (node.fanIn === 0 && node.fanOut === 0) return '#ff1744';
             return '#ffffff0a';
@@ -1144,6 +1405,12 @@
     }
 
     function getLinkVisibility(link) {
+        // Query in filter mode hides links unless both endpoints match
+        if (queryActive && queryMode === 'filter') {
+            var qSrc = typeof link.source === 'object' ? link.source.id : link.source;
+            var qTgt = typeof link.target === 'object' ? link.target.id : link.target;
+            if (!querySet.has(qSrc) || !querySet.has(qTgt)) return false;
+        }
         // In compare mode, only show links where both endpoints are changed
         if (timelineActive && timelineCompareMode && timelineChangedNodes.size > 0) {
             var vSrc = typeof link.source === 'object' ? link.source.id : link.source;
@@ -6599,6 +6866,697 @@
                 renderTable();
             });
         }
+    }
+
+    // ============================================================
+    // Query Bar — boolean expression filtering
+    // ============================================================
+    function communityNameFor(nodeId) {
+        var cid = communityMap[nodeId];
+        if (cid === undefined) return '';
+        var info = communityNames[cid];
+        return info ? info.name : String(cid);
+    }
+
+    function buildQueryContext() {
+        return {
+            communityName: communityNameFor,
+            cycleNodeIds: cycleNodeIds,
+            pinnedNodes: typeof pinnedNodes !== 'undefined' ? pinnedNodes : new Set()
+        };
+    }
+
+    function evaluateQuery() {
+        querySet.clear();
+        if (!queryFn || !graphData || !graphData.nodes) return;
+        var ctx = buildQueryContext();
+        for (var i = 0; i < graphData.nodes.length; i++) {
+            var node = graphData.nodes[i];
+            window.AuraQuery.prepareNode(node, ctx);
+            try {
+                if (queryFn(node)) querySet.add(node.id);
+            } catch (e) { /* skip */ }
+        }
+    }
+
+    function refreshGraphAfterQuery() {
+        if (!graph) return;
+        // Force re-evaluation of node/link callbacks by re-applying them
+        graph.nodeColor(graph.nodeColor());
+        graph.linkColor(graph.linkColor());
+        graph.nodeVisibility(graph.nodeVisibility());
+        graph.linkVisibility(graph.linkVisibility());
+        graph.nodeThreeObject(graph.nodeThreeObject());
+    }
+
+    function applyQuerySelectMode() {
+        if (queryMode !== 'select') return;
+        // Replace multi-selection with the matched set
+        multiSelectedNodes.clear();
+        if (!graphData) return;
+        for (var i = 0; i < graphData.nodes.length; i++) {
+            if (querySet.has(graphData.nodes[i].id)) {
+                multiSelectedNodes.add(graphData.nodes[i]);
+            }
+        }
+    }
+
+    // ---------- Saved queries (DB-backed, modal UI) ----------
+
+    function renderSavedQueriesModal() {
+        var list = $('#queries-modal-list');
+        if (!list) return;
+        list.innerHTML = '';
+        if (!savedQueries || !savedQueries.length) {
+            var empty = document.createElement('div');
+            empty.className = 'queries-empty';
+            empty.textContent = 'No saved queries yet. Type a query and click ⭐ to save.';
+            list.appendChild(empty);
+            updateModalButtons();
+            return;
+        }
+        // Reset selection if it points to a missing id
+        if (modalSelectedId && !savedQueries.some(function (q) { return q.id === modalSelectedId; })) {
+            modalSelectedId = null;
+        }
+        for (var i = 0; i < savedQueries.length; i++) {
+            (function (q) {
+                var row = document.createElement('div');
+                row.className = 'queries-item';
+                if (modalSelectedId === q.id) row.classList.add('selected');
+                row.dataset.id = q.id;
+
+                var name = document.createElement('div');
+                name.className = 'queries-item-name';
+                name.textContent = q.name;
+                row.appendChild(name);
+
+                var expr = document.createElement('div');
+                expr.className = 'queries-item-expr';
+                expr.textContent = q.expr;
+                row.appendChild(expr);
+
+                var mode = document.createElement('div');
+                mode.className = 'queries-item-mode';
+                mode.textContent = q.mode || 'highlight';
+                row.appendChild(mode);
+
+                row.addEventListener('click', function () {
+                    modalSelectedId = q.id;
+                    renderSavedQueriesModal();
+                });
+                row.addEventListener('dblclick', function () {
+                    modalSelectedId = q.id;
+                    applySavedQuery(q);
+                    hideQueriesModal();
+                });
+                list.appendChild(row);
+            })(savedQueries[i]);
+        }
+        updateModalButtons();
+    }
+
+    function updateModalButtons() {
+        var selectBtn = $('#queries-modal-select');
+        var delBtn = $('#queries-modal-delete');
+        var hasSel = !!modalSelectedId;
+        if (selectBtn) selectBtn.disabled = !hasSel;
+        if (delBtn) delBtn.disabled = !hasSel;
+    }
+
+    function applySavedQuery(q) {
+        if (!q) return;
+        var input = $('#qb-input');
+        var modeSel = $('#qb-mode');
+        var bar = $('#query-bar');
+        if (bar) bar.classList.remove('collapsed');
+        if (input) input.value = q.expr;
+        if (modeSel && q.mode) { modeSel.value = q.mode; queryMode = q.mode; }
+        runQueryFromInput(q.expr, true);
+        queryActiveFavId = q.id;
+    }
+
+    function showQueriesModal() {
+        var modal = $('#queries-modal');
+        if (!modal) return;
+        modal.classList.remove('hidden');
+        // Refresh from DB every time the modal is opened
+        try { vscode.postMessage({ type: 'requestSavedQueries' }); } catch (_) { /* noop */ }
+        renderSavedQueriesModal();
+    }
+
+    function hideQueriesModal() {
+        var modal = $('#queries-modal');
+        if (modal) modal.classList.add('hidden');
+    }
+
+    // ---------- Autocomplete ----------
+    var suggestActiveIndex = -1;
+    var suggestItems = [];
+
+    function distinctValues(prop, limit) {
+        if (!graphData || !graphData.nodes) return [];
+        var seen = Object.create(null);
+        var out = [];
+        for (var i = 0; i < graphData.nodes.length && out.length < (limit || 25); i++) {
+            var v = graphData.nodes[i][prop];
+            if (v == null || v === '') continue;
+            var key = String(v);
+            if (seen[key]) continue;
+            seen[key] = true;
+            out.push(key);
+        }
+        return out.sort();
+    }
+
+    function communityValues() {
+        var out = [];
+        var seen = Object.create(null);
+        Object.keys(communityNames || {}).forEach(function (cid) {
+            var n = communityNames[cid] && communityNames[cid].name;
+            if (!n || seen[n]) return;
+            seen[n] = true;
+            out.push(n);
+        });
+        return out.sort();
+    }
+
+    function buildSuggestions(text, caret) {
+        // Find current token (identifier or value being typed)
+        var before = text.slice(0, caret);
+        var ctx = analyzeQueryContext(before);
+        var items = [];
+
+        var addOp = function () {
+            window.AuraQuery.operators.forEach(function (op) {
+                items.push({ insert: op + ' ', label: op, kind: 'op' });
+            });
+        };
+        var addLogic = function () {
+            ['AND', 'OR', 'NOT'].forEach(function (k) {
+                items.push({ insert: k + ' ', label: k, kind: 'kw' });
+            });
+        };
+        var addFields = function (prefix) {
+            var fields = window.AuraQuery.listFields();
+            fields.forEach(function (f) {
+                if (!prefix || f.indexOf(prefix.toLowerCase()) === 0) {
+                    var t = window.AuraQuery.fieldType(f);
+                    items.push({
+                        insert: f + ' ',
+                        label: f,
+                        kind: t || 'field',
+                        replaceTokenLen: prefix ? prefix.length : 0
+                    });
+                }
+            });
+        };
+        var addValues = function (field, prefix) {
+            var t = window.AuraQuery.fieldType(field);
+            var prop = window.AuraQuery.fieldProp(field);
+            var vals = [];
+            if (t === 'string' && prop) {
+                if (field === 'community') vals = communityValues();
+                else vals = distinctValues(prop, 30);
+            }
+            vals.forEach(function (v) {
+                if (!prefix || v.toLowerCase().indexOf(prefix.toLowerCase()) === 0) {
+                    items.push({
+                        insert: '"' + v.replace(/"/g, '\\"') + '" ',
+                        label: '"' + v + '"',
+                        kind: 'value',
+                        replaceTokenLen: prefix ? prefix.length + 0 : 0,
+                        // include opening quote consumed
+                        consumeQuote: ctx.partial && ctx.partial.charAt(0) === '"'
+                    });
+                }
+            });
+            if (t === 'bool') {
+                ['true', 'false'].forEach(function (v) {
+                    items.push({ insert: v + ' ', label: v, kind: 'value' });
+                });
+            }
+        };
+
+        switch (ctx.expecting) {
+            case 'field':
+                addFields(ctx.partial);
+                if (!ctx.partial) addLogic();
+                break;
+            case 'op':
+                addOp();
+                break;
+            case 'value':
+                addValues(ctx.field, ctx.partialValue);
+                break;
+            case 'logic':
+                addLogic();
+                break;
+        }
+        // Cap result list
+        return items.slice(0, 30).map(function (item) {
+            item.tokenStart = ctx.tokenStart != null ? ctx.tokenStart : caret;
+            return item;
+        });
+    }
+
+    /**
+     * Scan from the beginning of the input to figure out where we stand:
+     * - 'field'   → user is typing a field name
+     * - 'op'      → user just finished a field and needs an operator
+     * - 'value'   → user is typing a value after an operator
+     * - 'logic'   → user just finished a comparison and needs AND / OR
+     */
+    function analyzeQueryContext(text) {
+        // Tokenize loosely with same rules as query.js (sufficient for completion)
+        var tokens = [];
+        var i = 0, n = text.length;
+        while (i < n) {
+            var c = text[i];
+            if (/\s/.test(c)) { i++; continue; }
+            if (c === '"' || c === "'") {
+                var q = c, s = i; i++;
+                while (i < n && text[i] !== q) { if (text[i] === '\\') i++; i++; }
+                if (i < n) i++;
+                tokens.push({ kind: 'string', start: s, end: i, value: text.slice(s, i) });
+                continue;
+            }
+            if (/[A-Za-z_]/.test(c)) {
+                var s2 = i;
+                while (i < n && /[A-Za-z0-9_]/.test(text[i])) i++;
+                tokens.push({ kind: 'ident', start: s2, end: i, value: text.slice(s2, i) });
+                continue;
+            }
+            if (/[0-9]/.test(c)) {
+                var s3 = i;
+                while (i < n && /[0-9.]/.test(text[i])) i++;
+                tokens.push({ kind: 'number', start: s3, end: i, value: text.slice(s3, i) });
+                continue;
+            }
+            // Operators / punctuation (consume up to 2 chars)
+            var two = text.slice(i, i + 2);
+            if (['==','!=','>=','<=','&&','||','!~'].indexOf(two) !== -1) {
+                tokens.push({ kind: 'op', start: i, end: i + 2, value: two });
+                i += 2;
+                continue;
+            }
+            tokens.push({ kind: 'op', start: i, end: i + 1, value: c });
+            i++;
+        }
+
+        var lastEnd = tokens.length ? tokens[tokens.length - 1].end : 0;
+        var endedAtBoundary = lastEnd < text.length; // trailing space after last token
+        var last = tokens[tokens.length - 1];
+        var prev = tokens[tokens.length - 2];
+
+        var KEYWORDS = { 'AND':1, 'OR':1, 'NOT':1, 'IN':1, 'and':1, 'or':1, 'not':1, 'in':1 };
+        var OP_CHARS = { '==':1,'!=':1,'>=':1,'<=':1,'>':1,'<':1,'~':1,'!~':1 };
+
+        // No tokens or last token is logic keyword → expect a field
+        if (!last) return { expecting: 'field', partial: '', tokenStart: 0 };
+
+        // If we're still INSIDE the last token (no trailing space), treat it as partial
+        if (!endedAtBoundary) {
+            if (last.kind === 'ident' && !KEYWORDS[last.value]) {
+                // Partial field OR logic keyword
+                if (!prev || (prev.kind === 'ident' && KEYWORDS[prev.value]) || prev.kind === 'op') {
+                    return { expecting: 'field', partial: last.value, tokenStart: last.start };
+                }
+                // After op: numeric/bool field with bare ident starts a value
+                if (prev && prev.kind === 'op' && OP_CHARS[prev.value]) {
+                    var fieldTok2 = tokens[tokens.length - 3];
+                    return {
+                        expecting: 'value',
+                        field: fieldTok2 ? fieldTok2.value : '',
+                        partialValue: last.value,
+                        tokenStart: last.start
+                    };
+                }
+                return { expecting: 'field', partial: last.value, tokenStart: last.start };
+            }
+            if (last.kind === 'string') {
+                // Inside a quoted string after an op — value completion
+                var fieldTok = tokens[tokens.length - 3];
+                return {
+                    expecting: 'value',
+                    field: fieldTok ? fieldTok.value : '',
+                    partialValue: last.value.slice(1).replace(/"$/, ''),
+                    tokenStart: last.start
+                };
+            }
+            // Inside an operator being typed
+            if (last.kind === 'op') {
+                return { expecting: 'op', partial: last.value, tokenStart: last.start };
+            }
+        }
+
+        // Trailing space — what comes after?
+        if (last.kind === 'ident' && KEYWORDS[last.value]) {
+            return { expecting: 'field', partial: '', tokenStart: text.length };
+        }
+        if (last.kind === 'op') {
+            // Operator just typed → expect value
+            var fTok = tokens[tokens.length - 2];
+            return { expecting: 'value', field: fTok ? fTok.value : '', partialValue: '', tokenStart: text.length };
+        }
+        if (last.kind === 'string' || last.kind === 'number') {
+            return { expecting: 'logic', partial: '', tokenStart: text.length };
+        }
+        if (last.kind === 'ident') {
+            // After a field identifier with trailing space → expect operator
+            return { expecting: 'op', partial: '', tokenStart: text.length };
+        }
+        return { expecting: 'field', partial: '', tokenStart: text.length };
+    }
+
+    function showSuggestions(items) {
+        var box = $('#qb-suggest');
+        if (!box) return;
+        suggestItems = items || [];
+        suggestActiveIndex = items && items.length ? 0 : -1;
+        if (!suggestItems.length) {
+            box.classList.add('hidden');
+            box.innerHTML = '';
+            return;
+        }
+        box.innerHTML = '';
+        for (var i = 0; i < suggestItems.length; i++) {
+            (function (item, idx) {
+                var row = document.createElement('div');
+                row.className = 'qb-suggest-item' + (idx === suggestActiveIndex ? ' active' : '');
+                var label = document.createElement('span');
+                label.className = 'qb-suggest-label';
+                label.textContent = item.label;
+                var kind = document.createElement('span');
+                kind.className = 'qb-suggest-kind';
+                kind.textContent = item.kind || '';
+                row.appendChild(label);
+                row.appendChild(kind);
+                row.addEventListener('mousedown', function (e) {
+                    e.preventDefault(); // keep input focus
+                    applySuggestion(idx);
+                });
+                box.appendChild(row);
+            })(suggestItems[i], i);
+        }
+        box.classList.remove('hidden');
+    }
+
+    function hideSuggestions() {
+        var box = $('#qb-suggest');
+        if (box) box.classList.add('hidden');
+        suggestItems = [];
+        suggestActiveIndex = -1;
+    }
+
+    function applySuggestion(index) {
+        var input = $('#qb-input');
+        if (!input || index < 0 || index >= suggestItems.length) return;
+        var item = suggestItems[index];
+        var caret = input.selectionStart || input.value.length;
+        var before = input.value.slice(0, caret);
+        var after = input.value.slice(caret);
+        var replaceLen = item.replaceTokenLen || 0;
+        var head = before.slice(0, before.length - replaceLen);
+        // Avoid double space
+        if (head.length && !/\s$/.test(head)) {
+            // already has a partial we removed; nothing to add
+        }
+        var newValue = head + item.insert + after;
+        var newCaret = (head + item.insert).length;
+        input.value = newValue;
+        input.setSelectionRange(newCaret, newCaret);
+        // Re-trigger autocomplete + live evaluation
+        triggerAutocomplete();
+        scheduleQueryRun(newValue);
+    }
+
+    function triggerAutocomplete() {
+        var input = $('#qb-input');
+        if (!input) return;
+        var caret = input.selectionStart || input.value.length;
+        var items = buildSuggestions(input.value, caret);
+        showSuggestions(items);
+    }
+
+    // ---------- History ----------
+    function pushHistory(expr) {
+        if (!expr) return;
+        // Remove duplicate
+        queryHistory = queryHistory.filter(function (e) { return e !== expr; });
+        queryHistory.push(expr);
+        if (queryHistory.length > QUERY_HISTORY_MAX) queryHistory.shift();
+        queryHistoryCursor = -1;
+    }
+
+    function navigateHistory(delta) {
+        var input = $('#qb-input');
+        if (!input || queryHistory.length === 0) return false;
+        if (queryHistoryCursor === -1) {
+            // Entering history navigation
+            if (delta > 0) return false; // ↓ does nothing when not in history
+            queryHistoryDraft = input.value;
+            queryHistoryCursor = queryHistory.length - 1;
+        } else {
+            queryHistoryCursor += delta;
+            if (queryHistoryCursor < 0) queryHistoryCursor = 0;
+            if (queryHistoryCursor >= queryHistory.length) {
+                // Past newest → restore draft
+                queryHistoryCursor = -1;
+                input.value = queryHistoryDraft;
+                input.setSelectionRange(input.value.length, input.value.length);
+                return true;
+            }
+        }
+        input.value = queryHistory[queryHistoryCursor];
+        input.setSelectionRange(input.value.length, input.value.length);
+        return true;
+    }
+
+    // ---------- Run / save ----------
+    function setQueryStatus(text, kind) {
+        var el = $('#qb-status');
+        if (!el) return;
+        el.textContent = text;
+        el.className = 'qb-status' + (kind === 'match' ? ' qb-status-match' : kind === 'error' ? ' qb-status-error' : '');
+    }
+
+    function setQueryError(msg) {
+        var input = $('#qb-input');
+        var err = $('#qb-error');
+        if (msg) {
+            if (input) input.classList.add('qb-error-state');
+            if (err) { err.textContent = msg; err.classList.remove('hidden'); }
+            setQueryStatus('error', 'error');
+        } else {
+            if (input) input.classList.remove('qb-error-state');
+            if (err) { err.textContent = ''; err.classList.add('hidden'); }
+        }
+    }
+
+    var pendingRunTimer = null;
+    function scheduleQueryRun(expr) {
+        if (pendingRunTimer) clearTimeout(pendingRunTimer);
+        pendingRunTimer = setTimeout(function () { runQueryFromInput(expr, false); }, 180);
+    }
+
+    function runQueryFromInput(expr, pushToHistory) {
+        queryExpr = (expr || '').trim();
+        queryActiveFavId = null;
+        if (!queryExpr) {
+            queryActive = false;
+            queryFn = null;
+            querySet.clear();
+            setQueryError('');
+            setQueryStatus('—', '');
+            refreshGraphAfterQuery();
+            return;
+        }
+        var compiled = window.AuraQuery.compile(queryExpr);
+        if (!compiled.ok) {
+            queryActive = false;
+            setQueryError(compiled.error || 'Invalid expression');
+            setQueryStatus('error', 'error');
+            return;
+        }
+        setQueryError('');
+        queryFn = compiled.fn;
+        queryActive = true;
+        evaluateQuery();
+        applyQuerySelectMode();
+        var total = (graphData && graphData.nodes) ? graphData.nodes.length : 0;
+        setQueryStatus(querySet.size + ' / ' + total + ' match', querySet.size > 0 ? 'match' : '');
+        refreshGraphAfterQuery();
+        if (pushToHistory) pushHistory(queryExpr);
+    }
+
+    function setupQueryBar() {
+        var bar = $('#query-bar');
+        var toggleBtn = $('#qb-toggle');
+        var input = $('#qb-input');
+        var modeSel = $('#qb-mode');
+        var clearBtn = $('#qb-clear');
+        var saveBtn = $('#qb-save');
+        var openListBtn = $('#qb-open-list');
+        if (!bar || !input) return;
+
+        toggleBtn && toggleBtn.addEventListener('click', function () {
+            bar.classList.toggle('collapsed');
+            if (!bar.classList.contains('collapsed')) {
+                setTimeout(function () { input.focus(); }, 50);
+            } else {
+                hideSuggestions();
+            }
+        });
+
+        input.addEventListener('input', function () {
+            queryHistoryCursor = -1;
+            triggerAutocomplete();
+            scheduleQueryRun(input.value);
+        });
+        input.addEventListener('focus', triggerAutocomplete);
+        input.addEventListener('blur', function () {
+            // small delay so click on suggestion still works
+            setTimeout(hideSuggestions, 120);
+        });
+
+        input.addEventListener('keydown', function (e) {
+            var box = $('#qb-suggest');
+            var hasSuggest = suggestItems.length > 0 && box && !box.classList.contains('hidden');
+            if (hasSuggest && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+                e.preventDefault();
+                if (e.key === 'ArrowDown') suggestActiveIndex = (suggestActiveIndex + 1) % suggestItems.length;
+                else suggestActiveIndex = (suggestActiveIndex - 1 + suggestItems.length) % suggestItems.length;
+                showSuggestions(suggestItems);
+                return;
+            }
+            if (hasSuggest && (e.key === 'Tab' || e.key === 'Enter')) {
+                if (suggestActiveIndex >= 0) {
+                    e.preventDefault();
+                    applySuggestion(suggestActiveIndex);
+                    return;
+                }
+            }
+            if (e.key === 'Escape') {
+                if (hasSuggest) { hideSuggestions(); return; }
+                input.value = '';
+                runQueryFromInput('');
+                return;
+            }
+            if (e.key === 'Enter') {
+                if (pendingRunTimer) clearTimeout(pendingRunTimer);
+                runQueryFromInput(input.value, true);
+                hideSuggestions();
+                return;
+            }
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                if (navigateHistory(e.key === 'ArrowUp' ? -1 : 1)) {
+                    e.preventDefault();
+                    triggerAutocomplete();
+                    scheduleQueryRun(input.value);
+                }
+            }
+        });
+
+        modeSel && modeSel.addEventListener('change', function () {
+            queryMode = modeSel.value;
+            if (queryActive) {
+                applyQuerySelectMode();
+                refreshGraphAfterQuery();
+            }
+        });
+
+        clearBtn && clearBtn.addEventListener('click', function () {
+            input.value = '';
+            runQueryFromInput('');
+            hideSuggestions();
+        });
+
+        saveBtn && saveBtn.addEventListener('click', function () {
+            var expr = (input.value || '').trim();
+            if (!expr) return;
+            var compiled = window.AuraQuery.compile(expr);
+            if (!compiled.ok) {
+                setQueryError(compiled.error || 'Invalid expression');
+                return;
+            }
+            // window.prompt is not available in VS Code webviews — let the extension
+            // show a real input box and persist the query in the DB.
+            try {
+                vscode.postMessage({
+                    type: 'addSavedQuery',
+                    payload: { expr: expr, mode: queryMode }
+                });
+            } catch (_) { /* noop */ }
+        });
+
+        openListBtn && openListBtn.addEventListener('click', function () {
+            showQueriesModal();
+        });
+
+        // Saved-queries modal wiring
+        var modal = $('#queries-modal');
+        var modalClose = $('#queries-modal-close');
+        var modalSelect = $('#queries-modal-select');
+        var modalDelete = $('#queries-modal-delete');
+        modalClose && modalClose.addEventListener('click', hideQueriesModal);
+        modalSelect && modalSelect.addEventListener('click', function () {
+            if (!modalSelectedId) return;
+            var q = savedQueries.find(function (x) { return x.id === modalSelectedId; });
+            if (q) { applySavedQuery(q); hideQueriesModal(); }
+        });
+        modalDelete && modalDelete.addEventListener('click', function () {
+            if (!modalSelectedId) return;
+            try {
+                vscode.postMessage({
+                    type: 'deleteSavedQuery',
+                    payload: { id: modalSelectedId }
+                });
+            } catch (_) { /* noop */ }
+            modalSelectedId = null;
+        });
+
+        // Modal drag
+        if (modal) {
+            var header = modal.querySelector('.queries-modal-header');
+            if (header) {
+                var dragging = false, ox = 0, oy = 0;
+                header.addEventListener('mousedown', function (e) {
+                    if (e.target.tagName === 'BUTTON') return;
+                    dragging = true;
+                    var rect = modal.getBoundingClientRect();
+                    ox = e.clientX - rect.left;
+                    oy = e.clientY - rect.top;
+                    modal.style.left = rect.left + 'px';
+                    modal.style.top = rect.top + 'px';
+                    modal.style.transform = 'none';
+                    e.preventDefault();
+                });
+                document.addEventListener('mousemove', function (e) {
+                    if (!dragging) return;
+                    var x = Math.max(0, Math.min(e.clientX - ox, window.innerWidth - 60));
+                    var y = Math.max(0, Math.min(e.clientY - oy, window.innerHeight - 40));
+                    modal.style.left = x + 'px';
+                    modal.style.top = y + 'px';
+                });
+                document.addEventListener('mouseup', function () { dragging = false; });
+            }
+            // Esc closes modal when open
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+                    hideQueriesModal();
+                }
+            });
+        }
+
+        // Ctrl+K / Cmd+K to focus the bar
+        document.addEventListener('keydown', function (e) {
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+                e.preventDefault();
+                bar.classList.remove('collapsed');
+                setTimeout(function () { input.focus(); input.select(); triggerAutocomplete(); }, 50);
+            }
+        });
     }
 
 })();

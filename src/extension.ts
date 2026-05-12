@@ -85,11 +85,38 @@ export function activate(context: vscode.ExtensionContext): void {
         })
     );
 
+    // Live-update graph rendering settings (link style / curvature)
+    context.subscriptions.push(
+        vscode.workspace.onDidChangeConfiguration(e => {
+            if (
+                e.affectsConfiguration('auraVisualizer.linkStyle') ||
+                e.affectsConfiguration('auraVisualizer.linkCurvature') ||
+                e.affectsConfiguration('auraVisualizer.selectedNodeEffect') ||
+                e.affectsConfiguration('auraVisualizer.bloomStrength') ||
+                e.affectsConfiguration('auraVisualizer.bloomRadius') ||
+                e.affectsConfiguration('auraVisualizer.bloomThreshold')
+            ) {
+                const cfg = vscode.workspace.getConfiguration('auraVisualizer');
+                const linkStyle = cfg.get<string>('linkStyle', 'straight');
+                const linkCurvatureSetting = cfg.get<number>('linkCurvature', 0.25);
+                const linkCurvature = linkStyle === 'curved' ? linkCurvatureSetting : 0;
+                webviewProvider?.sendGraphConfig({
+                    linkStyle,
+                    linkCurvature,
+                    selectedNodeEffect: cfg.get<string>('selectedNodeEffect', 'glow'),
+                    bloomStrength: cfg.get<number>('bloomStrength', 1.2),
+                    bloomRadius: cfg.get<number>('bloomRadius', 0.6),
+                    bloomThreshold: cfg.get<number>('bloomThreshold', 0.0)
+                });
+            }
+        })
+    );
+
     // Register serializer to restore panel on VSCode restart
     vscode.window.registerWebviewPanelSerializer(WebviewProvider.viewType, {
         async deserializeWebviewPanel(panel: vscode.WebviewPanel): Promise<void> {
             if (!webviewProvider) {
-                webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState);
+                webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState, () => graphDb);
                 registerOpenFileHandler();
             }
             webviewProvider.restore(panel);
@@ -105,6 +132,22 @@ export function activate(context: vscode.ExtensionContext): void {
             }
         }
     });
+
+    // URI handler — supports vscode://monticma-aura.aura-visualizer-3D/query?expr=...&mode=...
+    context.subscriptions.push(
+        vscode.window.registerUriHandler({
+            handleUri(uri: vscode.Uri) {
+                if (uri.path !== '/query' && uri.path !== 'query') return;
+                const params = new URLSearchParams(uri.query);
+                const expr = params.get('expr') || '';
+                const mode = params.get('mode') || 'highlight';
+                if (!expr) return;
+                openVisualizer(context).then(() => {
+                    webviewProvider?.applyQuery(expr, mode);
+                });
+            }
+        })
+    );
 
     // Run initial analysis in background (populates tree + sends data to restored panel when ready)
     if (vscode.workspace.workspaceFolders?.length) {
@@ -227,7 +270,7 @@ function registerOpenFileHandler(): void {
 
 async function openVisualizer(context: vscode.ExtensionContext): Promise<void> {
     if (!webviewProvider) {
-        webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState);
+        webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState, () => graphDb);
         registerOpenFileHandler();
 
 
@@ -749,7 +792,7 @@ async function blastRadiusCurrentFile(context: vscode.ExtensionContext): Promise
     if (relativePath.startsWith('..')) return;
 
     if (!webviewProvider) {
-        webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState);
+        webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState, () => graphDb);
         registerOpenFileHandler();
     }
     webviewProvider.show();

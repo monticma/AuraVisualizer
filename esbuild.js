@@ -83,8 +83,12 @@ async function copyWebviewAssets() {
         fs.copyFileSync(forceGraphSrc, path.join(libDest, '3d-force-graph.min.js'));
     }
 
-    // Copy three.js — bundle as IIFE so window.THREE is set before 3d-force-graph loads
-    const threeSrc = path.join(__dirname, 'node_modules', 'three', 'build', 'three.module.min.js');
+    // Copy three.js — bundle as IIFE so window.THREE is set before 3d-force-graph loads.
+    // We bundle a small re-export entry that exposes UnrealBloomPass / EffectComposer
+    // on the same THREE namespace, so post-processing shares the runtime three instance.
+    const threeEntry = path.join(__dirname, 'webview-vendor', 'three-bundle.js');
+    const threeFallback = path.join(__dirname, 'node_modules', 'three', 'build', 'three.module.min.js');
+    const threeSrc = fs.existsSync(threeEntry) ? threeEntry : threeFallback;
     if (fs.existsSync(threeSrc)) {
         await esbuild.build({
             entryPoints: [threeSrc],
