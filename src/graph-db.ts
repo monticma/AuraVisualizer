@@ -146,6 +146,10 @@ CREATE INDEX IF NOT EXISTS idx_nodes_language ON nodes(language);
 CREATE INDEX IF NOT EXISTS idx_nodes_group ON nodes(group_name);
 CREATE INDEX IF NOT EXISTS idx_fcalls_caller ON function_calls(caller_file, caller_name);
 CREATE INDEX IF NOT EXISTS idx_fcalls_callee ON function_calls(callee_file, callee_name);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS doc_chunks USING fts4(
+    file_id, section, content, line_start, tokenize=porter
+);
 `;
 
 // ── Helpers ────────────────────────────────────────────────────
@@ -172,6 +176,29 @@ function queryOne<T>(db: SqlJsDatabase, sql: string, params: unknown[] = []): T 
     }
     stmt.free();
     return result;
+}
+
+/**
+ * Extract searchable tokens from a free-text query.
+ * Strips FTS operator characters and short noise words.
+ */
+function extractDocTokens(input: string): string[] {
+    if (!input) return [];
+    const cleaned = input.replace(/["()\:\*\^\-\+]/g, ' ').trim();
+    if (!cleaned) return [];
+    return cleaned.split(/\s+/).filter(t => t.length > 1);
+}
+
+/** Count non-overlapping case-sensitive substring occurrences. */
+function countOccurrences(haystack: string, needle: string): number {
+    if (!needle) return 0;
+    let count = 0;
+    let i = 0;
+    while ((i = haystack.indexOf(needle, i)) !== -1) {
+        count++;
+        i += needle.length;
+    }
+    return count;
 }
 
 // ── Class ──────────────────────────────────────────────────────
@@ -383,6 +410,7 @@ export class GraphDB {
             db.run('DELETE FROM edges WHERE source = ? OR target = ?', [nodeId, nodeId]);
             db.run('DELETE FROM symbols WHERE node_id = ?', [nodeId]);
             db.run('DELETE FROM function_calls WHERE caller_file = ? OR callee_file = ?', [nodeId, nodeId]);
+            db.run('DELETE FROM doc_chunks WHERE file_id = ?', [nodeId]);
             db.run('DELETE FROM nodes WHERE id = ?', [nodeId]);
             db.run('COMMIT');
         } catch (err) {
@@ -901,6 +929,89 @@ export class GraphDB {
         return map;
     }
 
+    // ── Documentation RAG (FTS5) ───────────────────────────────
+
+    /** Delete all chunks for a single file. */
+    deleteDocChunks(fileId: string): void {
+        const db = this.ensureDb();
+        db.run('DELETE FROM doc_chunks WHERE file_id = ?', [fileId]);
+    }
+
+    /** Replace all chunks for a single file (delete + insert). Does not save(). */
+    replaceDocChunks(
+        fileId: string,
+        chunks: Array<{ section: string; content: string; lineStart: number }>,
+    ): void {
+        const db = this.ensureDb();
+        db.run('DELETE FROM doc_chunks WHERE file_id = ?', [fileId]);
+        const ins = 'INSERT INTO doc_chunks (file_id, section, content, line_start) VALUES (?, ?, ?, ?)';
+        for (const c of chunks) {
+            db.run(ins, [fileId, c.section, c.content, c.lineStart]);
+        }
+    }
+
+    /** Bulk-replace ALL doc chunks (used after a full project re-analysis). Does not save(). */
+    importDocChunks(chunks: Array<{ fileId: string; section: string; content: string; lineStart: number }>): void {
+        const db = this.ensureDb();
+        db.run('BEGIN TRANSACTION');
+        try {
+            db.run('DELETE FROM doc_chunks');
+            const ins = 'INSERT INTO doc_chunks (file_id, section, content, line_start) VALUES (?, ?, ?, ?)';
+            for (const c of chunks) {
+                db.run(ins, [c.fileId, c.section, c.content, c.lineStart]);
+            }
+            db.run('COMMIT');
+        } catch (err) {
+            db.run('ROLLBACK');
+            throw err;
+        }
+    }
+
+    /**
+     * Full-text search across documentation chunks using FTS4 MATCH +
+     * a simple JS-side keyword frequency ranker (FTS4 has no built-in bm25).
+     * @param query — free-text query (will be sanitized into a MATCH expression)
+     * @param limit — max results (default 10)
+     */
+    searchDocs(query: string, limit: number = 10): Array<{
+        fileId: string; section: string; content: string; lineStart: number; score: number;
+    }> {
+        const db = this.ensureDb();
+        const tokens = extractDocTokens(query);
+        const matchExpr = tokens.map(t => `"${t}"*`).join(' OR ');
+        if (!matchExpr) return [];
+        const rows = queryAll<{
+            file_id: string; section: string; content: string; line_start: number;
+        }>(db,
+            `SELECT file_id, section, content, line_start
+             FROM doc_chunks WHERE doc_chunks MATCH ?
+             LIMIT ?`,
+            [matchExpr, Math.max(limit * 5, 50)]
+        );
+
+        // Rank by total keyword hits in section (×3 weight) + content (×1)
+        const scored = rows.map(r => {
+            const sectionLow = (r.section || '').toLowerCase();
+            const contentLow = r.content.toLowerCase();
+            let score = 0;
+            for (const t of tokens) {
+                const lt = t.toLowerCase();
+                if (!lt) continue;
+                score += countOccurrences(sectionLow, lt) * 3;
+                score += countOccurrences(contentLow, lt);
+            }
+            return {
+                fileId: r.file_id,
+                section: r.section,
+                content: r.content,
+                lineStart: r.line_start,
+                score,
+            };
+        });
+        scored.sort((a, b) => b.score - a.score);
+        return scored.slice(0, limit);
+    }
+
     // ── Private ────────────────────────────────────────────────
 
     /** Add columns that may be missing in older databases. */
@@ -929,6 +1040,13 @@ export class GraphDB {
             )`);
             db.run('CREATE INDEX IF NOT EXISTS idx_fcalls_caller ON function_calls(caller_file, caller_name)');
             db.run('CREATE INDEX IF NOT EXISTS idx_fcalls_callee ON function_calls(callee_file, callee_name)');
+        }
+
+        // Migrate: add doc_chunks FTS virtual table if missing
+        if (!tables.includes('doc_chunks')) {
+            db.run(`CREATE VIRTUAL TABLE doc_chunks USING fts4(
+                file_id, section, content, line_start, tokenize=porter
+            )`);
         }
     }
 

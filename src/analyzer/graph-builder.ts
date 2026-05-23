@@ -4,6 +4,7 @@
 
 import { basename, dirname, join, normalize } from 'path';
 import { TreeSitterCParser } from './parsers/ts-c-parser';
+import { TreeSitterCppParser } from './parsers/ts-cpp-parser';
 import { TreeSitterJSParser } from './parsers/ts-js-parser';
 import { TreeSitterTSParser } from './parsers/ts-ts-parser';
 import { TreeSitterPyParser } from './parsers/ts-py-parser';
@@ -24,6 +25,7 @@ import type { FileInfo, Relation, GraphData, GraphNode, GraphLink, AnalyzeOption
 /** Parser registry — Tree-sitter for languages with WASM grammars, regex for HTML/CSS. */
 const PARSERS: Record<string, BaseParser> = {
     'c': new TreeSitterCParser(),
+    'cpp': new TreeSitterCppParser(),
     'javascript': new TreeSitterJSParser(),
     'typescript': new TreeSitterTSParser(),
     'python': new TreeSitterPyParser(),
@@ -39,13 +41,13 @@ const PARSERS: Record<string, BaseParser> = {
 
 /** Language family scoping: match calls within compatible language groups. */
 const LANG_FAMILY: Record<string, string> = {
-    'c': 'c', 'javascript': 'js', 'typescript': 'js', 'python': 'py',
+    'c': 'c', 'cpp': 'c', 'javascript': 'js', 'typescript': 'js', 'python': 'py',
     'java': 'java', 'go': 'go', 'rust': 'rust',
     'kotlin': 'kotlin', 'ruby': 'ruby', 'swift': 'swift'
 };
 
-const SYMBOL_LANGUAGES = new Set(['c', 'javascript', 'typescript', 'python', 'java', 'go', 'rust', 'kotlin', 'ruby', 'swift']);
-const HEADER_EXTS = new Set(['.h', '.hpp', '.d.ts']);
+const SYMBOL_LANGUAGES = new Set(['c', 'cpp', 'javascript', 'typescript', 'python', 'java', 'go', 'rust', 'kotlin', 'ruby', 'swift']);
+const HEADER_EXTS = new Set(['.h', '.hpp', '.hxx', '.hh', '.d.ts']);
 
 /**
  * Get the parser for a language.
@@ -166,6 +168,102 @@ function findCycles(links: GraphLink[]): string[][] {
     }
 
     return unique;
+}
+
+/**
+ * Stop-words / built-ins we never want to treat as documentation references.
+ * Limited to names that are also common English words OR generic identifiers
+ * that would otherwise produce massive false-positive fan-out.
+ */
+const DOC_REF_STOPWORDS = new Set<string>([
+    'true', 'false', 'null', 'undefined', 'none', 'self', 'this', 'super',
+    'class', 'function', 'return', 'import', 'export', 'const', 'let', 'var',
+    'string', 'number', 'boolean', 'object', 'array', 'void', 'never', 'any',
+    'main', 'init', 'test', 'tests', 'name', 'type', 'data', 'value', 'item',
+    'list', 'map', 'set', 'get', 'add', 'new', 'old', 'run', 'log', 'error',
+    'true', 'false', 'TODO', 'FIXME', 'NOTE', 'WARNING',
+]);
+
+/**
+ * For every documentation file, emit `doc-reference` edges to code files that
+ * the doc mentions by symbol name (function / class / interface / etc.) or by
+ * basename (e.g. `extension.ts`). Ambiguous names that resolve to multiple
+ * files are dropped to keep the graph readable.
+ */
+function buildDocReferenceLinks(
+    files: FileInfo[],
+    fileSymbols: Map<string, FileSymbols>,
+): GraphLink[] {
+    // Quick split: docs vs code
+    const docs = files.filter(f => f.language === 'documentation');
+    if (docs.length === 0) return [];
+
+    // Build `symbolName -> fileId` (set to '' if ambiguous across files).
+    const nameToFile = new Map<string, string>();
+    const register = (name: string, fileId: string): void => {
+        if (!name || name.length < 4) return;
+        if (DOC_REF_STOPWORDS.has(name) || DOC_REF_STOPWORDS.has(name.toLowerCase())) return;
+        const prev = nameToFile.get(name);
+        if (prev === undefined) {
+            nameToFile.set(name, fileId);
+        } else if (prev !== fileId && prev !== '') {
+            nameToFile.set(name, ''); // mark ambiguous
+        }
+    };
+    for (const [fileId, symbols] of fileSymbols) {
+        for (const s of symbols.functions)   register(s.name, fileId);
+        for (const s of symbols.classes)     register(s.name, fileId);
+        for (const s of symbols.methods || []) register(s.name, fileId);
+        for (const s of symbols.interfaces || []) register(s.name, fileId);
+        for (const s of symbols.traits || [])     register(s.name, fileId);
+        for (const s of symbols.typeAliases || []) register(s.name, fileId);
+        for (const s of symbols.structs)    register(s.name, fileId);
+        for (const s of symbols.enums)      register(s.name, fileId);
+        for (const s of symbols.exports)    register(s.name, fileId);
+    }
+
+    // Build `basename -> fileId` (e.g. `extension.ts` -> `src/extension.ts`).
+    const basenameToFile = new Map<string, string>();
+    for (const f of files) {
+        if (f.language === 'documentation') continue;
+        const prev = basenameToFile.get(f.name);
+        if (prev === undefined) {
+            basenameToFile.set(f.name, f.id);
+        } else if (prev !== f.id && prev !== '') {
+            basenameToFile.set(f.name, ''); // ambiguous
+        }
+    }
+
+    // Tokenizer: matches identifiers, optionally followed by a file extension.
+    // Examples it picks up: `buildGraph`, `extension.ts`, `MyClass`, `parse_url`.
+    const TOKEN_RE = /[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9]{1,7})?/g;
+
+    const links: GraphLink[] = [];
+    for (const doc of docs) {
+        const seen = new Set<string>();
+        let m: RegExpExecArray | null;
+        TOKEN_RE.lastIndex = 0;
+        while ((m = TOKEN_RE.exec(doc.content)) !== null) {
+            const token = m[0];
+            let target: string | undefined;
+            // Filename match takes priority (carries an extension)
+            if (token.includes('.')) {
+                target = basenameToFile.get(token);
+            }
+            if (!target) {
+                target = nameToFile.get(token);
+            }
+            if (!target || target === doc.id || seen.has(target)) continue;
+            seen.add(target);
+            links.push({
+                source: doc.id,
+                target,
+                type: 'doc-reference',
+                label: '',
+            });
+        }
+    }
+    return links;
 }
 
 export function buildGraph(files: FileInfo[], projectName: string = 'Project', options: AnalyzeOptions = {}, astTrees?: Map<string, Parser.Tree>): GraphData {
@@ -429,6 +527,18 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
     for (const link of uniqueLinks) {
         fanOut.set(link.source, (fanOut.get(link.source) || 0) + 1);
         fanIn.set(link.target, (fanIn.get(link.target) || 0) + 1);
+    }
+
+    // Phase 6b: Detect doc-reference edges — connect documentation files to the
+    // code files they mention by symbol name or filename. Added AFTER fan-in/out
+    // so they don't pollute hotspot / impact metrics.
+    const docRefLinks = buildDocReferenceLinks(files, fileSymbols);
+    for (const link of docRefLinks) {
+        const key = `${link.source}|${link.target}|${link.type}`;
+        if (!linkSet.has(key)) {
+            linkSet.add(key);
+            uniqueLinks.push(link);
+        }
     }
 
     // Phase 7: Dead code detection

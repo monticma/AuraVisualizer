@@ -25,6 +25,7 @@ The MCP server starts automatically and registers itself in `.vscode/mcp.json`. 
 | `find_heritage` | Inheritance and implementation relationships (extends/implements) |
 | `get_architecture` | High-level overview by language |
 | `get_communities` | Architectural modules detected by Louvain algorithm |
+| `search_docs` | Full-text search across project documentation (`.md`, `.markdown`, `.txt`, `.rst`) — returns ranked chunks with file path, section heading, and excerpt |
 | `generate_documentation` | Full documentation payload in one call: overview, modules, hotspots, cycles, dead code |
 
 ### Export for AI

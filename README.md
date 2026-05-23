@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Languages-C%20%7C%20JS%20%7C%20TS%20%7C%20Python%20%7C%20Java%20%7C%20Go%20%7C%20Rust%20%7C%20Kotlin%20%7C%20Ruby%20%7C%20Swift%20%7C%20CSS%20%7C%20HTML-blue" alt="Languages" />
+  <img src="https://img.shields.io/badge/Languages-C%20%7C%20C%2B%2B%20%7C%20JS%20%7C%20TS%20%7C%20Python%20%7C%20Java%20%7C%20Go%20%7C%20Rust%20%7C%20Kotlin%20%7C%20Ruby%20%7C%20Swift%20%7C%20CSS%20%7C%20HTML%20%7C%20Markdown-blue" alt="Languages" />
   <img src="https://img.shields.io/badge/VS%20Code-%3E%3D1.85-007ACC" alt="VS Code" />
   <img src="https://img.shields.io/badge/License-MIT-green" alt="License" />
 </p>
@@ -32,6 +32,7 @@ Powered by **Tree-sitter** AST parsing (WASM) for accurate, structural code anal
 |----------|-----------|-------|
 | C source | `.c` | 🔷 Light blue |
 | C header | `.h` | 📘 Sky blue |
+| C++ | `.cpp`, `.cc`, `.cxx`, `.hpp`, `.hxx`, `.hh` | 🔹 Steel blue |
 | JavaScript | `.js`, `.jsx` | 🟡 Yellow |
 | TypeScript | `.ts`, `.tsx` | 🔵 Blue |
 | Python | `.py` | 🟢 Green |
@@ -43,8 +44,9 @@ Powered by **Tree-sitter** AST parsing (WASM) for accurate, structural code anal
 | Swift | `.swift` | 🟥 Coral |
 | CSS | `.css` | 🟣 Purple |
 | HTML | `.html` | 🟧 Coral |
+| Documentation | `.md`, `.markdown`, `.txt`, `.rst` | 📄 Slate |
 
-Cross-file **function calls** are detected for C, JS/TS, Python, Java, Go, Rust, Kotlin, Ruby, and Swift.
+Cross-file **function calls** are detected for C, C++, JS/TS, Python, Java, Go, Rust, Kotlin, Ruby, and Swift.
 **Inheritance edges** (`extends` / `implements`) are detected for JS/TS, Python, Java, Go (struct embedding), Rust (trait impl), Kotlin, and Swift (protocol conformance).
 Language filter buttons are **dynamic** — only languages present in the current analysis are shown.
 
@@ -203,6 +205,14 @@ In the 3D Graph, function-call edges have **logarithmic width** scaled to call c
 
 For **C/C++ projects**, function-call links are only created between files connected via `#include` — preventing false positives between unrelated files that happen to define functions with the same name.
 
+### Documentation in the Graph
+
+Markdown, plain-text and reStructuredText files (`.md`, `.markdown`, `.txt`, `.rst`) are first-class nodes in the graph:
+
+- **Dotted `doc-reference` edges** automatically connect each doc file to the code files it mentions — detected from symbol names (functions, classes, methods, exports) and basename references like `extension.ts`. Doc edges do **not** count toward fan-in / fan-out, so hotspot metrics stay clean.
+- A **📄 Docs** filter button in the toolbar toggles documentation nodes on / off (hidden by default to keep the structural view focused).
+- Doc content is chunked by heading and indexed in a local **FTS** full-text index — exposed to AI assistants through the `search_docs` MCP tool.
+
 ### Symbols in the File Explorer
 
 Files in the side Explorer panel that contain functions or methods show a **chevron** to their left. Click it to reveal an indented list of every function/method in the file (sorted by line number). Click any function to **open the file in the editor and jump to that exact line**.
@@ -304,6 +314,7 @@ The MCP server exposes your codebase graph to AI tools via stdio transport. It r
 | `find_heritage` | `file` | Inheritance and implementation relationships (extends/implements) |
 | `get_architecture` | — | High-level overview by language |
 | `get_communities` | — | Architectural modules detected by Louvain algorithm |
+| `search_docs` | `query`, `limit` | Full-text search across project documentation (Markdown / `.txt` / `.rst`) — returns ranked chunks with file path, section heading, and excerpt |
 | `generate_documentation` | `hotspot_limit` | Full documentation payload: overview, modules, hotspots, cycles, dead code, inter-module links |
 
 ---
@@ -327,13 +338,14 @@ The MCP server exposes your codebase graph to AI tools via stdio transport. It r
 | `import` | Yellow | JS/TS `import` |
 | `require` | Yellow (dim) | CommonJS `require()` |
 | `dynamic-import` | Yellow (faint) | `import()` expressions |
-| `function-call` | Green | Cross-file function calls (C, JS/TS, Python, Java, Go, Rust) |
+| `function-call` | Green | Cross-file function calls (C, C++, JS/TS, Python, Java, Go, Rust) |
 | `extends` | Pink | Class/struct inheritance |
 | `implements` | Purple | Interface / trait implementation |
 | `script` | Orange | HTML `<script src>` |
 | `stylesheet` | Purple | HTML `<link rel="stylesheet">` |
 | `css-import` | Purple (dim) | CSS `@import` |
 | `css-url` | Purple (faint) | CSS `url()` references |
+| `doc-reference` | Slate (thin) | Mentions of code symbols / filenames inside `.md` / `.txt` / `.rst` files |
 
 ---
 

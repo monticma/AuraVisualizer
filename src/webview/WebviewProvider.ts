@@ -5,14 +5,12 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import type { GraphData } from '../analyzer/index';
-import type { GraphDB } from '../graph-db';
 
 export class WebviewProvider {
     public static readonly viewType = 'auraVisualizer.graphView';
     private panel: vscode.WebviewPanel | undefined;
     private readonly extensionUri: vscode.Uri;
     private readonly workspaceState: vscode.Memento;
-    private readonly getGraphDB: () => GraphDB | undefined;
     private disposables: vscode.Disposable[] = [];
     private onOpenFileEmitter = new vscode.EventEmitter<{ path: string; line?: number }>();
     public readonly onOpenFile = this.onOpenFileEmitter.event;
@@ -24,16 +22,10 @@ export class WebviewProvider {
     private webviewReady = false;
 
     private static readonly VIEW_STATE_KEY = 'aura.viewState';
-    private static readonly SAVED_QUERIES_KEY = 'aura.savedQueries';
 
-    constructor(
-        extensionUri: vscode.Uri,
-        workspaceState: vscode.Memento,
-        getGraphDB: () => GraphDB | undefined = () => undefined
-    ) {
+    constructor(extensionUri: vscode.Uri, workspaceState: vscode.Memento) {
         this.extensionUri = extensionUri;
         this.workspaceState = workspaceState;
-        this.getGraphDB = getGraphDB;
     }
 
     public show(): vscode.WebviewPanel {
@@ -86,15 +78,6 @@ export class WebviewProvider {
             this.disposables = [];
             this.onDisposeEmitter.fire();
         });
-
-        this.panel.onDidChangeViewState(({ webviewPanel }) => {
-            if (this.webviewReady) {
-                this.panel?.webview.postMessage({
-                    type: 'visibilityChanged',
-                    payload: { visible: webviewPanel.visible }
-                });
-            }
-        });
     }
 
     private setupMessageHandler(): void {
@@ -136,62 +119,6 @@ export class WebviewProvider {
                     case 'requestViewState':
                         this.sendSavedViewState();
                         break;
-                    case 'requestSavedQueries': {
-                        const db = this.getGraphDB();
-                        let queries: Array<{ id: string; name: string; expr: string; mode: string }> = [];
-                        if (db && db.isOpen) {
-                            try {
-                                queries = db.listSavedQueries().map(q => ({
-                                    id: q.id, name: q.name, expr: q.expr, mode: q.mode
-                                }));
-                            } catch (err) {
-                                console.error('[aura] listSavedQueries failed:', err);
-                            }
-                        }
-                        this.panel?.webview.postMessage({
-                            type: 'savedQueries',
-                            payload: { queries }
-                        });
-                        break;
-                    }
-                    case 'addSavedQuery': {
-                        const db = this.getGraphDB();
-                        const p = (message.payload || {}) as { id?: string; name?: string; expr?: string; mode?: string };
-                        if (!db || !db.isOpen) {
-                            vscode.window.showErrorMessage('Aura: Cannot save query — database not yet available. Run an analysis first.');
-                            break;
-                        }
-                        if (!p.expr) break;
-                        try {
-                            const id = p.id || ('q_' + Date.now() + '_' + Math.floor(Math.random() * 1e6));
-                            const name = (p.name && p.name.trim()) || p.expr;
-                            db.addSavedQuery({ id, name, expr: p.expr, mode: p.mode || 'highlight' });
-                            const queries = db.listSavedQueries().map(q => ({
-                                id: q.id, name: q.name, expr: q.expr, mode: q.mode
-                            }));
-                            this.panel?.webview.postMessage({ type: 'savedQueries', payload: { queries } });
-                        } catch (err) {
-                            const msg = err instanceof Error ? err.message : String(err);
-                            vscode.window.showErrorMessage('Aura: Failed to save query — ' + msg);
-                        }
-                        break;
-                    }
-                    case 'deleteSavedQuery': {
-                        const db = this.getGraphDB();
-                        const p = (message.payload || {}) as { id?: string };
-                        if (!db || !db.isOpen || !p.id) break;
-                        try {
-                            db.deleteSavedQuery(p.id);
-                            const queries = db.listSavedQueries().map(q => ({
-                                id: q.id, name: q.name, expr: q.expr, mode: q.mode
-                            }));
-                            this.panel?.webview.postMessage({ type: 'savedQueries', payload: { queries } });
-                        } catch (err) {
-                            const msg = err instanceof Error ? err.message : String(err);
-                            vscode.window.showErrorMessage('Aura: Failed to delete query — ' + msg);
-                        }
-                        break;
-                    }
                 }
             },
             null,
@@ -237,36 +164,6 @@ export class WebviewProvider {
 
     public sendRefreshComplete(): void {
         this.panel?.webview.postMessage({ type: 'refreshComplete' });
-    }
-
-    public applyQuery(expr: string, mode?: string): void {
-        const send = () => this.panel?.webview.postMessage({
-            type: 'applyQuery',
-            payload: { expr, mode: mode || 'highlight' }
-        });
-        if (this.webviewReady) {
-            send();
-        } else {
-            // Defer until ready
-            const dispose = this.onDidDispose(() => dispose.dispose());
-            const interval = setInterval(() => {
-                if (this.webviewReady) {
-                    clearInterval(interval);
-                    send();
-                }
-            }, 50);
-        }
-    }
-
-    public sendGraphConfig(config: {
-        linkStyle: string;
-        linkCurvature: number;
-        selectedNodeEffect?: string;
-        bloomStrength?: number;
-        bloomRadius?: number;
-        bloomThreshold?: number;
-    }): void {
-        this.panel?.webview.postMessage({ type: 'graphConfig', payload: config });
     }
 
     public sendTheme(kind: vscode.ColorThemeKind): void {
@@ -325,9 +222,6 @@ export class WebviewProvider {
         const configUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'graph-config.js')
         );
-        const queryUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'query.js')
-        );
         const forceGraphUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'lib', '3d-force-graph.min.js')
         );
@@ -336,24 +230,6 @@ export class WebviewProvider {
         );
 
         const nonce = getNonce();
-
-        // Read user-facing graph rendering settings so the webview can apply them at boot
-        const cfg = vscode.workspace.getConfiguration('auraVisualizer');
-        const linkStyle = cfg.get<string>('linkStyle', 'straight');
-        const linkCurvatureSetting = cfg.get<number>('linkCurvature', 0.25);
-        const linkCurvature = linkStyle === 'curved' ? linkCurvatureSetting : 0;
-        const selectedNodeEffect = cfg.get<string>('selectedNodeEffect', 'glow');
-        const bloomStrength = cfg.get<number>('bloomStrength', 1.2);
-        const bloomRadius = cfg.get<number>('bloomRadius', 0.6);
-        const bloomThreshold = cfg.get<number>('bloomThreshold', 0.0);
-        const auraConfigJson = JSON.stringify({
-            linkStyle,
-            linkCurvature,
-            selectedNodeEffect,
-            bloomStrength,
-            bloomRadius,
-            bloomThreshold
-        });
 
         return `<!DOCTYPE html>
 <html lang="en">
@@ -401,6 +277,7 @@ export class WebviewProvider {
         <!-- Tab Bar -->
         <nav id="tab-bar">
             <button class="tab-btn active" data-tab="graph">✦ 3D Graph</button>
+            <button class="tab-btn" data-tab="callgraph">🕸️ Call Graph</button>
             <button class="tab-btn" data-tab="treemap">🗺️ Treemap</button>
             <button class="tab-btn" data-tab="dsm">🗑️ Matrix</button>
             <button class="tab-btn" data-tab="chord">🎵 Chord</button>
@@ -408,31 +285,6 @@ export class WebviewProvider {
             <button class="tab-btn" data-tab="timeline">📈 Timeline</button>
             <button class="tab-btn" data-tab="table">📋 Table</button>
         </nav>
-
-        <!-- Query Bar (collapsible) -->
-        <section id="query-bar" class="collapsed" aria-label="Query filter">
-            <div class="qb-row qb-main">
-                <button id="qb-toggle" class="qb-toggle" title="Toggle query bar (Ctrl+K)">🔍</button>
-                <div class="qb-input-wrap">
-                    <input type="text" id="qb-input" class="qb-input"
-                        placeholder='complexity > 20 AND fanIn > 5'
-                        spellcheck="false" autocomplete="off" />
-                    <div id="qb-suggest" class="qb-suggest hidden"></div>
-                </div>
-                <select id="qb-mode" class="qb-mode" title="How matches are applied">
-                    <option value="highlight" selected>Highlight</option>
-                    <option value="filter">Filter</option>
-                    <option value="select">Select</option>
-                </select>
-                <span id="qb-status" class="qb-status">—</span>
-                <button id="qb-clear" class="qb-btn" title="Clear query (Esc)">✕</button>
-                <button id="qb-save" class="qb-btn" title="Save current query as favorite">⭐</button>
-                <button id="qb-open-list" class="qb-btn" title="Open saved queries">📚</button>
-            </div>
-            <div class="qb-row qb-error-row">
-                <span id="qb-error" class="qb-error hidden"></span>
-            </div>
-        </section>
 
         <!-- Middle Row: Explorer + Graph + Detail -->
         <div id="middle-row" class="tab-content active" data-tab="graph">
@@ -527,6 +379,11 @@ export class WebviewProvider {
         </div>
     </aside>
     </div><!-- /middle-row -->
+
+    <!-- Call Graph View -->
+    <div id="callgraph-view" class="tab-content" data-tab="callgraph">
+        <div id="callgraph-container"></div>
+    </div>
 
     <!-- Metrics View -->
     <div id="metrics-view" class="tab-content" data-tab="metrics"></div>
@@ -657,12 +514,18 @@ export class WebviewProvider {
 
     <!-- Bottom Filter Bar -->
     <footer id="filter-bar">
-        <div class="filter-group" id="language-filters">
+        <div class="filter-group graph-only" id="language-filters">
             <button class="filter-btn active" data-lang="c-source" data-color="#4fc3f7">
                 <span class="filter-dot" style="background:#4fc3f7"></span> .c
             </button>
             <button class="filter-btn active" data-lang="c-header" data-color="#81d4fa">
                 <span class="filter-dot" style="background:#81d4fa"></span> .h
+            </button>
+            <button class="filter-btn active" data-lang="cpp-source" data-color="#0288d1">
+                <span class="filter-dot" style="background:#0288d1"></span> .cpp
+            </button>
+            <button class="filter-btn active" data-lang="cpp-header" data-color="#4fc3f7">
+                <span class="filter-dot" style="background:#4fc3f7"></span> .hpp
             </button>
             <button class="filter-btn active" data-lang="javascript" data-color="#ffd54f">
                 <span class="filter-dot" style="background:#ffd54f"></span> JS
@@ -688,18 +551,12 @@ export class WebviewProvider {
             <button class="filter-btn active" data-lang="rust" data-color="#ffb74d">
                 <span class="filter-dot" style="background:#ffb74d"></span> Rust
             </button>
-            <button class="filter-btn active" data-lang="kotlin" data-color="#b39ddb">
-                <span class="filter-dot" style="background:#b39ddb"></span> Kotlin
-            </button>
-            <button class="filter-btn active" data-lang="ruby" data-color="#ef5350">
-                <span class="filter-dot" style="background:#ef5350"></span> Ruby
-            </button>
-            <button class="filter-btn active" data-lang="swift" data-color="#ff7043">
-                <span class="filter-dot" style="background:#ff7043"></span> Swift
+            <button class="filter-btn" data-lang="documentation" data-color="#b0bec5" style="display:none">
+                <span class="filter-dot" style="background:#b0bec5"></span> 📄 Docs
             </button>
         </div>
-        <div class="filter-separator"></div>
-        <div class="filter-group">
+        <div class="filter-separator graph-only"></div>
+        <div class="filter-group graph-only">
             <button class="filter-btn" id="btn-dag-mode" title="Hierarchical mode">⊞ DAG</button>
             <button class="filter-btn" id="btn-highlight-orphans" title="Orphan nodes">◎ Orphans</button>
             <button class="filter-btn" id="btn-dead-code" title="Dead code detection">☠️ Dead</button>
@@ -709,40 +566,88 @@ export class WebviewProvider {
             <button class="filter-btn" id="btn-labels" title="Show file names">🏷️ Names</button>
             <button class="filter-btn" id="btn-recenter" title="Recenter view">🎯 Center</button>
         </div>
-        <div class="filter-separator"></div>
-        <div class="filter-group">
+        <div class="filter-separator graph-only"></div>
+        <div class="filter-group graph-only">
             <select id="heatmap-select" class="filter-select" title="Coloring mode">
                 <option value="off">🎨 By language</option>
                 <option value="complexity">🔥 Complexity</option>
                 <option value="fanIn">📥 Fan-in</option>
                 <option value="fanOut">📤 Fan-out</option>
-                <option value="callVolume">🔗 Call volume</option>
                 <option value="loc">📏 Lines of code</option>
                 <option value="lastModified">📆 Last update</option>
                 <option value="community">🧩 Communities</option>
             </select>
         </div>
-        <div class="filter-separator"></div>
-        <div class="filter-group">
+        <div class="filter-separator graph-only"></div>
+        <div class="filter-group graph-only">
             <label class="filter-label">
                 Node size
                 <input type="range" id="node-size-slider" min="1" max="10" value="4" step="0.5">
             </label>
         </div>
-        <div class="filter-separator"></div>
-        <div class="filter-group">
+        <div class="filter-separator graph-only"></div>
+        <div class="filter-group graph-only">
             <label class="filter-label">
                 Spread
                 <input type="range" id="spread-slider" min="1" max="5" value="1" step="0.5">
             </label>
         </div>
-        <div class="filter-separator"></div>
-        <div class="filter-group">
+        <div class="filter-separator graph-only"></div>
+        <div class="filter-group graph-only">
             <label class="filter-label">
                 Depth
                 <input type="range" id="depth-slider" min="1" max="5" value="1" step="1">
                 <span id="depth-value">1</span>
             </label>
+        </div>
+
+        <div class="filter-separator callgraph-bottom hidden" id="callgraph-sep"></div>
+        <div class="filter-group callgraph-bottom hidden" id="callgraph-controls-bottom">
+            <label class="filter-label">Mode
+                <select id="callgraph-mode" class="filter-select">
+                    <option value="symbol" selected>Symbol</option>
+                    <option value="file">File</option>
+                </select>
+            </label>
+            <label class="filter-label">Color by
+                <select id="callgraph-color-by" class="filter-select">
+                    <option value="language" selected>Language</option>
+                    <option value="group">Directory</option>
+                    <option value="community">Community</option>
+                </select>
+            </label>
+            <label class="filter-label">Min weight
+                <select id="callgraph-min-weight" class="filter-select">
+                    <option value="1" selected>1+</option>
+                    <option value="2">2+</option>
+                    <option value="3">3+</option>
+                    <option value="5">5+</option>
+                </select>
+            </label>
+            <label class="filter-label">Max nodes
+                <select id="callgraph-max-nodes" class="filter-select">
+                    <option value="150">150</option>
+                    <option value="250" selected>250</option>
+                    <option value="400">400</option>
+                    <option value="600">600</option>
+                </select>
+            </label>
+            <label class="filter-label">Perf
+                <select id="callgraph-perf" class="filter-select">
+                    <option value="auto" selected>Auto</option>
+                    <option value="quality">Quality</option>
+                    <option value="balanced">Balanced</option>
+                    <option value="performance">Performance</option>
+                </select>
+            </label>
+            <button class="filter-btn" id="btn-callgraph-labels" title="Show symbol/file names">🏷️ Names</button>
+            <label class="filter-label">Node size
+                <input type="range" id="callgraph-node-size-slider" min="1" max="10" value="4" step="0.5">
+            </label>
+            <label class="filter-label">Spread
+                <input type="range" id="callgraph-spread-slider" min="1" max="5" value="1" step="0.5">
+            </label>
+            <span class="callgraph-stats" id="callgraph-stats"></span>
         </div>
     </footer>
     </div><!-- /app-layout -->
@@ -766,21 +671,6 @@ export class WebviewProvider {
             </div>
         </div>
         <div id="community-list"></div>
-    </div>
-
-    <!-- Saved Queries Modal (overlay) -->
-    <div id="queries-modal" class="hidden">
-        <div class="queries-modal-header">
-            <span>⭐ Saved Queries</span>
-            <div class="queries-modal-actions">
-                <button id="queries-modal-close" title="Close">✕</button>
-            </div>
-        </div>
-        <div id="queries-modal-list"></div>
-        <div class="queries-modal-footer">
-            <button id="queries-modal-select" class="qm-btn qm-primary" title="Apply selected query">Select</button>
-            <button id="queries-modal-delete" class="qm-btn qm-danger" title="Delete selected query">Delete</button>
-        </div>
     </div>
 
     <!-- Tooltip (overlay, outside grid) -->
@@ -899,18 +789,22 @@ export class WebviewProvider {
                     <tr><td><span style="color:#ba68c8">━━</span> <strong>implements</strong></td><td>Interface / trait implementation</td></tr>
                     <tr><td><span style="color:#ff8a65">━━</span> <strong>script</strong></td><td>HTML <code>&lt;script src&gt;</code></td></tr>
                     <tr><td><span style="color:#ce93d8">━━</span> <strong>stylesheet</strong></td><td>HTML <code>&lt;link rel="stylesheet"&gt;</code> / CSS <code>@import</code></td></tr>
+                    <tr><td><span style="color:#b0bec5">┈┈</span> <strong>doc-reference</strong></td><td>Symbol / filename mention inside a <code>.md</code> / <code>.txt</code> / <code>.rst</code> file</td></tr>
                 </table>
+
+                <h3>📄 Documentation in the Graph</h3>
+                <p>Markdown, plain-text and reStructuredText files (<code>.md</code>, <code>.markdown</code>, <code>.txt</code>, <code>.rst</code>) are first-class nodes. They are <strong>hidden by default</strong> — toggle the <strong>📄 Docs</strong> button in the toolbar to show them.</p>
+                <p>Thin dotted <code>doc-reference</code> edges automatically link each doc file to the code files it mentions — detected from symbol names (functions, classes, methods, exports) and basenames like <code>extension.ts</code>. These edges do <em>not</em> count toward fan-in / fan-out, so hotspot metrics stay clean.</p>
+                <p>Doc content is chunked by heading and indexed in a full-text search index. AI assistants can query it through the <code>search_docs</code> MCP tool.</p>
             </div>
         </div>
     </div>
 
     <!-- Libraries: THREE must load before 3d-force-graph (it checks window.THREE) -->
-    <script nonce="${nonce}">window.AURA_CONFIG = ${auraConfigJson};</script>
     <script nonce="${nonce}" src="${threeUri}"></script>
     <script nonce="${nonce}" src="${forceGraphUri}"></script>
     <!-- App Logic -->
     <script nonce="${nonce}" src="${configUri}"></script>
-    <script nonce="${nonce}" src="${queryUri}"></script>
     <script nonce="${nonce}" src="${appUri}"></script>
 </body>
 </html>`;

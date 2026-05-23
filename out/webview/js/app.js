@@ -5,7 +5,7 @@
  * no landing overlay, supports VSCode integration (open file, focus node).
  */
 
-(function () {
+(function() {
     'use strict';
 
     // VSCode API
@@ -20,7 +20,7 @@
     var hoveredNode = null;
     var highlightNodes = new Set();
     var highlightLinks = new Set();
-    var activeLanguages = new Set(['c-source', 'c-header', 'javascript', 'typescript', 'python', 'css', 'html', 'java', 'go', 'rust']);
+    var activeLanguages = new Set(['c-source', 'c-header', 'cpp-source', 'cpp-header', 'javascript', 'typescript', 'python', 'css', 'html', 'java', 'go', 'rust']);
     var dagMode = false;
     var showOrphans = false;
     var showDeadCode = false;
@@ -33,20 +33,6 @@
     var nodeSizeMultiplier = 4;
     var spreadMultiplier = 1;
     var focusDepth = 1;
-
-    // Query filter state (Aura Query Language — see query.js)
-    var queryActive = false;
-    var queryMode = 'highlight'; // 'highlight' | 'filter' | 'select'
-    var queryExpr = '';
-    var queryFn = null;
-    var querySet = new Set(); // ids of matching nodes
-    var savedQueries = [];        // [{id, name, expr, mode}]
-    var queryActiveFavId = null;
-    var modalSelectedId = null;   // currently highlighted row in saved-queries modal
-    var queryHistory = [];        // recent expressions, oldest first
-    var queryHistoryCursor = -1;  // -1 = not navigating
-    var queryHistoryDraft = '';   // input snapshot when entering history
-    var QUERY_HISTORY_MAX = 30;
     var heatmapMode = 'off';
     var showGroups = false;
     var expandedGroups = new Set();
@@ -79,6 +65,23 @@
     // Active tab
     var activeTab = 'graph';
     var graphPaused = false;
+
+    // Call Graph tab state
+    var callGraph = null;
+    var callGraphData = null;
+    var callGraphPaused = false;
+    var callGraphMode = 'symbol';
+    var callGraphColorBy = 'language';
+    var callGraphMinWeight = 1;
+    var callGraphMaxNodes = 250;
+    var callGraphPerfPreset = 'auto';
+    var callGraphShowLabels = false;
+    var callGraphNodeSizeMultiplier = 4;
+    var callGraphSpreadMultiplier = 1;
+    var callGraphHasFramed = false;
+    var callGraphResizeObserver = null;
+    var callGraphDirty = true;
+    var callGraphRenderKey = '';
 
     // Explorer state
     var showExplorer = false;
@@ -125,7 +128,7 @@
     // ============================================================
     // DOM References
     // ============================================================
-    var $ = function (sel) { return document.querySelector(sel); };
+    var $ = function(sel) { return document.querySelector(sel); };
 
     var graphContainer = $('#graph-container');
     var loadingOverlay = $('#loading-overlay');
@@ -150,7 +153,7 @@
     // ============================================================
     // VSCode Message Handling
     // ============================================================
-    window.addEventListener('message', function (event) {
+    window.addEventListener('message', function(event) {
         var message = event.data;
         switch (message.type) {
             case 'graphData':
@@ -182,25 +185,6 @@
             case 'themeChanged':
                 // Could adapt colors here if needed
                 break;
-            case 'graphConfig':
-                if (message.payload) {
-                    window.AURA_CONFIG = Object.assign({}, window.AURA_CONFIG || {}, message.payload);
-                    if (graph && typeof graph.linkCurvature === 'function') {
-                        var cfg = window.AURA_CONFIG;
-                        var curv = (cfg.linkStyle === 'curved')
-                            ? (typeof cfg.linkCurvature === 'number' ? cfg.linkCurvature : 0.25)
-                            : 0;
-                        graph.linkCurvature(curv);
-                    }
-                    if (typeof applySelectedNodeEffect === 'function') {
-                        applySelectedNodeEffect();
-                    }
-                    // Force re-render of selected node visual (glow vs bloom geometry)
-                    if (graph && typeof graph.nodeThreeObject === 'function') {
-                        graph.nodeThreeObject(graph.nodeThreeObject());
-                    }
-                }
-                break;
             case 'progress':
                 if (message.payload) {
                     var statusEl = $('#loading-status');
@@ -224,58 +208,11 @@
             case 'restoreViewState':
                 if (message.payload) applyViewState(message.payload);
                 break;
-            case 'savedQueries':
-                if (message.payload) {
-                    if (Array.isArray(message.payload)) {
-                        savedQueries = message.payload;
-                    } else if (Array.isArray(message.payload.queries)) {
-                        savedQueries = message.payload.queries;
-                    } else {
-                        savedQueries = [];
-                    }
-                    renderSavedQueriesModal();
-                }
-                break;
-            case 'applyQuery':
-                if (message.payload && typeof message.payload.expr === 'string') {
-                    var qbInput = $('#qb-input');
-                    var qbMode = $('#qb-mode');
-                    var qbBar = $('#query-bar');
-                    if (qbBar) qbBar.classList.remove('collapsed');
-                    if (qbInput) qbInput.value = message.payload.expr;
-                    if (qbMode && message.payload.mode) {
-                        qbMode.value = message.payload.mode;
-                        queryMode = message.payload.mode;
-                    }
-                    runQueryFromInput(message.payload.expr, true);
-                }
-                break;
-            case 'visibilityChanged':
-                if (message.payload) {
-                    if (message.payload.visible) {
-                        if (activeTab === 'graph') resumeGraph();
-                    } else {
-                        pauseGraph();
-                    }
-                }
-                break;
         }
     });
 
     // Tell the extension we're ready
     vscode.postMessage({ type: 'ready' });
-
-    // Pause/resume the active graph when the webview visibility changes
-    // (e.g. when the user switches to another VS Code tab)
-    document.addEventListener('visibilitychange', function () {
-        if (document.hidden) {
-            pauseGraph();
-        } else {
-            if (activeTab === 'graph') {
-                resumeGraph();
-            }
-        }
-    });
 
     // ============================================================
     // Initialization
@@ -288,8 +225,6 @@
         setupExplorer();
         setupTimeline();
         setupTabs();
-        setupQueryBar();
-        vscode.postMessage({ type: 'requestSavedQueries' });
     }
 
     if (document.readyState === 'loading') {
@@ -312,32 +247,30 @@
 
         graphData = data;
         headGraphData = JSON.parse(JSON.stringify(data));
-        computeCallCounts();
         computeMetricRanges();
         computeCommunities();
         updateStats(graphData.meta);
         updateLanguageButtons(graphData.nodes);
-        // Re-evaluate active query against the new dataset
-        if (queryActive && queryFn) {
-            evaluateQuery();
-            applyQuerySelectMode();
-            var totalQ = graphData.nodes.length;
-            setQueryStatus(querySet.size + ' / ' + totalQ + ' match', querySet.size > 0 ? 'match' : '');
-        }
         try {
             initGraph(graphData);
         } catch (e) {
             console.error('[aura] initGraph error:', e);
         }
         // Hide overlay after the graph has rendered its first frame
-        requestAnimationFrame(function () {
-            requestAnimationFrame(function () {
+        requestAnimationFrame(function() {
+            requestAnimationFrame(function() {
                 if (loadingOverlay) {
                     loadingOverlay.style.display = 'none';
                 }
             });
         });
         buildExplorerTree(graphData.nodes);
+        callGraphDirty = true;
+        callGraphRenderKey = '';
+        callGraphHasFramed = false;
+        if (activeTab === 'callgraph') {
+            renderCallGraph();
+        }
         // Request saved view state from extension (pull model — guarantees graph is ready)
         vscode.postMessage({ type: 'requestViewState' });
     }
@@ -408,11 +341,17 @@
         }
         graphData.links = keptLinks;
 
+        if (delta.functionCalls) {
+            graphData.functionCalls = delta.functionCalls;
+        }
+        callGraphDirty = true;
+        callGraphRenderKey = '';
+        callGraphHasFramed = false;
+
         // Update meta
         if (delta.meta) graphData.meta = delta.meta;
 
         // Recompute ranges and stats
-        computeCallCounts();
         computeMetricRanges();
         updateStats(graphData.meta);
 
@@ -434,12 +373,16 @@
         if (loadingOverlay) {
             loadingOverlay.style.display = 'none';
         }
+
+        if (activeTab === 'callgraph') {
+            renderCallGraph();
+        }
     }
 
     function setupRefresh() {
         var btn = $('#btn-refresh');
         if (btn) {
-            btn.addEventListener('click', function () {
+            btn.addEventListener('click', function() {
                 vscode.postMessage({ type: 'requestRefresh' });
                 // Switch back to 3D Graph so the user sees the refresh
                 if (activeTab !== 'graph') switchTab('graph');
@@ -452,7 +395,7 @@
         }
         var exportBtn = $('#btn-export');
         if (exportBtn) {
-            exportBtn.addEventListener('click', function () {
+            exportBtn.addEventListener('click', function() {
                 vscode.postMessage({ type: 'requestExport' });
             });
         }
@@ -462,15 +405,15 @@
         var helpModal = $('#help-modal');
         var helpClose = $('#help-modal-close');
         if (helpBtn && helpModal) {
-            helpBtn.addEventListener('click', function () {
+            helpBtn.addEventListener('click', function() {
                 helpModal.classList.toggle('hidden');
             });
             if (helpClose) {
-                helpClose.addEventListener('click', function () {
+                helpClose.addEventListener('click', function() {
                     helpModal.classList.add('hidden');
                 });
             }
-            helpModal.addEventListener('click', function (e) {
+            helpModal.addEventListener('click', function(e) {
                 if (e.target === helpModal) helpModal.classList.add('hidden');
             });
         }
@@ -480,13 +423,13 @@
         var minimapEl = $('#minimap');
         var minimapClose = $('#minimap-close');
         if (minimapBtn && minimapEl) {
-            minimapBtn.addEventListener('click', function () {
+            minimapBtn.addEventListener('click', function() {
                 minimapEl.classList.toggle('hidden');
                 minimapBtn.classList.toggle('active', !minimapEl.classList.contains('hidden'));
                 saveViewState();
             });
             if (minimapClose) {
-                minimapClose.addEventListener('click', function () {
+                minimapClose.addEventListener('click', function() {
                     minimapEl.classList.add('hidden');
                     minimapBtn.classList.remove('active');
                     saveViewState();
@@ -516,10 +459,9 @@
 
         metricRanges = {
             complexity: { min: Infinity, max: -Infinity },
-            fanIn: { min: Infinity, max: -Infinity },
-            fanOut: { min: Infinity, max: -Infinity },
-            callVolume: { min: Infinity, max: -Infinity },
-            loc: { min: Infinity, max: -Infinity },
+            fanIn:      { min: Infinity, max: -Infinity },
+            fanOut:     { min: Infinity, max: -Infinity },
+            loc:        { min: Infinity, max: -Infinity },
             lastModified: { min: Infinity, max: -Infinity }
         };
 
@@ -531,73 +473,11 @@
             metricRanges.fanIn.max = Math.max(metricRanges.fanIn.max, n.fanIn);
             metricRanges.fanOut.min = Math.min(metricRanges.fanOut.min, n.fanOut);
             metricRanges.fanOut.max = Math.max(metricRanges.fanOut.max, n.fanOut);
-            var cv = (n.callsIn || 0) + (n.callsOut || 0);
-            metricRanges.callVolume.min = Math.min(metricRanges.callVolume.min, cv);
-            metricRanges.callVolume.max = Math.max(metricRanges.callVolume.max, cv);
             metricRanges.loc.min = Math.min(metricRanges.loc.min, n.linesOfCode);
             metricRanges.loc.max = Math.max(metricRanges.loc.max, n.linesOfCode);
             var mtime = n.lastModified || 0;
             metricRanges.lastModified.min = Math.min(metricRanges.lastModified.min, mtime);
             metricRanges.lastModified.max = Math.max(metricRanges.lastModified.max, mtime);
-        }
-    }
-
-    /**
-     * Aggregate per-(callerFile, calleeFile) call counts from graphData.functionCalls
-     * and annotate function-call links with `callCount` + `callPairs` (sample list of
-     * "caller→callee" pairs for tooltips). Also computes per-node `callsIn`/`callsOut`
-     * totals used by the "Call volume" heatmap.
-     */
-    function computeCallCounts() {
-        if (!graphData) return;
-        var calls = graphData.functionCalls || [];
-        // Map<callerFile, Map<calleeFile, { count, pairs: Map<"caller→callee", count> }>>
-        var byPair = {};
-        for (var i = 0; i < calls.length; i++) {
-            var c = calls[i];
-            if (!byPair[c.callerFile]) byPair[c.callerFile] = {};
-            var inner = byPair[c.callerFile];
-            if (!inner[c.calleeFile]) inner[c.calleeFile] = { count: 0, pairs: {} };
-            var slot = inner[c.calleeFile];
-            slot.count++;
-            var key = c.callerName + ' → ' + c.calleeName;
-            slot.pairs[key] = (slot.pairs[key] || 0) + 1;
-        }
-        // Reset per-node totals
-        for (var ni = 0; ni < graphData.nodes.length; ni++) {
-            graphData.nodes[ni].callsIn = 0;
-            graphData.nodes[ni].callsOut = 0;
-        }
-        var nodeById = {};
-        for (var nj = 0; nj < graphData.nodes.length; nj++) nodeById[graphData.nodes[nj].id] = graphData.nodes[nj];
-        for (var caller in byPair) {
-            var srcN = nodeById[caller];
-            for (var callee in byPair[caller]) {
-                var s = byPair[caller][callee];
-                if (srcN) srcN.callsOut += s.count;
-                var tgtN = nodeById[callee];
-                if (tgtN) tgtN.callsIn += s.count;
-            }
-        }
-        // Annotate function-call links
-        var links = graphData.links || [];
-        for (var li = 0; li < links.length; li++) {
-            var l = links[li];
-            if (l.type !== 'function-call') continue;
-            var sId = typeof l.source === 'object' ? l.source.id : l.source;
-            var tId = typeof l.target === 'object' ? l.target.id : l.target;
-            var bucket = byPair[sId] && byPair[sId][tId];
-            if (bucket) {
-                l.callCount = bucket.count;
-                // Top 5 pair labels for tooltip
-                var pairList = [];
-                for (var k in bucket.pairs) pairList.push({ k: k, n: bucket.pairs[k] });
-                pairList.sort(function (a, b) { return b.n - a.n; });
-                l.callPairs = pairList.slice(0, 5);
-            } else {
-                l.callCount = 1;
-                l.callPairs = [];
-            }
         }
     }
 
@@ -740,7 +620,7 @@
         // Renumber remaining communities 0..k-1
         var finalRemap = {};
         var finalId = 0;
-        var sortedKeys = Object.keys(commFiles).map(Number).sort(function (a, b) { return a - b; });
+        var sortedKeys = Object.keys(commFiles).map(Number).sort(function(a, b) { return a - b; });
         for (var sk = 0; sk < sortedKeys.length; sk++) {
             finalRemap[sortedKeys[sk]] = finalId++;
         }
@@ -769,7 +649,7 @@
             activeCommunities.add(ci2);
             var files = newCommFiles[ci2] || [];
             var isOthers = (singletonFiles.length > 0 && ci2 === finalId - 1);
-            communityNames[ci2] = { name: isOthers ? 'Others' : nameCommunity(files), files: files.map(function (f) { return f.id; }) };
+            communityNames[ci2] = { name: isOthers ? 'Others' : nameCommunity(files), files: files.map(function(f) { return f.id; }) };
         }
     }
 
@@ -790,12 +670,12 @@
 
         // Sort communities by file count descending
         var ids = Object.keys(communityNames).map(Number);
-        ids.sort(function (a, b) {
+        ids.sort(function(a, b) {
             return (communityNames[b].files.length) - (communityNames[a].files.length);
         });
 
         for (var i = 0; i < ids.length; i++) {
-            (function (cid) {
+            (function(cid) {
                 var info = communityNames[cid];
                 var item = document.createElement('div');
                 item.className = 'community-item' + (activeCommunities.has(cid) ? '' : ' dimmed');
@@ -803,7 +683,7 @@
                     '<span class="community-swatch" style="background:' + (communityColors[cid] || '#888') + '"></span>' +
                     '<span class="community-name">' + escapeHtml(info.name) + '</span>' +
                     '<span class="community-count">' + info.files.length + '</span>';
-                item.addEventListener('click', function () {
+                item.addEventListener('click', function() {
                     if (activeCommunities.has(cid)) activeCommunities.delete(cid);
                     else activeCommunities.add(cid);
                     item.classList.toggle('dimmed', !activeCommunities.has(cid));
@@ -846,16 +726,13 @@
         graph = ForceGraph3D()(graphContainer)
             .graphData(filtered)
             .nodeId('id')
-            .nodeLabel('')            .nodeColor(function (node) { return getNodeColor(node); })
+            .nodeLabel('')
+            .nodeColor(function(node) { return getNodeColor(node); })
             .nodeRelSize(1)
-            .nodeVal(function (node) { return getNodeSize(node); })
-            .nodeVisibility(function (node) {
-                if (queryActive && queryMode === 'filter' && !querySet.has(node.id)) return false;
-                return true;
-            })
+            .nodeVal(function(node) { return getNodeSize(node); })
             .nodeOpacity(0.92)
             .nodeThreeObjectExtend(true)
-            .nodeThreeObject(function (node) {
+            .nodeThreeObject(function(node) {
                 var T = window.THREE;
                 var isSelected = (selectedNode && selectedNode.id === node.id) || multiSelectedNodes.has(node);
                 var isBlastSource = blastMode && pinnedNode && (node.id === pinnedNode.id || (impactMode && blastDepths[node.id] === 0));
@@ -865,7 +742,7 @@
                     !(showCycles && !cycleNodeIds.has(node.id)) &&
                     !(pinnedNode && !pinnedNodes.has(node)) &&
                     !(heatmapMode === 'community' && activeCommunities.size < Object.keys(communityNames).length &&
-                        (communityMap[node.id] === undefined || !activeCommunities.has(communityMap[node.id]))) &&
+                      (communityMap[node.id] === undefined || !activeCommunities.has(communityMap[node.id]))) &&
                     !(flowTraceMode && !flowTraceNodes.has(node.id)) &&
                     !(timelineActive && timelineCompareMode && timelineChangedNodes.size > 0 && !timelineChangedNodes.has(node.id));
 
@@ -927,60 +804,31 @@
                     group.add(new T.Mesh(blastGlowGeo, blastGlowMat));
                 }
 
-                // Selected-node highlight: either soft additive halo ("glow")
-                // or a bright emissive core picked up by UnrealBloomPass ("bloom").
+                // Glow effect for selected node
                 if (isSelected) {
                     var nodeRadius = Math.cbrt(getNodeSize(node) || 1) * 1;
-                    var auraCfg = window.AURA_CONFIG || {};
-                    var effect = auraCfg.selectedNodeEffect === 'bloom' ? 'bloom' : 'glow';
+                    var glowGeo = new T.SphereGeometry(nodeRadius * 3, 16, 16);
+                    var glowMat = new T.MeshBasicMaterial({
+                        color: 0x60a5fa,
+                        transparent: true,
+                        opacity: 0.25,
+                        blending: T.AdditiveBlending,
+                        depthWrite: false
+                    });
+                    var glow = new T.Mesh(glowGeo, glowMat);
+                    group.add(glow);
 
-                    if (effect === 'bloom') {
-                        // Bright emissive sphere — only this mesh is on the bloom layer,
-                        // so the selective UnrealBloomPass blooms ONLY this object.
-                        // Use the node's own color so the bloom matches it.
-                        var bloomColorStr = getNodeColor(node) || '#93c5fd';
-                        var bloomColor;
-                        try {
-                            bloomColor = new T.Color(bloomColorStr);
-                        } catch (e) {
-                            bloomColor = new T.Color(0x93c5fd);
-                        }
-                        var bloomGeo = new T.SphereGeometry(nodeRadius * 1.6, 24, 24);
-                        var bloomMat = new T.MeshBasicMaterial({
-                            color: bloomColor,
-                            transparent: false,
-                            toneMapped: false
-                        });
-                        var bloomMesh = new T.Mesh(bloomGeo, bloomMat);
-                        // Enable bloom layer in addition to layer 0 so it also
-                        // appears in the normal scene render (otherwise it would
-                        // only show up in the offscreen bloom buffer).
-                        bloomMesh.layers.enable(BLOOM_LAYER);
-                        group.add(bloomMesh);
-                    } else {
-                        var glowGeo = new T.SphereGeometry(nodeRadius * 3, 16, 16);
-                        var glowMat = new T.MeshBasicMaterial({
-                            color: 0x60a5fa,
-                            transparent: true,
-                            opacity: 0.25,
-                            blending: T.AdditiveBlending,
-                            depthWrite: false
-                        });
-                        var glow = new T.Mesh(glowGeo, glowMat);
-                        group.add(glow);
-
-                        // Inner brighter core
-                        var coreGeo = new T.SphereGeometry(nodeRadius * 1.8, 16, 16);
-                        var coreMat = new T.MeshBasicMaterial({
-                            color: 0x93c5fd,
-                            transparent: true,
-                            opacity: 0.4,
-                            blending: T.AdditiveBlending,
-                            depthWrite: false
-                        });
-                        var core = new T.Mesh(coreGeo, coreMat);
-                        group.add(core);
-                    }
+                    // Inner brighter core
+                    var coreGeo = new T.SphereGeometry(nodeRadius * 1.8, 16, 16);
+                    var coreMat = new T.MeshBasicMaterial({
+                        color: 0x93c5fd,
+                        transparent: true,
+                        opacity: 0.4,
+                        blending: T.AdditiveBlending,
+                        depthWrite: false
+                    });
+                    var core = new T.Mesh(coreGeo, coreMat);
+                    group.add(core);
                 }
 
                 // Label sprite
@@ -996,13 +844,9 @@
             })
             .linkSource('source')
             .linkTarget('target')
-            .linkCurvature(function () {
-                var cfg = window.AURA_CONFIG || {};
-                return (cfg.linkStyle === 'curved') ? (typeof cfg.linkCurvature === 'number' ? cfg.linkCurvature : 0.25) : 0;
-            })
-            .linkVisibility(function (link) { return getLinkVisibility(link); })
-            .linkColor(function (link) { return getLinkColor(link); })
-            .linkWidth(function (link) {
+            .linkVisibility(function(link) { return getLinkVisibility(link); })
+            .linkColor(function(link) { return getLinkColor(link); })
+            .linkWidth(function(link) { 
                 if (link._isCallEdge) {
                     if (!hoveredSymbolId) return 0;
                     var cwSrc = typeof link.source === 'object' ? link.source.id : link.source;
@@ -1021,30 +865,11 @@
                 if (multiSelectedLinks.has(link)) return 2.5;
                 if (link.type === 'extends') return highlightLinks.has(link) ? 2.5 : 1;
                 if (link.type === 'implements') return highlightLinks.has(link) ? 2 : 0.8;
-                if (link.type === 'function-call' && link.callCount > 1) {
-                    // Logarithmic scaling: 1 call = 0.5, 10 = ~1.5, 100 = ~2.5, 1000 = ~3.5
-                    var w = 0.5 + Math.log(link.callCount) * 0.5;
-                    if (highlightLinks.has(link)) w += 1;
-                    return Math.min(w, 4);
-                }
-                return highlightLinks.has(link) ? 2 : 0.5;
+                if (link.type === 'doc-reference') return highlightLinks.has(link) ? 1 : 0.25;
+                return highlightLinks.has(link) ? 2 : 0.5; 
             })
             .linkOpacity(0.4)
-            .linkLabel(function (link) {
-                if (link._isCallEdge || link._isExplosionLink) return '';
-                if (link.type === 'function-call' && link.callCount) {
-                    var lines = ['<b>' + link.callCount + ' call' + (link.callCount > 1 ? 's' : '') + '</b>'];
-                    if (link.callPairs && link.callPairs.length) {
-                        for (var p = 0; p < link.callPairs.length; p++) {
-                            var pp = link.callPairs[p];
-                            lines.push('  ' + pp.k + (pp.n > 1 ? ' (×' + pp.n + ')' : ''));
-                        }
-                    }
-                    return '<div style="font-family:monospace;font-size:11px;line-height:1.5;background:rgba(13,17,23,0.95);padding:6px 8px;border-radius:4px;border:1px solid #30363d;color:#c9d1d9;">' + lines.join('<br>') + '</div>';
-                }
-                return link.label || link.type || '';
-            })
-            .linkDirectionalArrowLength(function (link) {
+            .linkDirectionalArrowLength(function(link) {
                 // In compare mode, hide arrows unless both endpoints are changed
                 if (timelineActive && timelineCompareMode && timelineChangedNodes.size > 0) {
                     var aaSrc = typeof link.source === 'object' ? link.source.id : link.source;
@@ -1052,10 +877,11 @@
                     if (!(timelineChangedNodes.has(aaSrc) && timelineChangedNodes.has(aaTgt))) return 0;
                 }
                 if (link.type === 'extends' || link.type === 'implements') return 5;
+                if (link.type === 'doc-reference') return 0;
                 return 3;
             })
             .linkDirectionalArrowRelPos(1)
-            .linkDirectionalParticles(function (link) {
+            .linkDirectionalParticles(function(link) { 
                 if (link._isCallEdge) {
                     if (!hoveredSymbolId) return 0;
                     var cpSrc = typeof link.source === 'object' ? link.source.id : link.source;
@@ -1073,13 +899,13 @@
                 if (multiSelectedLinks.has(link)) return 3;
                 if (link.type === 'extends') return 2;
                 if (link.type === 'implements') return 3;
-                return highlightLinks.has(link) ? 3 : 0;
+                return highlightLinks.has(link) ? 3 : 0; 
             })
-            .linkDirectionalParticleWidth(function (link) {
+            .linkDirectionalParticleWidth(function(link) {
                 if (link.type === 'implements') return 1.2;
                 return 2;
             })
-            .linkDirectionalParticleSpeed(function (link) {
+            .linkDirectionalParticleSpeed(function(link) {
                 if (link.type === 'implements') return 0.008;
                 return 0.005;
             })
@@ -1103,19 +929,16 @@
         graphContainer.removeEventListener('dblclick', graphContainerDblClick);
         graphContainer.addEventListener('dblclick', graphContainerDblClick);
 
-        graphContainer.addEventListener('contextmenu', function (e) {
+        graphContainer.addEventListener('contextmenu', function(e) {
             e.preventDefault();
         });
 
-        setTimeout(function () {
+        setTimeout(function() {
             graph.zoomToFit(500, 50);
         }, 1500);
 
-        // Apply selected-node bloom post-processing if configured
-        applySelectedNodeEffect();
-
         // Handle webview resize (e.g. when side editor opens/closes)
-        var resizeObserver = new ResizeObserver(function () {
+        var resizeObserver = new ResizeObserver(function() {
             if (graph) {
                 graph.width(graphContainer.clientWidth);
                 graph.height(graphContainer.clientHeight);
@@ -1125,163 +948,9 @@
     }
 
     // ============================================================
-    // Selected-node selective bloom post-processing
-    // Only objects on layer BLOOM_LAYER receive bloom — the rest of
-    // the scene is rendered normally and composited on top.
-    // ============================================================
-    var BLOOM_LAYER = 1;
-    var bloomState = null; // { prePass, compositePass, bloomPass, bloomComposer }
-
-    function disposeBloomState() {
-        if (!bloomState || !graph || typeof graph.postProcessingComposer !== 'function') {
-            bloomState = null;
-            return;
-        }
-        try {
-            var composer = graph.postProcessingComposer();
-            if (composer && composer.passes) {
-                [bloomState.prePass, bloomState.compositePass].forEach(function (p) {
-                    var idx = composer.passes.indexOf(p);
-                    if (idx !== -1) composer.passes.splice(idx, 1);
-                });
-            }
-            if (bloomState.bloomComposer && typeof bloomState.bloomComposer.dispose === 'function') {
-                bloomState.bloomComposer.dispose();
-            }
-            if (bloomState.bloomPass && typeof bloomState.bloomPass.dispose === 'function') {
-                bloomState.bloomPass.dispose();
-            }
-        } catch (e) { /* noop */ }
-        bloomState = null;
-    }
-
-    function buildBloomState(strength, radius, threshold) {
-        var T = window.THREE;
-        if (!T || !T.UnrealBloomPass || !T.EffectComposer || !T.RenderPass || !T.ShaderPass) {
-            console.warn('[aura] Bloom requires UnrealBloomPass/EffectComposer in THREE bundle');
-            return null;
-        }
-        var scene = graph.scene();
-        var camera = graph.camera();
-        var renderer = graph.renderer();
-        if (!scene || !camera || !renderer) return null;
-
-        var w = renderer.domElement.width || graphContainer.clientWidth;
-        var h = renderer.domElement.height || graphContainer.clientHeight;
-
-        // Offscreen composer that renders ONLY bloom-layer objects, then blooms them.
-        var bloomComposer = new T.EffectComposer(renderer);
-        bloomComposer.renderToScreen = false;
-        bloomComposer.addPass(new T.RenderPass(scene, camera));
-        var bloomPass = new T.UnrealBloomPass(new T.Vector2(w, h), strength, radius, threshold);
-        bloomComposer.addPass(bloomPass);
-
-        // Pre-pass: temporarily restrict the camera to the bloom layer, render the
-        // bloom composer to its offscreen target, then restore the camera mask.
-        var prePass = {
-            enabled: true,
-            needsSwap: false,
-            clear: false,
-            renderToScreen: false,
-            render: function (rdr, writeBuffer, readBuffer, deltaTime) {
-                var savedMask = camera.layers.mask;
-                camera.layers.set(BLOOM_LAYER);
-                bloomComposer.render(deltaTime);
-                camera.layers.mask = savedMask;
-            },
-            setSize: function (sw, sh) {
-                bloomComposer.setSize(sw, sh);
-                bloomPass.setSize(sw, sh);
-            },
-            dispose: function () {
-                if (typeof bloomComposer.dispose === 'function') bloomComposer.dispose();
-            }
-        };
-
-        // Final composite: base scene (readBuffer from previous RenderPass) + bloom texture.
-        var compositeMaterial = new T.ShaderMaterial({
-            uniforms: {
-                baseTexture: { value: null },
-                bloomTexture: { value: bloomComposer.renderTarget2.texture }
-            },
-            vertexShader: [
-                'varying vec2 vUv;',
-                'void main() {',
-                '  vUv = uv;',
-                '  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
-                '}'
-            ].join('\n'),
-            fragmentShader: [
-                'uniform sampler2D baseTexture;',
-                'uniform sampler2D bloomTexture;',
-                'varying vec2 vUv;',
-                'void main() {',
-                '  vec4 base  = texture2D(baseTexture, vUv);',
-                '  vec4 bloom = texture2D(bloomTexture, vUv);',
-                '  gl_FragColor = base + bloom;',
-                '}'
-            ].join('\n'),
-            defines: {}
-        });
-        var compositePass = new T.ShaderPass(compositeMaterial, 'baseTexture');
-        compositePass.needsSwap = true;
-
-        return {
-            prePass: prePass,
-            compositePass: compositePass,
-            bloomPass: bloomPass,
-            bloomComposer: bloomComposer
-        };
-    }
-
-    function applySelectedNodeEffect() {
-        if (!graph || typeof graph.postProcessingComposer !== 'function') return;
-        var T = window.THREE;
-        if (!T) return;
-
-        var cfg = window.AURA_CONFIG || {};
-        var wantBloom = cfg.selectedNodeEffect === 'bloom';
-
-        var composer;
-        try { composer = graph.postProcessingComposer(); } catch (e) { composer = null; }
-        if (!composer || !composer.passes) return;
-
-        if (!wantBloom) {
-            disposeBloomState();
-            return;
-        }
-
-        var strength = typeof cfg.bloomStrength === 'number' ? cfg.bloomStrength : 1.2;
-        var radius = typeof cfg.bloomRadius === 'number' ? cfg.bloomRadius : 0.6;
-        var threshold = typeof cfg.bloomThreshold === 'number' ? cfg.bloomThreshold : 0.0;
-
-        if (bloomState) {
-            // Live-update params on the existing pass
-            bloomState.bloomPass.strength = strength;
-            bloomState.bloomPass.radius = radius;
-            bloomState.bloomPass.threshold = threshold;
-            return;
-        }
-
-        var built = buildBloomState(strength, radius, threshold);
-        if (!built) return;
-        bloomState = built;
-
-        // Insert pre-pass at the very beginning, composite at the end so the
-        // sequence is: [bloomPrePass, RenderPass (3d-force-graph), compositePass].
-        composer.passes.unshift(built.prePass);
-        composer.addPass(built.compositePass);
-    }
-
-    // ============================================================
     // Node Visuals
     // ============================================================
     function getNodeColor(node) {
-        // Query filter (highlight mode dims non-matching nodes)
-        if (queryActive && queryMode === 'highlight' && !querySet.has(node.id)) {
-            return '#ffffff0a';
-        }
-
         if (showOrphans) {
             if (node.fanIn === 0 && node.fanOut === 0) return '#ff1744';
             return '#ffffff0a';
@@ -1360,12 +1029,11 @@
             var value;
             switch (heatmapMode) {
                 case 'complexity': value = node.complexity || 1; break;
-                case 'fanIn': value = node.fanIn; break;
-                case 'fanOut': value = node.fanOut; break;
-                case 'callVolume': value = (node.callsIn || 0) + (node.callsOut || 0); break;
-                case 'loc': value = node.linesOfCode; break;
+                case 'fanIn':      value = node.fanIn; break;
+                case 'fanOut':     value = node.fanOut; break;
+                case 'loc':        value = node.linesOfCode; break;
                 case 'lastModified': value = node.lastModified || 0; break;
-                default: value = 0;
+                default:           value = 0;
             }
             var norm = normalizeMetric(value, heatmapMode);
             var color = heatmapColor(norm, HEATMAP_SCALES[heatmapMode]);
@@ -1379,7 +1047,9 @@
             return color;
         }
 
-        var langKeyFinal = node.language === 'c' ? (node.extension === '.h' ? 'c-header' : 'c-source') : node.language;
+        var langKeyFinal = node.language === 'c' ? (node.extension === '.h' ? 'c-header' : 'c-source')
+            : node.language === 'cpp' ? ((node.extension === '.hpp' || node.extension === '.hxx' || node.extension === '.hh') ? 'cpp-header' : 'cpp-source')
+            : node.language;
         var baseColor = LANGUAGE_COLORS[langKeyFinal] || '#ffffff';
 
         if (pinnedNode && blastMode) {
@@ -1405,12 +1075,6 @@
     }
 
     function getLinkVisibility(link) {
-        // Query in filter mode hides links unless both endpoints match
-        if (queryActive && queryMode === 'filter') {
-            var qSrc = typeof link.source === 'object' ? link.source.id : link.source;
-            var qTgt = typeof link.target === 'object' ? link.target.id : link.target;
-            if (!querySet.has(qSrc) || !querySet.has(qTgt)) return false;
-        }
         // In compare mode, only show links where both endpoints are changed
         if (timelineActive && timelineCompareMode && timelineChangedNodes.size > 0) {
             var vSrc = typeof link.source === 'object' ? link.source.id : link.source;
@@ -1550,8 +1214,8 @@
 
         if (graph) {
             graph.nodeColor(graph.nodeColor())
-                .linkWidth(graph.linkWidth())
-                .linkDirectionalParticles(graph.linkDirectionalParticles());
+                 .linkWidth(graph.linkWidth())
+                 .linkDirectionalParticles(graph.linkDirectionalParticles());
             if (symbolChanged) {
                 graph.linkColor(graph.linkColor());
             }
@@ -1583,9 +1247,9 @@
                 highlightedPath.links.clear();
                 if (graph) {
                     graph.nodeColor(graph.nodeColor())
-                        .linkWidth(graph.linkWidth())
-                        .linkColor(graph.linkColor())
-                        .linkDirectionalParticles(graph.linkDirectionalParticles());
+                         .linkWidth(graph.linkWidth())
+                         .linkColor(graph.linkColor())
+                         .linkDirectionalParticles(graph.linkDirectionalParticles());
                 }
             }
             return;
@@ -1645,7 +1309,7 @@
         multiSelectedLinks.clear();
         if (multiSelectedNodes.size < 2 || !graphData) return;
         var selectedIds = new Set();
-        multiSelectedNodes.forEach(function (n) { selectedIds.add(n.id); });
+        multiSelectedNodes.forEach(function(n) { selectedIds.add(n.id); });
         var links = graphData.links;
         for (var i = 0; i < links.length; i++) {
             var srcId = typeof links[i].source === 'object' ? links[i].source.id : links[i].source;
@@ -1695,9 +1359,9 @@
         updateExplorerSelection();
         if (graph) {
             graph.nodeColor(graph.nodeColor())
-                .linkWidth(graph.linkWidth())
-                .linkColor(graph.linkColor())
-                .linkDirectionalParticles(graph.linkDirectionalParticles());
+                 .linkWidth(graph.linkWidth())
+                 .linkColor(graph.linkColor())
+                 .linkDirectionalParticles(graph.linkDirectionalParticles());
             if (hadSelection || hadPinned) {
                 graph.nodeThreeObject(graph.nodeThreeObject());
             }
@@ -1956,7 +1620,7 @@
         flowTraceAnimDepth = 0;
         refreshGraphColors();
 
-        flowTraceTimer = setInterval(function () {
+        flowTraceTimer = setInterval(function() {
             flowTraceAnimDepth++;
             refreshGraphColors();
             if (flowTraceAnimDepth >= flowTraceMaxDepth) {
@@ -2087,24 +1751,24 @@
     function refreshGraphVisuals() {
         if (!graph) return;
         graph.nodeColor(graph.nodeColor())
-            .linkVisibility(graph.linkVisibility())
-            .linkWidth(graph.linkWidth())
-            .linkColor(graph.linkColor())
-            .linkDirectionalArrowLength(graph.linkDirectionalArrowLength())
-            .linkDirectionalParticles(graph.linkDirectionalParticles())
-            .nodeThreeObject(graph.nodeThreeObject());
+             .linkVisibility(graph.linkVisibility())
+             .linkWidth(graph.linkWidth())
+             .linkColor(graph.linkColor())
+             .linkDirectionalArrowLength(graph.linkDirectionalArrowLength())
+             .linkDirectionalParticles(graph.linkDirectionalParticles())
+             .nodeThreeObject(graph.nodeThreeObject());
     }
 
     // Light refresh: update colors without reheating the simulation
     function refreshGraphColors() {
         if (!graph) return;
         graph.nodeColor(graph.nodeColor())
-            .linkVisibility(graph.linkVisibility())
-            .linkWidth(graph.linkWidth())
-            .linkColor(graph.linkColor())
-            .linkDirectionalArrowLength(graph.linkDirectionalArrowLength())
-            .linkDirectionalParticles(graph.linkDirectionalParticles())
-            .nodeThreeObject(graph.nodeThreeObject());
+             .linkVisibility(graph.linkVisibility())
+             .linkWidth(graph.linkWidth())
+             .linkColor(graph.linkColor())
+             .linkDirectionalArrowLength(graph.linkDirectionalArrowLength())
+             .linkDirectionalParticles(graph.linkDirectionalParticles())
+             .nodeThreeObject(graph.nodeThreeObject());
     }
 
     // ============================================================
@@ -2179,7 +1843,7 @@
         tooltip.style.left = '50%';
         tooltip.style.top = '60px';
         tooltip.style.transform = 'translateX(-50%)';
-        setTimeout(function () {
+        setTimeout(function() {
             tooltip.classList.add('hidden');
             tooltip.style.transform = '';
         }, 2500);
@@ -2255,10 +1919,10 @@
         }
         $('#panel-loc').textContent = node.linesOfCode.toLocaleString();
         $('#panel-size').textContent = formatBytes(node.size);
-
+        
         if (node.lastModified) {
             var date = new Date(node.lastModified);
-            $('#panel-mtime').textContent = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            $('#panel-mtime').textContent = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
         } else {
             $('#panel-mtime').textContent = '—';
         }
@@ -2281,7 +1945,7 @@
             var explodeBtn = document.createElement('button');
             explodeBtn.className = 'explode-btn';
             explodeBtn.textContent = explodedNode && explodedNode.id === node.id ? '⊖ Collapse' : '⊕ Explode File';
-            explodeBtn.addEventListener('click', function () {
+            explodeBtn.addEventListener('click', function() {
                 if (explodedNode && explodedNode.id === node.id) {
                     collapseExplosion();
                 } else {
@@ -2299,8 +1963,8 @@
                 traceBtn.className = 'flow-trace-btn';
                 traceBtn.textContent = '▶';
                 traceBtn.title = 'Trace call flow from ' + fn.name;
-                (function (funcName, fileId) {
-                    traceBtn.addEventListener('click', function (e) {
+                (function(funcName, fileId) {
+                    traceBtn.addEventListener('click', function(e) {
                         e.stopPropagation();
                         startFlowTrace(fileId, funcName);
                     });
@@ -2318,8 +1982,8 @@
                 metaSpan.className = 'symbol-meta';
                 metaSpan.textContent = fn.returnType + '(' + shortenParams(fn.params) + ') L' + fn.line;
                 item.appendChild(metaSpan);
-                (function (line) {
-                    item.addEventListener('dblclick', function () {
+                (function(line) {
+                    item.addEventListener('dblclick', function() {
                         vscode.postMessage({ type: 'openFile', payload: { path: node.path, line: line } });
                     });
                 })(fn.line);
@@ -2424,7 +2088,7 @@
         depsUl.innerHTML = '';
         $('#deps-count').textContent = deps.length;
         for (var dd = 0; dd < deps.length; dd++) {
-            (function (d) {
+            (function(d) {
                 var targetId = typeof d.target === 'object' ? d.target.id : d.target;
                 var targetNode = null;
                 for (var x = 0; x < graphData.nodes.length; x++) {
@@ -2433,16 +2097,12 @@
                 var li = document.createElement('li');
                 var typeClass = d.type === 'function-call' ? 'dep-type dep-type-call' : 'dep-type';
                 var labelStr = d.label ? ' <span class="dep-label">' + d.label + '</span>' : '';
-                var countStr = (d.type === 'function-call' && d.callCount && d.callCount > 1)
-                    ? ' <span class="dep-call-count" title="Number of distinct call sites">×' + d.callCount + '</span>'
-                    : '';
                 li.innerHTML =
                     '<span class="dep-arrow">→</span>' +
                     '<span>' + (targetNode ? targetNode.name : targetId) + '</span>' +
                     labelStr +
-                    countStr +
                     '<span class="' + typeClass + '">' + d.type + '</span>';
-                li.addEventListener('click', function () {
+                li.addEventListener('click', function() {
                     if (targetNode) handleNodeClick(targetNode);
                 });
                 depsUl.appendChild(li);
@@ -2460,7 +2120,7 @@
         depUl.innerHTML = '';
         $('#dependents-count').textContent = dependents.length;
         for (var rr = 0; rr < dependents.length; rr++) {
-            (function (d) {
+            (function(d) {
                 var sourceId = typeof d.source === 'object' ? d.source.id : d.source;
                 var sourceNode = null;
                 for (var x = 0; x < graphData.nodes.length; x++) {
@@ -2469,16 +2129,12 @@
                 var li = document.createElement('li');
                 var typeClass = d.type === 'function-call' ? 'dep-type dep-type-call' : 'dep-type';
                 var labelStr = d.label ? ' <span class="dep-label">' + d.label + '</span>' : '';
-                var countStr = (d.type === 'function-call' && d.callCount && d.callCount > 1)
-                    ? ' <span class="dep-call-count" title="Number of distinct call sites">×' + d.callCount + '</span>'
-                    : '';
                 li.innerHTML =
                     '<span class="dep-arrow">←</span>' +
                     '<span>' + (sourceNode ? sourceNode.name : sourceId) + '</span>' +
                     labelStr +
-                    countStr +
                     '<span class="' + typeClass + '">' + d.type + '</span>';
-                li.addEventListener('click', function () {
+                li.addEventListener('click', function() {
                     if (sourceNode) handleNodeClick(sourceNode);
                 });
                 depUl.appendChild(li);
@@ -2492,7 +2148,7 @@
         detailPanel.classList.remove('collapsed');
 
         var nodes = [];
-        multiSelectedNodes.forEach(function (n) { nodes.push(n); });
+        multiSelectedNodes.forEach(function(n) { nodes.push(n); });
 
         var totalLoc = 0;
         var totalComplexity = 0;
@@ -2549,14 +2205,14 @@
             '<div class="dead-exports-header" style="color:#93c5fd">📌 Selected files <span class="dead-count" style="background:rgba(147,197,253,0.2);color:#93c5fd">' +
             nodes.length + '</span></div>';
         for (var fi = 0; fi < nodes.length; fi++) {
-            (function (node) {
+            (function(node) {
                 var fItem = document.createElement('div');
                 fItem.className = 'symbol-item symbol-item-clickable';
                 fItem.innerHTML =
                     '<span class="symbol-icon">' + (LANGUAGE_ICONS[node.language] || '📄') + '</span>' +
                     '<span class="symbol-name">' + node.name + '</span>' +
                     '<span class="symbol-meta">' + node.linesOfCode + ' lines</span>';
-                fItem.addEventListener('click', function () {
+                fItem.addEventListener('click', function() {
                     handleNodeClick(node);
                 });
                 filesSection.appendChild(fItem);
@@ -2568,7 +2224,7 @@
         var depsUl = $('#panel-deps');
         depsUl.innerHTML = '';
         $('#deps-count').textContent = multiSelectedLinks.size;
-        multiSelectedLinks.forEach(function (link) {
+        multiSelectedLinks.forEach(function(link) {
             var srcId = typeof link.source === 'object' ? link.source.id : link.source;
             var tgtId = typeof link.target === 'object' ? link.target.id : link.target;
             var srcNode = null, tgtNode = null;
@@ -2599,7 +2255,7 @@
     }
 
     function setupPanelClose() {
-        $('#panel-close').addEventListener('click', function () {
+        $('#panel-close').addEventListener('click', function() {
             detailPanel.classList.add('collapsed');
             selectedNode = null;
             if (multiSelectedNodes.size > 0) {
@@ -2665,7 +2321,7 @@
 
         // Build call edges (not shown immediately — revealed on symbol hover)
         var allCallEdges = [];
-        var subIdSet = new Set(subNodes.map(function (n) { return n.id; }));
+        var subIdSet = new Set(subNodes.map(function(n) { return n.id; }));
         if (graphData && graphData.functionCalls) {
             for (var fc = 0; fc < graphData.functionCalls.length; fc++) {
                 var call = graphData.functionCalls[fc];
@@ -2701,7 +2357,7 @@
 
         explosionData = {
             parentId: node.id,
-            subNodeIds: subNodes.map(function (n) { return n.id; })
+            subNodeIds: subNodes.map(function(n) { return n.id; })
         };
 
         var newNodes = currentData.nodes.concat(subNodes);
@@ -2714,8 +2370,8 @@
         var currentData = graph.graphData();
         var subIds = new Set(explosionData.subNodeIds);
 
-        var filteredNodes = currentData.nodes.filter(function (n) { return !subIds.has(n.id); });
-        var filteredLinks = currentData.links.filter(function (l) { return !l._isExplosionLink; });
+        var filteredNodes = currentData.nodes.filter(function(n) { return !subIds.has(n.id); });
+        var filteredLinks = currentData.links.filter(function(l) { return !l._isExplosionLink; });
 
         graph.graphData({ nodes: filteredNodes, links: filteredLinks });
         explodedNode = null;
@@ -2869,7 +2525,7 @@
                     _clusterGroup: groupName,
                     _clusterColor: color,
                     _clusterCount: members.length,
-                    _memberIds: members.map(function (n) { return n.id; })
+                    _memberIds: members.map(function(n) { return n.id; })
                 });
                 for (var mi = 0; mi < members.length; mi++) {
                     nodeToCluster[members[mi].id] = clusterId;
@@ -2921,7 +2577,7 @@
     // Search
     // ============================================================
     function setupSearch() {
-        searchInput.addEventListener('input', function (e) {
+        searchInput.addEventListener('input', function(e) {
             var query = e.target.value.trim().toLowerCase();
             if (query.length < 2 || !graphData) {
                 searchResults.classList.add('hidden');
@@ -2945,18 +2601,18 @@
 
             searchResults.innerHTML = '';
             for (var r = 0; r < results.length; r++) {
-                (function (node) {
+                (function(node) {
                     var item = document.createElement('div');
                     item.className = 'search-result-item';
                     item.innerHTML =
                         '<span style="color:' + (LANGUAGE_COLORS[node.language] || '#fff') + '">' +
-                        (LANGUAGE_ICONS[node.language] || '📄') +
+                            (LANGUAGE_ICONS[node.language] || '📄') +
                         '</span>' +
                         '<div>' +
-                        '<div class="result-name">' + highlightMatch(node.name, query) + '</div>' +
-                        '<div class="result-path">' + escapeHtml(node.path) + '</div>' +
+                            '<div class="result-name">' + highlightMatch(node.name, query) + '</div>' +
+                            '<div class="result-path">' + escapeHtml(node.path) + '</div>' +
                         '</div>';
-                    item.addEventListener('click', function () {
+                    item.addEventListener('click', function() {
                         handleNodeClick(node);
                         searchResults.classList.add('hidden');
                         searchInput.value = node.name;
@@ -2968,13 +2624,13 @@
             searchResults.classList.remove('hidden');
         });
 
-        document.addEventListener('click', function (e) {
+        document.addEventListener('click', function(e) {
             if (!e.target.closest('#search-container')) {
                 searchResults.classList.add('hidden');
             }
         });
 
-        searchInput.addEventListener('keydown', function (e) {
+        searchInput.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 searchResults.classList.add('hidden');
                 searchInput.blur();
@@ -2986,9 +2642,9 @@
         var idx = text.toLowerCase().indexOf(query);
         if (idx === -1) return escapeHtml(text);
         return escapeHtml(text.slice(0, idx)) +
-            '<strong style="color:#60a5fa">' +
-            escapeHtml(text.slice(idx, idx + query.length)) + '</strong>' +
-            escapeHtml(text.slice(idx + query.length));
+               '<strong style="color:#60a5fa">' +
+               escapeHtml(text.slice(idx, idx + query.length)) + '</strong>' +
+               escapeHtml(text.slice(idx + query.length));
     }
 
     function escapeHtml(str) {
@@ -3104,23 +2760,23 @@
         var queue = [[start, []]];
         var visited = new Set();
         visited.add(start.id);
-
+        
         var adj = {};
         var links = graphData.links;
         for (var i = 0; i < links.length; i++) {
             var l = links[i];
             var sId = typeof l.source === 'object' ? l.source.id : l.source;
             if (!adj[sId]) adj[sId] = [];
-
+            
             var tNode = typeof l.target === 'object' ? l.target : findNode(typeof l.target === 'object' ? l.target.id : l.target);
             adj[sId].push({ target: tNode, link: l });
         }
-
+        
         while (queue.length > 0) {
             var current = queue.shift();
             var currNode = current[0];
             var pathLinks = current[1];
-
+            
             if (currNode.id === end.id) {
                 highlightedPath.links = new Set(pathLinks);
                 var nodesInPath = new Set();
@@ -3132,17 +2788,17 @@
                     nodesInPath.add(findNode(ntId));
                 }
                 highlightedPath.nodes = nodesInPath;
-
+                
                 if (graph) {
                     graph.nodeColor(graph.nodeColor())
-                        .linkWidth(graph.linkWidth())
-                        .linkColor(graph.linkColor())
-                        .linkDirectionalParticles(graph.linkDirectionalParticles());
-                    graph.zoomToFit(1000, 50, function (n) { return nodesInPath.has(n); });
+                         .linkWidth(graph.linkWidth())
+                         .linkColor(graph.linkColor())
+                         .linkDirectionalParticles(graph.linkDirectionalParticles());
+                    graph.zoomToFit(1000, 50, function(n) { return nodesInPath.has(n); });
                 }
                 return;
             }
-
+            
             var neighbors = adj[currNode.id] || [];
             for (var k = 0; k < neighbors.length; k++) {
                 var n = neighbors[k].target;
@@ -3155,7 +2811,7 @@
                 }
             }
         }
-
+        
         // No path found
         pathNodes = [];
         highlightedPath.nodes.clear();
@@ -3171,6 +2827,7 @@
         for (var i = 0; i < nodes.length; i++) {
             var langKey = nodes[i].language;
             if (langKey === 'c') langKey = nodes[i].extension === '.h' ? 'c-header' : 'c-source';
+            else if (langKey === 'cpp') langKey = (nodes[i].extension === '.hpp' || nodes[i].extension === '.hxx' || nodes[i].extension === '.hh') ? 'cpp-header' : 'cpp-source';
             presentLangs.add(langKey);
         }
         var langBtns = document.querySelectorAll('#language-filters .filter-btn');
@@ -3179,6 +2836,8 @@
             var lang = btn.dataset.lang;
             if (presentLangs.has(lang)) {
                 btn.style.display = '';
+                // Documentation is opt-in: only show the button, but don't auto-activate
+                if (lang === 'documentation') continue;
                 if (!activeLanguages.has(lang)) activeLanguages.add(lang);
                 btn.classList.add('active');
             } else {
@@ -3204,6 +2863,12 @@
             heatmapMode: heatmapMode,
             nodeSizeMultiplier: nodeSizeMultiplier,
             spreadMultiplier: spreadMultiplier,
+            callGraphShowLabels: callGraphShowLabels,
+            callGraphNodeSizeMultiplier: callGraphNodeSizeMultiplier,
+            callGraphSpreadMultiplier: callGraphSpreadMultiplier,
+            callGraphMode: callGraphMode,
+            callGraphColorBy: callGraphColorBy,
+            callGraphMinWeight: callGraphMinWeight,
             focusDepth: focusDepth,
             showExplorer: showExplorer,
             showMinimap: !$('#minimap').classList.contains('hidden')
@@ -3261,6 +2926,36 @@
             spreadMultiplier = state.spreadMultiplier;
             var ss = $('#spread-slider');
             if (ss) ss.value = spreadMultiplier;
+        }
+        if (typeof state.callGraphShowLabels === 'boolean') {
+            callGraphShowLabels = state.callGraphShowLabels;
+            var cgl = $('#btn-callgraph-labels');
+            if (cgl) cgl.classList.toggle('active', callGraphShowLabels);
+        }
+        if (typeof state.callGraphNodeSizeMultiplier === 'number') {
+            callGraphNodeSizeMultiplier = state.callGraphNodeSizeMultiplier;
+            var cgn = $('#callgraph-node-size-slider');
+            if (cgn) cgn.value = callGraphNodeSizeMultiplier;
+        }
+        if (typeof state.callGraphSpreadMultiplier === 'number') {
+            callGraphSpreadMultiplier = state.callGraphSpreadMultiplier;
+            var cgs = $('#callgraph-spread-slider');
+            if (cgs) cgs.value = callGraphSpreadMultiplier;
+        }
+        if (state.callGraphMode) {
+            callGraphMode = state.callGraphMode;
+            var cgm = $('#callgraph-mode');
+            if (cgm) cgm.value = callGraphMode;
+        }
+        if (state.callGraphColorBy) {
+            callGraphColorBy = state.callGraphColorBy;
+            var cgc = $('#callgraph-color-by');
+            if (cgc) cgc.value = callGraphColorBy;
+        }
+        if (typeof state.callGraphMinWeight === 'number') {
+            callGraphMinWeight = state.callGraphMinWeight;
+            var cgw = $('#callgraph-min-weight');
+            if (cgw) cgw.value = String(callGraphMinWeight);
         }
         if (typeof state.focusDepth === 'number') {
             focusDepth = state.focusDepth;
@@ -3329,19 +3024,20 @@
     function setupFilters() {
         var langBtns = document.querySelectorAll('#language-filters .filter-btn');
         for (var i = 0; i < langBtns.length; i++) {
-            (function (btn) {
-                btn.addEventListener('click', function () {
+            (function(btn) {
+                btn.addEventListener('click', function() {
                     var lang = btn.dataset.lang;
                     btn.classList.toggle('active');
                     if (btn.classList.contains('active')) activeLanguages.add(lang);
                     else activeLanguages.delete(lang);
                     applyFilters();
+                    if (activeTab === 'callgraph') renderCallGraph();
                     saveViewState();
                 });
             })(langBtns[i]);
         }
 
-        $('#btn-dag-mode').addEventListener('click', function () {
+        $('#btn-dag-mode').addEventListener('click', function() {
             dagMode = !dagMode;
             $('#btn-dag-mode').classList.toggle('active', dagMode);
             if (graph) {
@@ -3356,12 +3052,12 @@
             saveViewState();
         });
 
-        $('#btn-highlight-orphans').addEventListener('click', function () {
+        $('#btn-highlight-orphans').addEventListener('click', function() {
             showOrphans = !showOrphans;
             $('#btn-highlight-orphans').classList.toggle('active', showOrphans);
             if (showOrphans) {
                 if (showDeadCode) { showDeadCode = false; $('#btn-dead-code').classList.remove('active'); }
-                if (showCycles) { showCycles = false; $('#btn-cycles').classList.remove('active'); }
+                if (showCycles)   { showCycles = false;   $('#btn-cycles').classList.remove('active'); }
             }
             if (graph) {
                 graph.nodeColor(graph.nodeColor());
@@ -3372,12 +3068,12 @@
             saveViewState();
         });
 
-        $('#btn-dead-code').addEventListener('click', function () {
+        $('#btn-dead-code').addEventListener('click', function() {
             showDeadCode = !showDeadCode;
             $('#btn-dead-code').classList.toggle('active', showDeadCode);
             if (showDeadCode) {
                 if (showOrphans) { showOrphans = false; $('#btn-highlight-orphans').classList.remove('active'); }
-                if (showCycles) { showCycles = false; $('#btn-cycles').classList.remove('active'); }
+                if (showCycles)  { showCycles = false;   $('#btn-cycles').classList.remove('active'); }
             }
             if (graph) {
                 graph.nodeColor(graph.nodeColor());
@@ -3388,12 +3084,12 @@
             saveViewState();
         });
 
-        $('#btn-cycles').addEventListener('click', function () {
+        $('#btn-cycles').addEventListener('click', function() {
             showCycles = !showCycles;
             $('#btn-cycles').classList.toggle('active', showCycles);
             if (showCycles) {
-                if (showOrphans) { showOrphans = false; $('#btn-highlight-orphans').classList.remove('active'); }
-                if (showDeadCode) { showDeadCode = false; $('#btn-dead-code').classList.remove('active'); }
+                if (showOrphans)  { showOrphans = false;  $('#btn-highlight-orphans').classList.remove('active'); }
+                if (showDeadCode) { showDeadCode = false;  $('#btn-dead-code').classList.remove('active'); }
                 // Build cycle sets from graphData.meta.cycles
                 cycleNodeIds.clear();
                 cycleLinkKeys.clear();
@@ -3413,7 +3109,7 @@
                 graph.nodeColor(graph.nodeColor());
                 graph.nodeVal(graph.nodeVal());
                 graph.linkColor(graph.linkColor());
-                graph.linkWidth(function (link) {
+                graph.linkWidth(function(link) {
                     if (showCycles) {
                         var srcId = typeof link.source === 'object' ? link.source.id : link.source;
                         var tgtId = typeof link.target === 'object' ? link.target.id : link.target;
@@ -3426,12 +3122,12 @@
             saveViewState();
         });
 
-        $('#btn-group-dirs').addEventListener('click', function () {
+        $('#btn-group-dirs').addEventListener('click', function() {
             toggleDirectoryGroups();
             saveViewState();
         });
 
-        $('#btn-path-mode').addEventListener('click', function () {
+        $('#btn-path-mode').addEventListener('click', function() {
             pathMode = !pathMode;
             $('#btn-path-mode').classList.toggle('active', pathMode);
             pathNodes = [];
@@ -3439,21 +3135,21 @@
             highlightedPath.links.clear();
             if (graph) {
                 graph.nodeColor(graph.nodeColor())
-                    .linkWidth(graph.linkWidth())
-                    .linkColor(graph.linkColor())
-                    .linkDirectionalParticles(graph.linkDirectionalParticles());
+                     .linkWidth(graph.linkWidth())
+                     .linkColor(graph.linkColor())
+                     .linkDirectionalParticles(graph.linkDirectionalParticles());
             }
             saveViewState();
         });
 
-        $('#btn-labels').addEventListener('click', function () {
+        $('#btn-labels').addEventListener('click', function() {
             showLabels = !showLabels;
             $('#btn-labels').classList.toggle('active', showLabels);
             if (graph) graph.nodeThreeObject(graph.nodeThreeObject());
             saveViewState();
         });
 
-        $('#btn-recenter').addEventListener('click', function () {
+        $('#btn-recenter').addEventListener('click', function() {
             if (!graph) return;
             selectedNode = null;
             highlightNodes.clear();
@@ -3464,7 +3160,7 @@
             graph.nodeColor(graph.nodeColor());
         });
 
-        $('#heatmap-select').addEventListener('change', function (e) {
+        $('#heatmap-select').addEventListener('change', function(e) {
             setHeatmapMode(e.target.value);
             saveViewState();
         });
@@ -3474,34 +3170,34 @@
         var cpSelectNone = $('#community-select-none');
         var cpClose = $('#community-palette-close');
         if (cpSelectAll) {
-            cpSelectAll.addEventListener('click', function () {
+            cpSelectAll.addEventListener('click', function() {
                 for (var k in communityNames) activeCommunities.add(Number(k));
                 buildCommunityList();
                 if (graph) { graph.nodeColor(graph.nodeColor()); graph.linkColor(graph.linkColor()); graph.nodeThreeObject(graph.nodeThreeObject()); }
             });
         }
         if (cpSelectNone) {
-            cpSelectNone.addEventListener('click', function () {
+            cpSelectNone.addEventListener('click', function() {
                 activeCommunities.clear();
                 buildCommunityList();
                 if (graph) { graph.nodeColor(graph.nodeColor()); graph.linkColor(graph.linkColor()); graph.nodeThreeObject(graph.nodeThreeObject()); }
             });
         }
         if (cpClose) {
-            cpClose.addEventListener('click', function () {
+            cpClose.addEventListener('click', function() {
                 hideCommunityPalette();
             });
         }
 
         // Community palette drag
-        (function () {
+        (function() {
             var palette = $('#community-palette');
             var header = palette ? palette.querySelector('.community-palette-header') : null;
             if (!header) return;
             var dragging = false;
             var offsetX = 0, offsetY = 0;
 
-            header.addEventListener('mousedown', function (e) {
+            header.addEventListener('mousedown', function(e) {
                 if (e.target.tagName === 'BUTTON') return;
                 dragging = true;
                 var rect = palette.getBoundingClientRect();
@@ -3514,7 +3210,7 @@
                 e.preventDefault();
             });
 
-            document.addEventListener('mousemove', function (e) {
+            document.addEventListener('mousemove', function(e) {
                 if (!dragging) return;
                 var x = e.clientX - offsetX;
                 var y = e.clientY - offsetY;
@@ -3525,7 +3221,7 @@
                 palette.style.top = y + 'px';
             });
 
-            document.addEventListener('mouseup', function () {
+            document.addEventListener('mouseup', function() {
                 dragging = false;
             });
         })();
@@ -3533,7 +3229,7 @@
         // ============================================================
         // Minimap — 2D top-down overview with camera viewport rectangle
         // ============================================================
-        (function () {
+        (function() {
             var container = $('#minimap');
             var canvas = $('#minimap-canvas');
             var header = container ? container.querySelector('.minimap-header') : null;
@@ -3544,7 +3240,7 @@
             // --- Drag logic ---
             var dragging = false;
             var offsetX = 0, offsetY = 0;
-            header.addEventListener('mousedown', function (e) {
+            header.addEventListener('mousedown', function(e) {
                 if (e.target.tagName === 'BUTTON') return;
                 dragging = true;
                 var rect = container.getBoundingClientRect();
@@ -3556,14 +3252,14 @@
                 container.style.bottom = 'auto';
                 e.preventDefault();
             });
-            document.addEventListener('mousemove', function (e) {
+            document.addEventListener('mousemove', function(e) {
                 if (!dragging) return;
                 var x = Math.max(0, Math.min(e.clientX - offsetX, window.innerWidth - 60));
                 var y = Math.max(0, Math.min(e.clientY - offsetY, window.innerHeight - 40));
                 container.style.left = x + 'px';
                 container.style.top = y + 'px';
             });
-            document.addEventListener('mouseup', function () { dragging = false; });
+            document.addEventListener('mouseup', function() { dragging = false; });
 
             // --- Helpers: camera-view projection with fixed centroid ---
             // Projects world positions onto the camera's screen plane
@@ -3604,7 +3300,7 @@
                     var n = nodes[i];
                     if (n.x === undefined) continue;
                     var rx = n.x - wcx, ry = n.y - wcy, rz = n.z - wcz;
-                    var u = m.elements[0] * rx + m.elements[4] * ry + m.elements[8] * rz;
+                    var u =  m.elements[0] * rx + m.elements[4] * ry + m.elements[8]  * rz;
                     var v = -(m.elements[1] * rx + m.elements[5] * ry + m.elements[9] * rz);
                     pts.push({ node: n, u: u, v: v });
                 }
@@ -3613,7 +3309,7 @@
                 var ctrl = graph.controls();
                 var target = ctrl.target;
                 var trx = target.x - wcx, try_ = target.y - wcy, trz = target.z - wcz;
-                var tu = m.elements[0] * trx + m.elements[4] * try_ + m.elements[8] * trz;
+                var tu =  m.elements[0] * trx + m.elements[4] * try_ + m.elements[8]  * trz;
                 var tv = -(m.elements[1] * trx + m.elements[5] * try_ + m.elements[9] * trz);
 
                 return {
@@ -3664,7 +3360,7 @@
                 );
             }
 
-            canvas.addEventListener('mousedown', function (e) {
+            canvas.addEventListener('mousedown', function(e) {
                 if (!graph) return;
                 draggingViewport = true;
                 lastDragX = e.clientX;
@@ -3675,12 +3371,12 @@
             // Handle drag on both canvas (while cursor is over it) and
             // document (when cursor leaves canvas during drag)
             canvas.addEventListener('mousemove', handleMinimapDrag);
-            document.addEventListener('mousemove', function (e) {
+            document.addEventListener('mousemove', function(e) {
                 if (!draggingViewport) return;
                 handleMinimapDrag(e);
             });
 
-            document.addEventListener('mouseup', function () {
+            document.addEventListener('mouseup', function() {
                 draggingViewport = false;
             });
 
@@ -3737,18 +3433,18 @@
                     ctx.strokeStyle = 'rgba(255,255,255,0.7)';
                     ctx.lineWidth = 1;
                     ctx.strokeRect(vpCx - vpHalfW, vpCy - vpHalfH, vpHalfW * 2, vpHalfH * 2);
-                } catch (ignored) { }
+                } catch (ignored) {}
             }
             requestAnimationFrame(renderMinimap);
         })();
 
-        $('#node-size-slider').addEventListener('input', function (e) {
+        $('#node-size-slider').addEventListener('input', function(e) {
             nodeSizeMultiplier = parseFloat(e.target.value);
             if (graph) graph.nodeVal(graph.nodeVal());
             saveViewState();
         });
 
-        $('#spread-slider').addEventListener('input', function (e) {
+        $('#spread-slider').addEventListener('input', function(e) {
             spreadMultiplier = parseFloat(e.target.value);
             if (graph) {
                 applySpreadForces();
@@ -3757,7 +3453,7 @@
             saveViewState();
         });
 
-        $('#depth-slider').addEventListener('input', function (e) {
+        $('#depth-slider').addEventListener('input', function(e) {
             focusDepth = parseInt(e.target.value);
             $('#depth-value').textContent = focusDepth;
             // Re-apply if already pinned or in impact mode
@@ -3775,7 +3471,7 @@
         // ============================================================
         var HEATMAP_MODES = ['off', 'complexity', 'fanIn', 'fanOut', 'loc', 'lastModified', 'community'];
 
-        document.addEventListener('keydown', function (e) {
+        document.addEventListener('keydown', function(e) {
             // Ignore when typing in an input
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
             if (!graph) return;
@@ -3899,10 +3595,10 @@
                         updateTimelineButtons();
                     }
                     graph.nodeColor(graph.nodeColor())
-                        .linkWidth(graph.linkWidth())
-                        .linkColor(graph.linkColor())
-                        .linkDirectionalParticles(graph.linkDirectionalParticles())
-                        .nodeThreeObject(graph.nodeThreeObject());
+                         .linkWidth(graph.linkWidth())
+                         .linkColor(graph.linkColor())
+                         .linkDirectionalParticles(graph.linkDirectionalParticles())
+                         .nodeThreeObject(graph.nodeThreeObject());
                     break;
             }
         });
@@ -3922,6 +3618,7 @@
             var n = data.nodes[i];
             var langKey = n.language;
             if (langKey === 'c') langKey = n.extension === '.h' ? 'c-header' : 'c-source';
+            else if (langKey === 'cpp') langKey = (n.extension === '.hpp' || n.extension === '.hxx' || n.extension === '.hh') ? 'cpp-header' : 'cpp-source';
             if (!activeLanguages.has(langKey)) continue;
             // Directory filter: only keep files under checked dirs
             if (activeDirs.length === 0) continue; // nothing checked = nothing shown
@@ -3969,7 +3666,7 @@
         if (!timelineSlider || !timelinePrevBtn || !timelineNextBtn) return;
 
         // Update tooltip while dragging, navigate only on release
-        timelineSlider.addEventListener('input', function () {
+        timelineSlider.addEventListener('input', function() {
             // In compare mode, clamp blue (to) slider to not go before orange (from)
             if (timelineCompareMode && timelineFromSlider) {
                 var curTo = parseInt(timelineSlider.value);
@@ -3978,7 +3675,7 @@
             }
             updateTimelineLabel();
         });
-        timelineSlider.addEventListener('change', function () {
+        timelineSlider.addEventListener('change', function() {
             if (timelineCompareMode && timelineFromSlider) {
                 var curTo = parseInt(timelineSlider.value);
                 var curFrom = parseInt(timelineFromSlider.value);
@@ -3988,7 +3685,7 @@
             navigateToCommit(pos);
         });
 
-        timelinePrevBtn.addEventListener('click', function () {
+        timelinePrevBtn.addEventListener('click', function() {
             var pos = parseInt(timelineSlider.value);
             var minPos = (timelineCompareMode && timelineFromSlider) ? parseInt(timelineFromSlider.value) : 0;
             if (pos > minPos) {
@@ -3997,7 +3694,7 @@
             }
         });
 
-        timelineNextBtn.addEventListener('click', function () {
+        timelineNextBtn.addEventListener('click', function() {
             var pos = parseInt(timelineSlider.value);
             var max = parseInt(timelineSlider.max);
             if (pos < max) {
@@ -4007,14 +3704,14 @@
         });
 
         if (timelineImpactBtn) {
-            timelineImpactBtn.addEventListener('click', function () {
+            timelineImpactBtn.addEventListener('click', function() {
                 toggleImpactMode();
             });
         }
 
         // Compare mode button
         if (timelineCompareBtn) {
-            timelineCompareBtn.addEventListener('click', function () {
+            timelineCompareBtn.addEventListener('click', function() {
                 toggleCompareMode();
             });
         }
@@ -4022,7 +3719,7 @@
         // From-slider (compare mode)
         if (timelineFromSlider) {
             // Update tooltip while dragging, navigate only on release
-            timelineFromSlider.addEventListener('input', function () {
+            timelineFromSlider.addEventListener('input', function() {
                 // Clamp orange (from) slider to not go after blue (to)
                 var curFrom = parseInt(timelineFromSlider.value);
                 var curTo = parseInt(timelineSlider.value);
@@ -4030,7 +3727,7 @@
                 timelineFromPos = parseInt(timelineFromSlider.value);
                 updateTimelineLabel();
             });
-            timelineFromSlider.addEventListener('change', function () {
+            timelineFromSlider.addEventListener('change', function() {
                 var curFrom = parseInt(timelineFromSlider.value);
                 var curTo = parseInt(timelineSlider.value);
                 if (curFrom > curTo) timelineFromSlider.value = curTo;
@@ -4042,7 +3739,7 @@
 
         // From-slider prev/next buttons (compare mode)
         if (timelineFromPrevBtn) {
-            timelineFromPrevBtn.addEventListener('click', function () {
+            timelineFromPrevBtn.addEventListener('click', function() {
                 if (!timelineFromSlider) return;
                 var pos = parseInt(timelineFromSlider.value);
                 if (pos > 0) {
@@ -4054,7 +3751,7 @@
             });
         }
         if (timelineFromNextBtn) {
-            timelineFromNextBtn.addEventListener('click', function () {
+            timelineFromNextBtn.addEventListener('click', function() {
                 if (!timelineFromSlider) return;
                 var pos = parseInt(timelineFromSlider.value);
                 var toPos = parseInt(timelineSlider.value);
@@ -4101,7 +3798,7 @@
             sliderTip.style.top = (rect.top - 32) + 'px';
         }
         sliderWrap.addEventListener('mousemove', showSliderTip);
-        sliderWrap.addEventListener('mouseleave', function () {
+        sliderWrap.addEventListener('mouseleave', function() {
             sliderTip.classList.add('hidden');
         });
     }
@@ -4434,7 +4131,7 @@
         }
 
         // Links in HEAD but not in target graph → removed
-        headLinkKeys.forEach(function (hk) {
+        headLinkKeys.forEach(function(hk) {
             if (!newLinkKeys.has(hk)) {
                 timelineRemovedLinks.add(hk);
             }
@@ -4536,7 +4233,7 @@
         refreshGraphVisuals();
 
         // Unpin to let simulation settle (back to normal view)
-        setTimeout(function () {
+        setTimeout(function() {
             var d = graph.graphData();
             for (var ui = 0; ui < d.nodes.length; ui++) {
                 delete d.nodes[ui].fx; delete d.nodes[ui].fy; delete d.nodes[ui].fz;
@@ -4746,7 +4443,7 @@
     // ============================================================
     function setupExplorer() {
         if (!toggleExplorerBtn) return;
-        toggleExplorerBtn.addEventListener('click', function () {
+        toggleExplorerBtn.addEventListener('click', function() {
             showExplorer = !showExplorer;
             if (showExplorer) {
                 explorerPanel.classList.remove('collapsed');
@@ -4761,7 +4458,7 @@
         var explorerAllBtn = $('#explorer-all');
         var explorerNoneBtn = $('#explorer-none');
         if (explorerAllBtn) {
-            explorerAllBtn.addEventListener('click', function () {
+            explorerAllBtn.addEventListener('click', function() {
                 activeDirs = [];
                 var rootKeys = Object.keys(fileTree.children);
                 for (var i = 0; i < rootKeys.length; i++) {
@@ -4774,7 +4471,7 @@
             });
         }
         if (explorerNoneBtn) {
-            explorerNoneBtn.addEventListener('click', function () {
+            explorerNoneBtn.addEventListener('click', function() {
                 activeDirs = [];
                 updateExplorerCheckboxes();
                 applyFilters();
@@ -4784,7 +4481,7 @@
 
     function buildExplorerTree(nodes) {
         fileTree = { name: 'root', type: 'dir', children: {}, path: '' };
-
+        
         for (var i = 0; i < nodes.length; i++) {
             var node = nodes[i];
             var parts = node.path.split('/');
@@ -4817,7 +4514,7 @@
                 activeDirs.push(fileTree.children[rootKeys[k]].path);
             }
         }
-
+        
         renderExplorerTree();
     }
 
@@ -4825,8 +4522,8 @@
         if (!explorerTree) return;
         explorerTree.innerHTML = '';
         var rootFragment = document.createDocumentFragment();
-
-        var keys = Object.keys(fileTree.children).sort(function (a, b) {
+        
+        var keys = Object.keys(fileTree.children).sort(function(a, b) {
             var aObj = fileTree.children[a];
             var bObj = fileTree.children[b];
             if (aObj.type === 'dir' && bObj.type === 'file') return -1;
@@ -4843,14 +4540,14 @@
 
     function createTreeNode(item, depth) {
         var container = document.createElement('div');
-
+        
         var nodeEl = document.createElement('div');
         nodeEl.className = 'tree-node';
         nodeEl.style.paddingLeft = (12 + depth * 16) + 'px';
-
+        
         var icon = document.createElement('span');
         icon.className = 'tree-icon';
-
+        
         if (item.type === 'dir') {
             icon.textContent = '📁';
             nodeEl.dataset.expanded = 'false';
@@ -4862,10 +4559,10 @@
             cb.dataset.dirPath = item.path;
             cb.title = 'Show/hide files in ' + item.name;
             cb.checked = activeDirs.indexOf(item.path) !== -1;
-            cb.addEventListener('click', function (e) {
+            cb.addEventListener('click', function(e) {
                 e.stopPropagation();
             });
-            cb.addEventListener('change', function () {
+            cb.addEventListener('change', function() {
                 var idx = activeDirs.indexOf(item.path);
                 if (cb.checked && idx === -1) {
                     activeDirs.push(item.path);
@@ -4891,8 +4588,8 @@
         if (item.type === 'dir') {
             var childrenContainer = document.createElement('div');
             childrenContainer.className = 'tree-children collapsed';
-
-            var keys = Object.keys(item.children).sort(function (a, b) {
+            
+            var keys = Object.keys(item.children).sort(function(a, b) {
                 var aObj = item.children[a];
                 var bObj = item.children[b];
                 if (aObj.type === 'dir' && bObj.type === 'file') return -1;
@@ -4905,7 +4602,7 @@
             }
             container.appendChild(childrenContainer);
 
-            nodeEl.addEventListener('click', function (e) {
+            nodeEl.addEventListener('click', function(e) {
                 e.stopPropagation();
                 var isExpanded = nodeEl.dataset.expanded === 'true';
                 nodeEl.dataset.expanded = !isExpanded;
@@ -4914,78 +4611,7 @@
                 else childrenContainer.classList.remove('collapsed');
             });
         } else {
-            // Collect symbols (functions + methods) for this file
-            var syms = [];
-            if (item.node.symbols) {
-                if (item.node.symbols.functions) {
-                    for (var sf = 0; sf < item.node.symbols.functions.length; sf++) {
-                        syms.push(item.node.symbols.functions[sf]);
-                    }
-                }
-                if (item.node.symbols.methods) {
-                    for (var sm = 0; sm < item.node.symbols.methods.length; sm++) {
-                        syms.push(item.node.symbols.methods[sm]);
-                    }
-                }
-            }
-
-            var symContainer = null;
-            var symToggle = null;
-            if (syms.length > 0) {
-                // Sort by line number
-                syms.sort(function (a, b) { return (a.line || 0) - (b.line || 0); });
-
-                symToggle = document.createElement('span');
-                symToggle.className = 'tree-sym-toggle';
-                symToggle.textContent = '▶';
-                symToggle.title = syms.length + ' function' + (syms.length > 1 ? 's' : '');
-                nodeEl.insertBefore(symToggle, icon);
-
-                symContainer = document.createElement('div');
-                symContainer.className = 'tree-children tree-symbols collapsed';
-
-                for (var si = 0; si < syms.length; si++) {
-                    (function (sym) {
-                        var symEl = document.createElement('div');
-                        symEl.className = 'tree-node tree-sym-node';
-                        symEl.style.paddingLeft = (12 + (depth + 1) * 16) + 'px';
-
-                        var symIcon = document.createElement('span');
-                        symIcon.className = 'tree-icon tree-sym-icon';
-                        symIcon.textContent = sym.type === 'method' ? 'ƒ' : 'ƒ';
-
-                        var symLabel = document.createElement('span');
-                        symLabel.className = 'tree-label tree-sym-label';
-                        symLabel.textContent = sym.name + (sym.params ? '()' : '');
-                        symLabel.title = sym.name + (sym.params || '()') + (sym.line ? ' — line ' + sym.line : '');
-
-                        symEl.appendChild(symIcon);
-                        symEl.appendChild(symLabel);
-
-                        symEl.addEventListener('click', function (e) {
-                            e.stopPropagation();
-                            vscode.postMessage({
-                                type: 'openFile',
-                                payload: { path: item.node.path, line: sym.line || 1 }
-                            });
-                        });
-
-                        symContainer.appendChild(symEl);
-                    })(syms[si]);
-                }
-
-                container.appendChild(symContainer);
-
-                symToggle.addEventListener('click', function (e) {
-                    e.stopPropagation();
-                    var isOpen = symToggle.dataset.expanded === 'true';
-                    symToggle.dataset.expanded = !isOpen;
-                    if (isOpen) symContainer.classList.add('collapsed');
-                    else symContainer.classList.remove('collapsed');
-                });
-            }
-
-            nodeEl.addEventListener('click', function (e) {
+            nodeEl.addEventListener('click', function(e) {
                 e.stopPropagation();
                 if (item.node) {
                     handleNodeClick(item.node);
@@ -4993,7 +4619,7 @@
                 }
             });
             // Double-click: open in editor
-            nodeEl.addEventListener('dblclick', function (e) {
+            nodeEl.addEventListener('dblclick', function(e) {
                 e.stopPropagation();
                 if (item.node) {
                     vscode.postMessage({ type: 'openFile', payload: { path: item.node.path } });
@@ -5044,7 +4670,7 @@
     function setupTabs() {
         var tabBtns = document.querySelectorAll('.tab-btn');
         for (var i = 0; i < tabBtns.length; i++) {
-            tabBtns[i].addEventListener('click', function () {
+            tabBtns[i].addEventListener('click', function() {
                 switchTab(this.dataset.tab);
             });
         }
@@ -5052,6 +4678,7 @@
         setupTreemap();
         setupDSM();
         setupChord();
+        setupCallGraph();
         setupTimelineChart();
     }
 
@@ -5059,6 +4686,7 @@
         if (tabName === activeTab) return;
         var prevTab = activeTab;
         activeTab = tabName;
+        document.body.classList.toggle('callgraph-mode', tabName === 'callgraph');
 
         // Update buttons
         var tabBtns = document.querySelectorAll('.tab-btn');
@@ -5077,7 +4705,7 @@
         var timeBar = $('#timeline-bar');
         var overlays = ['#heatmap-legend', '#community-palette', '#minimap', '#tooltip'];
 
-        if (tabName !== 'graph') {
+        if (tabName !== 'graph' && tabName !== 'callgraph') {
             // Leaving graph — hide overlays, filter bar, timeline
             // Save visibility state only when leaving the graph tab
             if (prevTab === 'graph') {
@@ -5096,24 +4724,38 @@
                 if (el) el.classList.add('hidden');
             }
         } else {
-            // Returning to graph — restore everything
-            if (filterBar && filterBar._wasVisible !== false) filterBar.style.display = '';
-            if (timeBar && timeBar._wasVisible) {
-                timeBar.classList.remove('hidden');
-            }
-            for (var i = 0; i < overlays.length; i++) {
-                var el = $(overlays[i]);
-                if (el && el._wasVisible) {
-                    el.classList.remove('hidden');
+            // Returning to graph/callgraph — filter bar visible in both, timeline/overlays only on graph
+            if (filterBar) filterBar.style.display = '';
+            if (tabName === 'graph') {
+                if (timeBar && timeBar._wasVisible) {
+                    timeBar.classList.remove('hidden');
+                }
+                for (var i = 0; i < overlays.length; i++) {
+                    var el = $(overlays[i]);
+                    if (el && el._wasVisible) {
+                        el.classList.remove('hidden');
+                    }
+                }
+            } else {
+                if (timeBar) timeBar.classList.add('hidden');
+                for (var i = 0; i < overlays.length; i++) {
+                    var el = $(overlays[i]);
+                    if (el) el.classList.add('hidden');
                 }
             }
         }
 
-        // Pause/resume WebGL — always pause the inactive graph
+        // Pause/resume WebGL
         if (tabName === 'graph') {
             resumeGraph();
         } else {
             pauseGraph();
+        }
+
+        if (tabName === 'callgraph') {
+            resumeCallGraph();
+        } else {
+            pauseCallGraph();
         }
 
         // Render tab content
@@ -5121,6 +4763,20 @@
         if (tabName === 'treemap') renderTreemap();
         if (tabName === 'dsm') renderDSM();
         if (tabName === 'chord') renderChord();
+        if (tabName === 'callgraph') {
+            renderCallGraph();
+            requestAnimationFrame(function() {
+                if (activeTab === 'callgraph') {
+                    renderCallGraph();
+                    requestAnimationFrame(function() {
+                        if (activeTab === 'callgraph') renderCallGraph();
+                    });
+                }
+            });
+            setTimeout(function() {
+                if (activeTab === 'callgraph') renderCallGraph();
+            }, 120);
+        }
         if (tabName === 'timeline') renderTimelineChart();
         if (tabName === 'table') renderTable();
     }
@@ -5135,6 +4791,437 @@
         if (!graphPaused || !graph) return;
         graphPaused = false;
         graph.resumeAnimation();
+    }
+
+    function pauseCallGraph() {
+        if (callGraphPaused || !callGraph) return;
+        callGraphPaused = true;
+        callGraph.pauseAnimation();
+    }
+
+    function resumeCallGraph() {
+        if (!callGraphPaused || !callGraph) return;
+        callGraphPaused = false;
+        callGraph.resumeAnimation();
+    }
+
+    // ============================================================
+    // Call Graph View
+    // ============================================================
+    function setupCallGraph() {
+        var modeSel = $('#callgraph-mode');
+        var colorSel = $('#callgraph-color-by');
+        var minWeightSel = $('#callgraph-min-weight');
+        var maxNodesSel = $('#callgraph-max-nodes');
+        var perfSel = $('#callgraph-perf');
+        var labelsBtn = $('#btn-callgraph-labels');
+        var nodeSizeSel = $('#callgraph-node-size-slider');
+        var spreadSel = $('#callgraph-spread-slider');
+
+        if (modeSel) modeSel.addEventListener('change', function() {
+            callGraphMode = this.value === 'file' ? 'file' : 'symbol';
+            callGraphHasFramed = false;
+            callGraphDirty = true;
+            renderCallGraph();
+            saveViewState();
+        });
+        if (colorSel) colorSel.addEventListener('change', function() {
+            callGraphColorBy = this.value;
+            if (callGraph) {
+                callGraph.nodeColor(callGraph.nodeColor());
+                callGraph.linkColor(callGraph.linkColor());
+            }
+            saveViewState();
+        });
+        if (minWeightSel) minWeightSel.addEventListener('change', function() {
+            callGraphMinWeight = parseInt(this.value || '1', 10) || 1;
+            callGraphDirty = true;
+            renderCallGraph();
+            saveViewState();
+        });
+        if (maxNodesSel) maxNodesSel.addEventListener('change', function() {
+            callGraphMaxNodes = parseInt(this.value || '250', 10) || 250;
+            saveViewState();
+        });
+        if (perfSel) perfSel.addEventListener('change', function() {
+            callGraphPerfPreset = this.value || 'auto';
+            saveViewState();
+        });
+        if (labelsBtn) labelsBtn.addEventListener('click', function() {
+            callGraphShowLabels = !callGraphShowLabels;
+            labelsBtn.classList.toggle('active', callGraphShowLabels);
+            if (callGraph) callGraph.nodeThreeObject(callGraph.nodeThreeObject());
+            saveViewState();
+        });
+        if (nodeSizeSel) nodeSizeSel.addEventListener('input', function() {
+            callGraphNodeSizeMultiplier = parseFloat(this.value || '4') || 4;
+            if (callGraph) {
+                callGraph.nodeVal(callGraph.nodeVal());
+                callGraph.nodeThreeObject(callGraph.nodeThreeObject());
+            }
+            saveViewState();
+        });
+        if (spreadSel) spreadSel.addEventListener('input', function() {
+            callGraphSpreadMultiplier = parseFloat(this.value || '1') || 1;
+            if (callGraph) {
+                var charge = callGraph.d3Force('charge');
+                if (charge && typeof charge.strength === 'function') {
+                    charge.strength(-120 * callGraphSpreadMultiplier);
+                }
+                callGraph.d3ReheatSimulation();
+            }
+            saveViewState();
+        });
+    }
+
+    function buildCallGraphData(maxNodesLimit) {
+        if (!graphData) return null;
+        var fcalls = graphData.functionCalls || [];
+        var usedFallback = false;
+
+        // Fallback: reuse existing file-level function-call links if functionCalls
+        // are missing from the payload (DB cache / delta timing), no re-parse.
+        if (!fcalls || fcalls.length === 0) {
+            var fLinks = (graphData.links || []).filter(function(l) { return l.type === 'function-call'; });
+            if (fLinks.length > 0) {
+                fcalls = fLinks.map(function(l) {
+                    var src = typeof l.source === 'object' ? l.source.id : l.source;
+                    var tgt = typeof l.target === 'object' ? l.target.id : l.target;
+                    return {
+                        callerFile: src,
+                        callerName: '<file>',
+                        calleeFile: tgt,
+                        calleeName: '<file>',
+                        callLine: 0,
+                    };
+                });
+                usedFallback = true;
+            }
+        }
+
+        if (!fcalls || fcalls.length === 0) return { nodes: [], links: [], meta: { calls: 0, unresolved: 0, fallback: false } };
+
+        var nodeMeta = {};
+        var nodesSrc = graphData.nodes || [];
+        for (var i = 0; i < nodesSrc.length; i++) {
+            var n = nodesSrc[i];
+            nodeMeta[n.id] = {
+                language: n.language || 'unknown',
+                group: n.group || '.',
+                name: n.name || n.id,
+            };
+        }
+
+        var symbolMeta = {};
+        for (var i = 0; i < nodesSrc.length; i++) {
+            var n = nodesSrc[i];
+            if (!n.symbols) continue;
+            var funcs = n.symbols.functions || [];
+            var methods = n.symbols.methods || [];
+            for (var f = 0; f < funcs.length; f++) {
+                symbolMeta[n.id + '::' + funcs[f].name] = { kind: 'function', line: funcs[f].line || 0 };
+            }
+            for (var m = 0; m < methods.length; m++) {
+                symbolMeta[n.id + '::' + methods[m].name] = { kind: 'method', line: methods[m].line || 0 };
+            }
+        }
+
+        function toLangKey(language, filePath) {
+            if (language === 'c') {
+                return filePath && filePath.endsWith('.h') ? 'c-header' : 'c-source';
+            }
+            if (language === 'cpp') {
+                if (filePath && (filePath.endsWith('.hpp') || filePath.endsWith('.hxx') || filePath.endsWith('.hh'))) return 'cpp-header';
+                return 'cpp-source';
+            }
+            return language || 'unknown';
+        }
+
+        function isLangAllowed(langKey) {
+            // Keep unresolved endpoints visible; language filters apply only
+            // when we can reliably resolve a known language.
+            if (!langKey || langKey === 'unknown') return true;
+            return activeLanguages.has(langKey);
+        }
+
+        var agg = {};
+        var unresolved = 0;
+
+        for (var i = 0; i < fcalls.length; i++) {
+            var c = fcalls[i];
+            var srcMeta = nodeMeta[c.callerFile] || null;
+            var tgtMeta = nodeMeta[c.calleeFile] || null;
+            var srcLang = toLangKey(srcMeta ? srcMeta.language : 'unknown', c.callerFile || '');
+            var tgtLang = toLangKey(tgtMeta ? tgtMeta.language : 'unknown', c.calleeFile || '');
+            if (!isLangAllowed(srcLang) || !isLangAllowed(tgtLang)) continue;
+
+            var source = callGraphMode === 'file'
+                ? c.callerFile
+                : (c.callerFile + '::' + c.callerName);
+            var target = callGraphMode === 'file'
+                ? c.calleeFile
+                : (c.calleeFile + '::' + c.calleeName);
+
+            if (!source || !target || source === target) continue;
+
+            if (callGraphMode === 'symbol') {
+                if (!symbolMeta[source] || !symbolMeta[target]) unresolved++;
+            }
+
+            var key = source + '|' + target;
+            if (!agg[key]) agg[key] = { source: source, target: target, weight: 0, lines: [] };
+            agg[key].weight += 1;
+            if (agg[key].lines.length < 5) agg[key].lines.push(c.callLine || 0);
+        }
+
+        var links = [];
+        var degree = {};
+        var fanIn = {};
+        var fanOut = {};
+        var keys = Object.keys(agg);
+        for (var i = 0; i < keys.length; i++) {
+            var l = agg[keys[i]];
+            if (l.weight < callGraphMinWeight) continue;
+            links.push({ source: l.source, target: l.target, weight: l.weight, sampleLines: l.lines });
+            degree[l.source] = (degree[l.source] || 0) + l.weight;
+            degree[l.target] = (degree[l.target] || 0) + l.weight;
+            fanOut[l.source] = (fanOut[l.source] || 0) + l.weight;
+            fanIn[l.target] = (fanIn[l.target] || 0) + l.weight;
+        }
+
+        // Keep stable ordering, but do not cap nodes in the UI.
+        var nodeIds = Object.keys(degree).sort(function(a, b) { return (degree[b] || 0) - (degree[a] || 0); });
+        var limit = maxNodesLimit || Number.MAX_SAFE_INTEGER;
+        if (nodeIds.length > limit) nodeIds = nodeIds.slice(0, limit);
+        var nodeSet = new Set(nodeIds);
+
+        links = links.filter(function(l) { return nodeSet.has(l.source) && nodeSet.has(l.target); });
+
+        var nodes = [];
+        for (var i = 0; i < nodeIds.length; i++) {
+            var id = nodeIds[i];
+            if (callGraphMode === 'file') {
+                var fmeta = nodeMeta[id] || { language: 'unknown', group: '.', name: id.split('/').pop() || id };
+                nodes.push({
+                    id: id,
+                    file: id,
+                    label: fmeta.name,
+                    symbol: id,
+                    kind: 'file',
+                    line: 0,
+                    language: fmeta.language,
+                    group: fmeta.group,
+                    degree: degree[id] || 0,
+                    fanIn: fanIn[id] || 0,
+                    fanOut: fanOut[id] || 0,
+                });
+            } else {
+                var sep = id.lastIndexOf('::');
+                var file = sep >= 0 ? id.slice(0, sep) : id;
+                var sym = sep >= 0 ? id.slice(sep + 2) : id;
+                var fmeta = nodeMeta[file] || { language: 'unknown', group: '.', name: file.split('/').pop() || file };
+                var smeta = symbolMeta[id] || { kind: 'unknown', line: 0 };
+                nodes.push({
+                    id: id,
+                    file: file,
+                    label: sym + ' @ ' + (fmeta.name || file),
+                    symbol: sym,
+                    kind: smeta.kind || 'unknown',
+                    line: smeta.line || 0,
+                    language: fmeta.language,
+                    group: fmeta.group,
+                    degree: degree[id] || 0,
+                    fanIn: fanIn[id] || 0,
+                    fanOut: fanOut[id] || 0,
+                });
+            }
+        }
+
+        return { nodes: nodes, links: links, meta: { calls: fcalls.length, unresolved: unresolved, fallback: usedFallback } };
+    }
+
+    function resolveCallGraphPerfProfile() {
+        return { name: 'quality', maxNodesCap: Number.MAX_SAFE_INTEGER, alphaDecay: 0.03, velocityDecay: 0.5, particles: 0, camZ: 320 };
+    }
+
+    function getCallGraphNodeColor(n) {
+        if (callGraphColorBy === 'group') {
+            var hash = 0;
+            var g = n.group || '.';
+            for (var i = 0; i < g.length; i++) hash = ((hash << 5) - hash) + g.charCodeAt(i);
+            var idx = Math.abs(hash) % GROUP_COLORS.length;
+            return GROUP_COLORS[idx];
+        }
+        if (callGraphColorBy === 'community') {
+            var cid = communityMap[n.file] || 0;
+            return communityColors[cid] || GROUP_COLORS[cid % GROUP_COLORS.length];
+        }
+        return LANGUAGE_COLORS[n.language] || '#9fb3c8';
+    }
+
+    function getCallGraphRenderKey() {
+        var callCount = (graphData && graphData.functionCalls) ? graphData.functionCalls.length : 0;
+        var linkCount = (graphData && graphData.links) ? graphData.links.length : 0;
+        var analyzedAt = graphData && graphData.meta ? graphData.meta.analyzedAt : '';
+        return [analyzedAt, callCount, linkCount, callGraphMode, callGraphMinWeight].join('|');
+    }
+
+    function renderCallGraph() {
+        var container = $('#callgraph-container');
+        if (!container) return;
+        if (!graphData) return;
+        if (activeTab !== 'callgraph') return;
+        if (container.clientWidth <= 4 || container.clientHeight <= 4) {
+            requestAnimationFrame(function() {
+                if (activeTab === 'callgraph') renderCallGraph();
+            });
+            setTimeout(function() {
+                if (activeTab === 'callgraph') renderCallGraph();
+            }, 100);
+            return;
+        }
+
+        var perfProfile = resolveCallGraphPerfProfile();
+        var effectiveLimit = perfProfile.maxNodesCap;
+        var renderKey = getCallGraphRenderKey();
+
+        if (callGraph && !callGraphDirty && callGraphRenderKey === renderKey) {
+            callGraph.width(container.clientWidth);
+            callGraph.height(container.clientHeight);
+            callGraph.nodeColor(callGraph.nodeColor());
+            callGraph.linkColor(callGraph.linkColor());
+            callGraph.nodeThreeObject(callGraph.nodeThreeObject());
+            callGraph.nodeVal(callGraph.nodeVal());
+            container.style.visibility = '';
+            return;
+        }
+
+        callGraphData = buildCallGraphData(effectiveLimit);
+        if (!callGraphData || callGraphData.nodes.length === 0 || callGraphData.links.length === 0) {
+            container.innerHTML = '<div class="callgraph-empty">No function call graph available for current filters</div>';
+            var statsEmpty = $('#callgraph-stats');
+            if (statsEmpty) statsEmpty.textContent = '0 nodes · 0 links';
+            return;
+        }
+
+        var statsEl = $('#callgraph-stats');
+        if (statsEl) {
+            statsEl.textContent = callGraphData.nodes.length + ' nodes · ' + callGraphData.links.length +
+                ' links · ' + callGraphData.meta.calls + ' calls' +
+                (callGraphData.meta.unresolved > 0 ? ' · ' + callGraphData.meta.unresolved + ' unresolved' : '') +
+                (callGraphData.meta.fallback ? ' · fallback:file-links' : '') +
+                ' · min weight:' + callGraphMinWeight;
+        }
+
+        if (!callGraph) {
+            container.innerHTML = '';
+            callGraph = ForceGraph3D({ controlType: 'trackball' })(container)
+                .backgroundColor('#0d1117')
+                .showNavInfo(false)
+                .nodeLabel(function(n) {
+                    var lbl = '<b>' + escapeHtml(n.label || n.id) + '</b>';
+                    lbl += '<br>' + escapeHtml(n.file || '');
+                    if (n.kind && n.kind !== 'file') lbl += '<br>kind: ' + escapeHtml(n.kind);
+                    if (n.line) lbl += '<br>line: ' + n.line;
+                    lbl += '<br>fan-in: ' + (n.fanIn || 0) + ' · fan-out: ' + (n.fanOut || 0);
+                    lbl += '<br>degree: ' + (n.degree || 0);
+                    return lbl;
+                })
+                .nodeThreeObject(function(n) {
+                    if (!callGraphShowLabels) return null;
+                    var text = callGraphMode === 'file' ? (n.label || n.id) : (n.symbol || n.label || n.file || n.id);
+                    var sprite = getLabelSprite(text);
+                    if (sprite) {
+                        if (sprite.material) sprite.material.sizeAttenuation = true;
+                        sprite.position.y = Math.cbrt(Math.max(1, n.degree || 1)) * callGraphNodeSizeMultiplier + 2;
+                        return sprite;
+                    }
+                    return null;
+                })
+                .nodeThreeObjectExtend(true)
+                .linkLabel(function(l) {
+                    var src = l.source && l.source.id ? l.source.id : l.source;
+                    var tgt = l.target && l.target.id ? l.target.id : l.target;
+                    var txt = '<b>' + escapeHtml(String(src)) + '</b> → <b>' + escapeHtml(String(tgt)) + '</b>';
+                    txt += '<br>weight: ' + (l.weight || 0);
+                    if (l.sampleLines && l.sampleLines.length) {
+                        txt += '<br>sample lines: ' + l.sampleLines.join(', ');
+                    }
+                    return txt;
+                })
+                .nodeColor(function(n) { return getCallGraphNodeColor(n); })
+                .nodeRelSize(4)
+                .nodeVal(function(n) { return Math.max(1, Math.sqrt(n.degree || 1) * callGraphNodeSizeMultiplier); })
+                .linkColor(function() { return LINK_COLORS['function-call'] || '#81c784aa'; })
+                .linkWidth(function(l) { return Math.max(0.5, Math.min(2.5, Math.log((l.weight || 1) + 1))); })
+                .linkDirectionalArrowLength(2)
+                .linkDirectionalArrowRelPos(0.9)
+                .linkDirectionalParticles(perfProfile.particles)
+                .linkDirectionalParticleWidth(0)
+                .linkDirectionalParticleColor(function() { return LINK_COLORS['function-call'] || '#81c784aa'; })
+                .linkDirectionalParticleSpeed(function() { return 0; })
+                .onNodeClick(function(node) {
+                    if (!node || !node.file) return;
+                    vscode.postMessage({ type: 'openFile', payload: { path: node.file, line: node.line || undefined } });
+                })
+                .onEngineStop(function() {
+                    if (!callGraph || callGraphHasFramed) return;
+                    callGraphHasFramed = true;
+                    callGraph.zoomToFit(500, 50);
+                })
+                .warmupTicks(0)
+                .cooldownTicks(220)
+                .d3AlphaDecay(0.03)
+                .d3VelocityDecay(0.5);
+
+            // Match Graph 3D interaction feel (faster rotation/zoom/pan).
+            var cgControls = callGraph.controls && callGraph.controls();
+            if (cgControls) {
+                if (typeof cgControls.rotateSpeed === 'number') cgControls.rotateSpeed = 4.5;
+                if (typeof cgControls.zoomSpeed === 'number') cgControls.zoomSpeed = 1.8;
+                if (typeof cgControls.panSpeed === 'number') cgControls.panSpeed = 1.2;
+                if (typeof cgControls.dynamicDampingFactor === 'number') cgControls.dynamicDampingFactor = 0.15;
+                if ('staticMoving' in cgControls) cgControls.staticMoving = false;
+            }
+
+            if (!callGraphResizeObserver) {
+                callGraphResizeObserver = new ResizeObserver(function() {
+                    if (!callGraph || activeTab !== 'callgraph') return;
+                    var w = container.clientWidth;
+                    var h = container.clientHeight;
+                    if (w > 4 && h > 4) {
+                        callGraph.width(w);
+                        callGraph.height(h);
+                        callGraph.d3ReheatSimulation();
+                    }
+                });
+                callGraphResizeObserver.observe(container);
+            }
+        }
+
+        callGraph.graphData(callGraphData);
+        callGraph.width(container.clientWidth);
+        callGraph.height(container.clientHeight);
+        callGraph.numDimensions(3);
+        callGraph.d3AlphaDecay(0.03);
+        callGraph.d3VelocityDecay(0.5);
+        var charge = callGraph.d3Force('charge');
+        if (charge && typeof charge.strength === 'function') {
+            charge.strength(-120 * callGraphSpreadMultiplier);
+        }
+        callGraph.d3ReheatSimulation();
+        callGraph.linkDirectionalParticles(perfProfile.particles);
+        callGraph.nodeThreeObject(callGraph.nodeThreeObject());
+        callGraph.nodeVal(callGraph.nodeVal());
+        callGraphRenderKey = renderKey;
+        callGraphDirty = false;
+
+        requestAnimationFrame(function() {
+            if (callGraph && activeTab === 'callgraph' && callGraphHasFramed) {
+                callGraph.width(container.clientWidth);
+                callGraph.height(container.clientHeight);
+            }
+        });
     }
 
     // ============================================================
@@ -5208,26 +5295,26 @@
         html += '</div>';
 
         // Top 10 largest files
-        var sorted = nodes.slice().sort(function (a, b) { return (b.linesOfCode || 0) - (a.linesOfCode || 0); });
+        var sorted = nodes.slice().sort(function(a, b) { return (b.linesOfCode || 0) - (a.linesOfCode || 0); });
         html += '<div class="metrics-section"><h3>Top 10 Largest Files</h3>';
         html += buildFileBarChart(sorted.slice(0, 10), 'linesOfCode', maxLoc);
         html += '</div>';
 
         // Top 10 most complex files
-        var sortedCx = nodes.slice().sort(function (a, b) { return (b.complexity || 0) - (a.complexity || 0); });
+        var sortedCx = nodes.slice().sort(function(a, b) { return (b.complexity || 0) - (a.complexity || 0); });
         html += '<div class="metrics-section"><h3>Top 10 Most Complex Files</h3>';
         html += buildFileBarChart(sortedCx.slice(0, 10), 'complexity', maxComplexity);
         html += '</div>';
 
         // Top 10 highest fan-in
-        var sortedFi = nodes.slice().sort(function (a, b) { return (b.fanIn || 0) - (a.fanIn || 0); });
+        var sortedFi = nodes.slice().sort(function(a, b) { return (b.fanIn || 0) - (a.fanIn || 0); });
         html += '<div class="metrics-section"><h3>Top 10 Highest Fan-in (Most Depended On)</h3>';
         html += buildFileBarChart(sortedFi.slice(0, 10), 'fanIn', maxFanIn);
         html += '</div>';
 
         // LOC by folder (top 15)
-        var folderEntries = Object.keys(folderLoc).map(function (k) { return { key: k, value: folderLoc[k] }; });
-        folderEntries.sort(function (a, b) { return b.value - a.value; });
+        var folderEntries = Object.keys(folderLoc).map(function(k) { return { key: k, value: folderLoc[k] }; });
+        folderEntries.sort(function(a, b) { return b.value - a.value; });
         var folderObj = {};
         var folderMax = 0;
         for (var i = 0; i < Math.min(folderEntries.length, 15); i++) {
@@ -5257,7 +5344,7 @@
 
     function buildBarChart(dataObj, colorMap, maxVal) {
         var html = '<div class="metrics-bar-chart">';
-        var keys = Object.keys(dataObj).sort(function (a, b) { return dataObj[b] - dataObj[a]; });
+        var keys = Object.keys(dataObj).sort(function(a, b) { return dataObj[b] - dataObj[a]; });
         for (var i = 0; i < keys.length; i++) {
             var k = keys[i];
             var v = dataObj[k];
@@ -5307,12 +5394,12 @@
     function setupTreemap() {
         var sizeSelect = $('#treemap-size-metric');
         var colorSelect = $('#treemap-color-metric');
-        if (sizeSelect) sizeSelect.addEventListener('change', function () {
+        if (sizeSelect) sizeSelect.addEventListener('change', function() {
             treemapSizeMetric = this.value;
             treemapRenderedW = 0; treemapRenderedH = 0; // force full re-render
             renderTreemap();
         });
-        if (colorSelect) colorSelect.addEventListener('change', function () {
+        if (colorSelect) colorSelect.addEventListener('change', function() {
             treemapColorMetric = this.value;
             treemapRenderedW = 0; treemapRenderedH = 0;
             renderTreemap();
@@ -5320,10 +5407,10 @@
 
         // Re-render on resize only if container grew
         var resizeTimer = null;
-        window.addEventListener('resize', function () {
+        window.addEventListener('resize', function() {
             if (activeTab === 'treemap') {
                 clearTimeout(resizeTimer);
-                resizeTimer = setTimeout(function () {
+                resizeTimer = setTimeout(function() {
                     var container = $('#treemap-container');
                     if (!container) return;
                     var rect = container.getBoundingClientRect();
@@ -5418,7 +5505,7 @@
         if (totalValue <= 0) return;
 
         // Sort descending by value
-        items.sort(function (a, b) { return b.value - a.value; });
+        items.sort(function(a, b) { return b.value - a.value; });
 
         layoutStrip(items, 0, x, y, w, h, totalValue);
     }
@@ -5536,7 +5623,7 @@
         if (!container || !graphData) return;
 
         // Defer to next frame so the tab-content is visible and has dimensions
-        requestAnimationFrame(function () { renderTreemapInner(container); });
+        requestAnimationFrame(function() { renderTreemapInner(container); });
     }
 
     function renderTreemapInner(container) {
@@ -5655,7 +5742,7 @@
         }
 
         // Event delegation
-        container.onmousemove = function (e) {
+        container.onmousemove = function(e) {
             var cell = e.target.closest('.treemap-file');
             if (cell) {
                 var nodeId = cell.dataset.nodeId;
@@ -5677,11 +5764,11 @@
                 treemapTooltipEl.classList.remove('visible');
             }
         };
-        container.onmouseleave = function () {
+        container.onmouseleave = function() {
             if (treemapTooltipEl) treemapTooltipEl.classList.remove('visible');
         };
 
-        container.onclick = function (e) {
+        container.onclick = function(e) {
             var dirCell = e.target.closest('.treemap-dir');
             var fileCell = e.target.closest('.treemap-file');
             if (fileCell) {
@@ -5766,7 +5853,7 @@
         // Click handlers
         var crumbs = bc.querySelectorAll('.treemap-crumb');
         for (var i = 0; i < crumbs.length; i++) {
-            crumbs[i].addEventListener('click', function () {
+            crumbs[i].addEventListener('click', function() {
                 treemapZoomPath = this.dataset.path;
                 treemapRenderedW = 0; treemapRenderedH = 0;
                 renderTreemap();
@@ -5782,7 +5869,7 @@
 
     function setupChord() {
         var groupSelect = $('#chord-group-by');
-        if (groupSelect) groupSelect.addEventListener('change', function () {
+        if (groupSelect) groupSelect.addEventListener('change', function() {
             chordGroupBy = this.value;
             renderChord();
         });
@@ -5921,10 +6008,10 @@
             var x2i = cx + r1 * Math.cos(a1), y2i = cy + r1 * Math.sin(a1);
             var large = (a2 - a1) > Math.PI ? 1 : 0;
             return 'M' + x1o + ',' + y1o +
-                ' A' + r2 + ',' + r2 + ' 0 ' + large + ' 1 ' + x2o + ',' + y2o +
-                ' L' + x1i + ',' + y1i +
-                ' A' + r1 + ',' + r1 + ' 0 ' + large + ' 0 ' + x2i + ',' + y2i +
-                ' Z';
+                   ' A' + r2 + ',' + r2 + ' 0 ' + large + ' 1 ' + x2o + ',' + y2o +
+                   ' L' + x1i + ',' + y1i +
+                   ' A' + r1 + ',' + r1 + ' 0 ' + large + ' 0 ' + x2i + ',' + y2i +
+                   ' Z';
         }
 
         // Ribbon path: quad bezier through center
@@ -5935,11 +6022,11 @@
             var tx1 = cx + r * Math.cos(tgtStart), ty1 = cy + r * Math.sin(tgtStart);
             var tx2 = cx + r * Math.cos(tgtEnd), ty2 = cy + r * Math.sin(tgtEnd);
             return 'M' + sx1 + ',' + sy1 +
-                ' A' + r + ',' + r + ' 0 0 1 ' + sx2 + ',' + sy2 +
-                ' Q' + cx + ',' + cy + ' ' + tx1 + ',' + ty1 +
-                ' A' + r + ',' + r + ' 0 0 1 ' + tx2 + ',' + ty2 +
-                ' Q' + cx + ',' + cy + ' ' + sx1 + ',' + sy1 +
-                ' Z';
+                   ' A' + r + ',' + r + ' 0 0 1 ' + sx2 + ',' + sy2 +
+                   ' Q' + cx + ',' + cy + ' ' + tx1 + ',' + ty1 +
+                   ' A' + r + ',' + r + ' 0 0 1 ' + tx2 + ',' + ty2 +
+                   ' Q' + cx + ',' + cy + ' ' + sx1 + ',' + sy1 +
+                   ' Z';
         }
 
         // Assign sub-arc angles for ribbons
@@ -6071,7 +6158,7 @@
         }
 
         // Interactions
-        svg.addEventListener('mouseover', function (e) {
+        svg.addEventListener('mouseover', function(e) {
             var ribbon = e.target.closest('.chord-ribbon');
             var arc = e.target.closest('.chord-arc');
 
@@ -6141,14 +6228,14 @@
             }
         });
 
-        svg.addEventListener('mousemove', function (e) {
+        svg.addEventListener('mousemove', function(e) {
             if (chordTooltipEl.classList.contains('visible')) {
                 chordTooltipEl.style.left = (e.clientX + 12) + 'px';
                 chordTooltipEl.style.top = (e.clientY + 12) + 'px';
             }
         });
 
-        svg.addEventListener('mouseleave', function () {
+        svg.addEventListener('mouseleave', function() {
             var allRibbons = svg.querySelectorAll('.chord-ribbon');
             var allArcs = svg.querySelectorAll('.chord-arc');
             for (var r = 0; r < allRibbons.length; r++) {
@@ -6169,7 +6256,7 @@
 
     function setupTimelineChart() {
         var metricSelect = $('#tchart-metric');
-        if (metricSelect) metricSelect.addEventListener('change', function () {
+        if (metricSelect) metricSelect.addEventListener('change', function() {
             tchartMetric = this.value;
             renderTimelineChart();
         });
@@ -6477,7 +6564,7 @@
         }
 
         // Interactions
-        svg.addEventListener('mouseover', function (e) {
+        svg.addEventListener('mouseover', function(e) {
             var dot = e.target.closest('.tchart-dot');
             if (dot) {
                 var idx = parseInt(dot.dataset.idx);
@@ -6500,14 +6587,14 @@
             }
         });
 
-        svg.addEventListener('mousemove', function (e) {
+        svg.addEventListener('mousemove', function(e) {
             if (tchartTooltipEl.classList.contains('visible')) {
                 tchartTooltipEl.style.left = (e.clientX + 12) + 'px';
                 tchartTooltipEl.style.top = (e.clientY + 12) + 'px';
             }
         });
 
-        svg.addEventListener('mouseleave', function () {
+        svg.addEventListener('mouseleave', function() {
             crosshair.style.display = 'none';
             if (tchartTooltipEl) tchartTooltipEl.classList.remove('visible');
         });
@@ -6523,11 +6610,11 @@
     function setupDSM() {
         var groupSelect = $('#dsm-group-by');
         var sortSelect = $('#dsm-sort');
-        if (groupSelect) groupSelect.addEventListener('change', function () {
+        if (groupSelect) groupSelect.addEventListener('change', function() {
             dsmGroupBy = this.value;
             renderDSM();
         });
-        if (sortSelect) sortSelect.addEventListener('change', function () {
+        if (sortSelect) sortSelect.addEventListener('change', function() {
             dsmSortBy = this.value;
             renderDSM();
         });
@@ -6548,7 +6635,7 @@
         var MAX = 200;
         var sortedNodes = nodes.slice();
         if (sortedNodes.length > MAX) {
-            sortedNodes.sort(function (a, b) { return (b.fanIn + b.fanOut) - (a.fanIn + a.fanOut); });
+            sortedNodes.sort(function(a, b) { return (b.fanIn + b.fanOut) - (a.fanIn + a.fanOut); });
             sortedNodes = sortedNodes.slice(0, MAX);
         }
 
@@ -6564,7 +6651,7 @@
         }
 
         // Sort nodes
-        sortedNodes.sort(function (a, b) {
+        sortedNodes.sort(function(a, b) {
             if (dsmSortBy === 'group') {
                 var ga = groupKey(a), gb = groupKey(b);
                 if (ga !== gb) return ga < gb ? -1 : 1;
@@ -6663,7 +6750,7 @@
         }
 
         // Interactions: hover highlight row/col, tooltip
-        container.addEventListener('mouseover', function (e) {
+        container.addEventListener('mouseover', function(e) {
             var cell = e.target.closest('.dsm-cell');
             var rowHdr = e.target.closest('.dsm-row-hdr');
             var colHdr = e.target.closest('.dsm-col-hdr');
@@ -6723,14 +6810,14 @@
             }
         });
 
-        container.addEventListener('mousemove', function (e) {
+        container.addEventListener('mousemove', function(e) {
             if (dsmTooltipEl.classList.contains('visible')) {
                 dsmTooltipEl.style.left = (e.clientX + 12) + 'px';
                 dsmTooltipEl.style.top = (e.clientY + 12) + 'px';
             }
         });
 
-        container.addEventListener('mouseleave', function () {
+        container.addEventListener('mouseleave', function() {
             if (dsmTooltipEl) dsmTooltipEl.classList.remove('visible');
             var prevRows = container.querySelectorAll('.dsm-highlight-row');
             for (var i = 0; i < prevRows.length; i++) prevRows[i].classList.remove('dsm-highlight-row');
@@ -6739,7 +6826,7 @@
         });
 
         // Click on dep cell → open source file
-        container.addEventListener('click', function (e) {
+        container.addEventListener('click', function(e) {
             var cell = e.target.closest('.dsm-cell-dep');
             if (cell) {
                 var ri = parseInt(cell.dataset.row);
@@ -6766,15 +6853,15 @@
         var filtered = nodes;
         if (tableFilter) {
             var lf = tableFilter.toLowerCase();
-            filtered = nodes.filter(function (n) {
+            filtered = nodes.filter(function(n) {
                 return n.id.toLowerCase().indexOf(lf) !== -1 ||
-                    (n.language || '').toLowerCase().indexOf(lf) !== -1 ||
-                    (n.group || '').toLowerCase().indexOf(lf) !== -1;
+                       (n.language || '').toLowerCase().indexOf(lf) !== -1 ||
+                       (n.group || '').toLowerCase().indexOf(lf) !== -1;
             });
         }
 
         // Sort
-        filtered.sort(function (a, b) {
+        filtered.sort(function(a, b) {
             var va, vb;
             switch (tableSortCol) {
                 case 'name': va = a.id.toLowerCase(); vb = b.id.toLowerCase(); break;
@@ -6824,8 +6911,8 @@
         // Click handler — select node & open in editor on dblclick
         var rows = tbody.querySelectorAll('tr');
         for (var i = 0; i < rows.length; i++) {
-            rows[i].addEventListener('click', (function (row) {
-                return function () {
+            rows[i].addEventListener('click', (function(row) {
+                return function() {
                     var allRows = tbody.querySelectorAll('tr');
                     for (var j = 0; j < allRows.length; j++) allRows[j].classList.remove('selected');
                     row.classList.add('selected');
@@ -6834,8 +6921,8 @@
                     if (node) selectedNode = node;
                 };
             })(rows[i]));
-            rows[i].addEventListener('dblclick', (function (row) {
-                return function () {
+            rows[i].addEventListener('dblclick', (function(row) {
+                return function() {
                     vscode.postMessage({ type: 'openFile', payload: { path: row.dataset.id } });
                 };
             })(rows[i]));
@@ -6845,8 +6932,8 @@
     function setupTableInteractions() {
         var ths = document.querySelectorAll('.aura-table th');
         for (var i = 0; i < ths.length; i++) {
-            ths[i].addEventListener('click', (function (th) {
-                return function () {
+            ths[i].addEventListener('click', (function(th) {
+                return function() {
                     var col = th.dataset.col;
                     if (tableSortCol === col) {
                         tableSortAsc = !tableSortAsc;
@@ -6861,702 +6948,11 @@
 
         var tableSearchInput = $('#table-search');
         if (tableSearchInput) {
-            tableSearchInput.addEventListener('input', function () {
+            tableSearchInput.addEventListener('input', function() {
                 tableFilter = this.value;
                 renderTable();
             });
         }
-    }
-
-    // ============================================================
-    // Query Bar — boolean expression filtering
-    // ============================================================
-    function communityNameFor(nodeId) {
-        var cid = communityMap[nodeId];
-        if (cid === undefined) return '';
-        var info = communityNames[cid];
-        return info ? info.name : String(cid);
-    }
-
-    function buildQueryContext() {
-        return {
-            communityName: communityNameFor,
-            cycleNodeIds: cycleNodeIds,
-            pinnedNodes: typeof pinnedNodes !== 'undefined' ? pinnedNodes : new Set()
-        };
-    }
-
-    function evaluateQuery() {
-        querySet.clear();
-        if (!queryFn || !graphData || !graphData.nodes) return;
-        var ctx = buildQueryContext();
-        for (var i = 0; i < graphData.nodes.length; i++) {
-            var node = graphData.nodes[i];
-            window.AuraQuery.prepareNode(node, ctx);
-            try {
-                if (queryFn(node)) querySet.add(node.id);
-            } catch (e) { /* skip */ }
-        }
-    }
-
-    function refreshGraphAfterQuery() {
-        if (!graph) return;
-        // Force re-evaluation of node/link callbacks by re-applying them
-        graph.nodeColor(graph.nodeColor());
-        graph.linkColor(graph.linkColor());
-        graph.nodeVisibility(graph.nodeVisibility());
-        graph.linkVisibility(graph.linkVisibility());
-        graph.nodeThreeObject(graph.nodeThreeObject());
-    }
-
-    function applyQuerySelectMode() {
-        if (queryMode !== 'select') return;
-        // Replace multi-selection with the matched set
-        multiSelectedNodes.clear();
-        if (!graphData) return;
-        for (var i = 0; i < graphData.nodes.length; i++) {
-            if (querySet.has(graphData.nodes[i].id)) {
-                multiSelectedNodes.add(graphData.nodes[i]);
-            }
-        }
-    }
-
-    // ---------- Saved queries (DB-backed, modal UI) ----------
-
-    function renderSavedQueriesModal() {
-        var list = $('#queries-modal-list');
-        if (!list) return;
-        list.innerHTML = '';
-        if (!savedQueries || !savedQueries.length) {
-            var empty = document.createElement('div');
-            empty.className = 'queries-empty';
-            empty.textContent = 'No saved queries yet. Type a query and click ⭐ to save.';
-            list.appendChild(empty);
-            updateModalButtons();
-            return;
-        }
-        // Reset selection if it points to a missing id
-        if (modalSelectedId && !savedQueries.some(function (q) { return q.id === modalSelectedId; })) {
-            modalSelectedId = null;
-        }
-        for (var i = 0; i < savedQueries.length; i++) {
-            (function (q) {
-                var row = document.createElement('div');
-                row.className = 'queries-item';
-                if (modalSelectedId === q.id) row.classList.add('selected');
-                row.dataset.id = q.id;
-
-                var name = document.createElement('div');
-                name.className = 'queries-item-name';
-                name.textContent = q.name;
-                row.appendChild(name);
-
-                var expr = document.createElement('div');
-                expr.className = 'queries-item-expr';
-                expr.textContent = q.expr;
-                row.appendChild(expr);
-
-                var mode = document.createElement('div');
-                mode.className = 'queries-item-mode';
-                mode.textContent = q.mode || 'highlight';
-                row.appendChild(mode);
-
-                row.addEventListener('click', function () {
-                    modalSelectedId = q.id;
-                    renderSavedQueriesModal();
-                });
-                row.addEventListener('dblclick', function () {
-                    modalSelectedId = q.id;
-                    applySavedQuery(q);
-                    hideQueriesModal();
-                });
-                list.appendChild(row);
-            })(savedQueries[i]);
-        }
-        updateModalButtons();
-    }
-
-    function updateModalButtons() {
-        var selectBtn = $('#queries-modal-select');
-        var delBtn = $('#queries-modal-delete');
-        var hasSel = !!modalSelectedId;
-        if (selectBtn) selectBtn.disabled = !hasSel;
-        if (delBtn) delBtn.disabled = !hasSel;
-    }
-
-    function applySavedQuery(q) {
-        if (!q) return;
-        var input = $('#qb-input');
-        var modeSel = $('#qb-mode');
-        var bar = $('#query-bar');
-        if (bar) bar.classList.remove('collapsed');
-        if (input) input.value = q.expr;
-        if (modeSel && q.mode) { modeSel.value = q.mode; queryMode = q.mode; }
-        runQueryFromInput(q.expr, true);
-        queryActiveFavId = q.id;
-    }
-
-    function showQueriesModal() {
-        var modal = $('#queries-modal');
-        if (!modal) return;
-        modal.classList.remove('hidden');
-        // Refresh from DB every time the modal is opened
-        try { vscode.postMessage({ type: 'requestSavedQueries' }); } catch (_) { /* noop */ }
-        renderSavedQueriesModal();
-    }
-
-    function hideQueriesModal() {
-        var modal = $('#queries-modal');
-        if (modal) modal.classList.add('hidden');
-    }
-
-    // ---------- Autocomplete ----------
-    var suggestActiveIndex = -1;
-    var suggestItems = [];
-
-    function distinctValues(prop, limit) {
-        if (!graphData || !graphData.nodes) return [];
-        var seen = Object.create(null);
-        var out = [];
-        for (var i = 0; i < graphData.nodes.length && out.length < (limit || 25); i++) {
-            var v = graphData.nodes[i][prop];
-            if (v == null || v === '') continue;
-            var key = String(v);
-            if (seen[key]) continue;
-            seen[key] = true;
-            out.push(key);
-        }
-        return out.sort();
-    }
-
-    function communityValues() {
-        var out = [];
-        var seen = Object.create(null);
-        Object.keys(communityNames || {}).forEach(function (cid) {
-            var n = communityNames[cid] && communityNames[cid].name;
-            if (!n || seen[n]) return;
-            seen[n] = true;
-            out.push(n);
-        });
-        return out.sort();
-    }
-
-    function buildSuggestions(text, caret) {
-        // Find current token (identifier or value being typed)
-        var before = text.slice(0, caret);
-        var ctx = analyzeQueryContext(before);
-        var items = [];
-
-        var addOp = function () {
-            window.AuraQuery.operators.forEach(function (op) {
-                items.push({ insert: op + ' ', label: op, kind: 'op' });
-            });
-        };
-        var addLogic = function () {
-            ['AND', 'OR', 'NOT'].forEach(function (k) {
-                items.push({ insert: k + ' ', label: k, kind: 'kw' });
-            });
-        };
-        var addFields = function (prefix) {
-            var fields = window.AuraQuery.listFields();
-            fields.forEach(function (f) {
-                if (!prefix || f.indexOf(prefix.toLowerCase()) === 0) {
-                    var t = window.AuraQuery.fieldType(f);
-                    items.push({
-                        insert: f + ' ',
-                        label: f,
-                        kind: t || 'field',
-                        replaceTokenLen: prefix ? prefix.length : 0
-                    });
-                }
-            });
-        };
-        var addValues = function (field, prefix) {
-            var t = window.AuraQuery.fieldType(field);
-            var prop = window.AuraQuery.fieldProp(field);
-            var vals = [];
-            if (t === 'string' && prop) {
-                if (field === 'community') vals = communityValues();
-                else vals = distinctValues(prop, 30);
-            }
-            vals.forEach(function (v) {
-                if (!prefix || v.toLowerCase().indexOf(prefix.toLowerCase()) === 0) {
-                    items.push({
-                        insert: '"' + v.replace(/"/g, '\\"') + '" ',
-                        label: '"' + v + '"',
-                        kind: 'value',
-                        replaceTokenLen: prefix ? prefix.length + 0 : 0,
-                        // include opening quote consumed
-                        consumeQuote: ctx.partial && ctx.partial.charAt(0) === '"'
-                    });
-                }
-            });
-            if (t === 'bool') {
-                ['true', 'false'].forEach(function (v) {
-                    items.push({ insert: v + ' ', label: v, kind: 'value' });
-                });
-            }
-        };
-
-        switch (ctx.expecting) {
-            case 'field':
-                addFields(ctx.partial);
-                if (!ctx.partial) addLogic();
-                break;
-            case 'op':
-                addOp();
-                break;
-            case 'value':
-                addValues(ctx.field, ctx.partialValue);
-                break;
-            case 'logic':
-                addLogic();
-                break;
-        }
-        // Cap result list
-        return items.slice(0, 30).map(function (item) {
-            item.tokenStart = ctx.tokenStart != null ? ctx.tokenStart : caret;
-            return item;
-        });
-    }
-
-    /**
-     * Scan from the beginning of the input to figure out where we stand:
-     * - 'field'   → user is typing a field name
-     * - 'op'      → user just finished a field and needs an operator
-     * - 'value'   → user is typing a value after an operator
-     * - 'logic'   → user just finished a comparison and needs AND / OR
-     */
-    function analyzeQueryContext(text) {
-        // Tokenize loosely with same rules as query.js (sufficient for completion)
-        var tokens = [];
-        var i = 0, n = text.length;
-        while (i < n) {
-            var c = text[i];
-            if (/\s/.test(c)) { i++; continue; }
-            if (c === '"' || c === "'") {
-                var q = c, s = i; i++;
-                while (i < n && text[i] !== q) { if (text[i] === '\\') i++; i++; }
-                if (i < n) i++;
-                tokens.push({ kind: 'string', start: s, end: i, value: text.slice(s, i) });
-                continue;
-            }
-            if (/[A-Za-z_]/.test(c)) {
-                var s2 = i;
-                while (i < n && /[A-Za-z0-9_]/.test(text[i])) i++;
-                tokens.push({ kind: 'ident', start: s2, end: i, value: text.slice(s2, i) });
-                continue;
-            }
-            if (/[0-9]/.test(c)) {
-                var s3 = i;
-                while (i < n && /[0-9.]/.test(text[i])) i++;
-                tokens.push({ kind: 'number', start: s3, end: i, value: text.slice(s3, i) });
-                continue;
-            }
-            // Operators / punctuation (consume up to 2 chars)
-            var two = text.slice(i, i + 2);
-            if (['==','!=','>=','<=','&&','||','!~'].indexOf(two) !== -1) {
-                tokens.push({ kind: 'op', start: i, end: i + 2, value: two });
-                i += 2;
-                continue;
-            }
-            tokens.push({ kind: 'op', start: i, end: i + 1, value: c });
-            i++;
-        }
-
-        var lastEnd = tokens.length ? tokens[tokens.length - 1].end : 0;
-        var endedAtBoundary = lastEnd < text.length; // trailing space after last token
-        var last = tokens[tokens.length - 1];
-        var prev = tokens[tokens.length - 2];
-
-        var KEYWORDS = { 'AND':1, 'OR':1, 'NOT':1, 'IN':1, 'and':1, 'or':1, 'not':1, 'in':1 };
-        var OP_CHARS = { '==':1,'!=':1,'>=':1,'<=':1,'>':1,'<':1,'~':1,'!~':1 };
-
-        // No tokens or last token is logic keyword → expect a field
-        if (!last) return { expecting: 'field', partial: '', tokenStart: 0 };
-
-        // If we're still INSIDE the last token (no trailing space), treat it as partial
-        if (!endedAtBoundary) {
-            if (last.kind === 'ident' && !KEYWORDS[last.value]) {
-                // Partial field OR logic keyword
-                if (!prev || (prev.kind === 'ident' && KEYWORDS[prev.value]) || prev.kind === 'op') {
-                    return { expecting: 'field', partial: last.value, tokenStart: last.start };
-                }
-                // After op: numeric/bool field with bare ident starts a value
-                if (prev && prev.kind === 'op' && OP_CHARS[prev.value]) {
-                    var fieldTok2 = tokens[tokens.length - 3];
-                    return {
-                        expecting: 'value',
-                        field: fieldTok2 ? fieldTok2.value : '',
-                        partialValue: last.value,
-                        tokenStart: last.start
-                    };
-                }
-                return { expecting: 'field', partial: last.value, tokenStart: last.start };
-            }
-            if (last.kind === 'string') {
-                // Inside a quoted string after an op — value completion
-                var fieldTok = tokens[tokens.length - 3];
-                return {
-                    expecting: 'value',
-                    field: fieldTok ? fieldTok.value : '',
-                    partialValue: last.value.slice(1).replace(/"$/, ''),
-                    tokenStart: last.start
-                };
-            }
-            // Inside an operator being typed
-            if (last.kind === 'op') {
-                return { expecting: 'op', partial: last.value, tokenStart: last.start };
-            }
-        }
-
-        // Trailing space — what comes after?
-        if (last.kind === 'ident' && KEYWORDS[last.value]) {
-            return { expecting: 'field', partial: '', tokenStart: text.length };
-        }
-        if (last.kind === 'op') {
-            // Operator just typed → expect value
-            var fTok = tokens[tokens.length - 2];
-            return { expecting: 'value', field: fTok ? fTok.value : '', partialValue: '', tokenStart: text.length };
-        }
-        if (last.kind === 'string' || last.kind === 'number') {
-            return { expecting: 'logic', partial: '', tokenStart: text.length };
-        }
-        if (last.kind === 'ident') {
-            // After a field identifier with trailing space → expect operator
-            return { expecting: 'op', partial: '', tokenStart: text.length };
-        }
-        return { expecting: 'field', partial: '', tokenStart: text.length };
-    }
-
-    function showSuggestions(items) {
-        var box = $('#qb-suggest');
-        if (!box) return;
-        suggestItems = items || [];
-        suggestActiveIndex = items && items.length ? 0 : -1;
-        if (!suggestItems.length) {
-            box.classList.add('hidden');
-            box.innerHTML = '';
-            return;
-        }
-        box.innerHTML = '';
-        for (var i = 0; i < suggestItems.length; i++) {
-            (function (item, idx) {
-                var row = document.createElement('div');
-                row.className = 'qb-suggest-item' + (idx === suggestActiveIndex ? ' active' : '');
-                var label = document.createElement('span');
-                label.className = 'qb-suggest-label';
-                label.textContent = item.label;
-                var kind = document.createElement('span');
-                kind.className = 'qb-suggest-kind';
-                kind.textContent = item.kind || '';
-                row.appendChild(label);
-                row.appendChild(kind);
-                row.addEventListener('mousedown', function (e) {
-                    e.preventDefault(); // keep input focus
-                    applySuggestion(idx);
-                });
-                box.appendChild(row);
-            })(suggestItems[i], i);
-        }
-        box.classList.remove('hidden');
-    }
-
-    function hideSuggestions() {
-        var box = $('#qb-suggest');
-        if (box) box.classList.add('hidden');
-        suggestItems = [];
-        suggestActiveIndex = -1;
-    }
-
-    function applySuggestion(index) {
-        var input = $('#qb-input');
-        if (!input || index < 0 || index >= suggestItems.length) return;
-        var item = suggestItems[index];
-        var caret = input.selectionStart || input.value.length;
-        var before = input.value.slice(0, caret);
-        var after = input.value.slice(caret);
-        var replaceLen = item.replaceTokenLen || 0;
-        var head = before.slice(0, before.length - replaceLen);
-        // Avoid double space
-        if (head.length && !/\s$/.test(head)) {
-            // already has a partial we removed; nothing to add
-        }
-        var newValue = head + item.insert + after;
-        var newCaret = (head + item.insert).length;
-        input.value = newValue;
-        input.setSelectionRange(newCaret, newCaret);
-        // Re-trigger autocomplete + live evaluation
-        triggerAutocomplete();
-        scheduleQueryRun(newValue);
-    }
-
-    function triggerAutocomplete() {
-        var input = $('#qb-input');
-        if (!input) return;
-        var caret = input.selectionStart || input.value.length;
-        var items = buildSuggestions(input.value, caret);
-        showSuggestions(items);
-    }
-
-    // ---------- History ----------
-    function pushHistory(expr) {
-        if (!expr) return;
-        // Remove duplicate
-        queryHistory = queryHistory.filter(function (e) { return e !== expr; });
-        queryHistory.push(expr);
-        if (queryHistory.length > QUERY_HISTORY_MAX) queryHistory.shift();
-        queryHistoryCursor = -1;
-    }
-
-    function navigateHistory(delta) {
-        var input = $('#qb-input');
-        if (!input || queryHistory.length === 0) return false;
-        if (queryHistoryCursor === -1) {
-            // Entering history navigation
-            if (delta > 0) return false; // ↓ does nothing when not in history
-            queryHistoryDraft = input.value;
-            queryHistoryCursor = queryHistory.length - 1;
-        } else {
-            queryHistoryCursor += delta;
-            if (queryHistoryCursor < 0) queryHistoryCursor = 0;
-            if (queryHistoryCursor >= queryHistory.length) {
-                // Past newest → restore draft
-                queryHistoryCursor = -1;
-                input.value = queryHistoryDraft;
-                input.setSelectionRange(input.value.length, input.value.length);
-                return true;
-            }
-        }
-        input.value = queryHistory[queryHistoryCursor];
-        input.setSelectionRange(input.value.length, input.value.length);
-        return true;
-    }
-
-    // ---------- Run / save ----------
-    function setQueryStatus(text, kind) {
-        var el = $('#qb-status');
-        if (!el) return;
-        el.textContent = text;
-        el.className = 'qb-status' + (kind === 'match' ? ' qb-status-match' : kind === 'error' ? ' qb-status-error' : '');
-    }
-
-    function setQueryError(msg) {
-        var input = $('#qb-input');
-        var err = $('#qb-error');
-        if (msg) {
-            if (input) input.classList.add('qb-error-state');
-            if (err) { err.textContent = msg; err.classList.remove('hidden'); }
-            setQueryStatus('error', 'error');
-        } else {
-            if (input) input.classList.remove('qb-error-state');
-            if (err) { err.textContent = ''; err.classList.add('hidden'); }
-        }
-    }
-
-    var pendingRunTimer = null;
-    function scheduleQueryRun(expr) {
-        if (pendingRunTimer) clearTimeout(pendingRunTimer);
-        pendingRunTimer = setTimeout(function () { runQueryFromInput(expr, false); }, 180);
-    }
-
-    function runQueryFromInput(expr, pushToHistory) {
-        queryExpr = (expr || '').trim();
-        queryActiveFavId = null;
-        if (!queryExpr) {
-            queryActive = false;
-            queryFn = null;
-            querySet.clear();
-            setQueryError('');
-            setQueryStatus('—', '');
-            refreshGraphAfterQuery();
-            return;
-        }
-        var compiled = window.AuraQuery.compile(queryExpr);
-        if (!compiled.ok) {
-            queryActive = false;
-            setQueryError(compiled.error || 'Invalid expression');
-            setQueryStatus('error', 'error');
-            return;
-        }
-        setQueryError('');
-        queryFn = compiled.fn;
-        queryActive = true;
-        evaluateQuery();
-        applyQuerySelectMode();
-        var total = (graphData && graphData.nodes) ? graphData.nodes.length : 0;
-        setQueryStatus(querySet.size + ' / ' + total + ' match', querySet.size > 0 ? 'match' : '');
-        refreshGraphAfterQuery();
-        if (pushToHistory) pushHistory(queryExpr);
-    }
-
-    function setupQueryBar() {
-        var bar = $('#query-bar');
-        var toggleBtn = $('#qb-toggle');
-        var input = $('#qb-input');
-        var modeSel = $('#qb-mode');
-        var clearBtn = $('#qb-clear');
-        var saveBtn = $('#qb-save');
-        var openListBtn = $('#qb-open-list');
-        if (!bar || !input) return;
-
-        toggleBtn && toggleBtn.addEventListener('click', function () {
-            bar.classList.toggle('collapsed');
-            if (!bar.classList.contains('collapsed')) {
-                setTimeout(function () { input.focus(); }, 50);
-            } else {
-                hideSuggestions();
-            }
-        });
-
-        input.addEventListener('input', function () {
-            queryHistoryCursor = -1;
-            triggerAutocomplete();
-            scheduleQueryRun(input.value);
-        });
-        input.addEventListener('focus', triggerAutocomplete);
-        input.addEventListener('blur', function () {
-            // small delay so click on suggestion still works
-            setTimeout(hideSuggestions, 120);
-        });
-
-        input.addEventListener('keydown', function (e) {
-            var box = $('#qb-suggest');
-            var hasSuggest = suggestItems.length > 0 && box && !box.classList.contains('hidden');
-            if (hasSuggest && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
-                e.preventDefault();
-                if (e.key === 'ArrowDown') suggestActiveIndex = (suggestActiveIndex + 1) % suggestItems.length;
-                else suggestActiveIndex = (suggestActiveIndex - 1 + suggestItems.length) % suggestItems.length;
-                showSuggestions(suggestItems);
-                return;
-            }
-            if (hasSuggest && (e.key === 'Tab' || e.key === 'Enter')) {
-                if (suggestActiveIndex >= 0) {
-                    e.preventDefault();
-                    applySuggestion(suggestActiveIndex);
-                    return;
-                }
-            }
-            if (e.key === 'Escape') {
-                if (hasSuggest) { hideSuggestions(); return; }
-                input.value = '';
-                runQueryFromInput('');
-                return;
-            }
-            if (e.key === 'Enter') {
-                if (pendingRunTimer) clearTimeout(pendingRunTimer);
-                runQueryFromInput(input.value, true);
-                hideSuggestions();
-                return;
-            }
-            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-                if (navigateHistory(e.key === 'ArrowUp' ? -1 : 1)) {
-                    e.preventDefault();
-                    triggerAutocomplete();
-                    scheduleQueryRun(input.value);
-                }
-            }
-        });
-
-        modeSel && modeSel.addEventListener('change', function () {
-            queryMode = modeSel.value;
-            if (queryActive) {
-                applyQuerySelectMode();
-                refreshGraphAfterQuery();
-            }
-        });
-
-        clearBtn && clearBtn.addEventListener('click', function () {
-            input.value = '';
-            runQueryFromInput('');
-            hideSuggestions();
-        });
-
-        saveBtn && saveBtn.addEventListener('click', function () {
-            var expr = (input.value || '').trim();
-            if (!expr) return;
-            var compiled = window.AuraQuery.compile(expr);
-            if (!compiled.ok) {
-                setQueryError(compiled.error || 'Invalid expression');
-                return;
-            }
-            // window.prompt is not available in VS Code webviews — let the extension
-            // show a real input box and persist the query in the DB.
-            try {
-                vscode.postMessage({
-                    type: 'addSavedQuery',
-                    payload: { expr: expr, mode: queryMode }
-                });
-            } catch (_) { /* noop */ }
-        });
-
-        openListBtn && openListBtn.addEventListener('click', function () {
-            showQueriesModal();
-        });
-
-        // Saved-queries modal wiring
-        var modal = $('#queries-modal');
-        var modalClose = $('#queries-modal-close');
-        var modalSelect = $('#queries-modal-select');
-        var modalDelete = $('#queries-modal-delete');
-        modalClose && modalClose.addEventListener('click', hideQueriesModal);
-        modalSelect && modalSelect.addEventListener('click', function () {
-            if (!modalSelectedId) return;
-            var q = savedQueries.find(function (x) { return x.id === modalSelectedId; });
-            if (q) { applySavedQuery(q); hideQueriesModal(); }
-        });
-        modalDelete && modalDelete.addEventListener('click', function () {
-            if (!modalSelectedId) return;
-            try {
-                vscode.postMessage({
-                    type: 'deleteSavedQuery',
-                    payload: { id: modalSelectedId }
-                });
-            } catch (_) { /* noop */ }
-            modalSelectedId = null;
-        });
-
-        // Modal drag
-        if (modal) {
-            var header = modal.querySelector('.queries-modal-header');
-            if (header) {
-                var dragging = false, ox = 0, oy = 0;
-                header.addEventListener('mousedown', function (e) {
-                    if (e.target.tagName === 'BUTTON') return;
-                    dragging = true;
-                    var rect = modal.getBoundingClientRect();
-                    ox = e.clientX - rect.left;
-                    oy = e.clientY - rect.top;
-                    modal.style.left = rect.left + 'px';
-                    modal.style.top = rect.top + 'px';
-                    modal.style.transform = 'none';
-                    e.preventDefault();
-                });
-                document.addEventListener('mousemove', function (e) {
-                    if (!dragging) return;
-                    var x = Math.max(0, Math.min(e.clientX - ox, window.innerWidth - 60));
-                    var y = Math.max(0, Math.min(e.clientY - oy, window.innerHeight - 40));
-                    modal.style.left = x + 'px';
-                    modal.style.top = y + 'px';
-                });
-                document.addEventListener('mouseup', function () { dragging = false; });
-            }
-            // Esc closes modal when open
-            document.addEventListener('keydown', function (e) {
-                if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
-                    hideQueriesModal();
-                }
-            });
-        }
-
-        // Ctrl+K / Cmd+K to focus the bar
-        document.addEventListener('keydown', function (e) {
-            if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
-                e.preventDefault();
-                bar.classList.remove('collapsed');
-                setTimeout(function () { input.focus(); input.select(); triggerAutocomplete(); }, 50);
-            }
-        });
     }
 
 })();

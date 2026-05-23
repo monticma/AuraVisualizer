@@ -7,11 +7,19 @@ import { readdir, stat, readFile } from 'fs/promises';
 import { join, extname, relative } from 'path';
 import type { FileInfo, ScanOptions } from './types';
 
-export const SUPPORTED_EXTENSIONS = new Set(['.c', '.h', '.js', '.ts', '.py', '.css', '.html', '.htm', '.java', '.go', '.rs', '.kt', '.kts', '.rb', '.swift']);
+export const SUPPORTED_EXTENSIONS = new Set(['.c', '.h', '.cpp', '.cc', '.cxx', '.hpp', '.hxx', '.hh', '.js', '.ts', '.py', '.css', '.html', '.htm', '.java', '.go', '.rs', '.kt', '.kts', '.rb', '.swift', '.md', '.markdown', '.txt', '.rst']);
+
+export const DOC_EXTENSIONS = new Set(['.md', '.markdown', '.txt', '.rst']);
 
 export const LANGUAGE_MAP: Record<string, string> = {
     '.c': 'c',
     '.h': 'c',
+    '.cpp': 'cpp',
+    '.cc': 'cpp',
+    '.cxx': 'cpp',
+    '.hpp': 'cpp',
+    '.hxx': 'cpp',
+    '.hh': 'cpp',
     '.js': 'javascript',
     '.ts': 'typescript',
     '.py': 'python',
@@ -24,7 +32,11 @@ export const LANGUAGE_MAP: Record<string, string> = {
     '.kt': 'kotlin',
     '.kts': 'kotlin',
     '.rb': 'ruby',
-    '.swift': 'swift'
+    '.swift': 'swift',
+    '.md': 'documentation',
+    '.markdown': 'documentation',
+    '.txt': 'documentation',
+    '.rst': 'documentation'
 };
 
 export const SKIP_DIRS = new Set([

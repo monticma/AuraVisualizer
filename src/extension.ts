@@ -13,6 +13,7 @@ import { analyzeCodebase, scanSingleFile, buildGraph, preParseFiles, rebuildSing
 import { isGitRepo } from './analyzer/git-history';
 import type { CommitIndex, CommitDelta } from './analyzer/types';
 import { GraphDB } from './graph-db';
+import { chunkDocument, type DocChunk } from './analyzer/parsers/doc-parser';
 
 let webviewProvider: WebviewProvider | undefined;
 let cachedGraphData: GraphData | undefined;
@@ -85,38 +86,11 @@ export function activate(context: vscode.ExtensionContext): void {
         })
     );
 
-    // Live-update graph rendering settings (link style / curvature)
-    context.subscriptions.push(
-        vscode.workspace.onDidChangeConfiguration(e => {
-            if (
-                e.affectsConfiguration('auraVisualizer.linkStyle') ||
-                e.affectsConfiguration('auraVisualizer.linkCurvature') ||
-                e.affectsConfiguration('auraVisualizer.selectedNodeEffect') ||
-                e.affectsConfiguration('auraVisualizer.bloomStrength') ||
-                e.affectsConfiguration('auraVisualizer.bloomRadius') ||
-                e.affectsConfiguration('auraVisualizer.bloomThreshold')
-            ) {
-                const cfg = vscode.workspace.getConfiguration('auraVisualizer');
-                const linkStyle = cfg.get<string>('linkStyle', 'straight');
-                const linkCurvatureSetting = cfg.get<number>('linkCurvature', 0.25);
-                const linkCurvature = linkStyle === 'curved' ? linkCurvatureSetting : 0;
-                webviewProvider?.sendGraphConfig({
-                    linkStyle,
-                    linkCurvature,
-                    selectedNodeEffect: cfg.get<string>('selectedNodeEffect', 'glow'),
-                    bloomStrength: cfg.get<number>('bloomStrength', 1.2),
-                    bloomRadius: cfg.get<number>('bloomRadius', 0.6),
-                    bloomThreshold: cfg.get<number>('bloomThreshold', 0.0)
-                });
-            }
-        })
-    );
-
     // Register serializer to restore panel on VSCode restart
     vscode.window.registerWebviewPanelSerializer(WebviewProvider.viewType, {
         async deserializeWebviewPanel(panel: vscode.WebviewPanel): Promise<void> {
             if (!webviewProvider) {
-                webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState, () => graphDb);
+                webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState);
                 registerOpenFileHandler();
             }
             webviewProvider.restore(panel);
@@ -132,22 +106,6 @@ export function activate(context: vscode.ExtensionContext): void {
             }
         }
     });
-
-    // URI handler — supports vscode://monticma-aura.aura-visualizer-3D/query?expr=...&mode=...
-    context.subscriptions.push(
-        vscode.window.registerUriHandler({
-            handleUri(uri: vscode.Uri) {
-                if (uri.path !== '/query' && uri.path !== 'query') return;
-                const params = new URLSearchParams(uri.query);
-                const expr = params.get('expr') || '';
-                const mode = params.get('mode') || 'highlight';
-                if (!expr) return;
-                openVisualizer(context).then(() => {
-                    webviewProvider?.applyQuery(expr, mode);
-                });
-            }
-        })
-    );
 
     // Run initial analysis in background (populates tree + sends data to restored panel when ready)
     if (vscode.workspace.workspaceFolders?.length) {
@@ -221,56 +179,37 @@ async function loadFromDbThenRefresh(context: vscode.ExtensionContext): Promise<
 
 function registerOpenFileHandler(): void {
     if (!webviewProvider) return;
-    let openQueue: Promise<void> = Promise.resolve();
-    webviewProvider.onOpenFile(({ path: filePath, line }) => {
+    webviewProvider.onOpenFile(async ({ path: filePath, line }) => {
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
         if (!workspaceFolder) return;
 
         const fullPath = path.join(workspaceFolder.uri.fsPath, filePath);
         const uri = vscode.Uri.file(fullPath);
 
-        // Serialize openings to avoid racing showTextDocument calls
-        // (rapid clicks could otherwise spawn duplicate editors via ViewColumn.Beside)
-        openQueue = openQueue.then(async () => {
-            try {
-                // Reuse existing editor if the file is already visible
-                const existing = vscode.window.visibleTextEditors.find(
-                    e => e.document.uri.fsPath === uri.fsPath
-                );
-                let editor: vscode.TextEditor;
-                if (existing) {
-                    editor = await vscode.window.showTextDocument(existing.document, {
-                        viewColumn: existing.viewColumn,
-                        preserveFocus: false,
-                        preview: false
-                    });
-                } else {
-                    const doc = await vscode.workspace.openTextDocument(uri);
-                    editor = await vscode.window.showTextDocument(doc, {
-                        viewColumn: vscode.ViewColumn.Beside,
-                        preserveFocus: false,
-                        preview: false
-                    });
-                }
+        try {
+            const doc = await vscode.workspace.openTextDocument(uri);
+            const editor = await vscode.window.showTextDocument(doc, {
+                viewColumn: vscode.ViewColumn.Beside,
+                preserveFocus: false
+            });
 
-                if (line && line > 0) {
-                    const position = new vscode.Position(line - 1, 0);
-                    editor.selection = new vscode.Selection(position, position);
-                    editor.revealRange(
-                        new vscode.Range(position, position),
-                        vscode.TextEditorRevealType.InCenter
-                    );
-                }
-            } catch {
-                // File may not exist
+            if (line && line > 0) {
+                const position = new vscode.Position(line - 1, 0);
+                editor.selection = new vscode.Selection(position, position);
+                editor.revealRange(
+                    new vscode.Range(position, position),
+                    vscode.TextEditorRevealType.InCenter
+                );
             }
-        });
+        } catch {
+            // File may not exist
+        }
     });
 }
 
 async function openVisualizer(context: vscode.ExtensionContext): Promise<void> {
     if (!webviewProvider) {
-        webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState, () => graphDb);
+        webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState);
         registerOpenFileHandler();
 
 
@@ -333,10 +272,13 @@ async function refreshAnalysis(context: vscode.ExtensionContext): Promise<void> 
             if (oldGraphData && oldGraphData.nodes.length > 0) {
                 // Already showing data from DB cache — send only the delta
                 const delta = computeGraphDelta(oldGraphData, cachedGraphData, '', false);
+                const oldCallCount = oldGraphData.functionCalls?.length || 0;
+                const newCallCount = cachedGraphData.functionCalls?.length || 0;
                 const hasChanges = delta.changedNodes.length > 0 ||
                     delta.removedNodeIds.length > 0 ||
                     delta.addedLinks.length > 0 ||
-                    delta.removedLinks.length > 0;
+                    delta.removedLinks.length > 0 ||
+                    oldCallCount !== newCallCount;
                 if (hasChanges) {
                     webviewProvider.sendGraphDelta(delta as unknown as Record<string, unknown>);
                 } else {
@@ -360,6 +302,7 @@ async function refreshAnalysis(context: vscode.ExtensionContext): Promise<void> 
                 await graphDb.open(path.join(dbDir, 'graph.db'));
             }
             graphDb.importGraphData(cachedGraphData);
+            graphDb.importDocChunks(result.docChunks);
 
             // Auto-register MCP server config
             await registerMcpServer(context, rootPath);
@@ -423,7 +366,7 @@ function runAnalysisInWorker(
     rootPath: string,
     excludePaths: string[],
     projectName: string
-): Promise<{ graphData: GraphData; files: FileInfo[] }> {
+): Promise<{ graphData: GraphData; files: FileInfo[]; docChunks: DocChunk[] }> {
     return new Promise((resolve, reject) => {
         const workerPath = path.join(extensionUri.fsPath, 'out', 'analyzer-worker.js');
         const worker = new Worker(workerPath, {
@@ -434,7 +377,7 @@ function runAnalysisInWorker(
             },
         });
 
-        worker.on('message', (msg: { graphData?: GraphData; files?: FileInfo[]; error?: string; progress?: { phase: string; message: string } }) => {
+        worker.on('message', (msg: { graphData?: GraphData; files?: FileInfo[]; docChunks?: DocChunk[]; error?: string; progress?: { phase: string; message: string } }) => {
             if (msg.progress) {
                 webviewProvider?.sendProgress(msg.progress.phase, msg.progress.message);
                 return;
@@ -442,7 +385,7 @@ function runAnalysisInWorker(
             if (msg.error) {
                 reject(new Error(msg.error));
             } else {
-                resolve({ graphData: msg.graphData!, files: msg.files! });
+                resolve({ graphData: msg.graphData!, files: msg.files!, docChunks: msg.docChunks || [] });
             }
             worker.terminate();
         });
@@ -489,6 +432,9 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
                 .map(l => ({ source: l.source, target: l.target, type: l.type }));
             cachedGraphData.nodes = cachedGraphData.nodes.filter(n => n.id !== relativePath);
             cachedGraphData.links = cachedGraphData.links.filter(l => l.source !== relativePath && l.target !== relativePath);
+            cachedGraphData.functionCalls = (cachedGraphData.functionCalls || []).filter(fc =>
+                fc.callerFile !== relativePath && fc.calleeFile !== relativePath
+            );
             cachedGraphData.meta.totalFiles = cachedGraphData.nodes.length;
             cachedGraphData.meta.totalLinks = cachedGraphData.links.length;
 
@@ -499,6 +445,7 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
                     addedLinks: [],
                     removedLinks,
                     meta: cachedGraphData.meta,
+                    functionCalls: cachedGraphData.functionCalls || [],
                 };
                 webviewProvider.sendGraphDelta(delta as unknown as Record<string, unknown>);
             }
@@ -515,6 +462,37 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
     const idx = cachedFiles.findIndex(f => f.id === relativePath);
     if (idx >= 0) cachedFiles[idx] = newInfo;
     else cachedFiles.push(newInfo);
+
+    // Documentation files: re-chunk for RAG, refresh node metadata, no graph rebuild
+    if (newInfo.language === 'documentation') {
+        if (graphDb) {
+            const docNode: GraphNode = {
+                id: newInfo.id,
+                name: newInfo.name,
+                path: newInfo.path,
+                language: newInfo.language,
+                extension: newInfo.extension,
+                group: newInfo.id.split('/').slice(0, -1).join('/') || newInfo.name,
+                size: newInfo.size,
+                linesOfCode: newInfo.content.split('\n').length,
+                complexity: 1,
+                complexityDetails: {},
+                fanIn: 0,
+                fanOut: 0,
+                lastModified: newInfo.lastModified,
+            };
+            graphDb.upsertNode(docNode);
+            try {
+                const chunks = chunkDocument(newInfo.content, newInfo.id);
+                graphDb.replaceDocChunks(newInfo.id, chunks);
+            } catch {
+                // Non-fatal — keep stale chunks rather than crash on a broken file
+            }
+            graphDb.save();
+        }
+        updateStatusBar();
+        return;
+    }
 
     // Build incremental context if missing (shouldn't happen — refreshAnalysis builds it)
     if (!incrementalCtx) {
@@ -550,6 +528,7 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
         addedLinks: [],
         removedLinks: [],
         meta: cachedGraphData?.meta ?? {} as GraphData['meta'],
+        functionCalls: cachedGraphData?.functionCalls ?? [],
     };
 
     // Compute link diff
@@ -575,6 +554,11 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
         cachedGraphData.links = cachedGraphData.links.filter(l => l.source !== newInfo.id);
         cachedGraphData.links.push(...result.outEdges);
 
+        const existingCalls = cachedGraphData.functionCalls || [];
+        cachedGraphData.functionCalls = existingCalls
+            .filter(fc => fc.callerFile !== newInfo.id)
+            .concat(result.callSites);
+
         // Sync fan counts from DB for affected nodes
         if (graphDb) {
             for (const id of affectedIds) {
@@ -595,6 +579,7 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
         cachedGraphData.meta.totalFiles = cachedGraphData.nodes.length;
         cachedGraphData.meta.totalLinks = cachedGraphData.links.length;
         delta.meta = cachedGraphData.meta;
+        delta.functionCalls = cachedGraphData.functionCalls || [];
     }
 
     if (webviewProvider?.isVisible) {
@@ -611,6 +596,7 @@ interface GraphDelta {
     addedLinks: GraphLink[];
     removedLinks: { source: string; target: string; type: string }[];
     meta: GraphData['meta'];
+    functionCalls?: NonNullable<GraphData['functionCalls']>;
 }
 
 function computeGraphDelta(
@@ -624,7 +610,8 @@ function computeGraphDelta(
         removedNodeIds: [],
         addedLinks: [],
         removedLinks: [],
-        meta: newGraph.meta
+        meta: newGraph.meta,
+        functionCalls: newGraph.functionCalls || [],
     };
 
     if (deleted) {
@@ -792,7 +779,7 @@ async function blastRadiusCurrentFile(context: vscode.ExtensionContext): Promise
     if (relativePath.startsWith('..')) return;
 
     if (!webviewProvider) {
-        webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState, () => graphDb);
+        webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState);
         registerOpenFileHandler();
     }
     webviewProvider.show();

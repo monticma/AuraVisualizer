@@ -15,6 +15,7 @@ export function computeComplexity(fileInfo: FileInfo): ComplexityResult {
 
     switch (language) {
         case 'c':
+        case 'cpp':
         case 'javascript':
         case 'typescript':
             return computeCJSComplexity(content);

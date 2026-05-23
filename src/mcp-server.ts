@@ -171,6 +171,18 @@ const TOOLS = [
             },
         },
     },
+    {
+        name: 'search_docs',
+        description: 'Full-text search across project documentation files (Markdown, plain text, reStructuredText). Returns top matching chunks ranked by BM25 relevance, with file path, section heading, line offset, and excerpt. Use this to answer questions about how the project works, conventions, install steps, or any prose authored alongside the code.',
+        inputSchema: {
+            type: 'object' as const,
+            properties: {
+                query: { type: 'string', description: 'Natural-language keywords to search for' },
+                limit: { type: 'number', description: 'Maximum number of chunks to return (default: 10)' },
+            },
+            required: ['query'],
+        },
+    },
 ];
 
 // ── Tool handlers ──────────────────────────────────────────────
@@ -244,6 +256,25 @@ function handleTool(db: GraphDB, name: string, args: Record<string, unknown>): u
                 files: Object.entries(byFileUnused).map(([f, fns]) => ({ file: f, functions: fns })),
                 totalFunctions: unused.length,
                 totalFiles: Object.keys(byFileUnused).length,
+            };
+        }
+        case 'search_docs': {
+            const query = args.query as string;
+            const limit = (args.limit as number) || 10;
+            const results = db.searchDocs(query, limit);
+            return {
+                query,
+                total: results.length,
+                results: results.map(r => ({
+                    file: r.fileId,
+                    section: r.section,
+                    line: r.lineStart,
+                    score: r.score,
+                    excerpt: r.content.length > 600 ? r.content.slice(0, 600) + '…' : r.content,
+                })),
+                note: results.length === 0
+                    ? 'No documentation matched. The project may not have indexed any Markdown / text / rst files yet.'
+                    : 'Results ranked by keyword-frequency score (higher = better). Section heading matches are weighted 3× over body matches.',
             };
         }
         case 'get_hotspots': {

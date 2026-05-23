@@ -7,6 +7,9 @@ var LANGUAGE_COLORS = {
     'c':          '#4fc3f7',
     'c-source':   '#4fc3f7',
     'c-header':   '#81d4fa',
+    'cpp':         '#0288d1',
+    'cpp-source':  '#0288d1',
+    'cpp-header':  '#4fc3f7',
     'javascript': '#ffd54f',
     'typescript': '#64b5f6',
     'python':     '#81c784',
@@ -17,7 +20,8 @@ var LANGUAGE_COLORS = {
     'rust':       '#ffb74d',
     'kotlin':     '#b39ddb',
     'ruby':       '#ef5350',
-    'swift':      '#ff7043'
+    'swift':      '#ff7043',
+    'documentation': '#b0bec5'
 };
 
 var LINK_COLORS = {
@@ -33,13 +37,17 @@ var LINK_COLORS = {
     'asset':          '#ffffff44',
     'function-call':  '#81c784aa',
     'extends':        '#f06292cc',
-    'implements':     '#ba68c8aa'
+    'implements':     '#ba68c8aa',
+    'doc-reference':  '#b0bec566'
 };
 
 var LANGUAGE_ICONS = {
     'c':          '🔷',
     'c-source':   '🔷',
     'c-header':   '📘',
+    'cpp':         '🟦',
+    'cpp-source':  '🟦',
+    'cpp-header':  '📗',
     'javascript': '🟡',
     'typescript': '🔵',
     'python':     '🟢',
@@ -50,7 +58,8 @@ var LANGUAGE_ICONS = {
     'rust':       '🦀',
     'kotlin':     '🎯',
     'ruby':       '💎',
-    'swift':      '🐦'
+    'swift':      '🐦',
+    'documentation': '📄'
 };
 
 // Blast radius depth → color (0=source, 1=high, 2=medium, 3+=low)
