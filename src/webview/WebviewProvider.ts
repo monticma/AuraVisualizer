@@ -129,6 +129,21 @@ export class WebviewProvider {
     public sendGraphData(data: GraphData): void {
         this.pendingData = data;
         if (this.webviewReady) {
+            // Inject current VS Code settings into meta so the webview
+            // applies them on first render (no async timing issue).
+            if (!data.meta) { (data as Record<string, unknown>).meta = {}; }
+            const meta = data.meta as Record<string, unknown>;
+            try {
+                const config = vscode.workspace.getConfiguration('auraVisualizer');
+                meta._settings = {
+                    linkStyle: config.get<string>('linkStyle', 'straight'),
+                    linkCurvature: config.get<number>('linkCurvature', 0.25),
+                    selectedNodeEffect: config.get<string>('selectedNodeEffect', 'glow'),
+                    bloomStrength: config.get<number>('bloomStrength', 1.2),
+                    bloomRadius: config.get<number>('bloomRadius', 0.6),
+                    bloomThreshold: config.get<number>('bloomThreshold', 0.0),
+                };
+            } catch { /* ignore */ }
             this.panel?.webview.postMessage({ type: 'graphData', payload: data });
         }
     }
@@ -164,6 +179,23 @@ export class WebviewProvider {
 
     public sendRefreshComplete(): void {
         this.panel?.webview.postMessage({ type: 'refreshComplete' });
+    }
+
+    public sendSettings(_settings?: Record<string, unknown>): void {
+        try {
+            const config = vscode.workspace.getConfiguration('auraVisualizer');
+            this.panel?.webview.postMessage({
+                type: 'graphSettings',
+                payload: {
+                    linkStyle: config.get<string>('linkStyle', 'straight'),
+                    linkCurvature: config.get<number>('linkCurvature', 0.25),
+                    selectedNodeEffect: config.get<string>('selectedNodeEffect', 'glow'),
+                    bloomStrength: config.get<number>('bloomStrength', 1.2),
+                    bloomRadius: config.get<number>('bloomRadius', 0.6),
+                    bloomThreshold: config.get<number>('bloomThreshold', 0.0),
+                }
+            });
+        } catch { /* ignore */ }
     }
 
     public sendTheme(kind: vscode.ColorThemeKind): void {
@@ -277,7 +309,6 @@ export class WebviewProvider {
         <!-- Tab Bar -->
         <nav id="tab-bar">
             <button class="tab-btn active" data-tab="graph">✦ 3D Graph</button>
-            <button class="tab-btn" data-tab="callgraph">🕸️ Call Graph</button>
             <button class="tab-btn" data-tab="treemap">🗺️ Treemap</button>
             <button class="tab-btn" data-tab="dsm">🗑️ Matrix</button>
             <button class="tab-btn" data-tab="chord">🎵 Chord</button>
@@ -379,11 +410,6 @@ export class WebviewProvider {
         </div>
     </aside>
     </div><!-- /middle-row -->
-
-    <!-- Call Graph View -->
-    <div id="callgraph-view" class="tab-content" data-tab="callgraph">
-        <div id="callgraph-container"></div>
-    </div>
 
     <!-- Metrics View -->
     <div id="metrics-view" class="tab-content" data-tab="metrics"></div>
@@ -601,54 +627,7 @@ export class WebviewProvider {
             </label>
         </div>
 
-        <div class="filter-separator callgraph-bottom hidden" id="callgraph-sep"></div>
-        <div class="filter-group callgraph-bottom hidden" id="callgraph-controls-bottom">
-            <label class="filter-label">Mode
-                <select id="callgraph-mode" class="filter-select">
-                    <option value="symbol" selected>Symbol</option>
-                    <option value="file">File</option>
-                </select>
-            </label>
-            <label class="filter-label">Color by
-                <select id="callgraph-color-by" class="filter-select">
-                    <option value="language" selected>Language</option>
-                    <option value="group">Directory</option>
-                    <option value="community">Community</option>
-                </select>
-            </label>
-            <label class="filter-label">Min weight
-                <select id="callgraph-min-weight" class="filter-select">
-                    <option value="1" selected>1+</option>
-                    <option value="2">2+</option>
-                    <option value="3">3+</option>
-                    <option value="5">5+</option>
-                </select>
-            </label>
-            <label class="filter-label">Max nodes
-                <select id="callgraph-max-nodes" class="filter-select">
-                    <option value="150">150</option>
-                    <option value="250" selected>250</option>
-                    <option value="400">400</option>
-                    <option value="600">600</option>
-                </select>
-            </label>
-            <label class="filter-label">Perf
-                <select id="callgraph-perf" class="filter-select">
-                    <option value="auto" selected>Auto</option>
-                    <option value="quality">Quality</option>
-                    <option value="balanced">Balanced</option>
-                    <option value="performance">Performance</option>
-                </select>
-            </label>
-            <button class="filter-btn" id="btn-callgraph-labels" title="Show symbol/file names">🏷️ Names</button>
-            <label class="filter-label">Node size
-                <input type="range" id="callgraph-node-size-slider" min="1" max="10" value="4" step="0.5">
-            </label>
-            <label class="filter-label">Spread
-                <input type="range" id="callgraph-spread-slider" min="1" max="5" value="1" step="0.5">
-            </label>
-            <span class="callgraph-stats" id="callgraph-stats"></span>
-        </div>
+
     </footer>
     </div><!-- /app-layout -->
 

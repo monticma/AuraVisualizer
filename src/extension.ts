@@ -64,6 +64,15 @@ export function activate(context: vscode.ExtensionContext): void {
     // Watch for file changes (incremental)
     setupFileWatcher(context);
 
+    // Watch for config changes (bloom, link style, etc.)
+    context.subscriptions.push(
+        vscode.workspace.onDidChangeConfiguration(e => {
+            if (e.affectsConfiguration('auraVisualizer') && webviewProvider) {
+                webviewProvider.sendSettings({});
+            }
+        })
+    );
+
     // Sync active editor
     context.subscriptions.push(
         vscode.window.onDidChangeActiveTextEditor(editor => {

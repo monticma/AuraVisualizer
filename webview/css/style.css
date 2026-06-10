@@ -55,7 +55,7 @@ html, body {
     border-bottom: 1px solid var(--aura-border);
     padding: 0 12px;
     gap: 0;
-    z-index: 100;
+    z-index: 50;
 }
 .tab-btn {
     background: transparent;
@@ -98,7 +98,7 @@ html, body {
     padding: 0 20px;
     background: var(--aura-sidebar-bg);
     border-bottom: 1px solid var(--aura-border);
-    z-index: 100;
+    z-index: 200;
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
 }
@@ -114,6 +114,7 @@ html, body {
     flex: 1;
     max-width: 400px;
     margin: 0 24px;
+    position: relative;
 }
 
 .top-bar-right {
@@ -259,7 +260,7 @@ html, body {
     border-radius: var(--radius);
     max-height: 300px;
     overflow-y: auto;
-    z-index: 200;
+    z-index: 5000;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
 }
@@ -432,9 +433,7 @@ html, body {
 
 #node-size-slider,
 #spread-slider,
-#depth-slider,
-#callgraph-node-size-slider,
-#callgraph-spread-slider {
+#depth-slider {
     width: 60px;
     accent-color: var(--aura-accent);
 }
@@ -1934,69 +1933,6 @@ html, body {
     height: 10px;
     border-radius: 2px;
     flex-shrink: 0;
-}
-
-/* ============================================================
-   Call Graph View
-   ============================================================ */
-#callgraph-view {
-    flex: 1;
-    overflow: hidden;
-    flex-direction: column;
-    min-height: 0;
-    width: 100%;
-}
-.callgraph-stats {
-    font-size: 11px;
-    opacity: 0.5;
-    margin-left: 6px;
-}
-#callgraph-container {
-    flex: 1;
-    min-height: 0;
-    position: relative;
-    overflow: hidden;
-    width: 100%;
-}
-#callgraph-container canvas {
-    width: 100% !important;
-    height: 100% !important;
-    display: block;
-}
-.callgraph-empty {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    opacity: 0.55;
-    font-size: 13px;
-}
-
-.callgraph-bottom {
-    display: none !important;
-}
-
-body.callgraph-mode .callgraph-bottom {
-    display: flex !important;
-    align-items: center;
-    gap: 8px;
-}
-
-body.callgraph-mode .graph-only {
-    display: none !important;
-}
-
-body.callgraph-mode #filter-bar {
-    justify-content: center;
-    overflow-x: auto;
-    flex-wrap: nowrap;
-}
-
-body.callgraph-mode #callgraph-controls-bottom {
-    justify-content: center;
-    width: 100%;
-    flex-wrap: nowrap;
-    gap: 6px;
 }
 
 /* ============================================================

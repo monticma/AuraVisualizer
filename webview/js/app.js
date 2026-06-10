@@ -16,6 +16,15 @@
     // ============================================================
     var graph = null;
     var graphData = null;
+    var linkWidthNodeIndex = {};
+    var graphSettings = {
+        linkStyle: 'straight',
+        linkCurvature: 0.25,
+        selectedNodeEffect: 'glow',
+        bloomStrength: 1.2,
+        bloomRadius: 0.6,
+        bloomThreshold: 0.0
+    };
     var selectedNode = null;
     var hoveredNode = null;
     var highlightNodes = new Set();
@@ -65,23 +74,6 @@
     // Active tab
     var activeTab = 'graph';
     var graphPaused = false;
-
-    // Call Graph tab state
-    var callGraph = null;
-    var callGraphData = null;
-    var callGraphPaused = false;
-    var callGraphMode = 'symbol';
-    var callGraphColorBy = 'language';
-    var callGraphMinWeight = 1;
-    var callGraphMaxNodes = 250;
-    var callGraphPerfPreset = 'auto';
-    var callGraphShowLabels = false;
-    var callGraphNodeSizeMultiplier = 4;
-    var callGraphSpreadMultiplier = 1;
-    var callGraphHasFramed = false;
-    var callGraphResizeObserver = null;
-    var callGraphDirty = true;
-    var callGraphRenderKey = '';
 
     // Explorer state
     var showExplorer = false;
@@ -205,6 +197,12 @@
             case 'historyDelta':
                 handleHistoryDelta(message.payload);
                 break;
+            case 'graphSettings':
+                if (message.payload) {
+                    graphSettings = Object.assign(graphSettings, message.payload);
+                    requestAnimationFrame(function() { applyGraphSettings(); });
+                }
+                break;
             case 'restoreViewState':
                 if (message.payload) applyViewState(message.payload);
                 break;
@@ -246,6 +244,13 @@
         explosionData = null;
 
         graphData = data;
+        buildLinkWidthIndex();
+
+        // Apply VS Code settings injected into meta by the extension
+        if (data.meta && data.meta._settings) {
+            Object.assign(graphSettings, data.meta._settings);
+        }
+
         headGraphData = JSON.parse(JSON.stringify(data));
         computeMetricRanges();
         computeCommunities();
@@ -265,12 +270,6 @@
             });
         });
         buildExplorerTree(graphData.nodes);
-        callGraphDirty = true;
-        callGraphRenderKey = '';
-        callGraphHasFramed = false;
-        if (activeTab === 'callgraph') {
-            renderCallGraph();
-        }
         // Request saved view state from extension (pull model — guarantees graph is ready)
         vscode.postMessage({ type: 'requestViewState' });
     }
@@ -344,9 +343,8 @@
         if (delta.functionCalls) {
             graphData.functionCalls = delta.functionCalls;
         }
-        callGraphDirty = true;
-        callGraphRenderKey = '';
-        callGraphHasFramed = false;
+
+        buildLinkWidthIndex();
 
         // Update meta
         if (delta.meta) graphData.meta = delta.meta;
@@ -374,9 +372,6 @@
             loadingOverlay.style.display = 'none';
         }
 
-        if (activeTab === 'callgraph') {
-            renderCallGraph();
-        }
     }
 
     function setupRefresh() {
@@ -485,6 +480,16 @@
         var range = metricRanges[metric];
         if (!range || range.max === range.min) return 0;
         return (value - range.min) / (range.max - range.min);
+    }
+
+    function buildLinkWidthIndex() {
+        linkWidthNodeIndex = {};
+        var nodes = graphData ? graphData.nodes : null;
+        if (!nodes) return;
+        for (var i = 0; i < nodes.length; i++) {
+            var n = nodes[i];
+            linkWidthNodeIndex[n.id] = { fanIn: n.fanIn || 0, fanOut: n.fanOut || 0 };
+        }
     }
 
     // ============================================================
@@ -804,31 +809,92 @@
                     group.add(new T.Mesh(blastGlowGeo, blastGlowMat));
                 }
 
-                // Glow effect for selected node
+                // Glow / Bloom effect for selected node
                 if (isSelected) {
                     var nodeRadius = Math.cbrt(getNodeSize(node) || 1) * 1;
-                    var glowGeo = new T.SphereGeometry(nodeRadius * 3, 16, 16);
-                    var glowMat = new T.MeshBasicMaterial({
-                        color: 0x60a5fa,
-                        transparent: true,
-                        opacity: 0.25,
-                        blending: T.AdditiveBlending,
-                        depthWrite: false
-                    });
-                    var glow = new T.Mesh(glowGeo, glowMat);
-                    group.add(glow);
+                    var useBloom = graphSettings.selectedNodeEffect === 'bloom';
 
-                    // Inner brighter core
-                    var coreGeo = new T.SphereGeometry(nodeRadius * 1.8, 16, 16);
-                    var coreMat = new T.MeshBasicMaterial({
-                        color: 0x93c5fd,
-                        transparent: true,
-                        opacity: 0.4,
-                        blending: T.AdditiveBlending,
-                        depthWrite: false
-                    });
-                    var core = new T.Mesh(coreGeo, coreMat);
-                    group.add(core);
+                    if (useBloom) {
+                        // Bloom mode: wide, dramatic multi-layer additive halos
+                        var bloomR = graphSettings.bloomRadius;     // 0..2, default 0.6
+                        var bloomS = graphSettings.bloomStrength;   // 0..5, default 1.2
+
+                        // Outer soft bloom (large, very transparent)
+                        var outerGeo = new T.SphereGeometry(nodeRadius * (5 + bloomR * 5), 24, 24);
+                        var outerMat = new T.MeshBasicMaterial({
+                            color: 0x60a5fa,
+                            transparent: true,
+                            opacity: Math.min(0.5, 0.06 * bloomS + 0.04),
+                            blending: T.AdditiveBlending,
+                            depthWrite: false
+                        });
+                        group.add(new T.Mesh(outerGeo, outerMat));
+
+                        // Mid bloom
+                        var midGeo = new T.SphereGeometry(nodeRadius * (3 + bloomR * 3), 20, 20);
+                        var midMat = new T.MeshBasicMaterial({
+                            color: 0x60a5fa,
+                            transparent: true,
+                            opacity: Math.min(0.65, 0.15 * bloomS + 0.1),
+                            blending: T.AdditiveBlending,
+                            depthWrite: false
+                        });
+                        group.add(new T.Mesh(midGeo, midMat));
+
+                        // Inner bright core
+                        var coreGeo = new T.SphereGeometry(nodeRadius * (1.5 + bloomR * 1.5), 16, 16);
+                        var coreMat = new T.MeshBasicMaterial({
+                            color: 0x93c5fd,
+                            transparent: true,
+                            opacity: Math.min(0.85, 0.3 * bloomS + 0.2),
+                            blending: T.AdditiveBlending,
+                            depthWrite: false
+                        });
+                        group.add(new T.Mesh(coreGeo, coreMat));
+                    } else {
+                        // Glow mode: single subtle halo
+                        var glowGeo = new T.SphereGeometry(nodeRadius * 3, 16, 16);
+                        var glowMat = new T.MeshBasicMaterial({
+                            color: 0x60a5fa,
+                            transparent: true,
+                            opacity: 0.25,
+                            blending: T.AdditiveBlending,
+                            depthWrite: false
+                        });
+                        group.add(new T.Mesh(glowGeo, glowMat));
+
+                        var coreGeo = new T.SphereGeometry(nodeRadius * 1.8, 16, 16);
+                        var coreMat = new T.MeshBasicMaterial({
+                            color: 0x93c5fd,
+                            transparent: true,
+                            opacity: 0.4,
+                            blending: T.AdditiveBlending,
+                            depthWrite: false
+                        });
+                        group.add(new T.Mesh(coreGeo, coreMat));
+                    }
+                }
+
+                // Ambient bloom halo for high-importance nodes when bloom mode is active
+                if (!isSelected && graphSettings.selectedNodeEffect === 'bloom' && graphSettings.bloomThreshold < 1) {
+                    var fanIn = node.fanIn || 0;
+                    var maxFanIn = metricRanges.fanIn.max || 1;
+                    var fanPct = maxFanIn > 0 ? fanIn / maxFanIn : 0;
+                    if (fanPct >= graphSettings.bloomThreshold) {
+                        var ambRadius = Math.cbrt(getNodeSize(node) || 1) * (1.5 + graphSettings.bloomRadius * 2);
+                        var ambAlpha = (fanPct - graphSettings.bloomThreshold) / (1 - graphSettings.bloomThreshold) * graphSettings.bloomStrength * 0.15;
+                        if (ambAlpha > 0.005) {
+                            var ambGeo = new T.SphereGeometry(ambRadius, 8, 8);
+                            var ambMat = new T.MeshBasicMaterial({
+                                color: 0x60a5fa,
+                                transparent: true,
+                                opacity: Math.min(0.4, ambAlpha),
+                                blending: T.AdditiveBlending,
+                                depthWrite: false
+                            });
+                            group.add(new T.Mesh(ambGeo, ambMat));
+                        }
+                    }
                 }
 
                 // Label sprite
@@ -866,7 +932,14 @@
                 if (link.type === 'extends') return highlightLinks.has(link) ? 2.5 : 1;
                 if (link.type === 'implements') return highlightLinks.has(link) ? 2 : 0.8;
                 if (link.type === 'doc-reference') return highlightLinks.has(link) ? 1 : 0.25;
-                return highlightLinks.has(link) ? 2 : 0.5; 
+                // Scale base thickness by fan-in/out connectivity
+                var lwSrcId = typeof link.source === 'object' ? link.source.id : link.source;
+                var lwTgtId = typeof link.target === 'object' ? link.target.id : link.target;
+                var lwSrcNode = linkWidthNodeIndex[lwSrcId];
+                var lwTgtNode = linkWidthNodeIndex[lwTgtId];
+                var fanWeight = Math.log2(1 + (lwSrcNode ? lwSrcNode.fanOut || 0 : 0) + (lwTgtNode ? lwTgtNode.fanIn || 0 : 0));
+                var base = 0.15 + fanWeight * 0.18;
+                return highlightLinks.has(link) ? Math.max(1.5, base * 2.5) : Math.min(1.4, base); 
             })
             .linkOpacity(0.4)
             .linkDirectionalArrowLength(function(link) {
@@ -945,6 +1018,30 @@
             }
         });
         resizeObserver.observe(graphContainer);
+    }
+
+    function applyGraphSettings() {
+        if (!graph || !graphData) return;
+
+        // Link curvature
+        var useCurvature = graphSettings.linkStyle === 'curved';
+        graph.linkCurvature(useCurvature ? graphSettings.linkCurvature : 0);
+
+        // Clear cached Three.js objects so nodeThreeObject re-runs with
+        // the updated graphSettings (bloom/glow mode). 3d-force-graph
+        // transfers __threeObj from old to new nodes during graphData() —
+        // we must delete it first so the accessor is called again.
+        var currentNodes = graph.graphData().nodes;
+        if (currentNodes) {
+            for (var i = 0; i < currentNodes.length; i++) {
+                delete currentNodes[i].__threeObj;
+            }
+        }
+
+        // Re-feed filtered data; missing __threeObj triggers full node re-creation
+        var filtered = filterGraphData(graphData);
+        graph.graphData(filtered);
+        applySpreadForces();
     }
 
     // ============================================================
@@ -1291,8 +1388,18 @@
         }
         selectedNode = node;
 
-        // Refresh glow effect
-        if (graph) graph.nodeThreeObject(graph.nodeThreeObject());
+        // Refresh glow/bloom effect: clear cached Three.js objects so the
+        // nodeThreeObject accessor is re-evaluated on the next render frame.
+        if (graph) {
+            var gd = graph.graphData();
+            if (gd && gd.nodes) {
+                for (var gi = 0; gi < gd.nodes.length; gi++) {
+                    delete gd.nodes[gi].__threeObj;
+                }
+            }
+            graph.nodeThreeObject(graph.nodeThreeObject());
+            graph.d3ReheatSimulation();
+        }
 
         var distance = 120;
         var distRatio = 1 + distance / Math.hypot(node.x, node.y, node.z);
@@ -2863,12 +2970,6 @@
             heatmapMode: heatmapMode,
             nodeSizeMultiplier: nodeSizeMultiplier,
             spreadMultiplier: spreadMultiplier,
-            callGraphShowLabels: callGraphShowLabels,
-            callGraphNodeSizeMultiplier: callGraphNodeSizeMultiplier,
-            callGraphSpreadMultiplier: callGraphSpreadMultiplier,
-            callGraphMode: callGraphMode,
-            callGraphColorBy: callGraphColorBy,
-            callGraphMinWeight: callGraphMinWeight,
             focusDepth: focusDepth,
             showExplorer: showExplorer,
             showMinimap: !$('#minimap').classList.contains('hidden')
@@ -2926,36 +3027,6 @@
             spreadMultiplier = state.spreadMultiplier;
             var ss = $('#spread-slider');
             if (ss) ss.value = spreadMultiplier;
-        }
-        if (typeof state.callGraphShowLabels === 'boolean') {
-            callGraphShowLabels = state.callGraphShowLabels;
-            var cgl = $('#btn-callgraph-labels');
-            if (cgl) cgl.classList.toggle('active', callGraphShowLabels);
-        }
-        if (typeof state.callGraphNodeSizeMultiplier === 'number') {
-            callGraphNodeSizeMultiplier = state.callGraphNodeSizeMultiplier;
-            var cgn = $('#callgraph-node-size-slider');
-            if (cgn) cgn.value = callGraphNodeSizeMultiplier;
-        }
-        if (typeof state.callGraphSpreadMultiplier === 'number') {
-            callGraphSpreadMultiplier = state.callGraphSpreadMultiplier;
-            var cgs = $('#callgraph-spread-slider');
-            if (cgs) cgs.value = callGraphSpreadMultiplier;
-        }
-        if (state.callGraphMode) {
-            callGraphMode = state.callGraphMode;
-            var cgm = $('#callgraph-mode');
-            if (cgm) cgm.value = callGraphMode;
-        }
-        if (state.callGraphColorBy) {
-            callGraphColorBy = state.callGraphColorBy;
-            var cgc = $('#callgraph-color-by');
-            if (cgc) cgc.value = callGraphColorBy;
-        }
-        if (typeof state.callGraphMinWeight === 'number') {
-            callGraphMinWeight = state.callGraphMinWeight;
-            var cgw = $('#callgraph-min-weight');
-            if (cgw) cgw.value = String(callGraphMinWeight);
         }
         if (typeof state.focusDepth === 'number') {
             focusDepth = state.focusDepth;
@@ -3031,7 +3102,6 @@
                     if (btn.classList.contains('active')) activeLanguages.add(lang);
                     else activeLanguages.delete(lang);
                     applyFilters();
-                    if (activeTab === 'callgraph') renderCallGraph();
                     saveViewState();
                 });
             })(langBtns[i]);
@@ -4678,7 +4748,6 @@
         setupTreemap();
         setupDSM();
         setupChord();
-        setupCallGraph();
         setupTimelineChart();
     }
 
@@ -4686,7 +4755,6 @@
         if (tabName === activeTab) return;
         var prevTab = activeTab;
         activeTab = tabName;
-        document.body.classList.toggle('callgraph-mode', tabName === 'callgraph');
 
         // Update buttons
         var tabBtns = document.querySelectorAll('.tab-btn');
@@ -4705,9 +4773,7 @@
         var timeBar = $('#timeline-bar');
         var overlays = ['#heatmap-legend', '#community-palette', '#minimap', '#tooltip'];
 
-        if (tabName !== 'graph' && tabName !== 'callgraph') {
-            // Leaving graph — hide overlays, filter bar, timeline
-            // Save visibility state only when leaving the graph tab
+        if (tabName !== 'graph') {
             if (prevTab === 'graph') {
                 if (filterBar) filterBar._wasVisible = filterBar.style.display !== 'none';
                 if (timeBar) timeBar._wasVisible = !timeBar.classList.contains('hidden');
@@ -4716,7 +4782,6 @@
                     if (el) el._wasVisible = !el.classList.contains('hidden');
                 }
             }
-            // Always ensure graph-only UI is hidden on non-graph tabs
             if (filterBar) filterBar.style.display = 'none';
             if (timeBar) timeBar.classList.add('hidden');
             for (var i = 0; i < overlays.length; i++) {
@@ -4724,23 +4789,14 @@
                 if (el) el.classList.add('hidden');
             }
         } else {
-            // Returning to graph/callgraph — filter bar visible in both, timeline/overlays only on graph
             if (filterBar) filterBar.style.display = '';
-            if (tabName === 'graph') {
-                if (timeBar && timeBar._wasVisible) {
-                    timeBar.classList.remove('hidden');
-                }
-                for (var i = 0; i < overlays.length; i++) {
-                    var el = $(overlays[i]);
-                    if (el && el._wasVisible) {
-                        el.classList.remove('hidden');
-                    }
-                }
-            } else {
-                if (timeBar) timeBar.classList.add('hidden');
-                for (var i = 0; i < overlays.length; i++) {
-                    var el = $(overlays[i]);
-                    if (el) el.classList.add('hidden');
+            if (timeBar && timeBar._wasVisible) {
+                timeBar.classList.remove('hidden');
+            }
+            for (var i = 0; i < overlays.length; i++) {
+                var el = $(overlays[i]);
+                if (el && el._wasVisible) {
+                    el.classList.remove('hidden');
                 }
             }
         }
@@ -4752,31 +4808,11 @@
             pauseGraph();
         }
 
-        if (tabName === 'callgraph') {
-            resumeCallGraph();
-        } else {
-            pauseCallGraph();
-        }
-
         // Render tab content
         if (tabName === 'metrics') renderMetrics();
         if (tabName === 'treemap') renderTreemap();
         if (tabName === 'dsm') renderDSM();
         if (tabName === 'chord') renderChord();
-        if (tabName === 'callgraph') {
-            renderCallGraph();
-            requestAnimationFrame(function() {
-                if (activeTab === 'callgraph') {
-                    renderCallGraph();
-                    requestAnimationFrame(function() {
-                        if (activeTab === 'callgraph') renderCallGraph();
-                    });
-                }
-            });
-            setTimeout(function() {
-                if (activeTab === 'callgraph') renderCallGraph();
-            }, 120);
-        }
         if (tabName === 'timeline') renderTimelineChart();
         if (tabName === 'table') renderTable();
     }
@@ -4791,437 +4827,6 @@
         if (!graphPaused || !graph) return;
         graphPaused = false;
         graph.resumeAnimation();
-    }
-
-    function pauseCallGraph() {
-        if (callGraphPaused || !callGraph) return;
-        callGraphPaused = true;
-        callGraph.pauseAnimation();
-    }
-
-    function resumeCallGraph() {
-        if (!callGraphPaused || !callGraph) return;
-        callGraphPaused = false;
-        callGraph.resumeAnimation();
-    }
-
-    // ============================================================
-    // Call Graph View
-    // ============================================================
-    function setupCallGraph() {
-        var modeSel = $('#callgraph-mode');
-        var colorSel = $('#callgraph-color-by');
-        var minWeightSel = $('#callgraph-min-weight');
-        var maxNodesSel = $('#callgraph-max-nodes');
-        var perfSel = $('#callgraph-perf');
-        var labelsBtn = $('#btn-callgraph-labels');
-        var nodeSizeSel = $('#callgraph-node-size-slider');
-        var spreadSel = $('#callgraph-spread-slider');
-
-        if (modeSel) modeSel.addEventListener('change', function() {
-            callGraphMode = this.value === 'file' ? 'file' : 'symbol';
-            callGraphHasFramed = false;
-            callGraphDirty = true;
-            renderCallGraph();
-            saveViewState();
-        });
-        if (colorSel) colorSel.addEventListener('change', function() {
-            callGraphColorBy = this.value;
-            if (callGraph) {
-                callGraph.nodeColor(callGraph.nodeColor());
-                callGraph.linkColor(callGraph.linkColor());
-            }
-            saveViewState();
-        });
-        if (minWeightSel) minWeightSel.addEventListener('change', function() {
-            callGraphMinWeight = parseInt(this.value || '1', 10) || 1;
-            callGraphDirty = true;
-            renderCallGraph();
-            saveViewState();
-        });
-        if (maxNodesSel) maxNodesSel.addEventListener('change', function() {
-            callGraphMaxNodes = parseInt(this.value || '250', 10) || 250;
-            saveViewState();
-        });
-        if (perfSel) perfSel.addEventListener('change', function() {
-            callGraphPerfPreset = this.value || 'auto';
-            saveViewState();
-        });
-        if (labelsBtn) labelsBtn.addEventListener('click', function() {
-            callGraphShowLabels = !callGraphShowLabels;
-            labelsBtn.classList.toggle('active', callGraphShowLabels);
-            if (callGraph) callGraph.nodeThreeObject(callGraph.nodeThreeObject());
-            saveViewState();
-        });
-        if (nodeSizeSel) nodeSizeSel.addEventListener('input', function() {
-            callGraphNodeSizeMultiplier = parseFloat(this.value || '4') || 4;
-            if (callGraph) {
-                callGraph.nodeVal(callGraph.nodeVal());
-                callGraph.nodeThreeObject(callGraph.nodeThreeObject());
-            }
-            saveViewState();
-        });
-        if (spreadSel) spreadSel.addEventListener('input', function() {
-            callGraphSpreadMultiplier = parseFloat(this.value || '1') || 1;
-            if (callGraph) {
-                var charge = callGraph.d3Force('charge');
-                if (charge && typeof charge.strength === 'function') {
-                    charge.strength(-120 * callGraphSpreadMultiplier);
-                }
-                callGraph.d3ReheatSimulation();
-            }
-            saveViewState();
-        });
-    }
-
-    function buildCallGraphData(maxNodesLimit) {
-        if (!graphData) return null;
-        var fcalls = graphData.functionCalls || [];
-        var usedFallback = false;
-
-        // Fallback: reuse existing file-level function-call links if functionCalls
-        // are missing from the payload (DB cache / delta timing), no re-parse.
-        if (!fcalls || fcalls.length === 0) {
-            var fLinks = (graphData.links || []).filter(function(l) { return l.type === 'function-call'; });
-            if (fLinks.length > 0) {
-                fcalls = fLinks.map(function(l) {
-                    var src = typeof l.source === 'object' ? l.source.id : l.source;
-                    var tgt = typeof l.target === 'object' ? l.target.id : l.target;
-                    return {
-                        callerFile: src,
-                        callerName: '<file>',
-                        calleeFile: tgt,
-                        calleeName: '<file>',
-                        callLine: 0,
-                    };
-                });
-                usedFallback = true;
-            }
-        }
-
-        if (!fcalls || fcalls.length === 0) return { nodes: [], links: [], meta: { calls: 0, unresolved: 0, fallback: false } };
-
-        var nodeMeta = {};
-        var nodesSrc = graphData.nodes || [];
-        for (var i = 0; i < nodesSrc.length; i++) {
-            var n = nodesSrc[i];
-            nodeMeta[n.id] = {
-                language: n.language || 'unknown',
-                group: n.group || '.',
-                name: n.name || n.id,
-            };
-        }
-
-        var symbolMeta = {};
-        for (var i = 0; i < nodesSrc.length; i++) {
-            var n = nodesSrc[i];
-            if (!n.symbols) continue;
-            var funcs = n.symbols.functions || [];
-            var methods = n.symbols.methods || [];
-            for (var f = 0; f < funcs.length; f++) {
-                symbolMeta[n.id + '::' + funcs[f].name] = { kind: 'function', line: funcs[f].line || 0 };
-            }
-            for (var m = 0; m < methods.length; m++) {
-                symbolMeta[n.id + '::' + methods[m].name] = { kind: 'method', line: methods[m].line || 0 };
-            }
-        }
-
-        function toLangKey(language, filePath) {
-            if (language === 'c') {
-                return filePath && filePath.endsWith('.h') ? 'c-header' : 'c-source';
-            }
-            if (language === 'cpp') {
-                if (filePath && (filePath.endsWith('.hpp') || filePath.endsWith('.hxx') || filePath.endsWith('.hh'))) return 'cpp-header';
-                return 'cpp-source';
-            }
-            return language || 'unknown';
-        }
-
-        function isLangAllowed(langKey) {
-            // Keep unresolved endpoints visible; language filters apply only
-            // when we can reliably resolve a known language.
-            if (!langKey || langKey === 'unknown') return true;
-            return activeLanguages.has(langKey);
-        }
-
-        var agg = {};
-        var unresolved = 0;
-
-        for (var i = 0; i < fcalls.length; i++) {
-            var c = fcalls[i];
-            var srcMeta = nodeMeta[c.callerFile] || null;
-            var tgtMeta = nodeMeta[c.calleeFile] || null;
-            var srcLang = toLangKey(srcMeta ? srcMeta.language : 'unknown', c.callerFile || '');
-            var tgtLang = toLangKey(tgtMeta ? tgtMeta.language : 'unknown', c.calleeFile || '');
-            if (!isLangAllowed(srcLang) || !isLangAllowed(tgtLang)) continue;
-
-            var source = callGraphMode === 'file'
-                ? c.callerFile
-                : (c.callerFile + '::' + c.callerName);
-            var target = callGraphMode === 'file'
-                ? c.calleeFile
-                : (c.calleeFile + '::' + c.calleeName);
-
-            if (!source || !target || source === target) continue;
-
-            if (callGraphMode === 'symbol') {
-                if (!symbolMeta[source] || !symbolMeta[target]) unresolved++;
-            }
-
-            var key = source + '|' + target;
-            if (!agg[key]) agg[key] = { source: source, target: target, weight: 0, lines: [] };
-            agg[key].weight += 1;
-            if (agg[key].lines.length < 5) agg[key].lines.push(c.callLine || 0);
-        }
-
-        var links = [];
-        var degree = {};
-        var fanIn = {};
-        var fanOut = {};
-        var keys = Object.keys(agg);
-        for (var i = 0; i < keys.length; i++) {
-            var l = agg[keys[i]];
-            if (l.weight < callGraphMinWeight) continue;
-            links.push({ source: l.source, target: l.target, weight: l.weight, sampleLines: l.lines });
-            degree[l.source] = (degree[l.source] || 0) + l.weight;
-            degree[l.target] = (degree[l.target] || 0) + l.weight;
-            fanOut[l.source] = (fanOut[l.source] || 0) + l.weight;
-            fanIn[l.target] = (fanIn[l.target] || 0) + l.weight;
-        }
-
-        // Keep stable ordering, but do not cap nodes in the UI.
-        var nodeIds = Object.keys(degree).sort(function(a, b) { return (degree[b] || 0) - (degree[a] || 0); });
-        var limit = maxNodesLimit || Number.MAX_SAFE_INTEGER;
-        if (nodeIds.length > limit) nodeIds = nodeIds.slice(0, limit);
-        var nodeSet = new Set(nodeIds);
-
-        links = links.filter(function(l) { return nodeSet.has(l.source) && nodeSet.has(l.target); });
-
-        var nodes = [];
-        for (var i = 0; i < nodeIds.length; i++) {
-            var id = nodeIds[i];
-            if (callGraphMode === 'file') {
-                var fmeta = nodeMeta[id] || { language: 'unknown', group: '.', name: id.split('/').pop() || id };
-                nodes.push({
-                    id: id,
-                    file: id,
-                    label: fmeta.name,
-                    symbol: id,
-                    kind: 'file',
-                    line: 0,
-                    language: fmeta.language,
-                    group: fmeta.group,
-                    degree: degree[id] || 0,
-                    fanIn: fanIn[id] || 0,
-                    fanOut: fanOut[id] || 0,
-                });
-            } else {
-                var sep = id.lastIndexOf('::');
-                var file = sep >= 0 ? id.slice(0, sep) : id;
-                var sym = sep >= 0 ? id.slice(sep + 2) : id;
-                var fmeta = nodeMeta[file] || { language: 'unknown', group: '.', name: file.split('/').pop() || file };
-                var smeta = symbolMeta[id] || { kind: 'unknown', line: 0 };
-                nodes.push({
-                    id: id,
-                    file: file,
-                    label: sym + ' @ ' + (fmeta.name || file),
-                    symbol: sym,
-                    kind: smeta.kind || 'unknown',
-                    line: smeta.line || 0,
-                    language: fmeta.language,
-                    group: fmeta.group,
-                    degree: degree[id] || 0,
-                    fanIn: fanIn[id] || 0,
-                    fanOut: fanOut[id] || 0,
-                });
-            }
-        }
-
-        return { nodes: nodes, links: links, meta: { calls: fcalls.length, unresolved: unresolved, fallback: usedFallback } };
-    }
-
-    function resolveCallGraphPerfProfile() {
-        return { name: 'quality', maxNodesCap: Number.MAX_SAFE_INTEGER, alphaDecay: 0.03, velocityDecay: 0.5, particles: 0, camZ: 320 };
-    }
-
-    function getCallGraphNodeColor(n) {
-        if (callGraphColorBy === 'group') {
-            var hash = 0;
-            var g = n.group || '.';
-            for (var i = 0; i < g.length; i++) hash = ((hash << 5) - hash) + g.charCodeAt(i);
-            var idx = Math.abs(hash) % GROUP_COLORS.length;
-            return GROUP_COLORS[idx];
-        }
-        if (callGraphColorBy === 'community') {
-            var cid = communityMap[n.file] || 0;
-            return communityColors[cid] || GROUP_COLORS[cid % GROUP_COLORS.length];
-        }
-        return LANGUAGE_COLORS[n.language] || '#9fb3c8';
-    }
-
-    function getCallGraphRenderKey() {
-        var callCount = (graphData && graphData.functionCalls) ? graphData.functionCalls.length : 0;
-        var linkCount = (graphData && graphData.links) ? graphData.links.length : 0;
-        var analyzedAt = graphData && graphData.meta ? graphData.meta.analyzedAt : '';
-        return [analyzedAt, callCount, linkCount, callGraphMode, callGraphMinWeight].join('|');
-    }
-
-    function renderCallGraph() {
-        var container = $('#callgraph-container');
-        if (!container) return;
-        if (!graphData) return;
-        if (activeTab !== 'callgraph') return;
-        if (container.clientWidth <= 4 || container.clientHeight <= 4) {
-            requestAnimationFrame(function() {
-                if (activeTab === 'callgraph') renderCallGraph();
-            });
-            setTimeout(function() {
-                if (activeTab === 'callgraph') renderCallGraph();
-            }, 100);
-            return;
-        }
-
-        var perfProfile = resolveCallGraphPerfProfile();
-        var effectiveLimit = perfProfile.maxNodesCap;
-        var renderKey = getCallGraphRenderKey();
-
-        if (callGraph && !callGraphDirty && callGraphRenderKey === renderKey) {
-            callGraph.width(container.clientWidth);
-            callGraph.height(container.clientHeight);
-            callGraph.nodeColor(callGraph.nodeColor());
-            callGraph.linkColor(callGraph.linkColor());
-            callGraph.nodeThreeObject(callGraph.nodeThreeObject());
-            callGraph.nodeVal(callGraph.nodeVal());
-            container.style.visibility = '';
-            return;
-        }
-
-        callGraphData = buildCallGraphData(effectiveLimit);
-        if (!callGraphData || callGraphData.nodes.length === 0 || callGraphData.links.length === 0) {
-            container.innerHTML = '<div class="callgraph-empty">No function call graph available for current filters</div>';
-            var statsEmpty = $('#callgraph-stats');
-            if (statsEmpty) statsEmpty.textContent = '0 nodes · 0 links';
-            return;
-        }
-
-        var statsEl = $('#callgraph-stats');
-        if (statsEl) {
-            statsEl.textContent = callGraphData.nodes.length + ' nodes · ' + callGraphData.links.length +
-                ' links · ' + callGraphData.meta.calls + ' calls' +
-                (callGraphData.meta.unresolved > 0 ? ' · ' + callGraphData.meta.unresolved + ' unresolved' : '') +
-                (callGraphData.meta.fallback ? ' · fallback:file-links' : '') +
-                ' · min weight:' + callGraphMinWeight;
-        }
-
-        if (!callGraph) {
-            container.innerHTML = '';
-            callGraph = ForceGraph3D({ controlType: 'trackball' })(container)
-                .backgroundColor('#0d1117')
-                .showNavInfo(false)
-                .nodeLabel(function(n) {
-                    var lbl = '<b>' + escapeHtml(n.label || n.id) + '</b>';
-                    lbl += '<br>' + escapeHtml(n.file || '');
-                    if (n.kind && n.kind !== 'file') lbl += '<br>kind: ' + escapeHtml(n.kind);
-                    if (n.line) lbl += '<br>line: ' + n.line;
-                    lbl += '<br>fan-in: ' + (n.fanIn || 0) + ' · fan-out: ' + (n.fanOut || 0);
-                    lbl += '<br>degree: ' + (n.degree || 0);
-                    return lbl;
-                })
-                .nodeThreeObject(function(n) {
-                    if (!callGraphShowLabels) return null;
-                    var text = callGraphMode === 'file' ? (n.label || n.id) : (n.symbol || n.label || n.file || n.id);
-                    var sprite = getLabelSprite(text);
-                    if (sprite) {
-                        if (sprite.material) sprite.material.sizeAttenuation = true;
-                        sprite.position.y = Math.cbrt(Math.max(1, n.degree || 1)) * callGraphNodeSizeMultiplier + 2;
-                        return sprite;
-                    }
-                    return null;
-                })
-                .nodeThreeObjectExtend(true)
-                .linkLabel(function(l) {
-                    var src = l.source && l.source.id ? l.source.id : l.source;
-                    var tgt = l.target && l.target.id ? l.target.id : l.target;
-                    var txt = '<b>' + escapeHtml(String(src)) + '</b> → <b>' + escapeHtml(String(tgt)) + '</b>';
-                    txt += '<br>weight: ' + (l.weight || 0);
-                    if (l.sampleLines && l.sampleLines.length) {
-                        txt += '<br>sample lines: ' + l.sampleLines.join(', ');
-                    }
-                    return txt;
-                })
-                .nodeColor(function(n) { return getCallGraphNodeColor(n); })
-                .nodeRelSize(4)
-                .nodeVal(function(n) { return Math.max(1, Math.sqrt(n.degree || 1) * callGraphNodeSizeMultiplier); })
-                .linkColor(function() { return LINK_COLORS['function-call'] || '#81c784aa'; })
-                .linkWidth(function(l) { return Math.max(0.5, Math.min(2.5, Math.log((l.weight || 1) + 1))); })
-                .linkDirectionalArrowLength(2)
-                .linkDirectionalArrowRelPos(0.9)
-                .linkDirectionalParticles(perfProfile.particles)
-                .linkDirectionalParticleWidth(0)
-                .linkDirectionalParticleColor(function() { return LINK_COLORS['function-call'] || '#81c784aa'; })
-                .linkDirectionalParticleSpeed(function() { return 0; })
-                .onNodeClick(function(node) {
-                    if (!node || !node.file) return;
-                    vscode.postMessage({ type: 'openFile', payload: { path: node.file, line: node.line || undefined } });
-                })
-                .onEngineStop(function() {
-                    if (!callGraph || callGraphHasFramed) return;
-                    callGraphHasFramed = true;
-                    callGraph.zoomToFit(500, 50);
-                })
-                .warmupTicks(0)
-                .cooldownTicks(220)
-                .d3AlphaDecay(0.03)
-                .d3VelocityDecay(0.5);
-
-            // Match Graph 3D interaction feel (faster rotation/zoom/pan).
-            var cgControls = callGraph.controls && callGraph.controls();
-            if (cgControls) {
-                if (typeof cgControls.rotateSpeed === 'number') cgControls.rotateSpeed = 4.5;
-                if (typeof cgControls.zoomSpeed === 'number') cgControls.zoomSpeed = 1.8;
-                if (typeof cgControls.panSpeed === 'number') cgControls.panSpeed = 1.2;
-                if (typeof cgControls.dynamicDampingFactor === 'number') cgControls.dynamicDampingFactor = 0.15;
-                if ('staticMoving' in cgControls) cgControls.staticMoving = false;
-            }
-
-            if (!callGraphResizeObserver) {
-                callGraphResizeObserver = new ResizeObserver(function() {
-                    if (!callGraph || activeTab !== 'callgraph') return;
-                    var w = container.clientWidth;
-                    var h = container.clientHeight;
-                    if (w > 4 && h > 4) {
-                        callGraph.width(w);
-                        callGraph.height(h);
-                        callGraph.d3ReheatSimulation();
-                    }
-                });
-                callGraphResizeObserver.observe(container);
-            }
-        }
-
-        callGraph.graphData(callGraphData);
-        callGraph.width(container.clientWidth);
-        callGraph.height(container.clientHeight);
-        callGraph.numDimensions(3);
-        callGraph.d3AlphaDecay(0.03);
-        callGraph.d3VelocityDecay(0.5);
-        var charge = callGraph.d3Force('charge');
-        if (charge && typeof charge.strength === 'function') {
-            charge.strength(-120 * callGraphSpreadMultiplier);
-        }
-        callGraph.d3ReheatSimulation();
-        callGraph.linkDirectionalParticles(perfProfile.particles);
-        callGraph.nodeThreeObject(callGraph.nodeThreeObject());
-        callGraph.nodeVal(callGraph.nodeVal());
-        callGraphRenderKey = renderKey;
-        callGraphDirty = false;
-
-        requestAnimationFrame(function() {
-            if (callGraph && activeTab === 'callgraph' && callGraphHasFramed) {
-                callGraph.width(container.clientWidth);
-                callGraph.height(container.clientHeight);
-            }
-        });
     }
 
     // ============================================================
