@@ -275,7 +275,7 @@ export class TreeSitterJSParser extends BaseParser {
                 if (spec.type === 'export_specifier') {
                     const nameNode = spec.childForFieldName('name');
                     if (nameNode && !JS_KEYWORDS.has(nameNode.text)) {
-                        symbols.exports.push({ name: nameNode.text, type: 'export-named' });
+                        symbols.exports.push({ name: nameNode.text, type: 'export-named', line: nameNode.startPosition.row + 1 });
                     }
                 }
             }
@@ -292,6 +292,7 @@ export class TreeSitterJSParser extends BaseParser {
                     if (name) {
                         symbols.exports.push({
                             name,
+                            line: child.startPosition.row + 1,
                             type: isDefault ? 'export-default' : 'export-function',
                         });
                         // Also add as function
@@ -304,6 +305,7 @@ export class TreeSitterJSParser extends BaseParser {
                     if (name) {
                         symbols.exports.push({
                             name,
+                            line: child.startPosition.row + 1,
                             type: isDefault ? 'export-default' : 'export-class',
                         });
                         this.extractClass(child, symbols);
@@ -320,6 +322,7 @@ export class TreeSitterJSParser extends BaseParser {
                             if (name && !JS_KEYWORDS.has(name)) {
                                 symbols.exports.push({
                                     name,
+                                    line: decl.startPosition.row + 1,
                                     type: isDefault ? 'export-default' : 'export-variable',
                                 });
                             }
@@ -336,7 +339,7 @@ export class TreeSitterJSParser extends BaseParser {
             for (let i = 0; i < node.childCount; i++) {
                 const child = node.child(i)!;
                 if (child.type === 'identifier' && !JS_KEYWORDS.has(child.text)) {
-                    symbols.exports.push({ name: child.text, type: 'export-default' });
+                    symbols.exports.push({ name: child.text, type: 'export-default', line: child.startPosition.row + 1 });
                     break;
                 }
             }

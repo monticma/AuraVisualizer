@@ -159,7 +159,7 @@ export class TreeSitterRustParser extends BaseParser {
         symbols.functions.push(sym);
 
         if (isPub) {
-            symbols.exports.push({ name, type: 'export-function' });
+            symbols.exports.push({ name, type: 'export-function', line });
         }
     }
 
@@ -173,7 +173,7 @@ export class TreeSitterRustParser extends BaseParser {
         symbols.structs.push({ name, type: 'struct', line });
 
         if (isPub) {
-            symbols.exports.push({ name, type: 'export-struct' });
+            symbols.exports.push({ name, type: 'export-struct', line });
         }
     }
 
@@ -187,7 +187,7 @@ export class TreeSitterRustParser extends BaseParser {
         symbols.enums.push({ name, type: 'enum', line });
 
         if (isPub) {
-            symbols.exports.push({ name, type: 'export-enum' });
+            symbols.exports.push({ name, type: 'export-enum', line });
         }
     }
 
@@ -201,7 +201,7 @@ export class TreeSitterRustParser extends BaseParser {
         symbols.traits.push({ name, type: 'trait', line });
 
         if (isPub) {
-            symbols.exports.push({ name, type: 'export-trait' });
+            symbols.exports.push({ name, type: 'export-trait', line });
         }
     }
 

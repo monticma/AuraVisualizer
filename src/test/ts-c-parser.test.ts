@@ -102,6 +102,7 @@ describe('TreeSitterCParser.extractSymbolsAST', () => {
         const file = makeFileInfo({ id: 'types.h', content, language: 'c', extension: '.h' });
         const symbols = parser.extractSymbolsAST(t, file);
         expect(symbols.structs.some(s => s.name === 'Point')).toBe(true);
+        expect(symbols.structs.find(s => s.name === 'Point')?.line).toBe(1);
     });
 
     it('extracts typedef structs', async () => {
@@ -110,6 +111,7 @@ describe('TreeSitterCParser.extractSymbolsAST', () => {
         const file = makeFileInfo({ id: 'types.h', content, language: 'c', extension: '.h' });
         const symbols = parser.extractSymbolsAST(t, file);
         expect(symbols.structs.some(s => s.name === 'Vec2' && s.type === 'typedef-struct')).toBe(true);
+        expect(symbols.structs.find(s => s.name === 'Vec2')?.line).toBe(4);
     });
 
     it('extracts enums', async () => {
@@ -119,6 +121,7 @@ describe('TreeSitterCParser.extractSymbolsAST', () => {
         const symbols = parser.extractSymbolsAST(t, file);
         expect(symbols.enums).toHaveLength(1);
         expect(symbols.enums[0].name).toBe('Color');
+        expect(symbols.enums[0].line).toBe(1);
     });
 
     it('extracts macros (constant and function-like)', async () => {
@@ -131,6 +134,8 @@ describe('TreeSitterCParser.extractSymbolsAST', () => {
         const funcMacro = symbols.macros.find(m => m.name === 'MIN');
         expect(constant?.type).toBe('constant-macro');
         expect(funcMacro?.type).toBe('function-macro');
+        expect(constant?.line).toBe(1);
+        expect(funcMacro?.line).toBe(2);
     });
 
     it('extracts extern declarations', async () => {

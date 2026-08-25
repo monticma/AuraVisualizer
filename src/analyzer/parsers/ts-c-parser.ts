@@ -177,7 +177,7 @@ export class TreeSitterCParser extends BaseParser {
             // The typedef name is the last identifier child of type_definition
             const typeId = this.findChild(node, 'type_identifier');
             if (typeId) {
-                symbols.structs.push({ name: typeId.text, type: 'typedef-struct' });
+                symbols.structs.push({ name: typeId.text, type: 'typedef-struct', line: typeId.startPosition.row + 1 });
             } else {
                 // Named struct inside typedef: typedef struct X { } X;
                 this.extractStruct(structSpec, symbols, 'struct');
@@ -190,7 +190,7 @@ export class TreeSitterCParser extends BaseParser {
         if (enumSpec) {
             const typeId = this.findChild(node, 'type_identifier');
             if (typeId) {
-                symbols.enums.push({ name: typeId.text, type: 'enum' });
+                symbols.enums.push({ name: typeId.text, type: 'enum', line: typeId.startPosition.row + 1 });
             } else {
                 this.extractEnum(enumSpec, symbols);
             }
@@ -200,14 +200,14 @@ export class TreeSitterCParser extends BaseParser {
     private extractStruct(node: Parser.SyntaxNode, symbols: FileSymbols, kind: string): void {
         const nameNode = node.childForFieldName('name');
         if (nameNode) {
-            symbols.structs.push({ name: nameNode.text, type: kind });
+            symbols.structs.push({ name: nameNode.text, type: kind, line: node.startPosition.row + 1 });
         }
     }
 
     private extractEnum(node: Parser.SyntaxNode, symbols: FileSymbols): void {
         const nameNode = node.childForFieldName('name');
         if (nameNode) {
-            symbols.enums.push({ name: nameNode.text, type: 'enum' });
+            symbols.enums.push({ name: nameNode.text, type: 'enum', line: node.startPosition.row + 1 });
         }
     }
 
@@ -217,6 +217,7 @@ export class TreeSitterCParser extends BaseParser {
             symbols.macros.push({
                 name: nameNode.text,
                 type: isFunctionLike ? 'function-macro' : 'constant-macro',
+                line: node.startPosition.row + 1,
             });
         }
     }

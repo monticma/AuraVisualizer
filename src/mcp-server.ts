@@ -6,7 +6,7 @@
  *
  * Reads the SQLite database at AURA_DB_PATH (env var) and serves:
  *   - 3 resources  (overview, nodes, node detail)
- *   - 11 tools     (find_dependencies, find_dependents, find_path, etc.)
+ *   - 14 tools     (find_dependencies, find_dependents, find_path, resolve_context, etc.)
  *
  * Transport: stdio (standard for local MCP servers).
  * Launched by VS Code's MCP configuration (.vscode/mcp.json).
@@ -23,6 +23,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import initSqlJs from 'sql.js';
 import { GraphDB } from './graph-db';
+import { resolveContext } from './mcp/context';
 
 // ── Env ────────────────────────────────────────────────────────
 
@@ -183,6 +184,18 @@ const TOOLS = [
             required: ['query'],
         },
     },
+    {
+        name: 'resolve_context',
+        description: 'Given a natural-language task description, return the most relevant files ranked with exact path:line anchors, metrics, and a 1-hop dependency neighborhood — ready-to-work context for an AI agent. Deterministic (no LLM).',
+        inputSchema: {
+            type: 'object' as const,
+            properties: {
+                task: { type: 'string', description: 'Task description, e.g. "add oauth login" or "fix rate limiting on the public API"' },
+                limit: { type: 'number', description: 'Maximum number of files to return (default: 10)' },
+            },
+            required: ['task'],
+        },
+    },
 ];
 
 // ── Tool handlers ──────────────────────────────────────────────
@@ -276,6 +289,12 @@ function handleTool(db: GraphDB, name: string, args: Record<string, unknown>): u
                     ? 'No documentation matched. The project may not have indexed any Markdown / text / rst files yet.'
                     : 'Results ranked by keyword-frequency score (higher = better). Section heading matches are weighted 3× over body matches.',
             };
+        }
+        case 'resolve_context': {
+            const task = args.task as string;
+            if (!task) throw new Error('The "task" argument is required');
+            const limit = (args.limit as number) || 10;
+            return resolveContext(db, task, limit);
         }
         case 'get_hotspots': {
             const limit = (args.limit as number) || 20;
@@ -508,7 +527,7 @@ async function main(): Promise<void> {
     db.openSync(SQL, DB_PATH!);
 
     const server = new Server(
-        { name: 'aura', version: '1.0.0' },
+        { name: 'aura', version: '1.1.0' },
         {
             capabilities: {
                 resources: {},

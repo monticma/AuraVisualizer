@@ -74,7 +74,7 @@ export class TreeSitterTSParser extends TreeSitterJSParser {
             if (child.type === 'interface_declaration') {
                 const name = child.childForFieldName('name')?.text;
                 if (name) {
-                    symbols.exports.push({ name, type: 'export-interface' });
+                    symbols.exports.push({ name, type: 'export-interface', line: child.startPosition.row + 1 });
                     this.extractInterface(child, symbols);
                 }
                 return;
@@ -82,7 +82,7 @@ export class TreeSitterTSParser extends TreeSitterJSParser {
             if (child.type === 'type_alias_declaration') {
                 const name = child.childForFieldName('name')?.text;
                 if (name) {
-                    symbols.exports.push({ name, type: 'export-type-alias' });
+                    symbols.exports.push({ name, type: 'export-type-alias', line: child.startPosition.row + 1 });
                     this.extractTypeAlias(child, symbols);
                 }
                 return;
@@ -98,7 +98,7 @@ export class TreeSitterTSParser extends TreeSitterJSParser {
                     if (spec.type === 'export_specifier') {
                         const nameNode = spec.childForFieldName('name');
                         if (nameNode) {
-                            symbols.exports.push({ name: nameNode.text, type: 'export-type' });
+                            symbols.exports.push({ name: nameNode.text, type: 'export-type', line: nameNode.startPosition.row + 1 });
                         }
                     }
                 }

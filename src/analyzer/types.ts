@@ -59,11 +59,11 @@ export interface FileSymbols {
 
 export interface NodeSymbols {
     functions: { name: string; returnType: string; params: string; line: number; type: string; visibility?: string; isStatic?: boolean; isAsync?: boolean }[];
-    structs: { name: string; type: string }[];
-    enums: { name: string; type: string }[];
-    macros: { name: string; type: string }[];
-    classes: { name: string; type: string }[];
-    exports: { name: string; type: string }[];
+    structs: { name: string; type: string; line: number }[];
+    enums: { name: string; type: string; line: number }[];
+    macros: { name: string; type: string; line: number }[];
+    classes: { name: string; type: string; line: number }[];
+    exports: { name: string; type: string; line: number }[];
     interfaces: { name: string; type: string }[];
     traits: { name: string; type: string }[];
     typeAliases: { name: string; type: string }[];

@@ -334,11 +334,11 @@ export class GraphDB {
                     db.run(insertSymbol,
                         [n.id, m.name, m.type || 'method', m.returnType || '', m.params || '', m.line || 0, deadSet.has(m.name) ? 1 : 0, m.visibility || 'public', m.isStatic ? 1 : 0, m.isAsync ? 1 : 0]);
                 }
-                for (const s of n.symbols.structs)  db.run(insertSymbol, [n.id, s.name, s.type || 'struct', '', '', 0, 0, 'public', 0, 0]);
-                for (const e of n.symbols.enums)    db.run(insertSymbol, [n.id, e.name, e.type || 'enum', '', '', 0, 0, 'public', 0, 0]);
-                for (const m of n.symbols.macros)   db.run(insertSymbol, [n.id, m.name, m.type || 'macro', '', '', 0, 0, 'public', 0, 0]);
-                for (const c of n.symbols.classes)  db.run(insertSymbol, [n.id, c.name, c.type || 'class', '', '', 0, deadSet.has(c.name) ? 1 : 0, 'public', 0, 0]);
-                for (const ex of n.symbols.exports) db.run(insertSymbol, [n.id, ex.name, ex.type || 'export', '', '', 0, deadSet.has(ex.name) ? 1 : 0, 'public', 0, 0]);
+                for (const s of n.symbols.structs)  db.run(insertSymbol, [n.id, s.name, s.type || 'struct', '', '', s.line || 0, 0, 'public', 0, 0]);
+                for (const e of n.symbols.enums)    db.run(insertSymbol, [n.id, e.name, e.type || 'enum', '', '', e.line || 0, 0, 'public', 0, 0]);
+                for (const m of n.symbols.macros)   db.run(insertSymbol, [n.id, m.name, m.type || 'macro', '', '', m.line || 0, 0, 'public', 0, 0]);
+                for (const c of n.symbols.classes)  db.run(insertSymbol, [n.id, c.name, c.type || 'class', '', '', c.line || 0, deadSet.has(c.name) ? 1 : 0, 'public', 0, 0]);
+                for (const ex of n.symbols.exports) db.run(insertSymbol, [n.id, ex.name, ex.type || 'export', '', '', ex.line || 0, deadSet.has(ex.name) ? 1 : 0, 'public', 0, 0]);
                 for (const i of n.symbols.interfaces || [])  db.run(insertSymbol, [n.id, i.name, i.type || 'interface', '', '', i.line || 0, 0, i.visibility || 'public', 0, 0]);
                 for (const t of n.symbols.traits || [])      db.run(insertSymbol, [n.id, t.name, t.type || 'trait', '', '', t.line || 0, 0, t.visibility || 'public', 0, 0]);
                 for (const ta of n.symbols.typeAliases || []) db.run(insertSymbol, [n.id, ta.name, ta.type || 'type_alias', '', '', ta.line || 0, 0, ta.visibility || 'public', 0, 0]);
@@ -459,11 +459,11 @@ export class GraphDB {
                 for (const m of node.symbols.methods || []) {
                     db.run(ins, [fileId, m.name, m.type || 'method', m.returnType || '', m.params || '', m.line || 0, deadSet.has(m.name) ? 1 : 0, m.visibility || 'public', m.isStatic ? 1 : 0, m.isAsync ? 1 : 0]);
                 }
-                for (const s of node.symbols.structs)  db.run(ins, [fileId, s.name, s.type || 'struct', '', '', 0, 0, 'public', 0, 0]);
-                for (const e of node.symbols.enums)     db.run(ins, [fileId, e.name, e.type || 'enum', '', '', 0, 0, 'public', 0, 0]);
-                for (const m of node.symbols.macros)    db.run(ins, [fileId, m.name, m.type || 'macro', '', '', 0, 0, 'public', 0, 0]);
-                for (const c of node.symbols.classes)   db.run(ins, [fileId, c.name, c.type || 'class', '', '', 0, deadSet.has(c.name) ? 1 : 0, 'public', 0, 0]);
-                for (const ex of node.symbols.exports)  db.run(ins, [fileId, ex.name, ex.type || 'export', '', '', 0, deadSet.has(ex.name) ? 1 : 0, 'public', 0, 0]);
+                for (const s of node.symbols.structs)  db.run(ins, [fileId, s.name, s.type || 'struct', '', '', s.line || 0, 0, 'public', 0, 0]);
+                for (const e of node.symbols.enums)     db.run(ins, [fileId, e.name, e.type || 'enum', '', '', e.line || 0, 0, 'public', 0, 0]);
+                for (const m of node.symbols.macros)    db.run(ins, [fileId, m.name, m.type || 'macro', '', '', m.line || 0, 0, 'public', 0, 0]);
+                for (const c of node.symbols.classes)   db.run(ins, [fileId, c.name, c.type || 'class', '', '', c.line || 0, deadSet.has(c.name) ? 1 : 0, 'public', 0, 0]);
+                for (const ex of node.symbols.exports)  db.run(ins, [fileId, ex.name, ex.type || 'export', '', '', ex.line || 0, deadSet.has(ex.name) ? 1 : 0, 'public', 0, 0]);
                 for (const i of node.symbols.interfaces || [])  db.run(ins, [fileId, i.name, i.type || 'interface', '', '', i.line || 0, 0, i.visibility || 'public', 0, 0]);
                 for (const t of node.symbols.traits || [])      db.run(ins, [fileId, t.name, t.type || 'trait', '', '', t.line || 0, 0, t.visibility || 'public', 0, 0]);
                 for (const ta of node.symbols.typeAliases || []) db.run(ins, [fileId, ta.name, ta.type || 'type_alias', '', '', ta.line || 0, 0, ta.visibility || 'public', 0, 0]);
@@ -540,11 +540,11 @@ export class GraphDB {
                 name: s.name, returnType: s.return_type, params: s.params,
                 line: s.line, type: s.kind, visibility: s.visibility, isStatic: !!s.is_static, isAsync: !!s.is_async,
             }));
-            const structs = syms.filter(s => s.kind === 'struct').map(s => ({ name: s.name, type: s.kind }));
-            const enums = syms.filter(s => s.kind === 'enum').map(s => ({ name: s.name, type: s.kind }));
-            const macros = syms.filter(s => s.kind === 'macro').map(s => ({ name: s.name, type: s.kind }));
-            const classes = syms.filter(s => s.kind === 'class').map(s => ({ name: s.name, type: s.kind }));
-            const exports = syms.filter(s => s.kind === 'export').map(s => ({ name: s.name, type: s.kind }));
+            const structs = syms.filter(s => s.kind === 'struct').map(s => ({ name: s.name, type: s.kind, line: s.line }));
+            const enums = syms.filter(s => s.kind === 'enum').map(s => ({ name: s.name, type: s.kind, line: s.line }));
+            const macros = syms.filter(s => s.kind === 'macro').map(s => ({ name: s.name, type: s.kind, line: s.line }));
+            const classes = syms.filter(s => s.kind === 'class').map(s => ({ name: s.name, type: s.kind, line: s.line }));
+            const exports = syms.filter(s => s.kind === 'export').map(s => ({ name: s.name, type: s.kind, line: s.line }));
             const interfaces = syms.filter(s => s.kind === 'interface').map(s => ({ name: s.name, type: s.kind }));
             const traits = syms.filter(s => s.kind === 'trait').map(s => ({ name: s.name, type: s.kind }));
             const typeAliases = syms.filter(s => s.kind === 'type_alias').map(s => ({ name: s.name, type: s.kind }));

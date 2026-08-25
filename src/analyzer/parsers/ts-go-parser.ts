@@ -120,7 +120,7 @@ export class TreeSitterGoParser extends BaseParser {
         symbols.functions.push(sym);
 
         if (isExported) {
-            symbols.exports.push({ name, type: 'export-function' });
+            symbols.exports.push({ name, type: 'export-function', line });
         }
     }
 
@@ -146,7 +146,7 @@ export class TreeSitterGoParser extends BaseParser {
         symbols.methods.push(sym);
 
         if (isExported) {
-            symbols.exports.push({ name, type: 'export-method' });
+            symbols.exports.push({ name, type: 'export-method', line: node.startPosition.row + 1 });
         }
     }
 
@@ -165,12 +165,12 @@ export class TreeSitterGoParser extends BaseParser {
         if (defNode.type === 'struct_type') {
             symbols.structs.push({ name, type: 'struct', line });
             if (isExported) {
-                symbols.exports.push({ name, type: 'export-struct' });
+                symbols.exports.push({ name, type: 'export-struct', line });
             }
         } else if (defNode.type === 'interface_type') {
             symbols.interfaces.push({ name, type: 'interface', line });
             if (isExported) {
-                symbols.exports.push({ name, type: 'export-interface' });
+                symbols.exports.push({ name, type: 'export-interface', line });
             }
         }
     }

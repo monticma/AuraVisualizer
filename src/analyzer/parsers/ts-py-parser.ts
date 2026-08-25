@@ -270,7 +270,7 @@ export class TreeSitterPyParser extends BaseParser {
             if (child.type === 'string') {
                 const name = this.stripPyString(child.text);
                 if (name) {
-                    symbols.exports.push({ name, type: 'export-all' });
+                    symbols.exports.push({ name, type: 'export-all', line: child.startPosition.row + 1 });
                 }
             }
         }
