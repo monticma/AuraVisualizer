@@ -30,7 +30,8 @@
         fanin: 'fanIn',
         fanout: 'fanOut',
         size: 'size',
-        mtime: 'mtime',
+        mtime: 'lastModified',
+        lastmodified: 'lastModified',
         deadexports: '_deadCount',
         symbolscount: '_symbolsCount',
         symbols: '_symbolsCount'
@@ -54,7 +55,7 @@
         // Compute derived properties on the fly (cheap, no caching needed
         // since node ids are evaluated at most once per query run).
         node._deadCount = (node.deadExports && node.deadExports.length) || 0;
-        node._symbolsCount = (node.symbols && node.symbols.length) || 0;
+        node._symbolsCount = (node.symbols && node.symbols.totalSymbols) || 0;
         node._communityName = ctx.communityName(node.id) || '';
         node._isOrphan = (node.fanIn === 0 && node.fanOut === 0);
         node._isDead = node._deadCount > 0;
@@ -232,6 +233,8 @@
                 eat(TOK.RBRACK);
                 return arr;
             }
+            // Bare identifiers treated as strings for convenience (e.g. language == javascript)
+            if (t.type === TOK.IDENT) { i++; return t.value; }
             throw qerr('Expected literal value', t.pos);
         }
 

@@ -19,12 +19,16 @@ import { getCommitIndex, getFileAtCommit, isGitRepo } from './analyzer/git-histo
 import { computeComplexity } from './analyzer/complexity';
 import { initTreeSitter, parseSource, hasGrammar } from './analyzer/tree-sitter-loader';
 import { TreeSitterCParser } from './analyzer/parsers/ts-c-parser';
+import { TreeSitterCppParser } from './analyzer/parsers/ts-cpp-parser';
 import { TreeSitterJSParser } from './analyzer/parsers/ts-js-parser';
 import { TreeSitterTSParser } from './analyzer/parsers/ts-ts-parser';
 import { TreeSitterPyParser } from './analyzer/parsers/ts-py-parser';
 import { TreeSitterJavaParser } from './analyzer/parsers/ts-java-parser';
 import { TreeSitterGoParser } from './analyzer/parsers/ts-go-parser';
 import { TreeSitterRustParser } from './analyzer/parsers/ts-rust-parser';
+import { TreeSitterKotlinParser } from './analyzer/parsers/ts-kotlin-parser';
+import { TreeSitterRubyParser } from './analyzer/parsers/ts-ruby-parser';
+import { TreeSitterSwiftParser } from './analyzer/parsers/ts-swift-parser';
 import { HTMLParser } from './analyzer/parsers/html-parser';
 import { CSSParser } from './analyzer/parsers/css-parser';
 import type { BaseParser } from './analyzer/parsers/base-parser';
@@ -38,22 +42,32 @@ interface HistoryWorkerInput {
 
 const LANGUAGE_MAP: Record<string, string> = {
     '.c': 'c', '.h': 'c',
+    '.cpp': 'cpp', '.cc': 'cpp', '.cxx': 'cpp',
+    '.hpp': 'cpp', '.hxx': 'cpp', '.hh': 'cpp',
     '.js': 'javascript', '.ts': 'typescript',
     '.py': 'python', '.css': 'css',
     '.html': 'html', '.htm': 'html',
-    '.java': 'java', '.go': 'go', '.rs': 'rust'
+    '.java': 'java', '.go': 'go', '.rs': 'rust',
+    '.kt': 'kotlin', '.kts': 'kotlin',
+    '.rb': 'ruby', '.swift': 'swift',
+    '.md': 'documentation', '.markdown': 'documentation',
+    '.txt': 'documentation', '.rst': 'documentation'
 };
 
 const SUPPORTED_EXTENSIONS = new Set(Object.keys(LANGUAGE_MAP));
 
 const PARSER_REGISTRY: Record<string, BaseParser> = {
     'c': new TreeSitterCParser(),
+    'cpp': new TreeSitterCppParser(),
     'javascript': new TreeSitterJSParser(),
     'typescript': new TreeSitterTSParser(),
     'python': new TreeSitterPyParser(),
     'java': new TreeSitterJavaParser(),
     'go': new TreeSitterGoParser(),
     'rust': new TreeSitterRustParser(),
+    'kotlin': new TreeSitterKotlinParser(),
+    'ruby': new TreeSitterRubyParser(),
+    'swift': new TreeSitterSwiftParser(),
     'html': new HTMLParser(),
     'css': new CSSParser()
 };
@@ -63,7 +77,7 @@ const LANG_FAMILY: Record<string, string> = {
     'java': 'java', 'go': 'go', 'rust': 'rust'
 };
 
-const SYMBOL_LANGUAGES = new Set(['c', 'javascript', 'typescript', 'python', 'java', 'go', 'rust']);
+const SYMBOL_LANGUAGES = new Set(['c', 'cpp', 'javascript', 'typescript', 'python', 'java', 'go', 'rust', 'kotlin', 'ruby', 'swift']);
 
 function post(msg: unknown): void {
     parentPort?.postMessage(msg);
@@ -183,7 +197,7 @@ function resolveTarget(
     if (existingFiles.has(relativePath)) return relativePath;
 
     // Try extensions
-    const tryExts = ['.js', '.ts', '.py', '.c', '.h', '.css', '.html', '.java', '.go', '.rs'];
+    const tryExts = ['.js', '.ts', '.py', '.c', '.h', '.cpp', '.hpp', '.css', '.html', '.java', '.go', '.rs', '.kt', '.rb', '.swift', '.md'];
     for (const ext of tryExts) {
         if (existingFiles.has(relativePath + ext)) return relativePath + ext;
     }

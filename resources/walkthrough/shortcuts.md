@@ -4,6 +4,7 @@ Quick access to every feature without leaving the keyboard.
 
 | Key | Action |
 |-----|--------|
+| `Ctrl+K` | Open the query filter bar |
 | `F` | Fit to view / recenter camera |
 | `L` | Toggle node labels |
 | `G` | Toggle directory groups |
@@ -23,7 +24,8 @@ Quick access to every feature without leaving the keyboard.
 
 | Button | Effect |
 |--------|--------|
-| **🗺️ Map** | Toggle the minimap — real-time overview that rotates with the camera |
+| **� Query** | Toggle the query filter bar (also `Ctrl+K`) — filter / highlight / select files by metric |
+| **�🗺️ Map** | Toggle the minimap — real-time overview that rotates with the camera |
 
 ### Toolbar sliders
 

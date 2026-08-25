@@ -5,6 +5,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import type { GraphData } from '../analyzer/index';
+import type { GraphDB } from '../graph-db';
 
 export class WebviewProvider {
     public static readonly viewType = 'auraVisualizer.graphView';
@@ -23,9 +24,12 @@ export class WebviewProvider {
 
     private static readonly VIEW_STATE_KEY = 'aura.viewState';
 
-    constructor(extensionUri: vscode.Uri, workspaceState: vscode.Memento) {
+    private getGraphDB: () => GraphDB | undefined;
+
+    constructor(extensionUri: vscode.Uri, workspaceState: vscode.Memento, getGraphDB: () => GraphDB | undefined = () => undefined) {
         this.extensionUri = extensionUri;
         this.workspaceState = workspaceState;
+        this.getGraphDB = getGraphDB;
     }
 
     public show(): vscode.WebviewPanel {
@@ -119,6 +123,38 @@ export class WebviewProvider {
                     case 'requestViewState':
                         this.sendSavedViewState();
                         break;
+                    case 'requestSavedQueries': {
+                        const db = this.getGraphDB();
+                        let queries: Array<{ id: string; name: string; expr: string; mode: string; createdAt: number }> = [];
+                        if (db) {
+                            try { queries = db.listSavedQueries().map(q => ({ id: q.id, name: q.name, expr: q.expr, mode: q.mode, createdAt: q.createdAt })); }
+                            catch (err) { console.error('[aura] listSavedQueries failed:', err); }
+                        }
+                        this.panel?.webview.postMessage({ type: 'savedQueries', payload: { queries } });
+                        break;
+                    }
+                    case 'addSavedQuery': {
+                        const db = this.getGraphDB();
+                        const p = (message.payload || {}) as { id?: string; name?: string; expr?: string; mode?: string };
+                        if (db && p.expr) {
+                            const name = p.name || (p.expr.length > 50 ? p.expr.slice(0, 47) + '...' : p.expr);
+                            const id = p.id || 'q_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+                            db.addSavedQuery({ id, name, expr: p.expr, mode: p.mode || 'highlight' });
+                            const queries = db.listSavedQueries().map(q => ({ id: q.id, name: q.name, expr: q.expr, mode: q.mode, createdAt: q.createdAt }));
+                            this.panel?.webview.postMessage({ type: 'savedQueries', payload: { queries } });
+                        }
+                        break;
+                    }
+                    case 'deleteSavedQuery': {
+                        const db = this.getGraphDB();
+                        const p = (message.payload || {}) as { id?: string };
+                        if (db && p.id) {
+                            db.deleteSavedQuery(p.id);
+                            const queries = db.listSavedQueries().map(q => ({ id: q.id, name: q.name, expr: q.expr, mode: q.mode, createdAt: q.createdAt }));
+                            this.panel?.webview.postMessage({ type: 'savedQueries', payload: { queries } });
+                        }
+                        break;
+                    }
                 }
             },
             null,
@@ -129,21 +165,6 @@ export class WebviewProvider {
     public sendGraphData(data: GraphData): void {
         this.pendingData = data;
         if (this.webviewReady) {
-            // Inject current VS Code settings into meta so the webview
-            // applies them on first render (no async timing issue).
-            if (!data.meta) { (data as Record<string, unknown>).meta = {}; }
-            const meta = data.meta as Record<string, unknown>;
-            try {
-                const config = vscode.workspace.getConfiguration('auraVisualizer');
-                meta._settings = {
-                    linkStyle: config.get<string>('linkStyle', 'straight'),
-                    linkCurvature: config.get<number>('linkCurvature', 0.25),
-                    selectedNodeEffect: config.get<string>('selectedNodeEffect', 'glow'),
-                    bloomStrength: config.get<number>('bloomStrength', 1.2),
-                    bloomRadius: config.get<number>('bloomRadius', 0.6),
-                    bloomThreshold: config.get<number>('bloomThreshold', 0.0),
-                };
-            } catch { /* ignore */ }
             this.panel?.webview.postMessage({ type: 'graphData', payload: data });
         }
     }
@@ -185,7 +206,7 @@ export class WebviewProvider {
         try {
             const config = vscode.workspace.getConfiguration('auraVisualizer');
             this.panel?.webview.postMessage({
-                type: 'graphSettings',
+                type: 'graphConfig',
                 payload: {
                     linkStyle: config.get<string>('linkStyle', 'straight'),
                     linkCurvature: config.get<number>('linkCurvature', 0.25),
@@ -234,6 +255,20 @@ export class WebviewProvider {
         this.panel?.dispose();
     }
 
+    private buildAuraConfig(): string {
+        try {
+            const config = vscode.workspace.getConfiguration('auraVisualizer');
+            return JSON.stringify({
+                linkStyle: config.get<string>('linkStyle', 'straight'),
+                linkCurvature: config.get<number>('linkCurvature', 0.25),
+                selectedNodeEffect: config.get<string>('selectedNodeEffect', 'glow'),
+                bloomStrength: config.get<number>('bloomStrength', 1.2),
+                bloomRadius: config.get<number>('bloomRadius', 0.6),
+                bloomThreshold: config.get<number>('bloomThreshold', 0.0),
+            });
+        } catch { return '{}'; }
+    }
+
     private getHtmlContent(webview: vscode.Webview): string {
         const webviewPath = path.join('out', 'webview');
 
@@ -254,6 +289,9 @@ export class WebviewProvider {
         const configUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'graph-config.js')
         );
+        const queryUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'query.js')
+        );
         const forceGraphUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'lib', '3d-force-graph.min.js')
         );
@@ -262,6 +300,9 @@ export class WebviewProvider {
         );
 
         const nonce = getNonce();
+
+        // Build AURA_CONFIG injected before any script runs
+        const auraConfig = this.buildAuraConfig();
 
         return `<!DOCTYPE html>
 <html lang="en">
@@ -315,7 +356,32 @@ export class WebviewProvider {
             <button class="tab-btn" data-tab="metrics">📊 Metrics</button>
             <button class="tab-btn" data-tab="timeline">📈 Timeline</button>
             <button class="tab-btn" data-tab="table">📋 Table</button>
+            <button id="qb-toggle" class="qb-toggle" title="Toggle query bar (Ctrl+K)">🔍</button>
         </nav>
+
+        <!-- Query Bar (collapsible) -->
+        <section id="query-bar" class="collapsed" aria-label="Query filter">
+            <div class="qb-row qb-main">
+                <div class="qb-input-wrap">
+                    <input type="text" id="qb-input" class="qb-input"
+                        placeholder='complexity > 20 AND fanIn > 5'
+                        spellcheck="false" autocomplete="off" />
+                    <div id="qb-suggest" class="qb-suggest hidden"></div>
+                </div>
+                <select id="qb-mode" class="qb-mode" title="How matches are applied">
+                    <option value="highlight" selected>Highlight</option>
+                    <option value="filter">Filter</option>
+                    <option value="select">Select</option>
+                </select>
+                <span id="qb-status" class="qb-status">—</span>
+                <button id="qb-clear" class="qb-btn" title="Clear query (Esc)">✕</button>
+                <button id="qb-save" class="qb-btn" title="Save current query as favorite">⭐</button>
+                <button id="qb-open-list" class="qb-btn" title="Open saved queries">📚</button>
+            </div>
+            <div class="qb-row qb-error-row">
+                <span id="qb-error" class="qb-error hidden"></span>
+            </div>
+        </section>
 
         <!-- Middle Row: Explorer + Graph + Detail -->
         <div id="middle-row" class="tab-content active" data-tab="graph">
@@ -652,6 +718,21 @@ export class WebviewProvider {
         <div id="community-list"></div>
     </div>
 
+    <!-- Saved Queries Modal (overlay) -->
+    <div id="queries-modal" class="hidden">
+        <div class="queries-modal-header">
+            <span>⭐ Saved Queries</span>
+            <div class="queries-modal-actions">
+                <button id="queries-modal-close" title="Close">✕</button>
+            </div>
+        </div>
+        <div id="queries-modal-list"></div>
+        <div class="queries-modal-footer">
+            <button id="queries-modal-select" class="qm-btn qm-primary" title="Apply selected query">Select</button>
+            <button id="queries-modal-delete" class="qm-btn qm-danger" title="Delete selected query">Delete</button>
+        </div>
+    </div>
+
     <!-- Tooltip (overlay, outside grid) -->
     <div id="tooltip" class="hidden">
         <div class="tooltip-name" id="tooltip-name">—</div>
@@ -690,6 +771,7 @@ export class WebviewProvider {
 
                 <h3>🎹 Keyboard Shortcuts</h3>
                 <table class="help-table">
+                    <tr><td><kbd>Ctrl+K</kbd></td><td>Open the query filter bar</td></tr>
                     <tr><td><kbd>F</kbd></td><td>Fit to view / recenter</td></tr>
                     <tr><td><kbd>L</kbd></td><td>Toggle node labels</td></tr>
                     <tr><td><kbd>G</kbd></td><td>Toggle directory groups</td></tr>
@@ -713,7 +795,7 @@ export class WebviewProvider {
                     <tr><td><strong>Fan-in</strong></td><td>How many files depend on this file</td></tr>
                     <tr><td><strong>Fan-out</strong></td><td>How many files this file depends on</td></tr>
                     <tr><td><strong>Lines of Code</strong></td><td>File size</td></tr>
-                    <tr><td><strong>Last Modified</strong></td><td>Git commit recency</td></tr>
+                    <tr><td><strong>Last Modified</strong></td><td>File modification time</td></tr>
                     <tr><td><strong>Communities</strong></td><td>Architectural modules (Louvain algorithm)</td></tr>
                 </table>
 
@@ -732,7 +814,13 @@ export class WebviewProvider {
                 <h3>📂 Directory Filtering</h3>
                 <p>In the <strong>File Explorer</strong> panel, each directory has a checkbox to show/hide its files in the graph. Use the <strong>All</strong> / <strong>None</strong> buttons for batch selection. Directories are checked by default.</p>
 
-                <h3>🔗 Function Call Labels</h3>
+                <h3>� Query Filter</h3>
+                <p>Open the query bar with the <strong>🔍 button</strong> (far right of the tab bar) or <kbd>Ctrl+K</kbd> / <kbd>Cmd+K</kbd> — it stays hidden until you need it. Type a boolean expression over node metrics, e.g. <code>complexity &gt; 20 AND fanIn &gt; 5</code>.</p>
+                <p><strong>Fields:</strong> <code>complexity</code>, <code>loc</code>, <code>fanin</code> / <code>fanout</code>, <code>size</code>, <code>mtime</code> / <code>lastmodified</code>, <code>symbols</code>, <code>deadexports</code>, <code>language</code>, <code>name</code>, <code>path</code>, <code>group</code>, <code>extension</code>, <code>community</code>, and flags <code>isorphan</code> / <code>isdead</code> / <code>incycle</code> / <code>ispinned</code>.</p>
+                <p><strong>Operators:</strong> <code>==</code>, <code>!=</code>, <code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, <code>&lt;=</code>, <code>~</code> (regex), <code>!~</code>, <code>in [ ... ]</code>, plus <code>AND</code> / <code>OR</code> / <code>NOT</code>.</p>
+                <p><strong>Modes:</strong> <strong>Highlight</strong> (dim non-matching), <strong>Filter</strong> (hide non-matching), <strong>Select</strong> (multi-select). Press <strong>⭐</strong> to save a query and <strong>📚</strong> to reopen saved ones.</p>
+
+                <h3>�🔗 Function Call Labels</h3>
                 <p>In the detail panel, <code>function-call</code> links display the actual function name (e.g. <code>helper()</code>). For C/C++, function-call links are only created between files connected via <code>#include</code> — no false positives.</p>
 
                 <h3>⚡ Instant Startup</h3>
@@ -780,10 +868,12 @@ export class WebviewProvider {
     </div>
 
     <!-- Libraries: THREE must load before 3d-force-graph (it checks window.THREE) -->
+    <script nonce="${nonce}">window.AURA_CONFIG = ${auraConfig};</script>
     <script nonce="${nonce}" src="${threeUri}"></script>
     <script nonce="${nonce}" src="${forceGraphUri}"></script>
     <!-- App Logic -->
     <script nonce="${nonce}" src="${configUri}"></script>
+    <script nonce="${nonce}" src="${queryUri}"></script>
     <script nonce="${nonce}" src="${appUri}"></script>
 </body>
 </html>`;

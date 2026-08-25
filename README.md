@@ -73,9 +73,8 @@ Color every node by a metric to spot hotspots at a glance. Press `H` to cycle th
 | **Complexity** | Cyclomatic complexity (branching, loops) |
 | **Fan-in** | How many files depend on this file |
 | **Fan-out** | How many files this file depends on |
-| **Call volume** | Total cross-file function calls in + out for this file |
 | **Lines of Code** | File size |
-| **Last Modified** | Git commit recency |
+| **Last Modified** | File modification time (most recently changed = red) |
 | **Communities** | Architectural modules detected by Louvain algorithm |
 
 Blue = low, Red = high. A legend displays the value range.
@@ -173,6 +172,41 @@ Press `V` or click the **⇄ Compare** button to enter **Compare mode**. A secon
 
 Type in the search box (2+ characters) to find files by name or path. Results appear in a live dropdown — click to navigate.
 
+### Query Filter 🔍
+
+Filter, highlight, or select files with the built-in **Aura Query Language** — a small boolean DSL evaluated over node metrics.
+
+- Open the query bar with the **🔍 button** (far right of the tab bar) or `Ctrl+K` / `Cmd+K`. It stays hidden until you need it.
+- Type an expression such as `complexity > 20 AND fanIn > 5` — matches are highlighted (or filtered / selected, depending on the mode).
+
+**Available fields:**
+
+| Field | Description |
+|-------|-------------|
+| `complexity` | Cyclomatic complexity |
+| `loc` / `linesofcode` | Lines of code |
+| `fanin` / `fanout` | Incoming / outgoing dependency counts |
+| `size` | File size in bytes |
+| `mtime` / `lastmodified` | Last modification time |
+| `symbols` / `symbolscount` | Number of extracted symbols |
+| `deadexports` | Number of unused (dead) exports |
+| `language`, `name`, `path`, `group`, `extension` | String metadata |
+| `community` | Detected community name |
+| `isorphan`, `isdead`, `incycle`, `ispinned` | Boolean flags |
+
+**Operators:** `==`, `!=`, `>`, `<`, `>=`, `<=`, `~` (regex), `!~`, `in [ ... ]`, plus `AND` / `OR` / `NOT` and parentheses.
+
+**Examples:**
+
+- `language in [typescript, python]`
+- `fanIn > 10 AND complexity > 20`
+- `isorphan`
+- `path ~ /src\/.*/`
+
+**Modes:** **Highlight** (dim non-matching files), **Filter** (hide non-matching files), **Select** (multi-select matching files).
+
+**Saved queries:** press **⭐** to save the current expression and **📚** to reopen the saved list (persisted in `.aura/graph.db`).
+
 ### File Explorer Panel
 
 Toggle a tree-view panel showing all files organized by directory. Click a file to select it in the graph.
@@ -262,6 +296,7 @@ You can also open the visualizer from the **Aura** icon in the Activity Bar or v
 
 | Key | Action |
 |-----|--------|
+| `Ctrl+K` | Open the query filter bar |
 | `F` | Fit to view / recenter |
 | `L` | Toggle node labels |
 | `G` | Toggle directory groups |
@@ -338,7 +373,7 @@ The MCP server exposes your codebase graph to AI tools via stdio transport. It r
 | `import` | Yellow | JS/TS `import` |
 | `require` | Yellow (dim) | CommonJS `require()` |
 | `dynamic-import` | Yellow (faint) | `import()` expressions |
-| `function-call` | Green | Cross-file function calls (C, C++, JS/TS, Python, Java, Go, Rust) |
+| `function-call` | Green | Cross-file function calls (C, C++, JS/TS, Python, Java, Go, Rust, Kotlin, Ruby, Swift) |
 | `extends` | Pink | Class/struct inheritance |
 | `implements` | Purple | Interface / trait implementation |
 | `script` | Orange | HTML `<script src>` |

@@ -23,8 +23,13 @@ export function computeComplexity(fileInfo: FileInfo): ComplexityResult {
             return computeCSSComplexity(content);
         case 'html':
             return computeHTMLComplexity(content);
-        default:
+        default: {
+            const cfg = GENERIC_LANGUAGE_CONFIGS[language];
+            if (cfg) {
+                return computeDecisionComplexity(content, cfg.keywords, cfg.operators, cfg.ternary, cfg.strip);
+            }
             return { complexity: 1, details: {} };
+        }
     }
 }
 
@@ -114,3 +119,148 @@ function computeHTMLComplexity(content: string): ComplexityResult {
         details: { eventHandlers: eventCount, scriptBlocks: scriptCount, inlineJSComplexity }
     };
 }
+
+// ============================================================
+// Generic decision-point counter for the remaining languages
+// (Python, Java, Go, Rust, Kotlin, Ruby, Swift).
+// Same approach as computeCJSComplexity: strip comments and string
+// literals, then count branching keywords, logical operators and
+// (where present) ternary operators.
+// ============================================================
+
+interface LanguageComplexityConfig {
+    /** Branching keywords — each adds 1 to complexity. */
+    keywords: string[];
+    /** Logical / short-circuit operators — each adds 1. */
+    operators: string[];
+    /** Optional ternary-operator pattern. */
+    ternary: RegExp | null;
+    /** Strips comments and string literals for this language. */
+    strip: (content: string) => string;
+}
+
+/** Strip `//`, `/* *\/` comments and quoted strings (C-family syntax). */
+function stripCLikeComments(content: string): string {
+    return content
+        .replace(/\/\/.*$/gm, '')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/"(?:[^"\\]|\\.)*"/g, '""')
+        .replace(/'(?:[^'\\]|\\.)*'/g, "''")
+        .replace(/`(?:[^`\\]|\\.)*`/g, '``');
+}
+
+/** Strip `#` comments and quoted strings (Python / Ruby syntax). */
+function stripHashComments(content: string): string {
+    return content
+        .replace(/"""[\s\S]*?"""/g, '""')
+        .replace(/'''[\s\S]*?'''/g, "''")
+        .replace(/"(?:[^"\\]|\\.)*"/g, '""')
+        .replace(/'(?:[^'\\]|\\.)*'/g, "''")
+        .replace(/#.*$/gm, '');
+}
+
+/** Escape a literal string for use inside a RegExp. */
+function escapeRegex(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function computeDecisionComplexity(
+    content: string,
+    keywords: string[],
+    operators: string[],
+    ternary: RegExp | null,
+    strip: (s: string) => string,
+): ComplexityResult {
+    const stripped = strip(content);
+
+    let complexity = 1;
+    const details: Record<string, unknown> = {};
+
+    // Branching keywords (word-boundary matched).
+    const keywordCounts: Record<string, number> = {};
+    for (const kw of keywords) {
+        const re = new RegExp(`\\b${escapeRegex(kw)}\\b`, 'g');
+        let count = 0;
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(stripped)) !== null) {
+            count++;
+        }
+        if (count > 0) {
+            keywordCounts[kw] = count;
+            complexity += count;
+        }
+    }
+    details.keywords = keywordCounts;
+
+    // Logical operators (symbols as-is; word operators use boundaries).
+    let logicalCount = 0;
+    for (const op of operators) {
+        const isWord = /^[A-Za-z]+$/.test(op);
+        const re = new RegExp(isWord ? `\\b${escapeRegex(op)}\\b` : escapeRegex(op), 'g');
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(stripped)) !== null) {
+            logicalCount++;
+            complexity++;
+        }
+    }
+    details.logicalOperators = logicalCount;
+
+    // Ternary operators.
+    let ternaryCount = 0;
+    if (ternary) {
+        const re = new RegExp(ternary.source, 'g');
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(stripped)) !== null) {
+            ternaryCount++;
+            complexity++;
+        }
+    }
+    details.ternaryOperators = ternaryCount;
+
+    return { complexity, details };
+}
+
+const GENERIC_LANGUAGE_CONFIGS: Record<string, LanguageComplexityConfig> = {
+    python: {
+        keywords: ['if', 'elif', 'for', 'while', 'except', 'finally', 'with', 'assert'],
+        operators: ['and', 'or'],
+        ternary: null, // `x if c else y` — the `if` is already counted as a keyword
+        strip: stripHashComments,
+    },
+    java: {
+        keywords: ['if', 'for', 'while', 'do', 'switch', 'case', 'catch'],
+        operators: ['&&', '||'],
+        ternary: TERNARY_RE,
+        strip: stripCLikeComments,
+    },
+    go: {
+        keywords: ['if', 'for', 'switch', 'case', 'select'],
+        operators: ['&&', '||'],
+        ternary: null, // Go has no ternary operator
+        strip: stripCLikeComments,
+    },
+    rust: {
+        keywords: ['if', 'for', 'while', 'loop', 'match'],
+        operators: ['&&', '||'],
+        ternary: null, // Rust has no ternary operator
+        strip: stripCLikeComments,
+    },
+    kotlin: {
+        keywords: ['if', 'for', 'while', 'do', 'when', 'catch'],
+        operators: ['&&', '||', '?:'], // Elvis operator counts as a branch
+        ternary: null, // Kotlin has no ternary; `if` is an expression (counted as keyword)
+        strip: stripCLikeComments,
+    },
+    ruby: {
+        keywords: ['if', 'elsif', 'unless', 'while', 'until', 'for', 'case', 'when', 'rescue'],
+        operators: ['&&', '||', 'and', 'or'],
+        ternary: TERNARY_RE,
+        strip: stripHashComments,
+    },
+    swift: {
+        keywords: ['if', 'guard', 'for', 'while', 'repeat', 'switch', 'case', 'catch'],
+        operators: ['&&', '||', '??'], // nil-coalescing counts as a branch
+        ternary: TERNARY_RE,
+        strip: stripCLikeComments,
+    },
+};
