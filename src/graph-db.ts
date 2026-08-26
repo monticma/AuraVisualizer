@@ -693,6 +693,14 @@ export class GraphDB {
         );
     }
 
+    /** Files that nothing imports (fan_in = 0) — orphan / entry-point files. */
+    getOrphanFiles(limit: number = 100): NodeRow[] {
+        return queryAll<NodeRow>(this.ensureDb(),
+            'SELECT * FROM nodes WHERE fan_in = 0 ORDER BY fan_out, name LIMIT ?',
+            [limit]
+        );
+    }
+
     /** All cycles. */
     getCycles(): string[][] {
         const rows = queryAll<{ cycle_id: number; node_id: string }>(this.ensureDb(),

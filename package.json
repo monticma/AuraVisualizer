@@ -10,7 +10,7 @@
     "url": "https://github.com/monticma/AuraVisualizer"
   },
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.95.0"
   },
   "categories": [
     "Visualization"
@@ -29,6 +29,92 @@
   ],
   "main": "./out/extension.js",
   "contributes": {
+    "languageModelTools": [
+      {
+        "name": "aura_resolve_context",
+        "displayName": "Aura: Resolve Context",
+        "modelDescription": "Given a natural-language task description, return the most relevant files in the analyzed codebase, ranked, with exact path:line anchors, metrics and a 1-hop dependency neighborhood. Use this to orient yourself in the codebase before making edits.",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "resolveContext",
+        "icon": "$(eye)",
+        "tags": ["codebase", "architecture"],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "task": { "type": "string", "description": "Task description, e.g. \"add oauth login\"" },
+            "limit": { "type": "number", "description": "Maximum number of files to return (default: 10)" }
+          },
+          "required": ["task"]
+        }
+      },
+      {
+        "name": "aura_search_docs",
+        "displayName": "Aura: Search Docs",
+        "modelDescription": "Full-text search across project documentation (Markdown, text, reStructuredText). Returns top matching chunks with file, section, line and excerpt. Use this to answer questions about how the project works, conventions, or install steps.",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "searchDocs",
+        "icon": "$(book)",
+        "tags": ["documentation"],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": { "type": "string", "description": "Natural-language keywords to search for" },
+            "limit": { "type": "number", "description": "Maximum number of chunks to return (default: 10)" }
+          },
+          "required": ["query"]
+        }
+      },
+      {
+        "name": "aura_get_hotspots",
+        "displayName": "Aura: Get Hotspots",
+        "modelDescription": "Get the most complex/impactful files in the codebase, ranked by impact score (complexity × fan-in). Useful for finding critical or risky code.",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "getHotspots",
+        "icon": "$(flame)",
+        "tags": ["codebase"],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "limit": { "type": "number", "description": "Maximum number of results (default: 20)" },
+            "sort_by": { "type": "string", "description": "Sort criterion: impact (default), complexity, fan_in, or lines" }
+          }
+        }
+      },
+      {
+        "name": "aura_find_path",
+        "displayName": "Aura: Find Path",
+        "modelDescription": "Find the shortest dependency path between two files in the codebase. Returns null if no path exists.",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "findPath",
+        "icon": "$(git-branch)",
+        "tags": ["codebase"],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "from": { "type": "string", "description": "Source file path" },
+            "to": { "type": "string", "description": "Target file path" }
+          },
+          "required": ["from", "to"]
+        }
+      },
+      {
+        "name": "aura_search_symbols",
+        "displayName": "Aura: Search Symbols",
+        "modelDescription": "Search for functions, classes, interfaces, methods, or other symbols by name. Returns symbol name, kind, file and line.",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "searchSymbols",
+        "icon": "$(symbol-function)",
+        "tags": ["codebase", "symbols"],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": { "type": "string", "description": "Search string (substring match)" },
+            "kind": { "type": "string", "description": "Optional filter: function, method, class, struct, enum, macro, export, interface, trait, type_alias" }
+          },
+          "required": ["query"]
+        }
+      }
+    ],
     "commands": [
       {
         "command": "auraVisualizer.open",

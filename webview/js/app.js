@@ -245,11 +245,157 @@
             case 'restoreViewState':
                 if (message.payload) applyViewState(message.payload);
                 break;
+            case 'chatChunk':
+                if (message.payload && message.payload.id === chatCurrentId) {
+                    chatCurrentText += message.payload.text || '';
+                    if (chatCurrentEl) chatCurrentEl.textContent = chatCurrentText;
+                    chatScrollToBottom();
+                }
+                break;
+            case 'chatDone':
+                if (message.payload && message.payload.id === chatCurrentId) {
+                    chatCurrentText = message.payload.fullText || chatCurrentText;
+                    if (chatCurrentEl) chatCurrentEl.innerHTML = chatRenderCitations(chatCurrentText);
+                    chatBusy = false;
+                    var sbDone = $('#chat-send');
+                    if (sbDone) sbDone.disabled = false;
+                    chatScrollToBottom();
+                }
+                break;
+            case 'chatError':
+                if (message.payload && message.payload.id === chatCurrentId) {
+                    chatBusy = false;
+                    var sbErr = $('#chat-send');
+                    if (sbErr) sbErr.disabled = false;
+                    chatAddMessage('error', null, 'Error: ' + (message.payload.message || 'unknown'));
+                    chatScrollToBottom();
+                }
+                break;
+            case 'chatTool':
+                if (message.payload && message.payload.id === chatCurrentId) {
+                    chatCurrentText += '\n\n🔧 ' + (message.payload.name || 'tool') + '…\n';
+                    if (chatCurrentEl) chatCurrentEl.textContent = chatCurrentText;
+                    chatScrollToBottom();
+                }
+                break;
         }
     });
 
     // Tell the extension we're ready
     vscode.postMessage({ type: 'ready' });
+
+    // ============================================================
+    // Chat (Aura Assistant)
+    // ============================================================
+    var chatBusy = false;
+    var chatCurrentId = null;
+    var chatCurrentEl = null;
+    var chatCurrentText = '';
+
+    function chatEscapeHtml(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    // Convert `path/to/file.ext:42` patterns into clickable citations.
+    function chatRenderCitations(text) {
+        var escaped = chatEscapeHtml(text);
+        var re = /([\w./-]+\.[A-Za-z0-9]{1,6})(?::(\d+))?/g;
+        return escaped.replace(re, function(match, file, line) {
+            return '<span class="chat-cite" data-file="' + chatEscapeHtml(file) + '" data-line="' + (line || '') + '">' + match + '</span>';
+        });
+    }
+
+    function chatScrollToBottom() {
+        var m = $('#chat-messages');
+        if (m) m.scrollTop = m.scrollHeight;
+    }
+
+    function chatOpenCitation(file, line) {
+        vscode.postMessage({ type: 'openFile', payload: { path: file, line: line ? parseInt(line, 10) : undefined } });
+        if (typeof focusNodeById === 'function') focusNodeById(file);
+    }
+
+    function chatAddMessage(role, html, rawText) {
+        var container = $('#chat-messages');
+        if (!container) return null;
+        var el = document.createElement('div');
+        el.className = 'chat-msg ' + role;
+        if (html) el.innerHTML = html;
+        else el.textContent = rawText || '';
+        container.appendChild(el);
+        chatScrollToBottom();
+        return el;
+    }
+
+    function chatSend() {
+        if (chatBusy) return;
+        var input = $('#chat-input');
+        if (!input) return;
+        var prompt = (input.value || '').trim();
+        if (!prompt) return;
+
+        input.value = '';
+        chatAddMessage('user', null, prompt);
+
+        chatBusy = true;
+        chatCurrentId = 'c_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        chatCurrentText = '';
+        chatCurrentEl = chatAddMessage('assistant', '', '');
+        var sendBtn = $('#chat-send');
+        if (sendBtn) sendBtn.disabled = true;
+
+        vscode.postMessage({ type: 'chatRequest', payload: { id: chatCurrentId, prompt: prompt } });
+    }
+
+    function setupChat() {
+        var toggle = $('#chat-toggle');
+        var closeBtn = $('#chat-close');
+        var clearBtn = $('#chat-clear');
+        var sendBtn = $('#chat-send');
+        var input = $('#chat-input');
+
+        function setOpen(open) {
+            var panel = $('#chat-panel');
+            if (open) {
+                document.body.classList.add('chat-open');
+                if (toggle) toggle.classList.add('active');
+                if (panel) panel.classList.remove('collapsed');
+                // Focus after the slide-in transition, to avoid a horizontal scroll jump
+                if (input) setTimeout(function() { input.focus(); }, 280);
+            } else {
+                if (panel) panel.classList.add('collapsed');
+                document.body.classList.remove('chat-open');
+                if (toggle) toggle.classList.remove('active');
+            }
+        }
+
+        if (toggle) toggle.addEventListener('click', function(e) {
+            if (e) { e.preventDefault(); e.stopPropagation(); }
+            var panel = $('#chat-panel');
+            setOpen(panel ? panel.classList.contains('collapsed') : true);
+        });
+        if (closeBtn) closeBtn.addEventListener('click', function(e) { if (e) e.stopPropagation(); setOpen(false); });
+        if (clearBtn) clearBtn.addEventListener('click', function(e) {
+            if (e) e.stopPropagation();
+            var m = $('#chat-messages');
+            if (m) m.innerHTML = '';
+        });
+        if (sendBtn) sendBtn.addEventListener('click', function(e) { if (e) e.stopPropagation(); chatSend(); });
+        if (input) {
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    chatSend();
+                }
+            });
+        }
+
+        var msgs = $('#chat-messages');
+        if (msgs) msgs.addEventListener('click', function(e) {
+            var cite = e.target && e.target.closest ? e.target.closest('.chat-cite') : null;
+            if (cite) chatOpenCitation(cite.getAttribute('data-file'), cite.getAttribute('data-line'));
+        });
+    }
 
     // ============================================================
     // Initialization
@@ -263,6 +409,7 @@
         setupTimeline();
         setupTabs();
         setupQueryBar();
+        setupChat();
         vscode.postMessage({ type: 'requestSavedQueries' });
     }
 

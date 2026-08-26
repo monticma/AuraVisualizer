@@ -2369,3 +2369,131 @@ html, body {
     margin-right: 6px;
     vertical-align: middle;
 }
+
+/* ============================================================
+   Chat Panel (Aura Assistant)
+   ============================================================ */
+
+#tab-bar .qb-toggle.chat-toggle { margin-left: 8px; }
+
+#chat-panel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: 380px;
+    background: var(--aura-sidebar-bg);
+    border-left: 1px solid var(--aura-border);
+    z-index: 150;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(0);
+    transition: transform 0.25s ease;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+#chat-panel.collapsed { transform: translateX(100%); pointer-events: none; }
+
+.chat-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--aura-border);
+    flex-shrink: 0;
+}
+.chat-header h3 { flex: 1; font-size: 13px; font-weight: 600; }
+.chat-btn {
+    background: transparent;
+    border: none;
+    color: var(--aura-fg);
+    opacity: 0.6;
+    font-size: 14px;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+}
+.chat-btn:hover { opacity: 1; background: rgba(255,255,255,0.06); }
+
+.chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.chat-msg {
+    max-width: 92%;
+    padding: 9px 12px;
+    border-radius: 10px;
+    font-size: 13px;
+    line-height: 1.5;
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+.chat-msg.user {
+    align-self: flex-end;
+    background: var(--aura-badge-bg);
+    color: #fff;
+    border-bottom-right-radius: 3px;
+}
+.chat-msg.assistant {
+    align-self: flex-start;
+    background: var(--aura-input-bg);
+    border: 1px solid var(--aura-border);
+    border-bottom-left-radius: 3px;
+}
+.chat-msg.error {
+    align-self: flex-start;
+    background: rgba(255,82,82,0.12);
+    border: 1px solid #ff5252;
+    color: #ff8a80;
+}
+
+.chat-cite {
+    color: var(--aura-accent);
+    cursor: pointer;
+    text-decoration: underline;
+    text-decoration-style: dotted;
+}
+.chat-cite:hover { text-decoration-style: solid; }
+
+.chat-input-row {
+    display: flex;
+    gap: 8px;
+    padding: 10px 14px;
+    border-top: 1px solid var(--aura-border);
+    flex-shrink: 0;
+}
+#chat-input {
+    flex: 1;
+    resize: none;
+    background: var(--aura-bg);
+    border: 1px solid var(--aura-border);
+    border-radius: 8px;
+    color: var(--aura-fg);
+    padding: 8px 10px;
+    font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace);
+    font-size: 13px;
+    outline: none;
+    max-height: 120px;
+}
+#chat-input:focus { border-color: var(--aura-accent); }
+.chat-send {
+    align-self: flex-end;
+    background: var(--aura-badge-bg);
+    border: none;
+    color: #fff;
+    border-radius: 8px;
+    width: 34px;
+    height: 34px;
+    cursor: pointer;
+    font-size: 15px;
+    flex-shrink: 0;
+}
+.chat-send:disabled { opacity: 0.4; cursor: default; }
+
+/* Option A: push the open detail panel left of the chat; hide it when collapsed */
+body.chat-open #detail-panel { right: 380px; transition: right 0.25s ease; }
+body.chat-open #detail-panel.collapsed { display: none; }

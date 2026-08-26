@@ -6,6 +6,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import type { GraphData } from '../analyzer/index';
 import type { GraphDB } from '../graph-db';
+import { runChatStream } from '../chat';
 
 export class WebviewProvider {
     public static readonly viewType = 'auraVisualizer.graphView';
@@ -155,11 +156,29 @@ export class WebviewProvider {
                         }
                         break;
                     }
+                    case 'chatRequest': {
+                        const p = (message.payload || {}) as { id?: string; prompt?: string };
+                        if (p.id && p.prompt) {
+                            this.handleChatRequest(p.id, p.prompt);
+                        }
+                        break;
+                    }
                 }
             },
             null,
             this.disposables
         );
+    }
+
+    private handleChatRequest(id: string, prompt: string): void {
+        const post = (type: string, payload: Record<string, unknown>) =>
+            this.panel?.webview.postMessage({ type, payload });
+        void runChatStream(() => this.getGraphDB(), prompt, {
+            onChunk: (text) => post('chatChunk', { id, text }),
+            onDone: (fullText) => post('chatDone', { id, fullText }),
+            onError: (message) => post('chatError', { id, message }),
+            onToolCall: (name) => post('chatTool', { id, name }),
+        });
     }
 
     public sendGraphData(data: GraphData): void {
@@ -357,6 +376,7 @@ export class WebviewProvider {
             <button class="tab-btn" data-tab="timeline">📈 Timeline</button>
             <button class="tab-btn" data-tab="table">📋 Table</button>
             <button id="qb-toggle" class="qb-toggle" title="Toggle query bar (Ctrl+K)">🔍</button>
+            <button id="chat-toggle" type="button" class="qb-toggle chat-toggle" title="Toggle Aura Assistant (AI chat)">✨</button>
         </nav>
 
         <!-- Query Bar (collapsible) -->
@@ -473,6 +493,20 @@ export class WebviewProvider {
         <div class="panel-section">
             <h3>Dependents <span id="dependents-count" class="count-badge">0</span></h3>
             <ul id="panel-dependents" class="panel-list"></ul>
+        </div>
+    </aside>
+
+    <!-- Chat Panel (Aura Assistant) -->
+    <aside id="chat-panel" class="collapsed" aria-label="Aura Assistant">
+        <div class="chat-header">
+            <h3>✨ Aura Assistant</h3>
+            <button id="chat-clear" type="button" class="chat-btn" title="Clear conversation">🗑️</button>
+            <button id="chat-close" type="button" class="chat-btn" title="Close">✕</button>
+        </div>
+        <div id="chat-messages" class="chat-messages"></div>
+        <div class="chat-input-row">
+            <textarea id="chat-input" rows="2" placeholder="Ask about your codebase…" spellcheck="false"></textarea>
+            <button id="chat-send" type="button" class="chat-send" title="Send (Enter)">➤</button>
         </div>
     </aside>
     </div><!-- /middle-row -->

@@ -13,6 +13,7 @@ import { analyzeCodebase, scanSingleFile, buildGraph, preParseFiles, rebuildSing
 import { isGitRepo } from './analyzer/git-history';
 import type { CommitIndex, CommitDelta } from './analyzer/types';
 import { GraphDB } from './graph-db';
+import { registerAuraLmTools } from './lm-tools';
 import { chunkDocument, type DocChunk } from './analyzer/parsers/doc-parser';
 
 let webviewProvider: WebviewProvider | undefined;
@@ -45,6 +46,9 @@ export function activate(context: vscode.ExtensionContext): void {
     statusBarItem.tooltip = 'Open Aura 3D Visualizer';
     statusBarItem.show();
     context.subscriptions.push(statusBarItem);
+
+    // Language Model tools — exposes Aura's codebase graph to VS Code AI agents (Copilot Chat, etc.)
+    registerAuraLmTools(context, () => graphDb);
 
     // Commands
     context.subscriptions.push(
