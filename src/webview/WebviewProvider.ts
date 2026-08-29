@@ -163,6 +163,13 @@ export class WebviewProvider {
                         }
                         break;
                     }
+                    case 'exportRiskReport': {
+                        const p = (message.payload || {}) as { markdown?: string };
+                        if (p.markdown) {
+                            void this.handleExportRiskReport(p.markdown);
+                        }
+                        break;
+                    }
                 }
             },
             null,
@@ -179,6 +186,31 @@ export class WebviewProvider {
             onError: (message) => post('chatError', { id, message }),
             onToolCall: (name) => post('chatTool', { id, name }),
         });
+    }
+
+    private async handleExportRiskReport(markdown: string): Promise<void> {
+        const ws = vscode.workspace.workspaceFolders?.[0];
+        if (!ws) {
+            vscode.window.showWarningMessage('Aura: No workspace folder open.');
+            return;
+        }
+        const dir = vscode.Uri.joinPath(ws.uri, '.aura');
+        const file = vscode.Uri.joinPath(dir, 'risk-report.md');
+        try {
+            await vscode.workspace.fs.createDirectory(dir);
+            await vscode.workspace.fs.writeFile(file, Buffer.from(markdown, 'utf-8'));
+            const choice = await vscode.window.showInformationMessage(
+                'Aura: Risk report exported to .aura/risk-report.md',
+                'Open'
+            );
+            if (choice === 'Open') {
+                vscode.window.showTextDocument(file, { preview: true });
+            }
+        } catch (err) {
+            vscode.window.showErrorMessage(
+                'Aura: Failed to export risk report: ' + (err instanceof Error ? err.message : String(err))
+            );
+        }
     }
 
     public sendGraphData(data: GraphData): void {
@@ -375,6 +407,7 @@ export class WebviewProvider {
             <button class="tab-btn" data-tab="metrics">📊 Metrics</button>
             <button class="tab-btn" data-tab="timeline">📈 Timeline</button>
             <button class="tab-btn" data-tab="table">📋 Table</button>
+            <button class="tab-btn" data-tab="risk">🛡️ Risk</button>
             <button id="qb-toggle" class="qb-toggle" title="Toggle query bar (Ctrl+K)">🔍</button>
             <button id="chat-toggle" type="button" class="qb-toggle chat-toggle" title="Toggle Aura Assistant (AI chat)">✨</button>
         </nav>
@@ -513,6 +546,112 @@ export class WebviewProvider {
 
     <!-- Metrics View -->
     <div id="metrics-view" class="tab-content" data-tab="metrics"></div>
+
+    <!-- Risk View -->
+    <div id="risk-view" class="tab-content" data-tab="risk">
+        <div class="risk-toolbar">
+            <h2>🛡️ Codebase Risk Map</h2>
+            <button id="risk-export" type="button" class="risk-export-btn" title="Export a Markdown report to .aura/risk-report.md">📤 Export Report</button>
+        </div>
+        <div id="risk-content">
+            <div class="risk-section" id="risk-health">
+                <h3>Codebase Health</h3>
+                <div class="risk-health-grid">
+                    <div class="risk-health-metric">
+                        <div class="risk-health-score" id="risk-health-score">—</div>
+                        <div class="risk-health-label">Health score</div>
+                    </div>
+                    <div class="risk-health-metric">
+                        <div class="risk-health-value" id="risk-total-files">—</div>
+                        <div class="risk-health-label">Total files</div>
+                    </div>
+                    <div class="risk-health-metric">
+                        <div class="risk-health-value" id="risk-avg-risk">—</div>
+                        <div class="risk-health-label">Average risk / 100</div>
+                    </div>
+                </div>
+                <div class="risk-highlights">
+                    <div class="risk-highlight">
+                        <span class="risk-highlight-label">🔥 Most risky</span>
+                        <span id="risk-most-risky" class="risk-highlight-value">—</span>
+                    </div>
+                    <div class="risk-highlight">
+                        <span class="risk-highlight-label">🔗 Most connected</span>
+                        <span id="risk-most-connected" class="risk-highlight-value">—</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="risk-section" id="risk-distribution">
+                <h3>Risk Distribution</h3>
+                <div class="risk-bar">
+                    <div class="risk-bar-high" id="risk-bar-high"></div>
+                    <div class="risk-bar-medium" id="risk-bar-medium"></div>
+                    <div class="risk-bar-low" id="risk-bar-low"></div>
+                </div>
+                <div class="risk-legend">
+                    <span class="risk-legend-item"><span class="risk-dot high"></span> High: <span id="risk-high-count">0</span> files (<span id="risk-high-pct">0%</span>)</span>
+                    <span class="risk-legend-item"><span class="risk-dot medium"></span> Medium: <span id="risk-medium-count">0</span> files (<span id="risk-medium-pct">0%</span>)</span>
+                    <span class="risk-legend-item"><span class="risk-dot low"></span> Low: <span id="risk-low-count">0</span> files (<span id="risk-low-pct">0%</span>)</span>
+                </div>
+            </div>
+
+            <div class="risk-section" id="risk-trend">
+                <h3>📈 Risk Trend <span class="risk-trend-caption">avg complexity over time</span></h3>
+                <div id="risk-trend-chart" class="risk-trend-chart"></div>
+            </div>
+
+            <div class="risk-section" id="risk-scatter">
+                <h3>📊 Churn × Complexity <span class="risk-trend-caption">log scale · click a point to focus</span></h3>
+                <div id="risk-scatter-chart" class="risk-scatter-chart"></div>
+            </div>
+
+            <div class="risk-section risk-collapsible" id="risk-rising">
+                <button type="button" class="risk-section-header" id="risk-toggle-rising">
+                    <span class="risk-arrow" aria-hidden="true"></span>
+                    <span class="risk-header-label">🔥 RECENTLY HOT</span>
+                    <span class="risk-count-badge" id="risk-rising-badge">0</span>
+                </button>
+                <div id="risk-list-rising" class="risk-files-list"></div>
+            </div>
+
+            <div class="risk-section risk-collapsible" id="risk-bus">
+                <button type="button" class="risk-section-header" id="risk-toggle-bus">
+                    <span class="risk-arrow" aria-hidden="true"></span>
+                    <span class="risk-header-label">👤 BUS FACTOR RISK</span>
+                    <span class="risk-count-badge" id="risk-bus-badge">0</span>
+                </button>
+                <div id="risk-list-bus" class="risk-files-list"></div>
+            </div>
+
+            <div class="risk-section risk-collapsible" id="risk-section-high">
+                <button type="button" class="risk-section-header" id="risk-toggle-high">
+                    <span class="risk-arrow" aria-hidden="true"></span>
+                    <span class="risk-header-label">🔴 HIGH RISK FILES</span>
+                    <span class="risk-count-badge" id="risk-high-badge">0</span>
+                </button>
+                <div class="risk-files-list" id="risk-list-high"></div>
+            </div>
+
+            <div class="risk-section risk-collapsible" id="risk-section-medium">
+                <button type="button" class="risk-section-header" id="risk-toggle-medium">
+                    <span class="risk-arrow" aria-hidden="true"></span>
+                    <span class="risk-header-label">🟡 MEDIUM RISK FILES</span>
+                    <span class="risk-count-badge" id="risk-medium-badge">0</span>
+                </button>
+                <div class="risk-files-list" id="risk-list-medium"></div>
+            </div>
+
+            <div class="risk-section risk-collapsible" id="risk-section-low">
+                <button type="button" class="risk-section-header" id="risk-toggle-low">
+                    <span class="risk-arrow" aria-hidden="true"></span>
+                    <span class="risk-header-label">🟢 LOW RISK FILES</span>
+                    <span class="risk-count-badge" id="risk-low-badge">0</span>
+                </button>
+                <div class="risk-files-list" id="risk-list-low"></div>
+            </div>
+        </div>
+    </div>
 
     <!-- Treemap View -->
     <div id="treemap-view" class="tab-content" data-tab="treemap">
@@ -700,6 +839,7 @@ export class WebviewProvider {
                 <option value="fanIn">📥 Fan-in</option>
                 <option value="fanOut">📤 Fan-out</option>
                 <option value="loc">📏 Lines of code</option>
+                <option value="churn">⏱ Churn (commits)</option>
                 <option value="lastModified">📆 Last update</option>
                 <option value="community">🧩 Communities</option>
             </select>
@@ -829,6 +969,7 @@ export class WebviewProvider {
                     <tr><td><strong>Fan-in</strong></td><td>How many files depend on this file</td></tr>
                     <tr><td><strong>Fan-out</strong></td><td>How many files this file depends on</td></tr>
                     <tr><td><strong>Lines of Code</strong></td><td>File size</td></tr>
+                    <tr><td><strong>Churn (commits)</strong></td><td>Git commit count per file (needs Time Travel scan)</td></tr>
                     <tr><td><strong>Last Modified</strong></td><td>File modification time</td></tr>
                     <tr><td><strong>Communities</strong></td><td>Architectural modules (Louvain algorithm)</td></tr>
                 </table>
@@ -863,11 +1004,14 @@ export class WebviewProvider {
                 <h3>📤 Export for AI</h3>
                 <p>Export the graph as JSON for AI assistants. Aura also includes a built-in MCP server for direct AI integration.</p>
 
+                <h3>✨ Aura Assistant (AI chat)</h3>
+                <p>Click the <strong>✨</strong> button in the tab bar to open the chat panel and ask about your codebase. The assistant calls graph tools to answer with real data and cites clickable files.</p>
+
                 <h3>🗺️ Minimap</h3>
                 <p>Toggle with the <strong>🗺️ Map</strong> button. Shows a top-down overview of all nodes. The white rectangle indicates the camera viewport. Click on the minimap to navigate. Drag the header to reposition.</p>
 
                 <h3>📑 Tabbed Views</h3>
-                <p>Switch between <strong>7 tabs</strong> in the tab bar for different perspectives:</p>
+                <p>Switch between <strong>8 tabs</strong> in the tab bar for different perspectives:</p>
                 <table class="help-table">
                     <tr><td><strong>✦ 3D Graph</strong></td><td>Interactive 3D force-directed dependency graph</td></tr>
                     <tr><td><strong>🗺️ Treemap</strong></td><td>Files nested by directory, sized by LOC/complexity</td></tr>
@@ -876,7 +1020,12 @@ export class WebviewProvider {
                     <tr><td><strong>📊 Metrics</strong></td><td>Bar charts of LOC, complexity, fan-in/out</td></tr>
                     <tr><td><strong>📈 Timeline</strong></td><td>Metric evolution over git history</td></tr>
                     <tr><td><strong>📋 Table</strong></td><td>Sortable, filterable file spreadsheet</td></tr>
+                    <tr><td><strong>🛡️ Risk</strong></td><td>Codebase risk dashboard (health score, churn, bus factor)</td></tr>
                 </table>
+
+                <h3>🛡️ Risk Map</h3>
+                <p>Open the <strong>🛡️ Risk</strong> tab for a codebase health dashboard. It uses a transparent risk score: <code>100 × (0.30·complexity + 0.20·fan-in + 0.10·fan-out + 0.15·cycle + 0.15·dead-code + 0.10·churn)</code>.</p>
+                <p>High / Medium / Low file lists are collapsible and clickable (focus in the 3D graph). Also included: <strong>📈 Risk Trend</strong>, <strong>🔥 Recently Hot</strong> (last 30 days), <strong>📊 Churn × Complexity</strong> scatter (log scale), and <strong>👤 Bus Factor</strong> (files with a single author). Use <strong>📤 Export Report</strong> to write <code>.aura/risk-report.md</code>.</p>
 
                 <h3>🔗 Edge Colors</h3>
                 <table class="help-table">

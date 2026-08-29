@@ -91,6 +91,16 @@ function resolveTarget(target: string, sourceId: string, fileMap: Map<string, Fi
     const indexPath = join(relativePath, 'index.js');
     if (fileMap.has(indexPath)) return indexPath;
 
+    // Suffix match for vendored header include paths: "#include <sol/sol.hpp>"
+    // should resolve to "Vendor/sol2/sol/sol.hpp" even when several files share
+    // the same basename.
+    if (target.includes('/')) {
+        const suffix = '/' + target.replace(/\\/g, '/');
+        for (const [id] of fileMap) {
+            if (id.endsWith(suffix)) return id;
+        }
+    }
+
     const targetBasename = basename(target);
     for (const [id, file] of fileMap) {
         if (file.name === targetBasename) return id;
@@ -489,19 +499,24 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
     const unresolvedCount = { count: 0, targets: [] as { from: string; ref: string }[] };
 
     for (const relation of allRelations) {
-        // system-include relations are used for reachability only; skip visible links unless opted in
-        if (relation.type === 'system-include' && !options.includeSystemHeaders) continue;
         const resolvedTarget = resolveTarget(relation.target, relation.source, fileMap);
-        if (resolvedTarget) {
-            if (resolvedTarget !== relation.source) {
-                links.push({
-                    source: relation.source,
-                    target: resolvedTarget,
-                    type: relation.type,
-                    label: relation.label
-                });
-            }
-        } else {
+        if (resolvedTarget && resolvedTarget !== relation.source) {
+            // A "system-include" (#include <...>) that resolves to a local file is
+            // actually a vendored local header (e.g. <sol/sol.hpp> → Vendor/sol2/sol/sol.hpp).
+            // Promote it to a visible "include" link. Genuine stdlib headers never resolve
+            // (they're not in the repo), so they remain hidden unless includeSystemHeaders
+            // is set (which only matters for the raw relation type emitted by the parser).
+            const linkType = relation.type === 'system-include' && !options.includeSystemHeaders
+                ? 'include'
+                : relation.type;
+            links.push({
+                source: relation.source,
+                target: resolvedTarget,
+                type: linkType,
+                label: relation.label
+            });
+        } else if (relation.type !== 'system-include') {
+            // Don't count unresolved system includes (stdlib) as missing references.
             unresolvedCount.count++;
             if (unresolvedCount.targets.length < 20) {
                 unresolvedCount.targets.push({ from: relation.source, ref: relation.target });
@@ -1007,10 +1022,14 @@ export function rebuildSingleFile(
     // Phase 5: Resolve targets and build outEdges
     const outEdges: GraphLink[] = [];
     for (const rel of relations) {
-        if (rel.type === 'system-include' && !options.includeSystemHeaders) continue;
         const resolved = resolveTarget(rel.target, rel.source, fileMap);
         if (resolved && resolved !== rel.source) {
-            outEdges.push({ source: rel.source, target: resolved, type: rel.type, label: rel.label });
+            // Promote resolved local angle-bracket includes to visible links
+            // (same rationale as buildGraph Phase 5).
+            const linkType = rel.type === 'system-include' && !options.includeSystemHeaders
+                ? 'include'
+                : rel.type;
+            outEdges.push({ source: rel.source, target: resolved, type: linkType, label: rel.label });
         }
     }
     outEdges.push(...functionCallLinks);

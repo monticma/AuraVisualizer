@@ -74,6 +74,7 @@ Color every node by a metric to spot hotspots at a glance. Press `H` to cycle th
 | **Fan-in** | How many files depend on this file |
 | **Fan-out** | How many files this file depends on |
 | **Lines of Code** | File size |
+| **Churn (commits)** | Git commit count per file — requires Time Travel scan |
 | **Last Modified** | File modification time (most recently changed = red) |
 | **Communities** | Architectural modules detected by Louvain algorithm |
 
@@ -117,6 +118,23 @@ Find the shortest dependency path between any two files. Click **Path** in the t
 ### Dead Code Detection ☠️
 
 Press `X` or click the **Dead Code** button. Files with unused exports are highlighted in orange-to-red gradient. The detail panel lists each unused export with a ⚠️ label.
+
+### Risk Map 🛡️
+
+Open the **🛡️ Risk** tab for a codebase health dashboard built on a transparent, explainable risk score:
+
+`risk = 100 × (0.30·complexity + 0.20·fan-in + 0.10·fan-out + 0.15·cycle + 0.15·dead-code + 0.10·churn)`
+
+- **Codebase Health** — overall health score (`100 − average risk`), plus the most risky and most connected files
+- **Risk Distribution** — high / medium / low buckets with percentages
+- **High / Medium / Low files** — collapsible lists (▼/▶ arrows); each file is clickable to focus it in the 3D graph
+- **📈 Risk Trend** — average complexity over git history (structural risk proxy)
+- **🔥 Recently Hot** — files modified most in the last 30 days
+- **📊 Churn × Complexity** — scatter matrix (log scale) spotting files that are both complex and heavily churned (red = hot)
+- **👤 Bus Factor** — files touched by a single developer (≥ 3 commits)
+- **📤 Export Report** — writes a Markdown report to `.aura/risk-report.md`
+
+Risk buckets: **High ≥ 66**, **Medium 33–65**, **Low < 33**. Churn is measured as commits per file and requires the git **Time Travel** scan.
 
 ### Circular Dependencies 🔄
 
@@ -255,7 +273,7 @@ This turns the Explorer into a fast outline / go-to-symbol navigator across your
 
 ### Tabbed Views
 
-Switch between **7 visualization tabs** for different perspectives on your codebase:
+Switch between **8 visualization tabs** for different perspectives on your codebase:
 
 | Tab | Description |
 |-----|-------------|
@@ -266,6 +284,7 @@ Switch between **7 visualization tabs** for different perspectives on your codeb
 | **📊 Metrics** | Dashboard with bar charts: LOC, complexity, fan-in, fan-out by language and top files. |
 | **📈 Timeline** | Line chart showing metric evolution over git history (LOC, file count, avg complexity, total complexity). Requires Time Travel scan. |
 | **📋 Table** | Sortable, filterable spreadsheet of all files with LOC, complexity, fan-in/out, symbols, and folder. |
+| **🛡️ Risk** | Codebase risk dashboard — health score, risk distribution, churn × complexity matrix, bus factor, and an exportable report |
 
 All tabs share the same live data and update when the graph is refreshed.
 
@@ -350,7 +369,14 @@ The MCP server exposes your codebase graph to AI tools via stdio transport. It r
 | `get_architecture` | — | High-level overview by language |
 | `get_communities` | — | Architectural modules detected by Louvain algorithm |
 | `search_docs` | `query`, `limit` | Full-text search across project documentation (Markdown / `.txt` / `.rst`) — returns ranked chunks with file path, section heading, and excerpt |
+| `resolve_context` | `task`, `limit` | Ranked list of files most relevant to a natural-language task (deterministic, no LLM) |
 | `generate_documentation` | `hotspot_limit` | Full documentation payload: overview, modules, hotspots, cycles, dead code, inter-module links |
+
+### Aura Assistant (in-app chat) ✨
+
+Click the **✨** button in the tab bar to open the chat panel and ask about your codebase in natural language. The assistant can call the graph tools (`resolve_context`, `find_cycles`, `find_dead_code`, `get_hotspots`, `find_path`, …) to answer with real data, and every cited file is clickable — it opens in the editor or focuses in the 3D graph.
+
+Requires a VS Code build with the **Language Model API** (≥ 1.95) and a configured LM provider (e.g. GitHub Copilot).
 
 ---
 

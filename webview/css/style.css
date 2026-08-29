@@ -2497,3 +2497,209 @@ html, body {
 /* Option A: push the open detail panel left of the chat; hide it when collapsed */
 body.chat-open #detail-panel { right: 380px; transition: right 0.25s ease; }
 body.chat-open #detail-panel.collapsed { display: none; }
+
+/* ============================================================
+   Risk Map Dashboard
+   ============================================================ */
+#risk-view {
+    flex-direction: column;
+    padding: 16px;
+    overflow-y: auto;
+    gap: 14px;
+}
+#risk-view.active { display: flex; }
+
+.risk-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-shrink: 0;
+}
+.risk-toolbar h2 {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0;
+}
+.risk-export-btn {
+    background: var(--aura-badge-bg);
+    border: none;
+    color: #fff;
+    border-radius: 6px;
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    white-space: nowrap;
+}
+.risk-export-btn:hover { filter: brightness(1.15); }
+
+#risk-content {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.risk-section {
+    background: var(--aura-sidebar-bg);
+    border: 1px solid var(--aura-border);
+    border-radius: 10px;
+    padding: 14px;
+}
+.risk-section h3 {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    opacity: 0.65;
+    margin: 0 0 10px;
+}
+
+.risk-health-grid { display: flex; gap: 16px; }
+.risk-health-metric { flex: 1; text-align: center; }
+.risk-health-score {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--aura-accent);
+    line-height: 1.1;
+}
+.risk-health-value { font-size: 22px; font-weight: 600; line-height: 1.1; }
+.risk-health-label { font-size: 11px; opacity: 0.55; margin-top: 4px; }
+
+.risk-highlights { display: flex; gap: 12px; margin-top: 12px; }
+.risk-highlight {
+    flex: 1;
+    min-width: 0;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 6px;
+    padding: 8px 10px;
+}
+.risk-highlight-label { font-size: 11px; opacity: 0.6; display: block; }
+.risk-highlight-value {
+    font-size: 13px;
+    font-weight: 600;
+    display: block;
+    margin-top: 3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.risk-bar {
+    display: flex;
+    height: 16px;
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.06);
+}
+.risk-bar-high { background: #f85149; }
+.risk-bar-medium { background: #d29922; }
+.risk-bar-low { background: #3fb950; }
+
+.risk-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    margin-top: 8px;
+    font-size: 12px;
+}
+.risk-legend-item { display: inline-flex; align-items: center; gap: 2px; }
+.risk-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 4px;
+}
+.risk-dot.high { background: #f85149; }
+.risk-dot.medium { background: #d29922; }
+.risk-dot.low { background: #3fb950; }
+
+.risk-section-header {
+    width: 100%;
+    text-align: left;
+    background: none;
+    border: none;
+    color: var(--aura-fg);
+    font-size: 12px;
+    font-weight: 600;
+    padding: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.risk-section-header:hover { opacity: 0.85; }
+.risk-arrow {
+    flex-shrink: 0;
+    width: 12px;
+    font-size: 10px;
+    opacity: 0.7;
+    display: inline-block;
+    text-align: center;
+    transition: transform 0.2s ease;
+}
+.risk-arrow::before { content: "▼"; }
+.risk-section-header.risk-collapsed .risk-arrow::before { content: "▶"; }
+.risk-header-label { flex: 1; }
+.risk-count-badge {
+    background: var(--aura-badge-bg, rgba(255, 255, 255, 0.1));
+    border-radius: 10px;
+    padding: 1px 8px;
+    font-size: 11px;
+}
+
+.risk-files-list { margin-top: 10px; display: flex; flex-direction: column; }
+.risk-files-list.risk-collapsed { display: none; }
+
+.risk-file-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 6px;
+    border-top: 1px solid var(--aura-border);
+    cursor: pointer;
+}
+.risk-file-row:hover { background: rgba(96, 165, 250, 0.07); }
+.risk-file-score {
+    width: 34px;
+    flex-shrink: 0;
+    text-align: center;
+    font-weight: 700;
+    border-radius: 6px;
+    padding: 2px 0;
+    font-size: 12px;
+}
+.risk-file-row[data-bucket="high"] .risk-file-score { background: rgba(248, 81, 73, 0.18); color: #f85149; }
+.risk-file-row[data-bucket="medium"] .risk-file-score { background: rgba(210, 153, 34, 0.18); color: #d29922; }
+.risk-file-row[data-bucket="low"] .risk-file-score { background: rgba(63, 185, 80, 0.18); color: #3fb950; }
+.risk-file-info { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.risk-file-name { font-size: 13px; font-weight: 500; }
+.risk-file-path {
+    font-size: 11px;
+    opacity: 0.5;
+    font-family: var(--vscode-font-family, monospace);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.risk-file-breakdown {
+    font-size: 10.5px;
+    opacity: 0.6;
+    margin-top: 1px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.risk-file-loc { font-size: 11px; opacity: 0.6; white-space: nowrap; }
+.risk-file-open {
+    background: none;
+    border: none;
+    color: var(--aura-accent);
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px 6px;
+}
+.risk-empty { padding: 10px 6px; opacity: 0.5; font-size: 12px; }
+.risk-trend-chart { width: 100%; height: 180px; margin-top: 4px; }
+.risk-scatter-chart { width: 100%; height: 220px; margin-top: 4px; }
+.risk-trend-caption { font-size: 10px; opacity: 0.5; font-weight: 400; text-transform: none; letter-spacing: 0; }

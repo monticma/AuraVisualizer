@@ -1,6 +1,6 @@
 ## Tabbed Views
 
-Aura offers **7 visualization tabs** — each gives a different perspective on your codebase architecture.
+Aura offers **8 visualization tabs** — each gives a different perspective on your codebase architecture.
 
 ### How to switch
 
@@ -17,6 +17,7 @@ Click any tab in the **tab bar** below the toolbar. The 3D graph pauses when you
 | **📊 Metrics** | Bar charts: LOC, complexity, fan-in, fan-out broken down by language and top files |
 | **📈 Timeline** | Line chart of metric evolution over git history. Choose between LOC, file count, avg complexity, or total complexity |
 | **📋 Table** | Sortable, filterable spreadsheet of all files with their metrics |
+| **🛡️ Risk** | Codebase health dashboard — risk score, distribution, churn × complexity matrix, bus factor, exportable report |
 
 ### Treemap tips
 - Use the **Size** dropdown to choose what determines rectangle size (LOC, complexity, fan-in, fan-out)
@@ -41,3 +42,10 @@ Click any tab in the **tab bar** below the toolbar. The 3D graph pauses when you
 - Choose a metric: Lines of Code, File Count, Avg Complexity, or Total Complexity
 - Hover a data point to see commit details (hash, message, author, date)
 - The chart updates automatically as more commits are scanned
+
+### Risk Map tips
+- Risk = `100 × (0.30·complexity + 0.20·fan-in + 0.10·fan-out + 0.15·cycle + 0.15·dead-code + 0.10·churn)` — every score is explainable
+- Buckets: High ≥ 66, Medium 33–65, Low < 33
+- Click any file in a list to focus it in the 3D graph
+- 📤 Export Report writes `.aura/risk-report.md`
+- Churn, Recently Hot, and Bus Factor require the git **Time Travel** scan
