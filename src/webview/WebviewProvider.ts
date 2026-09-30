@@ -409,7 +409,7 @@ export class WebviewProvider {
             <button class="tab-btn" data-tab="table">📋 Table</button>
             <button class="tab-btn" data-tab="risk">🛡️ Risk</button>
             <button id="qb-toggle" class="qb-toggle" title="Toggle query bar (Ctrl+K)">🔍</button>
-            <button id="chat-toggle" type="button" class="qb-toggle chat-toggle" title="Toggle Aura Assistant (AI chat)">✨</button>
+            <button id="chat-toggle" type="button" class="qb-toggle chat-toggle" title="Toggle Aura Assistant (AI chat)" hidden>✨</button>
         </nav>
 
         <!-- Query Bar (collapsible) -->

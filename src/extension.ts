@@ -383,6 +383,10 @@ function runAnalysisInWorker(
     return new Promise((resolve, reject) => {
         const workerPath = path.join(extensionUri.fsPath, 'out', 'analyzer-worker.js');
         const worker = new Worker(workerPath, {
+            // Don't inherit the debugger's --inspect flag: worker_threads copy
+            // process.execArgv by default, so under the VS Code extension debugger
+            // they try to attach to the inspector and hang the extension host.
+            execArgv: [],
             workerData: {
                 rootPath,
                 skipDirs: excludePaths,
@@ -713,6 +717,7 @@ async function startHistoryScan(
     const workerPath = path.join(context.extensionUri.fsPath, 'out', 'history-worker.js');
 
     historyWorker = new Worker(workerPath, {
+        execArgv: [],
         workerData: {
             rootPath,
             skipDirs: excludePaths,

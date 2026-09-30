@@ -6027,15 +6027,11 @@
 
     function focusRiskFile(id) {
         switchTab('graph');
-        focusNodeById(id);
         requestAnimationFrame(function() {
             var node = findNode(id);
             if (node && graph) {
-                graph.cameraPosition(
-                    { x: node.x, y: node.y, z: (node.z || 0) + 200 },
-                    { x: node.x, y: node.y, z: node.z || 0 },
-                    800
-                );
+                // Full selection: highlight, fly camera, and open the detail panel
+                handleNodeClick(node);
             }
         });
     }
