@@ -25,6 +25,5 @@ dist-ssr
 *.vsix
 .aura
 
-# Code Cosmos per-developer settings
-.cosmos
-.cosmos.cache
+# Local-only docs (design notes, competitive analysis, screenshots)
+docs/
