@@ -11,6 +11,10 @@
   <img src="https://img.shields.io/badge/License-MIT-green" alt="License" />
 </p>
 
+<p align="center">
+  <img src="resources/AuraScreen-1.1.8.png" alt="Aura 3D Visualizer — interactive dependency graph" width="900" />
+</p>
+
 ---
 
 ## Features

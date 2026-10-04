@@ -24,3 +24,7 @@ dist-ssr
 *.sw?
 *.vsix
 .aura
+
+# Code Cosmos per-developer settings
+.cosmos
+.cosmos.cache
