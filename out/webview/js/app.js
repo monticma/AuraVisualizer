@@ -3992,6 +3992,7 @@
             pathMode: pathMode,
             showLabels: showLabels,
             heatmapMode: heatmapMode,
+            riskWindow: riskWindowDays,
             nodeSizeMultiplier: nodeSizeMultiplier,
             spreadMultiplier: spreadMultiplier,
             focusDepth: focusDepth,
@@ -4065,6 +4066,14 @@
             var hs = $('#heatmap-select');
             if (hs) hs.value = state.heatmapMode;
             setHeatmapMode(state.heatmapMode);
+        }
+
+        // Risk Map — git history window
+        if (typeof state.riskWindow === 'number' && RISK_WINDOWS.indexOf(state.riskWindow) !== -1) {
+            riskWindowDays = state.riskWindow;
+            var rw = $('#risk-window');
+            if (rw) rw.value = String(riskWindowDays);
+            computeChurnIndex();
         }
 
         // Explorer
@@ -5859,19 +5868,30 @@
     // Risk Map Dashboard
     // ============================================================
     var riskReportData = null;
-    var churnByFile = {};      // file id → { commits, recent, lastDate }
-    var RECENT_DAYS = 30;
-    var CHURN_CAP = 20;        // commits that saturate the churn term
+    var churnByFile = {};      // file id → { commits, recent, lastDate, authors }
+    var RECENT_DAYS = 30;      // fixed window for the "Recently Hot" section
+    var CHURN_CAP = 20;        // churn scale used for the scatter axis
+    var RISK_WINDOWS = [30, 90, 365];
+    var riskWindowDays = 90;   // configurable git history window (churn + scoring)
+    var riskPercentiles = null; // { complexity, fanIn, fanOut, churn } → lookup(v) → 0..1
 
     function getChurn(id) {
         var c = id ? churnByFile[id] : null;
         return c ? c.commits : 0;
     }
 
+    function churnOf(node) {
+        if (!node) return { commits: 0, recent: 0, lastDate: 0, authors: {} };
+        return churnByFile[node.id] || churnByFile[node.path] ||
+            { commits: 0, recent: 0, lastDate: 0, authors: {} };
+    }
+
     function computeChurnIndex() {
         churnByFile = {};
         var now = Date.now();
-        var cutoff = now - RECENT_DAYS * 24 * 60 * 60 * 1000;
+        var day = 24 * 60 * 60 * 1000;
+        var cutoff = now - riskWindowDays * day;
+        var recentCutoff = now - RECENT_DAYS * day;
         for (var i = 0; i < timelineCommits.length; i++) {
             var commit = timelineCommits[i];
             var when = new Date(commit.date).getTime();
@@ -5883,31 +5903,156 @@
                 if (!p) continue;
                 var entry = churnByFile[p];
                 if (!entry) entry = churnByFile[p] = { commits: 0, recent: 0, lastDate: 0, authors: {} };
-                entry.commits++;
+                if (when >= cutoff) entry.commits++;        // churn inside the selected window
+                if (when >= recentCutoff) entry.recent++;   // last 30 days, for "Recently Hot"
                 if (when > entry.lastDate) entry.lastDate = when;
-                if (when >= cutoff) entry.recent++;
                 entry.authors[author] = true;
             }
         }
     }
 
-    function computeRiskScore(node) {
+    /**
+     * Turn a metric's values into a percentile lookup (0 = lowest, 1 = highest).
+     * Ties are excluded from the denominator on purpose: a metric that is 0 for 90 %
+     * of the files must stay at the 0th percentile for those files, instead of
+     * jumping to the 90th just because most files are tied at zero.
+     */
+    function percentileLookup(values) {
+        var sorted = values.slice().sort(function(a, b) { return a - b; });
+        return function(v) {
+            var n = sorted.length;
+            if (n === 0) return 0;
+            var lo = 0, hi = n;
+            while (lo < hi) { // first index whose value is >= v
+                var mid = (lo + hi) >> 1;
+                if (sorted[mid] < v) lo = mid + 1; else hi = mid;
+            }
+            var less = lo;
+            var lo2 = less, hi2 = n;
+            while (lo2 < hi2) { // first index whose value is > v
+                var mid2 = (lo2 + hi2) >> 1;
+                if (sorted[mid2] <= v) lo2 = mid2 + 1; else hi2 = mid2;
+            }
+            var equal = lo2 - less;
+            var denom = n - equal;
+            if (denom <= 0) return 0;
+            return Math.min(1, less / denom);
+        };
+    }
+
+    /** Rank every structural metric against the files of *this* repository. */
+    function buildRiskPercentiles(nodes) {
+        var complexity = [], fanIn = [], fanOut = [], churn = [];
+        for (var i = 0; i < nodes.length; i++) {
+            var n = nodes[i];
+            complexity.push(n.complexity || 0);
+            fanIn.push(n.fanIn || 0);
+            fanOut.push(n.fanOut || 0);
+            churn.push(getChurn(n.id) || getChurn(n.path));
+        }
+        return {
+            complexity: percentileLookup(complexity),
+            fanIn: percentileLookup(fanIn),
+            fanOut: percentileLookup(fanOut),
+            churn: percentileLookup(churn)
+        };
+    }
+
+    /** 0.94 → "top 6%". Returns null when the rank carries no information. */
+    function topPercentLabel(p) {
+        var pc = Math.round((1 - p) * 100);
+        if (pc <= 0) return 'the highest';
+        if (pc >= 100) return null;
+        return 'top ' + pc + '%';
+    }
+
+    /**
+     * Risk score. Complexity, fan-in, fan-out and churn are **percentile ranks inside
+     * this repository**, so a score of 72 means the same thing in a 50-file project
+     * and in a 5 000-file one — it is a standing relative to the codebase rather than
+     * an absolute threshold. Cycle and dead-code are already 0..1 by nature.
+     */
+    function computeRiskScore(node, pct) {
+        pct = pct || riskPercentiles;
         var complexity = node.complexity || 0;
         var fanIn = node.fanIn || 0;
         var fanOut = node.fanOut || 0;
+        var churn = getChurn(node.id) || getChurn(node.path);
+        var complexityP = pct ? pct.complexity(complexity) : Math.min(complexity / 50, 1);
+        var fanInP = pct ? pct.fanIn(fanIn) : Math.min(fanIn / 20, 1);
+        var fanOutP = pct ? pct.fanOut(fanOut) : Math.min(fanOut / 30, 1);
+        var churnP = pct ? pct.churn(churn) : Math.min(churn / CHURN_CAP, 1);
         var inCycle = (node.cycleIds && node.cycleIds.length > 0) ? 1 : 0;
         var totalSymbols = (node.symbols && node.symbols.totalSymbols) || 0;
         var deadCount = (node.deadExports && node.deadExports.length) || 0;
         var deadRatio = totalSymbols > 0 ? Math.min(deadCount / totalSymbols, 1) : 0;
-        var churn = getChurn(node.id) || getChurn(node.path);
         return 100 * (
-            0.30 * Math.min(complexity / 50, 1) +
-            0.20 * Math.min(fanIn / 20, 1) +
-            0.10 * Math.min(fanOut / 30, 1) +
+            0.30 * complexityP +
+            0.20 * fanInP +
+            0.10 * fanOutP +
             0.15 * inCycle +
             0.15 * deadRatio +
-            0.10 * Math.min(churn / CHURN_CAP, 1)
+            0.10 * churnP
         );
+    }
+
+    /**
+     * Plain-language reasons behind a file's score, with the real numbers
+     * ("changed 29 times in 90 days (top 1% of the repo)"). Sorted by contribution,
+     * so the most decisive factor comes first.
+     */
+    function riskReasons(node, pct) {
+        pct = pct || riskPercentiles;
+        var reasons = [];
+        var complexity = node.complexity || 0;
+        var fanIn = node.fanIn || 0;
+        var fanOut = node.fanOut || 0;
+        var churn = getChurn(node.id) || getChurn(node.path);
+        var totalSymbols = (node.symbols && node.symbols.totalSymbols) || 0;
+        var deadCount = (node.deadExports && node.deadExports.length) || 0;
+        var stats = churnOf(node);
+        var authorCount = stats.authors ? Object.keys(stats.authors).length : 0;
+        var lbl;
+
+        if (complexity > 0) {
+            var pC = pct ? pct.complexity(complexity) : 0;
+            lbl = topPercentLabel(pC);
+            reasons.push({ weight: 0.30 * pC, text: 'complexity ' + complexity + (lbl ? ' (' + lbl + ' of the repo)' : '') });
+        }
+        if (fanIn > 0) {
+            var pI = pct ? pct.fanIn(fanIn) : 0;
+            lbl = topPercentLabel(pI);
+            reasons.push({ weight: 0.20 * pI, text: fanIn + (fanIn === 1 ? ' file depends on it' : ' files depend on it') + (lbl ? ' (' + lbl + ')' : '') });
+        }
+        if (churn > 0) {
+            var pCh = pct ? pct.churn(churn) : 0;
+            lbl = topPercentLabel(pCh);
+            reasons.push({ weight: 0.10 * pCh, text: 'changed ' + churn + ' time' + (churn === 1 ? '' : 's') + ' in ' + riskWindowDays + ' days' + (lbl ? ' (' + lbl + ')' : '') });
+        }
+        if (fanOut > 0) {
+            var pO = pct ? pct.fanOut(fanOut) : 0;
+            reasons.push({ weight: 0.10 * pO, text: 'depends on ' + fanOut + ' file' + (fanOut === 1 ? '' : 's') });
+        }
+        if (node.cycleIds && node.cycleIds.length > 0) {
+            reasons.push({ weight: 0.15, text: 'in a dependency cycle' });
+        }
+        if (deadCount > 0) {
+            var ratio = totalSymbols > 0 ? deadCount / totalSymbols : 0;
+            reasons.push({ weight: 0.15 * ratio, text: deadCount + ' unused symbol' + (deadCount === 1 ? '' : 's') + ' of ' + totalSymbols });
+        }
+        if (authorCount === 1) {
+            reasons.push({ weight: 0, text: 'single author' });
+        } else if (authorCount > 1) {
+            reasons.push({ weight: 0, text: authorCount + ' authors' });
+        }
+        reasons.sort(function(a, b) { return b.weight - a.weight; });
+        return reasons;
+    }
+
+    function riskReasonsText(reasons, separator) {
+        var parts = [];
+        for (var i = 0; i < reasons.length; i++) parts.push(reasons[i].text);
+        return parts.join(separator);
     }
 
     function riskBucket(score) {
@@ -5917,13 +6062,14 @@
     function renderRiskDashboard() {
         if (!graphData || !graphData.nodes) return;
         var nodes = graphData.nodes;
+        riskPercentiles = buildRiskPercentiles(nodes);
         var scored = [];
         var maxFanInNode = null;
         var i, n, score;
         for (i = 0; i < nodes.length; i++) {
             n = nodes[i];
-            score = computeRiskScore(n);
-            scored.push({ node: n, score: score });
+            score = computeRiskScore(n, riskPercentiles);
+            scored.push({ node: n, score: score, reasons: riskReasons(n, riskPercentiles) });
             if (!maxFanInNode || (n.fanIn || 0) > (maxFanInNode.fanIn || 0)) maxFanInNode = n;
         }
         scored.sort(function(a, b) { return b.score - a.score; });
@@ -5947,7 +6093,8 @@
             high: high,
             medium: medium,
             low: low,
-            total: total
+            total: total,
+            windowDays: riskWindowDays
         };
 
         var el;
@@ -5998,17 +6145,15 @@
         for (var i = 0; i < items.length; i++) {
             var it = items[i];
             var n = it.node;
-            var inCycle = (n.cycleIds && n.cycleIds.length > 0);
-            var deadCount = (n.deadExports && n.deadExports.length) || 0;
-            var totalSymbols = (n.symbols && n.symbols.totalSymbols) || 0;
-            var churn = getChurn(n.id) || getChurn(n.path);
-            var breakdown = '🧠 ' + (n.complexity || 0) + ' · 🔗 ' + (n.fanIn || 0) + ' → ' + (n.fanOut || 0);
-            if (inCycle) breakdown += ' · ⚠ cycle';
-            if (deadCount > 0) breakdown += ' · ☠ ' + deadCount + '/' + totalSymbols;
-            if (churn > 0) breakdown += ' · ⏱ ' + churn;
+            var reasons = it.reasons || riskReasons(n, riskPercentiles);
+            // The row shows the three factors that actually drive the score;
+            // hovering reveals the full, numbered explanation.
+            var breakdown = escapeHtml(riskReasonsText(reasons.slice(0, 3), ' · '));
+            var fullText = riskReasonsText(reasons, '\n');
             var row = document.createElement('div');
             row.className = 'risk-file-row';
             row.setAttribute('data-bucket', bucket);
+            if (fullText) row.setAttribute('title', fullText);
             row.innerHTML =
                 '<span class="risk-file-score">' + Math.round(it.score) + '</span>' +
                 '<span class="risk-file-info">' +
@@ -6046,8 +6191,11 @@
         lines.push('- **Total files:** ' + d.total);
         lines.push('- **Average risk:** ' + Math.round(d.avgRisk) + '/100');
         lines.push('- **Distribution:** ' + d.high.length + ' high · ' + d.medium.length + ' medium · ' + d.low.length + ' low');
+        lines.push('- **History window:** ' + (d.windowDays || riskWindowDays) + ' days');
         lines.push('');
-        lines.push('> Risk = 100 × (0.30·complexity + 0.20·fan-in + 0.10·fan-out + 0.15·cycle + 0.15·dead-code + 0.10·churn).');
+        lines.push('> Risk = 100 × (0.30·complexity + 0.20·fan-in + 0.10·fan-out + 0.15·cycle + 0.15·dead-code + 0.10·churn),');
+        lines.push('> where **complexity, fan-in, fan-out and churn are percentile ranks inside this repository**');
+        lines.push('> (0 = lowest of the repo, 1 = highest): a score is a standing relative to this codebase, not an absolute threshold.');
         lines.push('> Buckets: High ≥ 66, Medium 33–65, Low < 33.');
         appendRiskBucket(lines, '🔴 HIGH RISK FILES', d.high);
         appendRiskBucket(lines, '🟡 MEDIUM RISK FILES', d.medium);
@@ -6070,9 +6218,11 @@
         for (var i = 0; i < items.length; i++) {
             var it = items[i];
             var n = it.node;
-            var inCycle = (n.cycleIds && n.cycleIds.length > 0) ? ' · ⚠ cycle' : '';
-            lines.push('- **' + n.name + '** — risk ' + Math.round(it.score) + '/100' + inCycle +
-                ' (`' + (n.path || n.id) + '` · ' + (n.linesOfCode || 0) + ' LOC · fan-in ' + (n.fanIn || 0) + ' · complexity ' + (n.complexity || 0) + ')');
+            lines.push('- **' + n.name + '** — risk ' + Math.round(it.score) + '/100 (`' + (n.path || n.id) + '` · ' + (n.linesOfCode || 0) + ' LOC)');
+            var reasons = it.reasons;
+            if (reasons && reasons.length) {
+                lines.push('  - ' + riskReasonsText(reasons, ' · '));
+            }
         }
     }
 
@@ -6208,7 +6358,7 @@
                 '<span class="risk-file-info">' +
                     '<span class="risk-file-name">' + escapeHtml(n.name) + '</span>' +
                     '<span class="risk-file-path">' + escapeHtml(n.path || n.id) + '</span>' +
-                    '<span class="risk-file-breakdown">⏱ ' + r.recent + ' commits / ' + RECENT_DAYS + 'd · ' + r.commits + ' total</span>' +
+                    '<span class="risk-file-breakdown">⏱ ' + r.recent + ' commits / ' + RECENT_DAYS + 'd · ' + r.commits + ' in ' + riskWindowDays + 'd</span>' +
                 '</span>' +
                 '<span class="risk-file-loc">' + (n.linesOfCode || 0) + ' LOC</span>' +
                 '<span class="risk-file-open">➤</span>';
@@ -6242,7 +6392,7 @@
         rows = rows.slice(0, 10);
         for (var j = 0; j < rows.length; j++) {
             var r = rows[j];
-            lines.push('- **' + r.name + '** — ' + r.recent + ' commits / ' + RECENT_DAYS + 'd (`' + r.path + '` · ' + r.loc + ' LOC · ' + r.commits + ' total)');
+            lines.push('- **' + r.name + '** — ' + r.recent + ' commits / ' + RECENT_DAYS + 'd (`' + r.path + '` · ' + r.loc + ' LOC · ' + r.commits + ' in ' + riskWindowDays + 'd)');
         }
     }
 
@@ -6396,7 +6546,7 @@
             }
         }
         if (!rows.length) {
-            container.innerHTML = '<div class="risk-empty">No single-author files (≥3 commits).</div>';
+            container.innerHTML = '<div class="risk-empty">No single-author files (≥ 3 commits in the last ' + riskWindowDays + ' days).</div>';
             return;
         }
         rows.sort(function(a, b) { return b.commits - a.commits; });
@@ -6414,7 +6564,7 @@
                 '<span class="risk-file-info">' +
                     '<span class="risk-file-name">' + escapeHtml(n.name) + '</span>' +
                     '<span class="risk-file-path">' + escapeHtml(n.path || n.id) + '</span>' +
-                    '<span class="risk-file-breakdown">👤 ' + escapeHtml(r.author) + ' (single author)</span>' +
+                    '<span class="risk-file-breakdown">👤 ' + escapeHtml(r.author) + ' · ' + r.commits + ' commits in ' + riskWindowDays + 'd</span>' +
                 '</span>' +
                 '<span class="risk-file-loc">' + (n.linesOfCode || 0) + ' LOC</span>' +
                 '<span class="risk-file-open">➤</span>';
@@ -6452,7 +6602,7 @@
         rows = rows.slice(0, 15);
         for (var j = 0; j < rows.length; j++) {
             var r = rows[j];
-            lines.push('- **' + r.name + '** — ' + r.author + ' · ' + r.commits + ' commits (`' + r.path + '`)');
+            lines.push('- **' + r.name + '** — ' + r.author + ' · ' + r.commits + ' commits in ' + riskWindowDays + 'd (`' + r.path + '`)');
         }
     }
 
@@ -6462,6 +6612,20 @@
             exportBtn.addEventListener('click', function() {
                 if (!riskReportData) return;
                 vscode.postMessage({ type: 'exportRiskReport', payload: { markdown: generateRiskReportMarkdown(riskReportData) } });
+            });
+        }
+        var windowSelect = $('#risk-window');
+        if (windowSelect) {
+            windowSelect.value = String(riskWindowDays);
+            windowSelect.addEventListener('change', function() {
+                var v = parseInt(this.value, 10);
+                if (!v || RISK_WINDOWS.indexOf(v) === -1) return;
+                riskWindowDays = v;
+                computeChurnIndex();
+                computeMetricRanges();
+                renderRiskDashboard();
+                if (heatmapMode === 'churn' && graph) graph.nodeColor(graph.nodeColor());
+                saveViewState();
             });
         }
         var kinds = ['high', 'medium', 'low', 'rising', 'bus'];

@@ -2521,6 +2521,29 @@ body.chat-open #detail-panel.collapsed { display: none; }
     font-weight: 600;
     margin: 0;
 }
+.risk-toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.risk-window-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    opacity: 0.75;
+    white-space: nowrap;
+}
+.risk-window-select {
+    background: var(--aura-bg);
+    color: var(--aura-fg);
+    border: 1px solid var(--aura-border);
+    border-radius: 6px;
+    padding: 4px 6px;
+    font-size: 11px;
+    cursor: pointer;
+}
+.risk-window-select:focus { border-color: var(--aura-accent); outline: none; }
 .risk-export-btn {
     background: var(--aura-badge-bg);
     border: none;

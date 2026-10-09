@@ -44,8 +44,11 @@ Click any tab in the **tab bar** below the toolbar. The 3D graph pauses when you
 - The chart updates automatically as more commits are scanned
 
 ### Risk Map tips
-- Risk = `100 × (0.30·complexity + 0.20·fan-in + 0.10·fan-out + 0.15·cycle + 0.15·dead-code + 0.10·churn)` — every score is explainable
+- Risk = `100 × (0.30·complexity + 0.20·fan-in + 0.10·fan-out + 0.15·cycle + 0.15·dead-code + 0.10·churn)`
+- Complexity, fan-in, fan-out and churn are **percentile ranks inside your repository** — a score is a standing relative to *this* codebase
+- Every row explains itself in plain words ("changed 29 times in 90 days (top 1%)"); hover for the full breakdown
+- **History window**: pick 30 / 90 / 365 days — it drives churn, scoring and the explanations
 - Buckets: High ≥ 66, Medium 33–65, Low < 33
-- Click any file in a list to focus it in the 3D graph
-- 📤 Export Report writes `.aura/risk-report.md`
+- Click any file in a list to select it and focus it in the 3D graph
+- 📤 Export Report writes `.aura/risk-report.md` (reasons included)
 - Churn, Recently Hot, and Bus Factor require the git **Time Travel** scan

@@ -551,7 +551,17 @@ export class WebviewProvider {
     <div id="risk-view" class="tab-content" data-tab="risk">
         <div class="risk-toolbar">
             <h2>🛡️ Codebase Risk Map</h2>
-            <button id="risk-export" type="button" class="risk-export-btn" title="Export a Markdown report to .aura/risk-report.md">📤 Export Report</button>
+            <div class="risk-toolbar-actions">
+                <label class="risk-window-label" for="risk-window" title="How much git history is used for churn and scoring">
+                    History window
+                    <select id="risk-window" class="risk-window-select">
+                        <option value="30">30 days</option>
+                        <option value="90" selected>90 days</option>
+                        <option value="365">365 days</option>
+                    </select>
+                </label>
+                <button id="risk-export" type="button" class="risk-export-btn" title="Export a Markdown report to .aura/risk-report.md">📤 Export Report</button>
+            </div>
         </div>
         <div id="risk-content">
             <div class="risk-section" id="risk-health">
@@ -1025,7 +1035,8 @@ export class WebviewProvider {
 
                 <h3>🛡️ Risk Map</h3>
                 <p>Open the <strong>🛡️ Risk</strong> tab for a codebase health dashboard. It uses a transparent risk score: <code>100 × (0.30·complexity + 0.20·fan-in + 0.10·fan-out + 0.15·cycle + 0.15·dead-code + 0.10·churn)</code>.</p>
-                <p>High / Medium / Low file lists are collapsible and clickable (focus in the 3D graph). Also included: <strong>📈 Risk Trend</strong>, <strong>🔥 Recently Hot</strong> (last 30 days), <strong>📊 Churn × Complexity</strong> scatter (log scale), and <strong>👤 Bus Factor</strong> (files with a single author). Use <strong>📤 Export Report</strong> to write <code>.aura/risk-report.md</code>.</p>
+                <p>Complexity, fan-in, fan-out and churn are <strong>percentile ranks inside your repository</strong> (0 = lowest file, 1 = highest), so the score is a standing relative to this codebase. A <strong>History window</strong> selector (30 / 90 / 365 days) drives churn, scoring and explanations.</p>
+                <p>High / Medium / Low file lists are collapsible, each row explains <em>why</em> a file scores that way, and clicking a file selects it in the 3D graph. Also included: <strong>📈 Risk Trend</strong>, <strong>🔥 Recently Hot</strong> (last 30 days), <strong>📊 Churn × Complexity</strong> scatter (log scale), and <strong>👤 Bus Factor</strong> (files with a single author). Use <strong>📤 Export Report</strong> to write <code>.aura/risk-report.md</code>.</p>
 
                 <h3>🔗 Edge Colors</h3>
                 <table class="help-table">

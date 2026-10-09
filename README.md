@@ -129,14 +129,17 @@ Open the **🛡️ Risk** tab for a codebase health dashboard built on a transpa
 
 `risk = 100 × (0.30·complexity + 0.20·fan-in + 0.10·fan-out + 0.15·cycle + 0.15·dead-code + 0.10·churn)`
 
+Complexity, fan-in, fan-out and churn are **percentile ranks inside your repository** (0 = lowest file, 1 = highest), so a score is a standing relative to *your* codebase rather than an absolute threshold — a 72 means the same thing in a 50-file project and in a 5 000-file one. Cycle and dead-code are ratios by nature.
+
 - **Codebase Health** — overall health score (`100 − average risk`), plus the most risky and most connected files
 - **Risk Distribution** — high / medium / low buckets with percentages
-- **High / Medium / Low files** — collapsible lists (▼/▶ arrows); each file is clickable to focus it in the 3D graph
+- **High / Medium / Low files** — collapsible lists (▼/▶ arrows); each file states *why* it scores that way ("changed 29 times in 90 days (top 1%)", "12 files depend on it"), with the full breakdown on hover. Click a file to select it and focus it in the 3D graph.
+- **History window** — pick 30 / 90 / 365 days of git history; it drives churn, scoring and the explanations
 - **📈 Risk Trend** — average complexity over git history (structural risk proxy)
 - **🔥 Recently Hot** — files modified most in the last 30 days
 - **📊 Churn × Complexity** — scatter matrix (log scale) spotting files that are both complex and heavily churned (red = hot)
-- **👤 Bus Factor** — files touched by a single developer (≥ 3 commits)
-- **📤 Export Report** — writes a Markdown report to `.aura/risk-report.md`
+- **👤 Bus Factor** — files touched by a single developer (≥ 3 commits in the window)
+- **📤 Export Report** — writes a Markdown report to `.aura/risk-report.md`, reasons included
 
 Risk buckets: **High ≥ 66**, **Medium 33–65**, **Low < 33**. Churn is measured as commits per file and requires the git **Time Travel** scan.
 
