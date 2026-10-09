@@ -208,13 +208,7 @@
             case 'graphConfig':
                 if (message.payload) {
                     window.AURA_CONFIG = Object.assign({}, window.AURA_CONFIG || {}, message.payload);
-                    if (graph && typeof graph.linkCurvature === 'function') {
-                        var cfg = window.AURA_CONFIG;
-                        var curv = (cfg.linkStyle === 'curved')
-                            ? (typeof cfg.linkCurvature === 'number' ? cfg.linkCurvature : 0.25)
-                            : 0;
-                        graph.linkCurvature(curv);
-                    }
+                    applyLinkStyle();
                     if (typeof applySelectedNodeEffect === 'function') {
                         applySelectedNodeEffect();
                     }
@@ -451,7 +445,8 @@
         renderRiskDashboard();
         try {
             initGraph(graphData);
-            // Apply selected-node bloom post-processing if configured
+            // Apply the persisted link style + selected-node effect to the new graph
+            applyLinkStyle();
             applySelectedNodeEffect();
         } catch (e) {
             console.error('[aura] initGraph error:', e);
@@ -916,6 +911,19 @@
     // ============================================================
     // 3D Graph
     // ============================================================
+    /**
+     * Apply the "Link style" setting (straight / curved) to the graph.
+     * Must run on every graph init: `graphConfig` messages only arrive when the
+     * setting *changes*, so a value saved before launch never reached the graph.
+     */
+    function applyLinkStyle() {
+        if (!graph || typeof graph.linkCurvature !== 'function') return;
+        var cfg = window.AURA_CONFIG || {};
+        graph.linkCurvature(cfg.linkStyle === 'curved'
+            ? (typeof cfg.linkCurvature === 'number' ? cfg.linkCurvature : 0.25)
+            : 0);
+    }
+
     function initGraph(data) {
         if (typeof ForceGraph3D === 'undefined') {
             console.error('[aura] ForceGraph3D not loaded!');

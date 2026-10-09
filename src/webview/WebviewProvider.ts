@@ -92,6 +92,9 @@ export class WebviewProvider {
                 switch (message.type) {
                     case 'ready':
                         this.webviewReady = true;
+                        // Refresh settings from the workspace: the HTML embedded a
+                        // snapshot at panel creation, which can be stale.
+                        this.sendSettings();
                         if (this.pendingData) {
                             this.panel?.webview.postMessage({ type: 'graphData', payload: this.pendingData });
                         }
@@ -617,48 +620,48 @@ export class WebviewProvider {
             </div>
 
             <div class="risk-section risk-collapsible" id="risk-rising">
-                <button type="button" class="risk-section-header" id="risk-toggle-rising">
+                <button type="button" class="risk-section-header risk-collapsed" id="risk-toggle-rising">
                     <span class="risk-arrow" aria-hidden="true"></span>
                     <span class="risk-header-label">🔥 RECENTLY HOT</span>
                     <span class="risk-count-badge" id="risk-rising-badge">0</span>
                 </button>
-                <div id="risk-list-rising" class="risk-files-list"></div>
+                <div id="risk-list-rising" class="risk-files-list risk-collapsed"></div>
             </div>
 
             <div class="risk-section risk-collapsible" id="risk-bus">
-                <button type="button" class="risk-section-header" id="risk-toggle-bus">
+                <button type="button" class="risk-section-header risk-collapsed" id="risk-toggle-bus">
                     <span class="risk-arrow" aria-hidden="true"></span>
                     <span class="risk-header-label">👤 BUS FACTOR RISK</span>
                     <span class="risk-count-badge" id="risk-bus-badge">0</span>
                 </button>
-                <div id="risk-list-bus" class="risk-files-list"></div>
+                <div id="risk-list-bus" class="risk-files-list risk-collapsed"></div>
             </div>
 
             <div class="risk-section risk-collapsible" id="risk-section-high">
-                <button type="button" class="risk-section-header" id="risk-toggle-high">
+                <button type="button" class="risk-section-header risk-collapsed" id="risk-toggle-high">
                     <span class="risk-arrow" aria-hidden="true"></span>
                     <span class="risk-header-label">🔴 HIGH RISK FILES</span>
                     <span class="risk-count-badge" id="risk-high-badge">0</span>
                 </button>
-                <div class="risk-files-list" id="risk-list-high"></div>
+                <div class="risk-files-list risk-collapsed" id="risk-list-high"></div>
             </div>
 
             <div class="risk-section risk-collapsible" id="risk-section-medium">
-                <button type="button" class="risk-section-header" id="risk-toggle-medium">
+                <button type="button" class="risk-section-header risk-collapsed" id="risk-toggle-medium">
                     <span class="risk-arrow" aria-hidden="true"></span>
                     <span class="risk-header-label">🟡 MEDIUM RISK FILES</span>
                     <span class="risk-count-badge" id="risk-medium-badge">0</span>
                 </button>
-                <div class="risk-files-list" id="risk-list-medium"></div>
+                <div class="risk-files-list risk-collapsed" id="risk-list-medium"></div>
             </div>
 
             <div class="risk-section risk-collapsible" id="risk-section-low">
-                <button type="button" class="risk-section-header" id="risk-toggle-low">
+                <button type="button" class="risk-section-header risk-collapsed" id="risk-toggle-low">
                     <span class="risk-arrow" aria-hidden="true"></span>
                     <span class="risk-header-label">🟢 LOW RISK FILES</span>
                     <span class="risk-count-badge" id="risk-low-badge">0</span>
                 </button>
-                <div class="risk-files-list" id="risk-list-low"></div>
+                <div class="risk-files-list risk-collapsed" id="risk-list-low"></div>
             </div>
         </div>
     </div>
