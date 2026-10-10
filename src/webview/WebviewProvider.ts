@@ -7,6 +7,7 @@ import * as path from 'path';
 import type { GraphData } from '../analyzer/index';
 import type { GraphDB } from '../graph-db';
 import { runChatStream } from '../chat';
+import { normalizeRiskWindow } from '../risk/risk-core';
 
 export class WebviewProvider {
     public static readonly viewType = 'auraVisualizer.graphView';
@@ -173,6 +174,16 @@ export class WebviewProvider {
                         }
                         break;
                     }
+                    case 'setRiskWindow': {
+                        const p = (message.payload || {}) as { value?: number };
+                        const value = normalizeRiskWindow(p.value);
+                        const config = vscode.workspace.getConfiguration('auraVisualizer');
+                        void config.update('riskWindow', value, vscode.ConfigurationTarget.Workspace).then(
+                            undefined,
+                            () => { /* no workspace folder open — nothing to persist */ }
+                        );
+                        break;
+                    }
                 }
             },
             null,
@@ -268,6 +279,7 @@ export class WebviewProvider {
                     bloomStrength: config.get<number>('bloomStrength', 1.2),
                     bloomRadius: config.get<number>('bloomRadius', 0.6),
                     bloomThreshold: config.get<number>('bloomThreshold', 0.0),
+                    riskWindow: normalizeRiskWindow(config.get<number>('riskWindow', 90)),
                 }
             });
         } catch { /* ignore */ }
@@ -319,6 +331,7 @@ export class WebviewProvider {
                 bloomStrength: config.get<number>('bloomStrength', 1.2),
                 bloomRadius: config.get<number>('bloomRadius', 0.6),
                 bloomThreshold: config.get<number>('bloomThreshold', 0.0),
+                riskWindow: normalizeRiskWindow(config.get<number>('riskWindow', 90)),
             });
         } catch { return '{}'; }
     }
@@ -345,6 +358,9 @@ export class WebviewProvider {
         );
         const queryUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'query.js')
+        );
+        const riskUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'risk-core.js')
         );
         const forceGraphUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'lib', '3d-force-graph.min.js')
@@ -1071,6 +1087,7 @@ export class WebviewProvider {
     <!-- App Logic -->
     <script nonce="${nonce}" src="${configUri}"></script>
     <script nonce="${nonce}" src="${queryUri}"></script>
+    <script nonce="${nonce}" src="${riskUri}"></script>
     <script nonce="${nonce}" src="${appUri}"></script>
 </body>
 </html>`;

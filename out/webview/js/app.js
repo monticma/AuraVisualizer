@@ -212,6 +212,17 @@
                     if (typeof applySelectedNodeEffect === 'function') {
                         applySelectedNodeEffect();
                     }
+                    // Risk window can change from the Settings UI — re-derive churn & scoring
+                    var cfgWindow = window.AURA_CONFIG.riskWindow;
+                    if (typeof cfgWindow === 'number' && riskCore.normalizeRiskWindow(cfgWindow) !== riskWindowDays) {
+                        riskWindowDays = riskCore.normalizeRiskWindow(cfgWindow);
+                        var rwSelect = $('#risk-window');
+                        if (rwSelect) rwSelect.value = String(riskWindowDays);
+                        computeChurnIndex();
+                        computeMetricRanges();
+                        if (graphData && graphData.nodes) renderRiskDashboard();
+                        if (heatmapMode === 'churn' && graph) graph.nodeColor(graph.nodeColor());
+                    }
                     if (graph && typeof graph.nodeThreeObject === 'function') {
                         graph.nodeThreeObject(graph.nodeThreeObject());
                     }
@@ -4000,7 +4011,6 @@
             pathMode: pathMode,
             showLabels: showLabels,
             heatmapMode: heatmapMode,
-            riskWindow: riskWindowDays,
             nodeSizeMultiplier: nodeSizeMultiplier,
             spreadMultiplier: spreadMultiplier,
             focusDepth: focusDepth,
@@ -4076,13 +4086,9 @@
             setHeatmapMode(state.heatmapMode);
         }
 
-        // Risk Map — git history window
-        if (typeof state.riskWindow === 'number' && RISK_WINDOWS.indexOf(state.riskWindow) !== -1) {
-            riskWindowDays = state.riskWindow;
-            var rw = $('#risk-window');
-            if (rw) rw.value = String(riskWindowDays);
-            computeChurnIndex();
-        }
+        // Risk Map — the git history window is a setting now (auraVisualizer.riskWindow):
+        // it is seeded from AURA_CONFIG at startup and kept in sync via graphConfig.
+        // Older saved view states may still carry `riskWindow`; it is ignored.
 
         // Explorer
         if (typeof state.showExplorer === 'boolean') {
@@ -5879,8 +5885,9 @@
     var churnByFile = {};      // file id → { commits, recent, lastDate, authors }
     var RECENT_DAYS = 30;      // fixed window for the "Recently Hot" section
     var CHURN_CAP = 20;        // churn scale used for the scatter axis
-    var RISK_WINDOWS = [30, 90, 365];
-    var riskWindowDays = 90;   // configurable git history window (churn + scoring)
+    var riskCore = window.AuraRisk; // shared scoring — see src/risk/risk-core.ts
+    var RISK_WINDOWS = riskCore.RISK_WINDOWS;
+    var riskWindowDays = riskCore.normalizeRiskWindow((window.AURA_CONFIG || {}).riskWindow);
     var riskPercentiles = null; // { complexity, fanIn, fanOut, churn } → lookup(v) → 0..1
 
     function getChurn(id) {
@@ -5919,148 +5926,32 @@
         }
     }
 
-    /**
-     * Turn a metric's values into a percentile lookup (0 = lowest, 1 = highest).
-     * Ties are excluded from the denominator on purpose: a metric that is 0 for 90 %
-     * of the files must stay at the 0th percentile for those files, instead of
-     * jumping to the 90th just because most files are tied at zero.
-     */
-    function percentileLookup(values) {
-        var sorted = values.slice().sort(function(a, b) { return a - b; });
-        return function(v) {
-            var n = sorted.length;
-            if (n === 0) return 0;
-            var lo = 0, hi = n;
-            while (lo < hi) { // first index whose value is >= v
-                var mid = (lo + hi) >> 1;
-                if (sorted[mid] < v) lo = mid + 1; else hi = mid;
-            }
-            var less = lo;
-            var lo2 = less, hi2 = n;
-            while (lo2 < hi2) { // first index whose value is > v
-                var mid2 = (lo2 + hi2) >> 1;
-                if (sorted[mid2] <= v) lo2 = mid2 + 1; else hi2 = mid2;
-            }
-            var equal = lo2 - less;
-            var denom = n - equal;
-            if (denom <= 0) return 0;
-            return Math.min(1, less / denom);
-        };
+    function churnFor(node) {
+        return getChurn(node.id) || getChurn(node.path);
     }
 
     /** Rank every structural metric against the files of *this* repository. */
     function buildRiskPercentiles(nodes) {
-        var complexity = [], fanIn = [], fanOut = [], churn = [];
-        for (var i = 0; i < nodes.length; i++) {
-            var n = nodes[i];
-            complexity.push(n.complexity || 0);
-            fanIn.push(n.fanIn || 0);
-            fanOut.push(n.fanOut || 0);
-            churn.push(getChurn(n.id) || getChurn(n.path));
-        }
-        return {
-            complexity: percentileLookup(complexity),
-            fanIn: percentileLookup(fanIn),
-            fanOut: percentileLookup(fanOut),
-            churn: percentileLookup(churn)
-        };
+        return riskCore.buildRiskPercentiles(nodes, churnFor);
     }
 
-    /** 0.94 → "top 6%". Returns null when the rank carries no information. */
-    function topPercentLabel(p) {
-        var pc = Math.round((1 - p) * 100);
-        if (pc <= 0) return 'the highest';
-        if (pc >= 100) return null;
-        return 'top ' + pc + '%';
-    }
-
-    /**
-     * Risk score. Complexity, fan-in, fan-out and churn are **percentile ranks inside
-     * this repository**, so a score of 72 means the same thing in a 50-file project
-     * and in a 5 000-file one — it is a standing relative to the codebase rather than
-     * an absolute threshold. Cycle and dead-code are already 0..1 by nature.
-     */
+    /** Risk score — implemented in the shared core (src/risk/risk-core.ts). */
     function computeRiskScore(node, pct) {
-        pct = pct || riskPercentiles;
-        var complexity = node.complexity || 0;
-        var fanIn = node.fanIn || 0;
-        var fanOut = node.fanOut || 0;
-        var churn = getChurn(node.id) || getChurn(node.path);
-        var complexityP = pct ? pct.complexity(complexity) : Math.min(complexity / 50, 1);
-        var fanInP = pct ? pct.fanIn(fanIn) : Math.min(fanIn / 20, 1);
-        var fanOutP = pct ? pct.fanOut(fanOut) : Math.min(fanOut / 30, 1);
-        var churnP = pct ? pct.churn(churn) : Math.min(churn / CHURN_CAP, 1);
-        var inCycle = (node.cycleIds && node.cycleIds.length > 0) ? 1 : 0;
-        var totalSymbols = (node.symbols && node.symbols.totalSymbols) || 0;
-        var deadCount = (node.deadExports && node.deadExports.length) || 0;
-        var deadRatio = totalSymbols > 0 ? Math.min(deadCount / totalSymbols, 1) : 0;
-        return 100 * (
-            0.30 * complexityP +
-            0.20 * fanInP +
-            0.10 * fanOutP +
-            0.15 * inCycle +
-            0.15 * deadRatio +
-            0.10 * churnP
-        );
+        return riskCore.computeRiskScore(node, pct || riskPercentiles, churnFor(node));
     }
 
-    /**
-     * Plain-language reasons behind a file's score, with the real numbers
-     * ("changed 29 times in 90 days (top 1% of the repo)"). Sorted by contribution,
-     * so the most decisive factor comes first.
-     */
+    /** Written reasons — implemented in the shared core (src/risk/risk-core.ts). */
     function riskReasons(node, pct) {
-        pct = pct || riskPercentiles;
-        var reasons = [];
-        var complexity = node.complexity || 0;
-        var fanIn = node.fanIn || 0;
-        var fanOut = node.fanOut || 0;
-        var churn = getChurn(node.id) || getChurn(node.path);
-        var totalSymbols = (node.symbols && node.symbols.totalSymbols) || 0;
-        var deadCount = (node.deadExports && node.deadExports.length) || 0;
         var stats = churnOf(node);
-        var authorCount = stats.authors ? Object.keys(stats.authors).length : 0;
-        var lbl;
-
-        if (complexity > 0) {
-            var pC = pct ? pct.complexity(complexity) : 0;
-            lbl = topPercentLabel(pC);
-            reasons.push({ weight: 0.30 * pC, text: 'complexity ' + complexity + (lbl ? ' (' + lbl + ' of the repo)' : '') });
-        }
-        if (fanIn > 0) {
-            var pI = pct ? pct.fanIn(fanIn) : 0;
-            lbl = topPercentLabel(pI);
-            reasons.push({ weight: 0.20 * pI, text: fanIn + (fanIn === 1 ? ' file depends on it' : ' files depend on it') + (lbl ? ' (' + lbl + ')' : '') });
-        }
-        if (churn > 0) {
-            var pCh = pct ? pct.churn(churn) : 0;
-            lbl = topPercentLabel(pCh);
-            reasons.push({ weight: 0.10 * pCh, text: 'changed ' + churn + ' time' + (churn === 1 ? '' : 's') + ' in ' + riskWindowDays + ' days' + (lbl ? ' (' + lbl + ')' : '') });
-        }
-        if (fanOut > 0) {
-            var pO = pct ? pct.fanOut(fanOut) : 0;
-            reasons.push({ weight: 0.10 * pO, text: 'depends on ' + fanOut + ' file' + (fanOut === 1 ? '' : 's') });
-        }
-        if (node.cycleIds && node.cycleIds.length > 0) {
-            reasons.push({ weight: 0.15, text: 'in a dependency cycle' });
-        }
-        if (deadCount > 0) {
-            var ratio = totalSymbols > 0 ? deadCount / totalSymbols : 0;
-            reasons.push({ weight: 0.15 * ratio, text: deadCount + ' unused symbol' + (deadCount === 1 ? '' : 's') + ' of ' + totalSymbols });
-        }
-        if (authorCount === 1) {
-            reasons.push({ weight: 0, text: 'single author' });
-        } else if (authorCount > 1) {
-            reasons.push({ weight: 0, text: authorCount + ' authors' });
-        }
-        reasons.sort(function(a, b) { return b.weight - a.weight; });
-        return reasons;
+        return riskCore.riskReasons(node, pct || riskPercentiles, {
+            windowDays: riskWindowDays,
+            churn: churnFor(node),
+            authorCount: stats.authors ? Object.keys(stats.authors).length : 0
+        });
     }
 
     function riskReasonsText(reasons, separator) {
-        var parts = [];
-        for (var i = 0; i < reasons.length; i++) parts.push(reasons[i].text);
-        return parts.join(separator);
+        return riskCore.riskReasonsText(reasons, separator);
     }
 
     function riskBucket(score) {
@@ -6633,7 +6524,8 @@
                 computeMetricRanges();
                 renderRiskDashboard();
                 if (heatmapMode === 'churn' && graph) graph.nodeColor(graph.nodeColor());
-                saveViewState();
+                // Persist as a workspace setting — the host echoes it back via graphConfig
+                vscode.postMessage({ type: 'setRiskWindow', payload: { value: v } });
             });
         }
         var kinds = ['high', 'medium', 'low', 'rising', 'bus'];

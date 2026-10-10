@@ -262,6 +262,21 @@
           "maximum": 1,
           "description": "Bloom luminance threshold when selectedNodeEffect is 'bloom'"
         },
+        "auraVisualizer.riskWindow": {
+          "type": "number",
+          "enum": [
+            30,
+            90,
+            365
+          ],
+          "enumDescriptions": [
+            "Last 30 days of git history",
+            "Last 90 days of git history (default)",
+            "Last 365 days of git history"
+          ],
+          "default": 90,
+          "description": "Git history window (in days) used by the Risk Map: churn, scoring and written explanations"
+        },
         "auraVisualizer.savedQueries": {
           "type": "array",
           "default": [],

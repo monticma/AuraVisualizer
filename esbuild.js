@@ -102,6 +102,19 @@ async function copyWebviewAssets() {
         });
     }
 
+    // Risk core — shared scoring logic, bundled for the webview as window.AuraRisk.
+    // The same source (src/risk/risk-core.ts) is imported by the extension host, so
+    // the Risk tab, the status bar and the MCP tools share one implementation.
+    await esbuild.build({
+        entryPoints: [path.join(__dirname, 'src', 'risk', 'risk-core.ts')],
+        bundle: true,
+        format: 'iife',
+        globalName: 'AuraRisk',
+        outfile: path.join(webviewDest, 'js', 'risk-core.js'),
+        logLevel: 'silent',
+        tsconfig: 'tsconfig.json',
+    });
+
     console.log('Webview assets copied.');
 }
 
