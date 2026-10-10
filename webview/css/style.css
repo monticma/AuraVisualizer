@@ -2695,6 +2695,10 @@ body.chat-open #detail-panel.collapsed { display: none; }
 .risk-file-row[data-bucket="high"] .risk-file-score { background: rgba(248, 81, 73, 0.18); color: #f85149; }
 .risk-file-row[data-bucket="medium"] .risk-file-score { background: rgba(210, 153, 34, 0.18); color: #d29922; }
 .risk-file-row[data-bucket="low"] .risk-file-score { background: rgba(63, 185, 80, 0.18); color: #3fb950; }
+
+/* Brief highlight when a file is revealed from the status bar */
+.risk-file-row { transition: background 0.35s ease; }
+.risk-file-row.risk-row-flash { background: rgba(255, 193, 7, 0.22); }
 .risk-file-info { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .risk-file-name { font-size: 13px; font-weight: 500; }
 .risk-file-path {

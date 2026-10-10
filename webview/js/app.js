@@ -228,6 +228,11 @@
                     }
                 }
                 break;
+            case 'riskFocusFile':
+                if (message.payload && message.payload.nodeId) {
+                    revealRiskFile(message.payload.nodeId);
+                }
+                break;
             case 'applyQuery':
                 if (message.payload && typeof message.payload.expr === 'string') {
                     var qbInput = $('#qb-input');
@@ -5954,8 +5959,9 @@
         return riskCore.riskReasonsText(reasons, separator);
     }
 
+    /** Bucket thresholds — shared with the host (src/risk/risk-core.ts). */
     function riskBucket(score) {
-        return score >= 66 ? 'high' : (score >= 33 ? 'medium' : 'low');
+        return riskCore.riskBucket(score);
     }
 
     function renderRiskDashboard() {
@@ -6052,6 +6058,7 @@
             var row = document.createElement('div');
             row.className = 'risk-file-row';
             row.setAttribute('data-bucket', bucket);
+            row.dataset.id = n.id;
             if (fullText) row.setAttribute('title', fullText);
             row.innerHTML =
                 '<span class="risk-file-score">' + Math.round(it.score) + '</span>' +
@@ -6078,6 +6085,29 @@
                 handleNodeClick(node);
             }
         });
+    }
+
+    /** Reveal a file inside the Risk tab: expand its bucket, scroll to the row, flash it. */
+    function revealRiskFile(id) {
+        switchTab('risk');
+        var rows = document.querySelectorAll('#risk-list-high .risk-file-row, #risk-list-medium .risk-file-row, #risk-list-low .risk-file-row');
+        for (var i = 0; i < rows.length; i++) {
+            if (rows[i].dataset.id !== id) continue;
+            var list = rows[i].parentElement;
+            var header = list ? list.previousElementSibling : null;
+            if (list && list.classList.contains('risk-collapsed')) {
+                list.classList.remove('risk-collapsed');
+                if (header) header.classList.remove('risk-collapsed');
+            }
+            rows[i].scrollIntoView({ block: 'center' });
+            rows[i].classList.add('risk-row-flash');
+            (function(row) {
+                setTimeout(function() { row.classList.remove('risk-row-flash'); }, 1600);
+            })(rows[i]);
+            return;
+        }
+        // Not in the lists (buckets cover every node — should not happen): fall back to the graph
+        focusRiskFile(id);
     }
 
     function generateRiskReportMarkdown(d) {

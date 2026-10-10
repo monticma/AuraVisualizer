@@ -23,7 +23,7 @@ export interface RiskNode {
     complexity?: number;
     fanIn?: number;
     fanOut?: number;
-    cycleIds?: string[];
+    cycleIds?: unknown[];
     deadExports?: unknown[];
     symbols?: { totalSymbols?: number };
 }
@@ -111,6 +111,16 @@ export function topPercentLabel(p: number): string | null {
     if (pc <= 0) return 'the highest';
     if (pc >= 100) return null;
     return 'top ' + pc + '%';
+}
+
+/** Bucket thresholds on the 0..100 score — shared by the Risk tab, the status bar and reports. */
+export const RISK_HIGH_THRESHOLD = 66;
+export const RISK_MEDIUM_THRESHOLD = 33;
+
+export type RiskBucket = 'high' | 'medium' | 'low';
+
+export function riskBucket(score: number): RiskBucket {
+    return score >= RISK_HIGH_THRESHOLD ? 'high' : (score >= RISK_MEDIUM_THRESHOLD ? 'medium' : 'low');
 }
 
 /**

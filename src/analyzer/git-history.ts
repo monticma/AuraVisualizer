@@ -31,6 +31,52 @@ export async function getGitRoot(cwd: string): Promise<string> {
     return stdout.trim();
 }
 
+/** Working-tree state of a single file, as reported by `git status`. */
+export type GitFileState = 'modified' | 'added' | 'deleted' | 'renamed' | 'untracked' | 'conflicted';
+
+/**
+ * List the files with uncommitted changes (working tree + index).
+ * Returns repo-relative paths mapped to their state. Never throws — returns an
+ * empty map when the folder is not a git repository.
+ */
+export async function getWorkingTreeFiles(cwd: string): Promise<Map<string, GitFileState>> {
+    const result = new Map<string, GitFileState>();
+    try {
+        const { stdout } = await execFileAsync('git', [
+            '--no-optional-locks',
+            'status', '--porcelain=v1', '-z', '--untracked-files=all',
+        ], { cwd, maxBuffer: MAX_BUFFER });
+
+        const parts = stdout.split('\0');
+        for (let i = 0; i < parts.length; i++) {
+            const entry = parts[i];
+            if (!entry || entry.length < 4) continue;
+            const xy = entry.slice(0, 2);
+            const filePath = entry.slice(3);
+            if (!filePath) continue;
+
+            if (xy === '??') { result.set(filePath, 'untracked'); continue; }
+            if (xy === '!!') continue; // ignored (not listed by default)
+            if (xy[0] === 'U' || xy[1] === 'U' || xy === 'AA' || xy === 'DD') {
+                result.set(filePath, 'conflicted');
+                continue;
+            }
+
+            let state: GitFileState = 'modified';
+            if (xy[0] === 'A' || xy[1] === 'A') state = 'added';
+            else if (xy[0] === 'D' || xy[1] === 'D') state = 'deleted';
+            else if (xy[0] === 'R' || xy[1] === 'R' || xy[0] === 'C' || xy[1] === 'C') {
+                state = 'renamed';
+                i++; // in -z mode, the next NUL record is the original path
+            }
+            result.set(filePath, state);
+        }
+    } catch {
+        // Not a git repo, or git is unavailable — no working-tree info.
+    }
+    return result;
+}
+
 /**
  * Get the full commit index using git log --name-status.
  * Returns commits from newest to oldest.

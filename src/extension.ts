@@ -10,8 +10,10 @@ import { Worker } from 'worker_threads';
 import { WebviewProvider } from './webview/WebviewProvider';
 import { AuraTreeProvider } from './AuraTreeProvider';
 import { analyzeCodebase, scanSingleFile, buildGraph, preParseFiles, rebuildSingleFile, buildIncrementalContext, restoreIncrementalContext, type GraphData, type GraphNode, type GraphLink, type FileInfo, type IncrementalContext } from './analyzer/index';
-import { isGitRepo } from './analyzer/git-history';
+import { isGitRepo, getGitRoot, getWorkingTreeFiles, type GitFileState } from './analyzer/git-history';
 import type { CommitIndex, CommitDelta } from './analyzer/types';
+import { normalizeRiskWindow } from './risk/risk-core';
+import { buildRiskSnapshot, type RiskSnapshot, type RiskFileEntry } from './risk/risk-service';
 import { GraphDB } from './graph-db';
 import { registerAuraLmTools } from './lm-tools';
 import { chunkDocument, type DocChunk } from './analyzer/parsers/doc-parser';
@@ -23,6 +25,13 @@ let historyWorker: Worker | undefined;
 let commitIndex: CommitIndex | undefined;
 let cachedDeltas: CommitDelta[] = [];
 let fileWatcher: vscode.FileSystemWatcher | undefined;
+let riskStatusBarItem: vscode.StatusBarItem | undefined;
+let riskSnapshot: RiskSnapshot | undefined;
+let riskSnapshotDirty = true;
+let workingTreeFiles: Map<string, GitFileState> = new Map();
+let workingTreeTimer: ReturnType<typeof setTimeout> | undefined;
+/** '' = checked, not a git repo (avoids re-probing on every save). */
+let gitRepoRoot: string | undefined;
 let statusBarItem: vscode.StatusBarItem | undefined;
 let refreshTimeout: ReturnType<typeof setTimeout> | undefined;
 let treeProvider: AuraTreeProvider | undefined;
@@ -47,6 +56,13 @@ export function activate(context: vscode.ExtensionContext): void {
     statusBarItem.show();
     context.subscriptions.push(statusBarItem);
 
+    // Status bar (right) — risk score of the edited file; switches to an alert when
+    // the files being changed right now are high-risk ("hotspots in your changes").
+    riskStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 50);
+    riskStatusBarItem.command = 'auraVisualizer.open';
+    riskStatusBarItem.tooltip = 'Aura risk map';
+    context.subscriptions.push(riskStatusBarItem);
+
     // Language Model tools — exposes Aura's codebase graph to VS Code AI agents (Copilot Chat, etc.)
     registerAuraLmTools(context, () => graphDb);
 
@@ -62,24 +78,36 @@ export function activate(context: vscode.ExtensionContext): void {
             vscode.window.showTextDocument(vscode.Uri.file(fullPath), { preview: true });
         }),
         vscode.commands.registerCommand('auraVisualizer.exportGraph', () => exportGraph()),
-        vscode.commands.registerCommand('auraVisualizer.blastRadius', () => blastRadiusCurrentFile(context))
+        vscode.commands.registerCommand('auraVisualizer.blastRadius', () => blastRadiusCurrentFile(context)),
+        vscode.commands.registerCommand('auraVisualizer.statusBarRisk', (nodeId?: string) => focusRiskFromStatusBar(context, nodeId))
     );
 
     // Watch for file changes (incremental)
     setupFileWatcher(context);
 
-    // Watch for config changes (bloom, link style, etc.)
+    // Watch for config changes (bloom, link style, risk window, etc.)
     context.subscriptions.push(
         vscode.workspace.onDidChangeConfiguration(e => {
             if (e.affectsConfiguration('auraVisualizer') && webviewProvider) {
                 webviewProvider.sendSettings({});
             }
+            if (e.affectsConfiguration('auraVisualizer.riskWindow')) {
+                invalidateRisk();
+            }
+        })
+    );
+
+    // Working-tree changes — refresh the dirty-hotspots alert (debounced)
+    context.subscriptions.push(
+        vscode.workspace.onDidSaveTextDocument(() => {
+            scheduleWorkingTreeRefresh();
         })
     );
 
     // Sync active editor
     context.subscriptions.push(
         vscode.window.onDidChangeActiveTextEditor(editor => {
+            updateRiskStatusBar();
             if (editor && webviewProvider?.isVisible) {
                 const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
                 if (workspaceFolder) {
@@ -124,6 +152,9 @@ export function activate(context: vscode.ExtensionContext): void {
     if (vscode.workspace.workspaceFolders?.length) {
         loadFromDbThenRefresh(context);
     }
+
+    // Prime the working-tree status (dirty files) for the risk status bar
+    void refreshWorkingTree();
 }
 
 /**
@@ -165,6 +196,7 @@ async function loadFromDbThenRefresh(context: vscode.ExtensionContext): Promise<
         try {
             const idx = JSON.parse(readFileSync(indexPath, 'utf-8')) as CommitIndex;
             commitIndex = idx;
+            invalidateRisk();
             if (webviewProvider) {
                 webviewProvider.sendHistoryIndex(commitIndex);
             }
@@ -688,10 +720,165 @@ function computeGraphDelta(
 }
 
 function updateStatusBar(): void {
+    invalidateRisk();
     if (!statusBarItem || !cachedGraphData) return;
     const { totalFiles, totalLinks } = cachedGraphData.meta;
     statusBarItem.text = `$(eye) Aura: ${totalFiles} files, ${totalLinks} links`;
     statusBarItem.tooltip = `Aura — ${totalFiles} files, ${totalLinks} dependencies\nClick to open 3D visualizer`;
+}
+
+// ============================================================
+// Risk status bar — score of the active file + dirty-hotspots alert
+// ============================================================
+
+function invalidateRisk(): void {
+    riskSnapshotDirty = true;
+    updateRiskStatusBar();
+}
+
+function ensureRiskSnapshot(): RiskSnapshot | undefined {
+    if (!cachedGraphData || cachedGraphData.nodes.length === 0) return undefined;
+    if (!riskSnapshotDirty && riskSnapshot) return riskSnapshot;
+    const days = normalizeRiskWindow(
+        vscode.workspace.getConfiguration('auraVisualizer').get<number>('riskWindow', 90)
+    );
+    riskSnapshot = buildRiskSnapshot(cachedGraphData.nodes, commitIndex?.commits ?? [], days);
+    riskSnapshotDirty = false;
+    return riskSnapshot;
+}
+
+function updateRiskStatusBar(): void {
+    if (!riskStatusBarItem) return;
+    const snapshot = ensureRiskSnapshot();
+    if (!snapshot || snapshot.byId.size === 0) {
+        riskStatusBarItem.hide();
+        return;
+    }
+
+    // 1. Working-tree alert — the changes in flight touch high-risk files
+    const hotspots = dirtyHotspotIds(snapshot);
+    if (hotspots.length > 0) {
+        riskStatusBarItem.text = `$(warning) ${hotspots.length} hotspot${hotspots.length > 1 ? 's' : ''} in your changes`;
+        const md = new vscode.MarkdownString();
+        md.appendMarkdown(`**${hotspots.length} high-risk file${hotspots.length > 1 ? 's' : ''} in your current changes**\n\n`);
+        const shown = hotspots.slice(0, 5);
+        for (const h of shown) {
+            const entry = snapshot.byId.get(h);
+            md.appendMarkdown(`- \`${h}\`${entry ? ` — risk ${Math.round(entry.score)}/100` : ''}\n`);
+        }
+        if (hotspots.length > shown.length) {
+            md.appendMarkdown(`\n… and ${hotspots.length - shown.length} more`);
+        }
+        riskStatusBarItem.tooltip = md;
+        riskStatusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+        riskStatusBarItem.command = { command: 'auraVisualizer.statusBarRisk', title: 'Reveal in Risk tab', arguments: [hotspots[0]] };
+        riskStatusBarItem.show();
+        return;
+    }
+    riskStatusBarItem.backgroundColor = undefined;
+
+    // 2. Resting state — rank of the file currently being edited
+    const ws = vscode.workspace.workspaceFolders?.[0];
+    const editor = vscode.window.activeTextEditor;
+    if (!ws || !editor) {
+        riskStatusBarItem.hide();
+        return;
+    }
+    const rel = path.relative(ws.uri.fsPath, editor.document.uri.fsPath);
+    if (rel.startsWith('..') || path.isAbsolute(rel)) {
+        riskStatusBarItem.hide();
+        return;
+    }
+    const relNorm = rel.split(path.sep).join('/');
+    const entry = snapshot.byId.get(relNorm) || snapshot.byId.get(rel);
+    if (!entry) {
+        riskStatusBarItem.hide();
+        return;
+    }
+    riskStatusBarItem.text = `$(shield) Risk ${Math.round(entry.score)}${entry.topLabel ? ' · ' + entry.topLabel : ''}`;
+    riskStatusBarItem.tooltip = buildRiskTooltip(entry, relNorm);
+    riskStatusBarItem.command = { command: 'auraVisualizer.statusBarRisk', title: 'Reveal in Risk tab', arguments: [entry.id] };
+    riskStatusBarItem.show();
+}
+
+function buildRiskTooltip(entry: RiskFileEntry, relPath: string): vscode.MarkdownString {
+    const md = new vscode.MarkdownString();
+    md.appendMarkdown(`**Risk ${Math.round(entry.score)}/100**`);
+    if (entry.topLabel) md.appendMarkdown(` — ${entry.topLabel} of this repository`);
+    md.appendMarkdown('\n\n');
+    for (const r of entry.reasons.slice(0, 5)) {
+        md.appendMarkdown(`- ${r.text}\n`);
+    }
+    md.appendMarkdown(`\n\`${relPath}\` — click to reveal in the Risk tab`);
+    return md;
+}
+
+/** Map a git (repo-relative) path to a workspace-relative, slash-separated path. */
+function toWorkspaceRelative(repoRelative: string): string | undefined {
+    const ws = vscode.workspace.workspaceFolders?.[0];
+    if (!ws || !gitRepoRoot) return undefined;
+    const rel = path.relative(ws.uri.fsPath, path.join(gitRepoRoot, repoRelative));
+    if (rel.startsWith('..') || path.isAbsolute(rel)) return undefined;
+    return rel.split(path.sep).join('/');
+}
+
+/** High-risk files that appear in the working tree right now, most risky first. */
+function dirtyHotspotIds(snapshot: RiskSnapshot): string[] {
+    if (workingTreeFiles.size === 0) return [];
+    const ids: string[] = [];
+    for (const repoRel of workingTreeFiles.keys()) {
+        const wsRel = toWorkspaceRelative(repoRel);
+        if (wsRel && snapshot.highIds.has(wsRel)) ids.push(wsRel);
+    }
+    ids.sort((a, b) => (snapshot.byId.get(b)?.score ?? 0) - (snapshot.byId.get(a)?.score ?? 0));
+    return ids;
+}
+
+async function refreshWorkingTree(): Promise<void> {
+    const ws = vscode.workspace.workspaceFolders?.[0];
+    if (!ws) {
+        workingTreeFiles = new Map();
+        updateRiskStatusBar();
+        return;
+    }
+    try {
+        if (gitRepoRoot === undefined) {
+            try {
+                gitRepoRoot = await getGitRoot(ws.uri.fsPath);
+            } catch {
+                gitRepoRoot = ''; // not a git repo — don't probe again
+            }
+        }
+        workingTreeFiles = gitRepoRoot ? await getWorkingTreeFiles(ws.uri.fsPath) : new Map();
+    } catch {
+        workingTreeFiles = new Map();
+    }
+    updateRiskStatusBar();
+}
+
+function scheduleWorkingTreeRefresh(): void {
+    if (workingTreeTimer) clearTimeout(workingTreeTimer);
+    workingTreeTimer = setTimeout(() => { void refreshWorkingTree(); }, 300);
+}
+
+async function focusRiskFromStatusBar(context: vscode.ExtensionContext, nodeId?: string): Promise<void> {
+    if (!webviewProvider) {
+        webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState, () => graphDb);
+        registerOpenFileHandler();
+    }
+    webviewProvider.show();
+    if (cachedGraphData) {
+        webviewProvider.sendGraphData(cachedGraphData);
+        if (commitIndex) {
+            webviewProvider.sendHistoryIndex(commitIndex);
+            for (const delta of cachedDeltas) {
+                webviewProvider.sendHistoryDelta(delta);
+            }
+        }
+    }
+    if (nodeId) {
+        webviewProvider.focusRiskFile(nodeId);
+    }
 }
 
 // ============================================================
@@ -733,6 +920,7 @@ async function startHistoryScan(
         switch (msg.type) {
             case 'index':
                 commitIndex = msg.payload as CommitIndex;
+                invalidateRisk();
                 // Send to webview so it can show the timeline
                 if (webviewProvider) {
                     webviewProvider.sendHistoryIndex(commitIndex);
@@ -1048,6 +1236,7 @@ export function deactivate(): void {
     webviewProvider?.dispose();
     fileWatcher?.dispose();
     if (refreshTimeout) clearTimeout(refreshTimeout);
+    if (workingTreeTimer) clearTimeout(workingTreeTimer);
     if (historyWorker) {
         historyWorker.terminate();
         historyWorker = undefined;

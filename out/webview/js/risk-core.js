@@ -23,11 +23,14 @@ var AuraRisk = (() => {
   __export(risk_core_exports, {
     CHURN_CAP: () => CHURN_CAP,
     DEFAULT_RISK_WINDOW: () => DEFAULT_RISK_WINDOW,
+    RISK_HIGH_THRESHOLD: () => RISK_HIGH_THRESHOLD,
+    RISK_MEDIUM_THRESHOLD: () => RISK_MEDIUM_THRESHOLD,
     RISK_WINDOWS: () => RISK_WINDOWS,
     buildRiskPercentiles: () => buildRiskPercentiles,
     computeRiskScore: () => computeRiskScore,
     normalizeRiskWindow: () => normalizeRiskWindow,
     percentileLookup: () => percentileLookup,
+    riskBucket: () => riskBucket,
     riskReasons: () => riskReasons,
     riskReasonsText: () => riskReasonsText,
     topPercentLabel: () => topPercentLabel
@@ -90,6 +93,11 @@ var AuraRisk = (() => {
     if (pc >= 100)
       return null;
     return "top " + pc + "%";
+  }
+  var RISK_HIGH_THRESHOLD = 66;
+  var RISK_MEDIUM_THRESHOLD = 33;
+  function riskBucket(score) {
+    return score >= RISK_HIGH_THRESHOLD ? "high" : score >= RISK_MEDIUM_THRESHOLD ? "medium" : "low";
   }
   function computeRiskScore(node, pct, churn) {
     const complexity = node.complexity || 0;

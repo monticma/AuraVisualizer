@@ -22,6 +22,7 @@ export class WebviewProvider {
     private pendingData: GraphData | undefined;
     private pendingHistoryIndex: unknown | undefined;
     private pendingDeltas: unknown[] = [];
+    private pendingFocus: string | undefined;
     private webviewReady = false;
 
     private static readonly VIEW_STATE_KEY = 'aura.viewState';
@@ -104,6 +105,10 @@ export class WebviewProvider {
                         }
                         for (const delta of this.pendingDeltas) {
                             this.panel?.webview.postMessage({ type: 'historyDelta', payload: delta });
+                        }
+                        if (this.pendingFocus) {
+                            this.panel?.webview.postMessage({ type: 'riskFocusFile', payload: { nodeId: this.pendingFocus } });
+                            this.pendingFocus = undefined;
                         }
                         break;
                     case 'openFile':
@@ -253,6 +258,15 @@ export class WebviewProvider {
 
     public focusNode(nodeId: string): void {
         this.panel?.webview.postMessage({ type: 'focusNode', payload: { nodeId } });
+    }
+
+    /** Reveal a file in the Risk tab (expand its bucket, scroll to the row, flash it). */
+    public focusRiskFile(nodeId: string): void {
+        if (this.webviewReady) {
+            this.panel?.webview.postMessage({ type: 'riskFocusFile', payload: { nodeId } });
+        } else {
+            this.pendingFocus = nodeId;
+        }
     }
 
     public sendBlastRadius(nodeId: string): void {
