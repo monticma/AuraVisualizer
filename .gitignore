@@ -27,3 +27,7 @@ dist-ssr
 
 # Local-only docs (design notes, competitive analysis, screenshots)
 docs/
+
+# Code Cosmos per-developer settings
+.cosmos
+.cosmos.cache
