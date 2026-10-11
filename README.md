@@ -135,6 +135,7 @@ Complexity, fan-in, fan-out and churn are **percentile ranks inside your reposit
 - **Risk Distribution** — high / medium / low buckets with percentages
 - **High / Medium / Low files** — collapsible lists (▼/▶ arrows); each file states *why* it scores that way ("changed 29 times in 90 days (top 1%)", "12 files depend on it"), with the full breakdown on hover. Click a file to select it and focus it in the 3D graph.
 - **History window** — pick 30 / 90 / 365 days of git history; it drives churn, scoring and the explanations. Also available as the `auraVisualizer.riskWindow` workspace setting, shared with the status bar and the MCP `get_hotspots` tool
+- **Rename-aware churn** — files moved with `git mv` keep their history: churn, bus factor and the written explanations follow the rename (chained renames collapsed, latest one wins)
 - **🛡️ Status bar** — the risk of the file you are editing (`Risk 72 · top 8%`, written reasons in the tooltip); it switches to **`⚠ N hotspots in your changes`** when your working tree touches high-risk files. Click to jump to the file in the Risk tab
 - **📈 Risk Trend** — average complexity over git history (structural risk proxy)
 - **🔥 Recently Hot** — files modified most in the last 30 days
@@ -154,6 +155,16 @@ Aura reads `git status` and shows what you are working on right now:
 - **Status bar alert** — when your changes touch high-risk files, the status bar switches to `⚠ N hotspots in your changes` (see Risk Map)
 
 Everything refreshes automatically on save (debounced, no shell involved).
+
+### File Notes 📝
+
+Annotate any file with a personal, color-coded note — a marker that follows you through the graph:
+
+- **Write a note** — click a file node: the detail panel shows a **📝 Note** section with a text area (up to 2 000 characters) and five colors (yellow, red, blue, green, purple). **Save** applies it, **Delete** removes it
+- **Pulsing indicator** — annotated files wear a note-colored ring + dot in the graph, animated (breathing) so they stand out at any zoom level; the ring nests inside the amber dirty ring when a file is both annotated and modified
+- **📝 Notes toggle** — toolbar button next to ✏️ Dirty: shows / hides all note indicators; the choice is saved with your view state
+- **Query flag** — `hasnote` works in the query bar: `hasnote AND complexity > 20`
+- **Storage** — notes are stored in `.aura/annotations.json`, local to the workspace (not committed)
 
 ### Circular Dependencies 🔄
 
@@ -229,7 +240,7 @@ Filter, highlight, or select files with the built-in **Aura Query Language** —
 | `deadexports` | Number of unused (dead) exports |
 | `language`, `name`, `path`, `group`, `extension` | String metadata |
 | `community` | Detected community name |
-| `isorphan`, `isdead`, `incycle`, `ispinned`, `dirty` | Boolean flags (`dirty` = uncommitted git changes) |
+| `isorphan`, `isdead`, `incycle`, `ispinned`, `dirty`, `hasnote` | Boolean flags (`dirty` = uncommitted git changes, `hasnote` = annotated file) |
 
 **Operators:** `==`, `!=`, `>`, `<`, `>=`, `<=`, `~` (regex), `!~`, `in [ ... ]`, plus `AND` / `OR` / `NOT` and parentheses.
 
@@ -239,6 +250,7 @@ Filter, highlight, or select files with the built-in **Aura Query Language** —
 - `fanIn > 10 AND complexity > 20`
 - `isorphan`
 - `dirty AND complexity > 20` — files being edited right now
+- `hasnote` — every annotated file
 - `path ~ /src\/.*/`
 
 **Modes:** **Highlight** (dim non-matching files), **Filter** (hide non-matching files), **Select** (multi-select matching files).

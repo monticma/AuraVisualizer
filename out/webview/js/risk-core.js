@@ -26,6 +26,7 @@ var AuraRisk = (() => {
     RISK_HIGH_THRESHOLD: () => RISK_HIGH_THRESHOLD,
     RISK_MEDIUM_THRESHOLD: () => RISK_MEDIUM_THRESHOLD,
     RISK_WINDOWS: () => RISK_WINDOWS,
+    buildRenameResolver: () => buildRenameResolver,
     buildRiskPercentiles: () => buildRiskPercentiles,
     computeRiskScore: () => computeRiskScore,
     normalizeRiskWindow: () => normalizeRiskWindow,
@@ -162,6 +163,33 @@ var AuraRisk = (() => {
     for (const r of reasons)
       parts.push(r.text);
     return parts.join(separator);
+  }
+  function buildRenameResolver(commits) {
+    const map = /* @__PURE__ */ new Map();
+    for (const commit of commits) {
+      for (const f of commit.files || []) {
+        if (f.status === "R" && f.oldPath && f.path && f.oldPath !== f.path && !map.has(f.oldPath)) {
+          map.set(f.oldPath, f.path);
+        }
+      }
+    }
+    const cache = /* @__PURE__ */ new Map();
+    return (path) => {
+      const hit = cache.get(path);
+      if (hit !== void 0)
+        return hit;
+      let cur = path;
+      const seen = /* @__PURE__ */ new Set([cur]);
+      while (map.has(cur)) {
+        const next = map.get(cur);
+        if (seen.has(next))
+          break;
+        seen.add(next);
+        cur = next;
+      }
+      cache.set(path, cur);
+      return cur;
+    };
   }
   return __toCommonJS(risk_core_exports);
 })();

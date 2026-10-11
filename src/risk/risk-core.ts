@@ -216,3 +216,45 @@ export function riskReasonsText(reasons: RiskReason[], separator: string): strin
     for (const r of reasons) parts.push(r.text);
     return parts.join(separator);
 }
+
+// ============================================================
+// Rename resolution (git history → churn attribution)
+// ============================================================
+
+/** Minimal commit shape needed to follow renames (shared by host and webview). */
+export interface CommitLike {
+    files?: { status?: string; path?: string; oldPath?: string }[];
+}
+
+/**
+ * Build a path resolver that follows git renames so a file's history survives
+ * a move (`git mv`): churn, authors and "recently hot" stay attached to the
+ * current path. Chains collapse (a→b then b→c ⇒ a⇒c) and cycles are broken
+ * safely. Commits must be newest-first (git log order); when a historical path
+ * was reused by several files, the most recent rename wins.
+ */
+export function buildRenameResolver(commits: CommitLike[]): (path: string) => string {
+    const map = new Map<string, string>();
+    for (const commit of commits) {
+        for (const f of commit.files || []) {
+            if (f.status === 'R' && f.oldPath && f.path && f.oldPath !== f.path && !map.has(f.oldPath)) {
+                map.set(f.oldPath, f.path);
+            }
+        }
+    }
+    const cache = new Map<string, string>();
+    return (path: string): string => {
+        const hit = cache.get(path);
+        if (hit !== undefined) return hit;
+        let cur = path;
+        const seen = new Set<string>([cur]);
+        while (map.has(cur)) {
+            const next = map.get(cur)!;
+            if (seen.has(next)) break; // rename cycle — stop before looping
+            seen.add(next);
+            cur = next;
+        }
+        cache.set(path, cur);
+        return cur;
+    };
+}

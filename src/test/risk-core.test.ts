@@ -7,6 +7,7 @@ import {
     riskReasons,
     riskReasonsText,
     normalizeRiskWindow,
+    buildRenameResolver,
     CHURN_CAP,
     type RiskPercentiles,
 } from '../risk/risk-core';
@@ -83,6 +84,59 @@ describe('risk-core — computeRiskScore', () => {
         const node = { complexity: 10, fanIn: 2, fanOut: 2, cycleIds: ['a', 'b'], deadExports: [1, 2], symbols: { totalSymbols: 4 } };
         // 0.5 × 0.70 + 0.15 (cycle) + 0.15 × 0.5 (dead) = 0.575 → 57.5
         expect(computeRiskScore(node, half, 0)).toBeCloseTo(57.5, 5);
+    });
+});
+
+describe('risk-core — buildRenameResolver', () => {
+    it('is the identity when nothing was renamed', () => {
+        const resolve = buildRenameResolver([
+            { files: [{ status: 'A', path: 'a.ts' }, { status: 'M', path: 'b.ts' }] },
+            { files: [{ status: 'M', path: 'a.ts' }] },
+        ]);
+        expect(resolve('a.ts')).toBe('a.ts');
+        expect(resolve('unknown.ts')).toBe('unknown.ts');
+    });
+
+    it('maps a renamed file to its current path', () => {
+        const resolve = buildRenameResolver([
+            { files: [{ status: 'R', path: 'new/b.ts', oldPath: 'a.ts' }] },
+        ]);
+        expect(resolve('a.ts')).toBe('new/b.ts');
+        expect(resolve('new/b.ts')).toBe('new/b.ts');
+    });
+
+    it('collapses rename chains (a→b then b→c gives a⇒c)', () => {
+        // Commits are newest-first, like git log output.
+        const resolve = buildRenameResolver([
+            { files: [{ status: 'R', path: 'c.ts', oldPath: 'b.ts' }] },
+            { files: [{ status: 'R', path: 'b.ts', oldPath: 'a.ts' }] },
+        ]);
+        expect(resolve('a.ts')).toBe('c.ts');
+        expect(resolve('b.ts')).toBe('c.ts');
+    });
+
+    it('keeps the most recent rename when a historical path is reused', () => {
+        const resolve = buildRenameResolver([
+            { files: [{ status: 'R', path: 'second.ts', oldPath: 'reused.ts' }] },
+            { files: [{ status: 'R', path: 'first.ts', oldPath: 'reused.ts' }] },
+        ]);
+        expect(resolve('reused.ts')).toBe('second.ts');
+    });
+
+    it('breaks rename cycles safely', () => {
+        const resolve = buildRenameResolver([
+            { files: [{ status: 'R', path: 'b.ts', oldPath: 'a.ts' }] },
+            { files: [{ status: 'R', path: 'a.ts', oldPath: 'b.ts' }] },
+        ]);
+        const out = resolve('a.ts');
+        expect(out === 'a.ts' || out === 'b.ts').toBe(true);
+    });
+
+    it('ignores rename entries without an old path', () => {
+        const resolve = buildRenameResolver([
+            { files: [{ status: 'R', path: 'a.ts' }] },
+        ]);
+        expect(resolve('a.ts')).toBe('a.ts');
     });
 });
 

@@ -71,4 +71,19 @@ describe('risk-service — buildRiskSnapshot', () => {
         const snap = buildRiskSnapshot(nodes, commits, 30, NOW);
         expect(snap.byId.get('src/a.ts')!.reasons.map(r => r.text).join(' ')).toContain('changed 1 time in 30 days');
     });
+
+    it('follows git renames so history under the old path counts for the new path', () => {
+        const nodes: RiskServiceNode[] = [{ id: 'new/loc.ts', path: 'new/loc.ts', complexity: 1 }];
+        const commits: RiskServiceCommit[] = [
+            { date: daysAgo(1), author: 'alice', files: [{ status: 'M', path: 'new/loc.ts' }] },
+            { date: daysAgo(4), author: 'alice', files: [{ status: 'R', path: 'new/loc.ts', oldPath: 'old/loc.ts' }] },
+            { date: daysAgo(8), author: 'bob', files: [{ status: 'M', path: 'old/loc.ts' }] },
+            { date: daysAgo(12), author: 'carol', files: [{ status: 'M', path: 'old/loc.ts' }] },
+        ];
+        const snap = buildRiskSnapshot(nodes, commits, 30, NOW);
+        const text = snap.byId.get('new/loc.ts')!.reasons.map(r => r.text).join(' | ');
+        // All four commits touched the same file (rename included).
+        expect(text).toContain('changed 4 times in 30 days');
+        expect(text).toContain('3 authors');
+    });
 });

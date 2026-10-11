@@ -86,6 +86,7 @@ export async function getCommitIndex(cwd: string): Promise<CommitInfo[]> {
         'log',
         '--pretty=format:%H%n%aI%n%an%n%s',
         '--name-status',
+        '-M',              // rename detection, independent of the user's diff.renames config
         '--diff-filter=ADMR',
         '--no-merges',
     ], { cwd, maxBuffer: MAX_BUFFER });

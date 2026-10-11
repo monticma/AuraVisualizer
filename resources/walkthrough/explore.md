@@ -21,10 +21,11 @@ Filter buttons at the bottom show only languages present in your project.
 - **Orphans** (`O`) — Highlight disconnected files in red
 - **Groups** (`G`) — Cluster files by directory
 - **✏️ Dirty** — Show only files with uncommitted changes (git working tree) — those files also wear a thin amber ring by default
+- **📝 Notes** — Show/hide the note indicators — annotated files wear a pulsing note-colored ring + dot
 - **Recenter** (`F`) — Fit the entire graph in view
 - **🗺️ Map** — Toggle the minimap — a real-time overview that rotates with the camera. Drag inside to pan the viewport.
 
-**Detail panel** — Click any node to see: file path, LOC, complexity, fan-in/out, symbols (functions, structs, enums), dependencies, dependents, and — when the file has uncommitted changes — its **Git state** (modified, staged, untracked, renamed). Function-call links show the actual function name (e.g. `helper()`) next to the target file, with a green `×N` badge when several distinct call sites connect the same pair of files. In the 3D Graph itself, function-call edges are **scaled in width** by call count and **hovering an edge** reveals a tooltip listing the top caller → callee pairs.
+**Detail panel** — Click any node to see: file path, LOC, complexity, fan-in/out, symbols (functions, structs, enums), dependencies, dependents, and — when the file has uncommitted changes — its **Git state** (modified, staged, untracked, renamed). Function-call links show the actual function name (e.g. `helper()`) next to the target file, with a green `×N` badge when several distinct call sites connect the same pair of files. In the 3D Graph itself, function-call edges are **scaled in width** by call count and **hovering an edge** reveals a tooltip listing the top caller → callee pairs. Every file also has a **📝 Note** section — write an annotation, pick one of five colors and Save: the node gains a pulsing note-colored ring + dot in the graph (toggle them all with the **📝 Notes** toolbar button).
 
 **File Explorer** — Toggle the tree panel to browse files by directory. Each directory has a **checkbox** to filter it in/out of the graph. Use **All** / **None** buttons for batch selection. Files containing functions show a **chevron** — click it to expand the list of every function in the file; click any function to **open the file at that exact line**.
 

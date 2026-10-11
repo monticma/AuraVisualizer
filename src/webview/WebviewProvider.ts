@@ -9,6 +9,7 @@ import type { GraphDB } from '../graph-db';
 import { runChatStream } from '../chat';
 import { normalizeRiskWindow } from '../risk/risk-core';
 import type { RiskSnapshot } from '../risk/risk-service';
+import { parseAnnotations, serializeAnnotations, withNote, withoutNote, type AnnotationMap } from '../annotations';
 
 /** Whitelist of webview-editable settings, with per-key validation. */
 const SETTING_NORMALIZERS: Record<string, (v: unknown) => unknown> = {
@@ -151,6 +152,7 @@ export class WebviewProvider {
                         if (workingTree) {
                             this.panel?.webview.postMessage({ type: 'workingTree', payload: { files: workingTree } });
                         }
+                        void this.sendAnnotations();
                         break;
                     case 'openFile':
                         if (message.payload) {
@@ -235,6 +237,20 @@ export class WebviewProvider {
                     case 'openSettings':
                         void vscode.commands.executeCommand('workbench.action.openSettings', '@ext:monticma-aura.aura-visualizer-3D');
                         break;
+                    case 'saveNote': {
+                        const p = (message.payload || {}) as { path?: string; text?: string; color?: string };
+                        if (p.path) {
+                            void this.handleSaveNote(p.path, p.text || '', p.color);
+                        }
+                        break;
+                    }
+                    case 'deleteNote': {
+                        const p = (message.payload || {}) as { path?: string };
+                        if (p.path) {
+                            void this.handleDeleteNote(p.path);
+                        }
+                        break;
+                    }
                 }
             },
             null,
@@ -275,6 +291,64 @@ export class WebviewProvider {
             vscode.window.showErrorMessage(
                 'Aura: Failed to export risk report: ' + (err instanceof Error ? err.message : String(err))
             );
+        }
+    }
+
+    // ============================================================
+    // Node notes (annotations) — .aura/annotations.json
+    // ============================================================
+
+    /** Push the current note map to the webview (safe when not ready yet). */
+    public async sendAnnotations(): Promise<void> {
+        const notes = await this.loadAnnotations();
+        this.panel?.webview.postMessage({ type: 'annotations', payload: { notes } });
+    }
+
+    private annotationsFileUri(): vscode.Uri | undefined {
+        const ws = vscode.workspace.workspaceFolders?.[0];
+        if (!ws) return undefined;
+        return vscode.Uri.joinPath(ws.uri, '.aura', 'annotations.json');
+    }
+
+    private async loadAnnotations(): Promise<AnnotationMap> {
+        const file = this.annotationsFileUri();
+        if (!file) return {};
+        try {
+            const buf = await vscode.workspace.fs.readFile(file);
+            return parseAnnotations(Buffer.from(buf).toString('utf-8'));
+        } catch {
+            return {}; // File not created yet — no notes.
+        }
+    }
+
+    private async persistAnnotations(map: AnnotationMap): Promise<void> {
+        const ws = vscode.workspace.workspaceFolders?.[0];
+        if (!ws) return;
+        const dir = vscode.Uri.joinPath(ws.uri, '.aura');
+        await vscode.workspace.fs.createDirectory(dir);
+        await vscode.workspace.fs.writeFile(
+            vscode.Uri.joinPath(dir, 'annotations.json'),
+            Buffer.from(serializeAnnotations(map), 'utf-8')
+        );
+    }
+
+    private async handleSaveNote(path: string, text: string, color?: string): Promise<void> {
+        try {
+            const map = withNote(await this.loadAnnotations(), path, text, color);
+            await this.persistAnnotations(map);
+            await this.sendAnnotations();
+        } catch (err) {
+            console.error('[aura] saveNote failed:', err);
+        }
+    }
+
+    private async handleDeleteNote(path: string): Promise<void> {
+        try {
+            const map = withoutNote(await this.loadAnnotations(), path);
+            await this.persistAnnotations(map);
+            await this.sendAnnotations();
+        } catch (err) {
+            console.error('[aura] deleteNote failed:', err);
         }
     }
 
@@ -613,6 +687,17 @@ export class WebviewProvider {
                 </div>
             </div>
         </div>
+        <div class="panel-section" id="note-section">
+            <h3>📝 Note</h3>
+            <textarea id="note-input" rows="2" placeholder="Add a note for this file…" maxlength="2000"></textarea>
+            <div class="note-actions">
+                <span id="note-colors" class="note-colors"></span>
+                <span class="note-buttons">
+                    <button id="note-save" class="note-btn">Save</button>
+                    <button id="note-delete" class="note-btn note-btn-delete" style="display:none">🗑 Delete</button>
+                </span>
+            </div>
+        </div>
         <div class="panel-section" id="symbols-section" style="display:none">
             <h3>Symbols <span id="symbols-total" class="count-badge">0</span></h3>
             <div id="symbols-list" class="symbols-list"></div>
@@ -935,6 +1020,7 @@ export class WebviewProvider {
             <button class="filter-btn" id="btn-dead-code" title="Dead code detection">☠️ Dead</button>
             <button class="filter-btn" id="btn-cycles" title="Circular dependencies">🔄 Cycles</button>
             <button class="filter-btn" id="btn-dirty-only" title="Only files with uncommitted changes (git working tree)">✏️ Dirty</button>
+            <button class="filter-btn active" id="btn-notes" title="Show note indicators on annotated files">📝 Notes</button>
             <button class="filter-btn" id="btn-group-dirs" title="Group by directory">📁 Groups</button>
             <button class="filter-btn" id="btn-path-mode" title="Find path between 2 nodes">🔗 Path</button>
             <button class="filter-btn" id="btn-labels" title="Show file names">🏷️ Names</button>
@@ -1164,12 +1250,16 @@ export class WebviewProvider {
                 <p>Files with uncommitted changes wear a thin <span style="color:#ffb300">● amber ring</span> in the graph — read straight from <code>git status</code> (modified, staged, untracked, renamed, conflicts). The detail panel shows the exact state on its <strong>Git</strong> line.</p>
                 <p>The <strong>✏️ Dirty</strong> toolbar button filters the graph down to those files (nodes and links); the <code>dirty</code> flag does the same in queries. The VS Code status bar shows the risk of the file you are editing and switches to <strong>⚠ N hotspots in your changes</strong> when your changes touch high-risk files — click it to reveal them in the Risk tab.</p>
 
-                <h3>📂 Directory Filtering</h3>
+                <h3>� Notes</h3>
+                <p>Click a file node to annotate it: the detail panel's <strong>📝 Note</strong> section takes free text (up to 2 000 chars) plus one of five colors. Annotated files wear a <strong>pulsing note-colored ring + dot</strong> in the graph — animated, so they stay visible at any zoom.</p>
+                <p>The <strong>📝 Notes</strong> toolbar button (next to ✏️ Dirty) shows / hides the indicators; the <code>hasnote</code> query flag finds annotated files. Notes are stored in <code>.aura/annotations.json</code> — local to your workspace, never committed.</p>
+
+                <h3>�📂 Directory Filtering</h3>
                 <p>In the <strong>File Explorer</strong> panel, each directory has a checkbox to show/hide its files in the graph. Use the <strong>All</strong> / <strong>None</strong> buttons for batch selection. Directories are checked by default.</p>
 
                 <h3>🔍 Query Filter</h3>
                 <p>Open the query bar with the <strong>🔍 button</strong> (far right of the tab bar) or <kbd>Ctrl+K</kbd> / <kbd>Cmd+K</kbd> — it stays hidden until you need it. Type a boolean expression over node metrics, e.g. <code>complexity &gt; 20 AND fanIn &gt; 5</code>.</p>
-                <p><strong>Fields:</strong> <code>complexity</code>, <code>loc</code>, <code>fanin</code> / <code>fanout</code>, <code>size</code>, <code>mtime</code> / <code>lastmodified</code>, <code>symbols</code>, <code>deadexports</code>, <code>language</code>, <code>name</code>, <code>path</code>, <code>group</code>, <code>extension</code>, <code>community</code>, and flags <code>isorphan</code> / <code>isdead</code> / <code>incycle</code> / <code>ispinned</code> / <code>dirty</code>.</p>
+                <p><strong>Fields:</strong> <code>complexity</code>, <code>loc</code>, <code>fanin</code> / <code>fanout</code>, <code>size</code>, <code>mtime</code> / <code>lastmodified</code>, <code>symbols</code>, <code>deadexports</code>, <code>language</code>, <code>name</code>, <code>path</code>, <code>group</code>, <code>extension</code>, <code>community</code>, and flags <code>isorphan</code> / <code>isdead</code> / <code>incycle</code> / <code>ispinned</code> / <code>dirty</code> / <code>hasnote</code>.</p>
                 <p><strong>Operators:</strong> <code>==</code>, <code>!=</code>, <code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, <code>&lt;=</code>, <code>~</code> (regex), <code>!~</code>, <code>in [ ... ]</code>, plus <code>AND</code> / <code>OR</code> / <code>NOT</code>.</p>
                 <p><strong>Modes:</strong> <strong>Highlight</strong> (dim non-matching), <strong>Filter</strong> (hide non-matching), <strong>Select</strong> (multi-select). Press <strong>⭐</strong> to save a query and <strong>📚</strong> to reopen saved ones.</p>
 
@@ -1211,7 +1301,7 @@ export class WebviewProvider {
 
                 <h3>🛡️ Risk Map</h3>
                 <p>Open the <strong>🛡️ Risk</strong> tab for a codebase health dashboard. It uses a transparent risk score: <code>100 × (0.30·complexity + 0.20·fan-in + 0.10·fan-out + 0.15·cycle + 0.15·dead-code + 0.10·churn)</code>.</p>
-                <p>Complexity, fan-in, fan-out and churn are <strong>percentile ranks inside your repository</strong> (0 = lowest file, 1 = highest), so the score is a standing relative to this codebase. A <strong>History window</strong> selector (30 / 90 / 365 days) drives churn, scoring and explanations.</p>
+                <p>Complexity, fan-in, fan-out and churn are <strong>percentile ranks inside your repository</strong> (0 = lowest file, 1 = highest), so the score is a standing relative to this codebase. A <strong>History window</strong> selector (30 / 90 / 365 days) drives churn, scoring and explanations. Churn is <strong>rename-aware</strong>: files moved with <code>git mv</code> keep their history across the rename.</p>
                 <p>High / Medium / Low file lists are collapsible, each row explains <em>why</em> a file scores that way, and clicking a file selects it in the 3D graph. Also included: <strong>📈 Risk Trend</strong>, <strong>🔥 Recently Hot</strong> (last 30 days), <strong>📊 Churn × Complexity</strong> scatter (log scale), and <strong>👤 Bus Factor</strong> (files with a single author). Use <strong>📤 Export Report</strong> to write <code>.aura/risk-report.md</code>.</p>
 
                 <h3>🔗 Edge Colors</h3>

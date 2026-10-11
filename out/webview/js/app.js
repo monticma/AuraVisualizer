@@ -42,7 +42,10 @@
     var showDeadCode = false;
     var showCycles = false;
     var showDirtyOnly = false; // filter: only files with uncommitted changes
+    var showNotes = true;      // show note indicators (pulsing ring + dot) on annotated files
     var workingTree = {};      // workspace-relative path → git state (modified / untracked / …)
+    var annotations = {};      // workspace-relative path → { text, color, updatedAt }
+    var NOTE_COLORS = { yellow: '#fdd835', red: '#ef5350', blue: '#42a5f5', green: '#66bb6a', purple: '#ab47bc' };
     var cycleNodeIds = new Set();
     var cycleLinkKeys = new Set();
     var multiSelectedNodes = new Set();
@@ -240,6 +243,14 @@
                 workingTree = (message.payload && message.payload.files) || {};
                 if (queryActive) evaluateQuery();
                 refreshGraphAfterQuery();
+                break;
+            case 'annotations':
+                annotations = (message.payload && message.payload.notes) || {};
+                if (queryActive) evaluateQuery();
+                refreshGraphAfterQuery();
+                if (selectedNode && !selectedNode._isCluster && !selectedNode._isSymbol) {
+                    updateNoteEditor(selectedNode);
+                }
                 break;
             case 'applyQuery':
                 if (message.payload && typeof message.payload.expr === 'string') {
@@ -1043,6 +1054,7 @@
                 var isSelected = (selectedNode && selectedNode.id === node.id) || multiSelectedNodes.has(node);
                 var isBlastSource = blastMode && pinnedNode && (node.id === pinnedNode.id || (impactMode && blastDepths[node.id] === 0));
                 var dirtyState = dirtyStateOf(node);
+                var noteInfo = showNotes ? annotationOf(node) : null;
                 var hasLabel = showLabels &&
                     !(showOrphans && (node.fanIn > 0 || node.fanOut > 0)) &&
                     !(showDeadCode && !(node.deadExports && node.deadExports.length > 0)) &&
@@ -1093,17 +1105,32 @@
                     return cGroup;
                 }
 
-                if (!isSelected && !hasLabel && !isBlastSource && !dirtyState) return null;
+                if (!isSelected && !hasLabel && !isBlastSource && !dirtyState && !noteInfo) return null;
 
                 var group = new T.Group();
+                var baseScale = Math.cbrt(getNodeSize(node) || 1) * 8;
 
                 // Git dirty ring — amber circle around files with uncommitted changes
                 if (dirtyState) {
                     var ring = getDirtyRingSprite();
                     if (ring) {
-                        var ringScale = Math.cbrt(getNodeSize(node) || 1) * 8;
-                        ring.scale.set(ringScale, ringScale, 1);
+                        ring.scale.set(baseScale, baseScale, 1);
                         group.add(ring);
+                    }
+                }
+
+                // Note indicator — breathing note-colored ring + dot for annotated files.
+                // The motion is what makes notes stand out at any zoom, whatever else glows.
+                if (noteInfo) {
+                    var noteRing = getNoteRingSprite(noteInfo.color);
+                    if (noteRing) {
+                        attachNotePulse(noteRing, baseScale);
+                        group.add(noteRing);
+                    }
+                    var noteDot = getNoteDotSprite(noteInfo.color);
+                    if (noteDot) {
+                        attachNotePulse(noteDot, baseScale);
+                        group.add(noteDot);
                     }
                 }
 
@@ -1437,7 +1464,8 @@
             },
             cycleNodeIds: cycleSet,
             pinnedNodes: typeof pinnedNodes !== 'undefined' ? pinnedNodes : new Set(),
-            dirtySet: new Set(Object.keys(workingTree))
+            dirtySet: new Set(Object.keys(workingTree)),
+            notes: annotations
         };
     }
 
@@ -3148,6 +3176,9 @@
                 }
             }
 
+            // Clusters have no note editor
+            var noteSection = $('#note-section');
+            if (noteSection) noteSection.style.display = 'none';
             var depUl = $('#panel-dependents');
             depUl.innerHTML = '';
             $('#dependents-count').textContent = '0';
@@ -3186,6 +3217,7 @@
             gitEl.textContent = gitState ? (GIT_STATE_LABELS[gitState] || gitState) : '—';
             gitEl.style.color = gitState ? '#ffb300' : '';
         }
+        updateNoteEditor(node);
         $('#panel-fanout').textContent = node.fanOut;
         $('#panel-fanin').textContent = node.fanIn;
         $('#panel-complexity').textContent = node.complexity || 1;
@@ -3407,6 +3439,10 @@
     function showMultiSelectPanel() {
         detailPanel.classList.remove('collapsed');
 
+        // Multi-selection has no note editor
+        var noteSectionMs = $('#note-section');
+        if (noteSectionMs) noteSectionMs.style.display = 'none';
+
         var nodes = [];
         multiSelectedNodes.forEach(function(n) { nodes.push(n); });
 
@@ -3524,6 +3560,75 @@
                 refreshGraphVisuals();
             }
         });
+        setupNoteEditor();
+    }
+
+    // ============================================================
+    // Note editor (detail panel)
+    // ============================================================
+    var noteSelectedColor = 'yellow';
+
+    function setupNoteEditor() {
+        var colorsEl = $('#note-colors');
+        if (colorsEl) {
+            colorsEl.innerHTML = '';
+            Object.keys(NOTE_COLORS).forEach(function(key) {
+                var sw = document.createElement('span');
+                sw.className = 'note-swatch' + (key === 'yellow' ? ' active' : '');
+                sw.dataset.color = key;
+                sw.style.background = NOTE_COLORS[key];
+                sw.title = key;
+                sw.addEventListener('click', function() {
+                    noteSelectedColor = key;
+                    var all = colorsEl.querySelectorAll('.note-swatch');
+                    for (var i = 0; i < all.length; i++) { all[i].classList.toggle('active', all[i].dataset.color === key); }
+                });
+                colorsEl.appendChild(sw);
+            });
+        }
+        var saveBtn = $('#note-save');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', function() {
+                if (!selectedNode || selectedNode._isCluster || selectedNode._isSymbol) return;
+                var text = $('#note-input').value || '';
+                vscode.postMessage({
+                    type: 'saveNote',
+                    payload: { path: selectedNode.id || selectedNode.path, text: text, color: noteSelectedColor }
+                });
+            });
+        }
+        var delBtn = $('#note-delete');
+        if (delBtn) {
+            delBtn.addEventListener('click', function() {
+                if (!selectedNode || selectedNode._isCluster || selectedNode._isSymbol) return;
+                vscode.postMessage({
+                    type: 'deleteNote',
+                    payload: { path: selectedNode.id || selectedNode.path }
+                });
+            });
+        }
+    }
+
+    /** Populate the note editor from the selected node's note (or clear it). */
+    function updateNoteEditor(node) {
+        var section = $('#note-section');
+        var input = $('#note-input');
+        if (!section || !input) return;
+        if (!node || node._isCluster || node._isSymbol) {
+            section.style.display = 'none';
+            return;
+        }
+        section.style.display = 'block';
+        var note = annotationOf(node);
+        input.value = note ? note.text : '';
+        noteSelectedColor = note ? note.color : 'yellow';
+        var colorsEl = $('#note-colors');
+        if (colorsEl) {
+            var all = colorsEl.querySelectorAll('.note-swatch');
+            for (var i = 0; i < all.length; i++) { all[i].classList.toggle('active', all[i].dataset.color === noteSelectedColor); }
+        }
+        var delBtn = $('#note-delete');
+        if (delBtn) delBtn.style.display = note ? '' : 'none';
     }
 
     // ============================================================
@@ -4014,6 +4119,119 @@
         return workingTree[node.id] || (node.path ? workingTree[node.path] : null) || null;
     }
 
+    // ============================================================
+    // Notes (annotations)
+    // ============================================================
+    var noteDotSprites = {};
+
+    /** Note of a node, or null — keyed by workspace-relative path (id fallback). */
+    function annotationOf(node) {
+        if (!node) return null;
+        return annotations[node.id] || (node.path ? annotations[node.path] : null) || null;
+    }
+
+    /** Colored dot drawn once per color, then cloned — shown top-right of the node. */
+    function getNoteDotSprite(colorKey) {
+        var T = window.THREE;
+        if (!T) return null;
+        var hex = NOTE_COLORS[colorKey] || NOTE_COLORS.yellow;
+        if (noteDotSprites[hex]) return noteDotSprites[hex].clone();
+
+        // Same canvas scale as the dirty ring (128px, ring radius 0.30)
+        // so the dot sits on the ring's top-right diagonal.
+        var size = 128;
+        var canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        var ctx = canvas.getContext('2d');
+        var ringR = size * 0.30;
+        var cx = size / 2 + ringR * Math.SQRT1_2;
+        var cy = size / 2 - ringR * Math.SQRT1_2;
+        var r = size * 0.10;
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, r + 3, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(13, 17, 23, 0.9)'; // dark outline for contrast
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fillStyle = hex;
+        ctx.fill();
+
+        var texture = new T.CanvasTexture(canvas);
+        texture.minFilter = T.LinearFilter;
+        var material = new T.SpriteMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false });
+        var sprite = new T.Sprite(material);
+        noteDotSprites[hex] = sprite;
+        return sprite.clone();
+    }
+
+    var noteRingSprites = {};
+
+    /** Note-colored ring drawn once per color, then cloned — sits inside the amber dirty ring. */
+    function getNoteRingSprite(colorKey) {
+        var T = window.THREE;
+        if (!T) return null;
+        var hex = NOTE_COLORS[colorKey] || NOTE_COLORS.yellow;
+        if (noteRingSprites[hex]) return noteRingSprites[hex].clone();
+
+        // Same canvas scale as the dirty ring (128px) but a tighter radius (0.22 vs 0.30),
+        // so a noted+dirty file shows two nested rings instead of one ambiguous circle.
+        var size = 128;
+        var canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        var ctx = canvas.getContext('2d');
+        var center = size / 2;
+        var rgb = parseInt(hex.slice(1, 3), 16) + ',' + parseInt(hex.slice(3, 5), 16) + ',' + parseInt(hex.slice(5, 7), 16);
+
+        // Soft halo stroke, then crisp ring — mirrors the dirty ring's look.
+        ctx.beginPath();
+        ctx.arc(center, center, size * 0.22, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(' + rgb + ', 0.22)';
+        ctx.lineWidth = size * 0.09;
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(center, center, size * 0.22, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(' + rgb + ', 0.95)';
+        ctx.lineWidth = size * 0.04;
+        ctx.stroke();
+
+        var texture = new T.CanvasTexture(canvas);
+        texture.minFilter = T.LinearFilter;
+        var material = new T.SpriteMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false });
+        var sprite = new T.Sprite(material);
+        noteRingSprites[hex] = sprite;
+        return sprite.clone();
+    }
+
+    // ============================================================
+    // Note pulse — breathing animation for the note indicators
+    // ============================================================
+    var NOTE_PULSE_MS = 1800;        // one full breathe cycle
+    var NOTE_PULSE_SCALE_MIN = 0.90; // trough size (fraction of base)
+    var NOTE_PULSE_SCALE_AMP = 0.22; // added at the crest → up to 1.12×
+    var NOTE_PULSE_ALPHA_MIN = 0.45;
+
+    /**
+     * Attach the per-frame breathing to a note sprite. Driven from onBeforeRender:
+     * no global timer, the animation lives and dies with the sprite itself.
+     */
+    function attachNotePulse(sprite, baseScale) {
+        sprite.userData.noteBaseScale = baseScale;
+        sprite.onBeforeRender = function () {
+            var t = performance.now() / NOTE_PULSE_MS * Math.PI * 2;
+            var pulse = 0.5 + 0.5 * Math.sin(t); // 0..1
+            var s = this.userData.noteBaseScale * (NOTE_PULSE_SCALE_MIN + NOTE_PULSE_SCALE_AMP * pulse);
+            this.scale.set(s, s, 1);
+            this.material.opacity = NOTE_PULSE_ALPHA_MIN + (1 - NOTE_PULSE_ALPHA_MIN) * pulse;
+            // matrixWorld was computed before rendering — refresh it for the new scale.
+            this.updateMatrixWorld(true);
+        };
+    }
+
     var GIT_STATE_LABELS = {
         modified: '◐ modified',
         added: '＋ added to index',
@@ -4177,6 +4395,7 @@
             showDeadCode: showDeadCode,
             showCycles: showCycles,
             showDirtyOnly: showDirtyOnly,
+            showNotes: showNotes,
             showGroups: showGroups,
             pathMode: pathMode,
             showLabels: showLabels,
@@ -4217,6 +4436,8 @@
         showDeadCode = !!state.showDeadCode;
         showCycles = !!state.showCycles;
         showDirtyOnly = !!state.showDirtyOnly;
+        // Defaults to true: states saved before the toggle existed must keep notes visible.
+        showNotes = state.showNotes === undefined ? true : !!state.showNotes;
         showLabels = !!state.showLabels;
         pathMode = !!state.pathMode;
 
@@ -4225,6 +4446,7 @@
         $('#btn-dead-code').classList.toggle('active', showDeadCode);
         $('#btn-cycles').classList.toggle('active', showCycles);
         $('#btn-dirty-only').classList.toggle('active', showDirtyOnly);
+        $('#btn-notes').classList.toggle('active', showNotes);
         $('#btn-labels').classList.toggle('active', showLabels);
         $('#btn-path-mode').classList.toggle('active', pathMode);
 
@@ -4382,6 +4604,16 @@
                     graph.nodeVisibility(graph.nodeVisibility());
                     graph.linkVisibility(graph.linkVisibility());
                 }
+                saveViewState();
+            });
+        }
+
+        var notesBtn = $('#btn-notes');
+        if (notesBtn) {
+            notesBtn.addEventListener('click', function() {
+                showNotes = !showNotes;
+                notesBtn.classList.toggle('active', showNotes);
+                if (graph) graph.nodeThreeObject(graph.nodeThreeObject());
                 saveViewState();
             });
         }
@@ -6123,6 +6355,9 @@
         var day = 24 * 60 * 60 * 1000;
         var cutoff = now - riskWindowDays * day;
         var recentCutoff = now - RECENT_DAYS * day;
+        // Follow git renames so a moved file keeps its history (same resolver
+        // as the host — see src/risk/risk-core.ts).
+        var resolvePath = riskCore.buildRenameResolver(timelineCommits);
         for (var i = 0; i < timelineCommits.length; i++) {
             var commit = timelineCommits[i];
             var when = new Date(commit.date).getTime();
@@ -6132,6 +6367,7 @@
             for (var j = 0; j < files.length; j++) {
                 var p = files[j].path;
                 if (!p) continue;
+                p = resolvePath(p);
                 var entry = churnByFile[p];
                 if (!entry) entry = churnByFile[p] = { commits: 0, recent: 0, lastDate: 0, authors: {} };
                 if (when >= cutoff) entry.commits++;        // churn inside the selected window

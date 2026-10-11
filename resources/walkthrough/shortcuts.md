@@ -27,6 +27,7 @@ Quick access to every feature without leaving the keyboard.
 | **🔍 Query** | Toggle the query filter bar (also `Ctrl+K`) — filter / highlight / select files by metric |
 | **🗺️ Map** | Toggle the minimap — real-time overview that rotates with the camera |
 | **✏️ Dirty** | Show only files with uncommitted changes (git working tree) |
+| **📝 Notes** | Show/hide the note indicators — annotated files wear a pulsing note-colored ring + dot |
 | **⚙️ Settings** | Open the in-app settings modal — rotation speed, link style, node effect, risk window, auto-refresh |
 
 ### Toolbar sliders

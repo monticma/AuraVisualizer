@@ -2828,3 +2828,59 @@ select option {
 .risk-trend-chart { width: 100%; height: 180px; margin-top: 4px; }
 .risk-scatter-chart { width: 100%; height: 220px; margin-top: 4px; }
 .risk-trend-caption { font-size: 10px; opacity: 0.5; font-weight: 400; text-transform: none; letter-spacing: 0; }
+
+/* ============================================================
+   Node notes (annotations)
+   ============================================================ */
+#note-input {
+    width: 100%;
+    box-sizing: border-box;
+    resize: vertical;
+    min-height: 40px;
+    max-height: 140px;
+    background: var(--aura-input-bg);
+    color: inherit;
+    border: 1px solid var(--aura-input-border);
+    border-radius: 4px;
+    padding: 6px 8px;
+    font-family: inherit;
+    font-size: 12px;
+    line-height: 1.4;
+}
+#note-input:focus { outline: none; border-color: var(--aura-accent); }
+.note-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 8px;
+}
+.note-colors { display: flex; gap: 5px; }
+.note-swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+    opacity: 0.65;
+    transition: opacity 0.12s, border-color 0.12s;
+}
+.note-swatch:hover { opacity: 1; }
+.note-swatch.active { opacity: 1; border-color: #fff; }
+.note-buttons { display: flex; gap: 6px; }
+.note-btn {
+    background: rgba(96,165,250,0.15);
+    color: #93c5fd;
+    border: 1px solid rgba(96,165,250,0.35);
+    border-radius: 4px;
+    padding: 3px 10px;
+    font-size: 11px;
+    cursor: pointer;
+}
+.note-btn:hover { background: rgba(96,165,250,0.25); }
+.note-btn-delete {
+    background: rgba(239,83,80,0.12);
+    color: #ef9a9a;
+    border-color: rgba(239,83,80,0.3);
+}
+.note-btn-delete:hover { background: rgba(239,83,80,0.22); }

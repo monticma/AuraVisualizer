@@ -7,6 +7,7 @@
  */
 
 import {
+    buildRenameResolver,
     buildRiskPercentiles,
     computeRiskScore,
     percentileLookup,
@@ -26,7 +27,7 @@ export interface RiskServiceNode extends RiskNode {
 export interface RiskServiceCommit {
     date: string;
     author?: string;
-    files?: { path?: string }[];
+    files?: { path?: string; oldPath?: string; status?: string }[];
 }
 
 export interface RiskFileEntry {
@@ -64,7 +65,8 @@ interface ChurnStats {
  *
  * The churn semantics deliberately mirror `computeChurnIndex` in the webview:
  * commit counts are windowed, author counts are not, and invalid commit dates
- * count as "outside the window" but still register their author.
+ * count as "outside the window" but still register their author. Git renames
+ * are followed, so history under a previous path still counts for the file.
  */
 export function buildRiskSnapshot(
     nodes: RiskServiceNode[],
@@ -75,6 +77,9 @@ export function buildRiskSnapshot(
     const dayMs = 24 * 60 * 60 * 1000;
     const cutoff = now - windowDays * dayMs;
 
+    // Follow git renames so a moved file keeps its history (mirrors the webview).
+    const resolvePath = buildRenameResolver(commits);
+
     const churn = new Map<string, ChurnStats>();
     for (const commit of commits) {
         let when = new Date(commit.date).getTime();
@@ -82,8 +87,9 @@ export function buildRiskSnapshot(
         const inWindow = when >= cutoff;
         const author = commit.author || 'unknown';
         for (const file of commit.files || []) {
-            const p = file.path;
-            if (!p) continue;
+            const raw = file.path;
+            if (!raw) continue;
+            const p = resolvePath(raw);
             let entry = churn.get(p);
             if (!entry) { entry = { commits: 0, authors: new Set() }; churn.set(p, entry); }
             if (inWindow) entry.commits++;
@@ -91,9 +97,11 @@ export function buildRiskSnapshot(
         }
     }
 
-    const churnOf = (node: RiskServiceNode): number => {
-        const a = node.id ? churn.get(node.id) : undefined;
-        const b = node.path ? churn.get(node.path) : undefined;
+    const churnOf = (node: RiskNode): number => {
+        const id = (node as RiskServiceNode).id;
+        const path = (node as RiskServiceNode).path;
+        const a = id ? churn.get(id) : undefined;
+        const b = path ? churn.get(path) : undefined;
         return (a ? a.commits : 0) || (b ? b.commits : 0);
     };
     const statsOf = (node: RiskServiceNode): ChurnStats | undefined =>
