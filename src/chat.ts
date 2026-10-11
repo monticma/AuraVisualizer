@@ -10,6 +10,7 @@
 import * as vscode from 'vscode';
 import type { GraphDB } from './graph-db';
 import { resolveContext } from './mcp/context';
+import { topRiskHotspots, type RiskSnapshot } from './risk/risk-service';
 
 export interface ChatStreamCallbacks {
     onChunk: (text: string) => void;
@@ -70,7 +71,7 @@ const AURA_TOOLS: AuraTool[] = [
     },
     {
         name: 'aura_get_hotspots',
-        description: 'Return the most complex/impactful files, ranked by impact score (complexity × fan_in). NOT for line counts — use aura_get_largest_files for that.',
+        description: 'Return the most at-risk files, ranked by Aura\'s repository-relative risk score (percentile-based, with written reasons). NOT for line counts — use aura_get_largest_files for that.',
         inputSchema: {
             type: 'object',
             properties: {
@@ -203,7 +204,7 @@ function resolveFileArg(db: GraphDB, file: string): string | null {
 }
 
 /** Execute an Aura tool locally (deterministic, no LLM) against the GraphDB. */
-function runAuraTool(db: GraphDB, name: string, input: Record<string, unknown>): unknown {
+function runAuraTool(db: GraphDB, name: string, input: Record<string, unknown>, getRiskSnapshot?: () => RiskSnapshot | undefined): unknown {
     switch (name) {
         case 'aura_resolve_context':
             return resolveContext(db, input.task as string, (input.limit as number) || 8);
@@ -226,7 +227,12 @@ function runAuraTool(db: GraphDB, name: string, input: Record<string, unknown>):
             };
         }
         case 'aura_get_hotspots': {
-            const hotspots = db.getHotspots((input.limit as number) || 20, 'impact');
+            const limit = (input.limit as number) || 20;
+            const snapshot = getRiskSnapshot?.();
+            if (snapshot) {
+                return topRiskHotspots(snapshot, limit);
+            }
+            const hotspots = db.getHotspots(limit, 'impact');
             return {
                 hotspots: hotspots.map(h => ({ file: h.id, lines: h.lines, complexity: h.complexity, fan_in: h.fan_in, fan_out: h.fan_out, impact_score: h.impact_score })),
                 total: hotspots.length,
@@ -346,6 +352,7 @@ export async function runChatStream(
     getDb: () => GraphDB | undefined,
     prompt: string,
     callbacks: ChatStreamCallbacks,
+    getRiskSnapshot?: () => RiskSnapshot | undefined,
 ): Promise<void> {
     // 1. Select a language model (the one configured in VS Code).
     let model: vscode.LanguageModelChat;
@@ -402,7 +409,7 @@ export async function runChatStream(
                 if (callbacks.onToolCall) callbacks.onToolCall(tc.name);
                 let result: unknown;
                 try {
-                    result = runAuraTool(db, tc.name, tc.input as Record<string, unknown>);
+                    result = runAuraTool(db, tc.name, tc.input as Record<string, unknown>, getRiskSnapshot);
                 } catch (err) {
                     result = { error: err instanceof Error ? err.message : String(err) };
                 }

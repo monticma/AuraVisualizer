@@ -25,6 +25,7 @@
   "activationEvents": [
     "onCommand:auraVisualizer.open",
     "onWebviewPanel:auraVisualizer.graphView",
+    "onStartupFinished",
     "onUri"
   ],
   "main": "./out/extension.js",
@@ -67,7 +68,7 @@
       {
         "name": "aura_get_hotspots",
         "displayName": "Aura: Get Hotspots",
-        "modelDescription": "Get the most complex/impactful files in the codebase, ranked by impact score (complexity × fan-in). Useful for finding critical or risky code.",
+        "modelDescription": "Get the most at-risk files in the codebase, ranked by Aura's repository-relative risk score (percentile-based: complexity, fan-in/out, cycles, dead code, git churn) with written reasons per file. Raw metric sorts remain available via sort_by.",
         "canBeReferencedInPrompt": true,
         "toolReferenceName": "getHotspots",
         "icon": "$(flame)",
@@ -76,7 +77,7 @@
           "type": "object",
           "properties": {
             "limit": { "type": "number", "description": "Maximum number of results (default: 20)" },
-            "sort_by": { "type": "string", "description": "Sort criterion: impact (default), complexity, fan_in, or lines" }
+            "sort_by": { "type": "string", "description": "Sort criterion: risk (default — percentile-based score with written reasons), impact, complexity, fan_in, or lines" }
           }
         }
       },
@@ -277,6 +278,13 @@
           "default": 90,
           "description": "Git history window (in days) used by the Risk Map: churn, scoring and written explanations"
         },
+        "auraVisualizer.rotateSpeed": {
+          "type": "number",
+          "default": 1,
+          "minimum": 1,
+          "maximum": 5,
+          "description": "Rotation speed when dragging the 3D graph (1 = default, 5 = fastest)"
+        },
         "auraVisualizer.savedQueries": {
           "type": "array",
           "default": [],
@@ -359,7 +367,7 @@
           {
             "id": "ai-integration",
             "title": "AI Integration (MCP Server)",
-            "description": "Aura includes a built-in **MCP server** with 11 tools for AI assistants. Query dependencies, blast radius, communities, heritage, generate documentation, find dead code, search symbols — all programmatically.\n\nWorks with GitHub Copilot and other MCP clients.",
+            "description": "Aura includes a built-in **MCP server** with 14 tools for AI assistants. Query dependencies, blast radius, communities, heritage, generate documentation, find dead code, search symbols — all programmatically.\n\nWorks with GitHub Copilot and other MCP clients.",
             "media": {
               "markdown": "resources/walkthrough/ai-integration.md"
             }

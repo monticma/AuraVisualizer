@@ -26,6 +26,7 @@ export interface RiskNode {
     cycleIds?: unknown[];
     deadExports?: unknown[];
     symbols?: { totalSymbols?: number };
+    linesOfCode?: number;
 }
 
 export interface RiskPercentiles {

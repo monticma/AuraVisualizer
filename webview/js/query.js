@@ -48,7 +48,8 @@
         isorphan: '_isOrphan',
         isdead: '_isDead',
         incycle: '_inCycle',
-        ispinned: '_isPinned'
+        ispinned: '_isPinned',
+        dirty: '_isDirty'
     };
 
     function buildContextNode(node, ctx) {
@@ -61,6 +62,7 @@
         node._isDead = node._deadCount > 0;
         node._inCycle = ctx.cycleNodeIds ? ctx.cycleNodeIds.has(node.id) : false;
         node._isPinned = ctx.pinnedNodes ? ctx.pinnedNodes.has(node) : false;
+        node._isDirty = ctx.dirtySet ? (ctx.dirtySet.has(node.id) || (node.path ? ctx.dirtySet.has(node.path) : false)) : false;
         return node;
     }
 

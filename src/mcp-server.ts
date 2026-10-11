@@ -22,8 +22,11 @@ import {
     CallToolRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import initSqlJs from 'sql.js';
+import { readFileSync } from 'fs';
+import { dirname, join, resolve } from 'path';
 import { GraphDB } from './graph-db';
 import { resolveContext } from './mcp/context';
+import { buildRiskSnapshot, topRiskHotspots, type RiskServiceCommit } from './risk/risk-service';
 
 // ── Env ────────────────────────────────────────────────────────
 
@@ -104,12 +107,13 @@ const TOOLS = [
     },
     {
         name: 'get_hotspots',
-        description: 'Get the most complex/impactful files in the codebase, ranked by impact score (complexity × fan-in).',
+        description: 'Get the most at-risk files in the codebase, ranked by repository-relative risk score (percentile-based: complexity, fan-in/out, cycles, dead code, git churn) with written reasons. Falls back to raw metric sorts via sort_by.',
         inputSchema: {
             type: 'object' as const,
             properties: {
                 limit: { type: 'number', description: 'Maximum number of results (default: 20)' },
-                sort_by: { type: 'string', description: 'Sort criterion: "impact" (default), "complexity", "fan_in", or "lines"' },
+                sort_by: { type: 'string', description: 'Sort criterion: "risk" (default — percentile-based score with written reasons), "impact", "complexity", "fan_in", or "lines"' },
+                window_days: { type: 'number', description: 'Git history window in days used for churn and scoring (default: 90)' },
             },
         },
     },
@@ -199,6 +203,25 @@ const TOOLS = [
 ];
 
 // ── Tool handlers ──────────────────────────────────────────────
+
+/**
+ * Recompute the risk snapshot from the artifacts on disk: the graph database
+ * (via the shared core — same scoring as the Risk tab) plus the git history
+ * index written by the extension. No running extension host required.
+ */
+function loadRiskSnapshot(db: GraphDB, windowDays: number): ReturnType<typeof buildRiskSnapshot> {
+    const graph = db.exportGraphData();
+    let commits: RiskServiceCommit[] = [];
+    try {
+        const root = resolve(dirname(DB_PATH!), '..');
+        const indexPath = join(root, '.aura', 'history', 'index.json');
+        const idx = JSON.parse(readFileSync(indexPath, 'utf-8')) as { commits?: RiskServiceCommit[] };
+        commits = idx.commits ?? [];
+    } catch {
+        // History not scanned yet — churn stays 0, the rest of the score still works.
+    }
+    return buildRiskSnapshot(graph.nodes ?? [], commits, windowDays);
+}
 
 function handleTool(db: GraphDB, name: string, args: Record<string, unknown>): unknown {
     switch (name) {
@@ -298,7 +321,13 @@ function handleTool(db: GraphDB, name: string, args: Record<string, unknown>): u
         }
         case 'get_hotspots': {
             const limit = (args.limit as number) || 20;
-            const sortBy = (args.sort_by as string) || 'impact';
+            const sortBy = (args.sort_by as string) || 'risk';
+            if (sortBy === 'risk') {
+                const windowDays = typeof args.window_days === 'number' && (args.window_days as number) > 0
+                    ? Math.round(args.window_days as number)
+                    : 90;
+                return topRiskHotspots(loadRiskSnapshot(db, windowDays), limit);
+            }
             const hotspots = db.getHotspots(limit, sortBy);
             return {
                 hotspots: hotspots.map(h => ({

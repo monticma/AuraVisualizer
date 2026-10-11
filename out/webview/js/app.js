@@ -41,6 +41,8 @@
     var showOrphans = false;
     var showDeadCode = false;
     var showCycles = false;
+    var showDirtyOnly = false; // filter: only files with uncommitted changes
+    var workingTree = {};      // workspace-relative path → git state (modified / untracked / …)
     var cycleNodeIds = new Set();
     var cycleLinkKeys = new Set();
     var multiSelectedNodes = new Set();
@@ -212,6 +214,7 @@
                     if (typeof applySelectedNodeEffect === 'function') {
                         applySelectedNodeEffect();
                     }
+                    refreshCameraControls();
                     // Risk window can change from the Settings UI — re-derive churn & scoring
                     var cfgWindow = window.AURA_CONFIG.riskWindow;
                     if (typeof cfgWindow === 'number' && riskCore.normalizeRiskWindow(cfgWindow) !== riskWindowDays) {
@@ -232,6 +235,11 @@
                 if (message.payload && message.payload.nodeId) {
                     revealRiskFile(message.payload.nodeId);
                 }
+                break;
+            case 'workingTree':
+                workingTree = (message.payload && message.payload.files) || {};
+                if (queryActive) evaluateQuery();
+                refreshGraphAfterQuery();
                 break;
             case 'applyQuery':
                 if (message.payload && typeof message.payload.expr === 'string') {
@@ -621,6 +629,69 @@
             });
         }
 
+        // Settings modal (⚙️ next to the query toggle)
+        var settingsToggleBtn = $('#settings-toggle');
+        var settingsModalEl = $('#settings-modal');
+        if (settingsToggleBtn && settingsModalEl) {
+            settingsToggleBtn.addEventListener('click', function() {
+                populateSettingsModal();
+                settingsModalEl.classList.remove('hidden');
+            });
+            var settingsCloseBtn = $('#settings-modal-close');
+            if (settingsCloseBtn) {
+                settingsCloseBtn.addEventListener('click', function() {
+                    settingsModalEl.classList.add('hidden');
+                });
+            }
+            settingsModalEl.addEventListener('click', function(e) {
+                if (e.target === settingsModalEl) settingsModalEl.classList.add('hidden');
+            });
+            var openVscodeSettings = $('#settings-open-vscode');
+            if (openVscodeSettings) {
+                openVscodeSettings.addEventListener('click', function() {
+                    vscode.postMessage({ type: 'openSettings' });
+                });
+            }
+            var speedSliderEl = $('#set-rotateSpeed');
+            var speedValueEl = $('#set-rotateSpeed-value');
+            if (speedSliderEl && speedValueEl) {
+                speedSliderEl.addEventListener('input', function() {
+                    speedValueEl.textContent = parseFloat(this.value).toFixed(1);
+                });
+            }
+            var settingControls = settingsModalEl.querySelectorAll('[data-setting]');
+            for (var sc = 0; sc < settingControls.length; sc++) {
+                settingControls[sc].addEventListener('change', function() {
+                    var key = this.dataset.setting;
+                    var value;
+                    if (this.type === 'checkbox') value = this.checked;
+                    else if (this.type === 'number' || this.type === 'range') value = parseFloat(this.value);
+                    else value = this.value;
+                    vscode.postMessage({ type: 'updateSetting', payload: { key: key, value: value } });
+                });
+            }
+        }
+
+        /** Push the current AURA_CONFIG values into the settings modal controls. */
+        function populateSettingsModal() {
+            var cfg = window.AURA_CONFIG || {};
+            var modal = $('#settings-modal');
+            if (!modal) return;
+            var controls = modal.querySelectorAll('[data-setting]');
+            for (var i = 0; i < controls.length; i++) {
+                var el = controls[i];
+                var v = cfg[el.dataset.setting];
+                if (v === undefined) continue;
+                if (el.type === 'checkbox') el.checked = !!v;
+                else el.value = String(v);
+            }
+            var sliderEl = $('#set-rotateSpeed');
+            var sliderValEl = $('#set-rotateSpeed-value');
+            if (sliderEl && sliderValEl) {
+                sliderValEl.textContent = parseFloat(sliderEl.value || '1').toFixed(1);
+            }
+        }
+
         // Minimap toggle
         var minimapBtn = $('#btn-minimap');
         var minimapEl = $('#minimap');
@@ -962,6 +1033,7 @@
             .nodeVal(function(node) { return getNodeSize(node); })
             .nodeVisibility(function(node) {
                 if (queryActive && queryMode === 'filter' && !querySet.has(node.id)) return false;
+                if (showDirtyOnly && !dirtyStateOf(node)) return false;
                 return true;
             })
             .nodeOpacity(0.92)
@@ -970,6 +1042,7 @@
                 var T = window.THREE;
                 var isSelected = (selectedNode && selectedNode.id === node.id) || multiSelectedNodes.has(node);
                 var isBlastSource = blastMode && pinnedNode && (node.id === pinnedNode.id || (impactMode && blastDepths[node.id] === 0));
+                var dirtyState = dirtyStateOf(node);
                 var hasLabel = showLabels &&
                     !(showOrphans && (node.fanIn > 0 || node.fanOut > 0)) &&
                     !(showDeadCode && !(node.deadExports && node.deadExports.length > 0)) &&
@@ -1020,9 +1093,19 @@
                     return cGroup;
                 }
 
-                if (!isSelected && !hasLabel && !isBlastSource) return null;
+                if (!isSelected && !hasLabel && !isBlastSource && !dirtyState) return null;
 
                 var group = new T.Group();
+
+                // Git dirty ring — amber circle around files with uncommitted changes
+                if (dirtyState) {
+                    var ring = getDirtyRingSprite();
+                    if (ring) {
+                        var ringScale = Math.cbrt(getNodeSize(node) || 1) * 8;
+                        ring.scale.set(ringScale, ringScale, 1);
+                        group.add(ring);
+                    }
+                }
 
                 // Glow effect for blast radius / trace calls source node
                 if (isBlastSource && !isSelected) {
@@ -1172,14 +1255,22 @@
             graph.zoomToFit(500, 50);
         }, 1500);
 
-        // Handle webview resize (e.g. when side editor opens/closes)
+        // Handle webview resize (e.g. when side editor opens/closes).
+        // Skip 0x0 sizes: while another tab is active the container is hidden and
+        // resizing to zero poisons the rotation math (zoom still appears to work).
         var resizeObserver = new ResizeObserver(function() {
-            if (graph) {
-                graph.width(graphContainer.clientWidth);
-                graph.height(graphContainer.clientHeight);
-            }
+            if (!graph) return;
+            var w = graphContainer.clientWidth;
+            var h = graphContainer.clientHeight;
+            if (w <= 0 || h <= 0) return;
+            graph.width(w);
+            graph.height(h);
+            refreshCameraControls();
         });
         resizeObserver.observe(graphContainer);
+        // The canvas starts at its default 300×150 layout: align the camera controls
+        // with the real size so the rotation speed is right from the first frame.
+        refreshCameraControls();
     }
 
     // ============================================================
@@ -1345,7 +1436,8 @@
                 return '';
             },
             cycleNodeIds: cycleSet,
-            pinnedNodes: typeof pinnedNodes !== 'undefined' ? pinnedNodes : new Set()
+            pinnedNodes: typeof pinnedNodes !== 'undefined' ? pinnedNodes : new Set(),
+            dirtySet: new Set(Object.keys(workingTree))
         };
     }
 
@@ -2198,6 +2290,12 @@
             var qTgt = typeof link.target === 'object' ? link.target.id : link.target;
             if (!querySet.has(qSrc) || !querySet.has(qTgt)) return false;
         }
+        // Dirty-only filter hides links unless both endpoints are dirty
+        if (showDirtyOnly) {
+            var dSrc = typeof link.source === 'object' ? link.source.id : link.source;
+            var dTgt = typeof link.target === 'object' ? link.target.id : link.target;
+            if (!workingTree[dSrc] || !workingTree[dTgt]) return false;
+        }
         return true;
     }
 
@@ -3024,6 +3122,7 @@
             $('#panel-loc').textContent = '—';
             $('#panel-size').textContent = '—';
             $('#panel-mtime').textContent = '—';
+            $('#panel-git').textContent = '—';
             $('#panel-fanout').textContent = node.fanOut || 0;
             $('#panel-fanin').textContent = node.fanIn || 0;
             $('#panel-complexity').textContent = '—';
@@ -3080,6 +3179,12 @@
             $('#panel-mtime').textContent = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
         } else {
             $('#panel-mtime').textContent = '—';
+        }
+        var gitState = dirtyStateOf(node);
+        var gitEl = $('#panel-git');
+        if (gitEl) {
+            gitEl.textContent = gitState ? (GIT_STATE_LABELS[gitState] || gitState) : '—';
+            gitEl.style.color = gitState ? '#ffb300' : '';
         }
         $('#panel-fanout').textContent = node.fanOut;
         $('#panel-fanin').textContent = node.fanIn;
@@ -3546,10 +3651,14 @@
     function setHeatmapMode(mode) {
         heatmapMode = mode;
         var legend = $('#heatmap-legend');
+        // The legend and the community palette are overlays of the 3D view: only
+        // show them there. A late state restore (restoreViewState) can call this
+        // while another tab is active — switchTab re-derives them on return.
+        var graphTabActive = (activeTab === 'graph');
 
         // Show/hide community palette
         if (mode === 'community') {
-            showCommunityPalette();
+            if (graphTabActive) showCommunityPalette();
         } else {
             hideCommunityPalette();
         }
@@ -3557,7 +3666,7 @@
         if (mode === 'off') {
             legend.classList.add('hidden');
         } else if (mode === 'community') {
-            legend.classList.remove('hidden');
+            if (graphTabActive) legend.classList.remove('hidden');
             $('#legend-mode').textContent = HEATMAP_LABELS[mode] || mode;
 
             // Count communities
@@ -3580,7 +3689,7 @@
             $('#legend-low').textContent = numComm + ' communities';
             $('#legend-high').textContent = '';
         } else {
-            legend.classList.remove('hidden');
+            if (graphTabActive) legend.classList.remove('hidden');
             $('#legend-mode').textContent = HEATMAP_LABELS[mode] || mode;
 
             var gradient = $('#legend-gradient');
@@ -3859,6 +3968,61 @@
         return sprite.clone();
     }
 
+    // ============================================================
+    // Dirty rings (git working tree)
+    // ============================================================
+    var dirtyRingSprite = null;
+
+    /** Amber ring drawn once, then cloned — shown around files with uncommitted changes. */
+    function getDirtyRingSprite() {
+        var T = window.THREE;
+        if (!T) return null;
+        if (dirtyRingSprite) return dirtyRingSprite.clone();
+
+        var size = 128;
+        var canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        var ctx = canvas.getContext('2d');
+        var center = size / 2;
+
+        // Soft halo
+        ctx.beginPath();
+        ctx.arc(center, center, size * 0.30, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(251, 192, 45, 0.22)';
+        ctx.lineWidth = size * 0.10;
+        ctx.stroke();
+
+        // Crisp ring
+        ctx.beginPath();
+        ctx.arc(center, center, size * 0.30, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255, 179, 0, 0.95)';
+        ctx.lineWidth = size * 0.045;
+        ctx.stroke();
+
+        var texture = new T.CanvasTexture(canvas);
+        texture.minFilter = T.LinearFilter;
+        var material = new T.SpriteMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false });
+        var sprite = new T.Sprite(material);
+        dirtyRingSprite = sprite;
+        return sprite.clone();
+    }
+
+    /** Git state of a node, or null when it has no uncommitted changes. */
+    function dirtyStateOf(node) {
+        if (!node) return null;
+        return workingTree[node.id] || (node.path ? workingTree[node.path] : null) || null;
+    }
+
+    var GIT_STATE_LABELS = {
+        modified: '◐ modified',
+        added: '＋ added to index',
+        deleted: '− deleted',
+        renamed: '↷ renamed',
+        untracked: '? untracked',
+        conflicted: '⚠ conflict'
+    };
+
     function getClusterLabelSprite(groupName, count, color) {
         var T = window.THREE;
         if (!T) return null;
@@ -4012,6 +4176,7 @@
             showOrphans: showOrphans,
             showDeadCode: showDeadCode,
             showCycles: showCycles,
+            showDirtyOnly: showDirtyOnly,
             showGroups: showGroups,
             pathMode: pathMode,
             showLabels: showLabels,
@@ -4051,6 +4216,7 @@
         showOrphans = !!state.showOrphans;
         showDeadCode = !!state.showDeadCode;
         showCycles = !!state.showCycles;
+        showDirtyOnly = !!state.showDirtyOnly;
         showLabels = !!state.showLabels;
         pathMode = !!state.pathMode;
 
@@ -4058,6 +4224,7 @@
         $('#btn-highlight-orphans').classList.toggle('active', showOrphans);
         $('#btn-dead-code').classList.toggle('active', showDeadCode);
         $('#btn-cycles').classList.toggle('active', showCycles);
+        $('#btn-dirty-only').classList.toggle('active', showDirtyOnly);
         $('#btn-labels').classList.toggle('active', showLabels);
         $('#btn-path-mode').classList.toggle('active', pathMode);
 
@@ -4205,6 +4372,19 @@
             }
             saveViewState();
         });
+
+        var dirtyOnlyBtn = $('#btn-dirty-only');
+        if (dirtyOnlyBtn) {
+            dirtyOnlyBtn.addEventListener('click', function() {
+                showDirtyOnly = !showDirtyOnly;
+                dirtyOnlyBtn.classList.toggle('active', showDirtyOnly);
+                if (graph) {
+                    graph.nodeVisibility(graph.nodeVisibility());
+                    graph.linkVisibility(graph.linkVisibility());
+                }
+                saveViewState();
+            });
+        }
 
         $('#btn-cycles').addEventListener('click', function() {
             showCycles = !showCycles;
@@ -5857,6 +6037,17 @@
         // Pause/resume WebGL
         if (tabName === 'graph') {
             resumeGraph();
+            // Re-derive state-driven overlays (they may have been requested while
+            // another tab was active, e.g. by a late restoreViewState)
+            setHeatmapMode(heatmapMode);
+            // Re-measure the canvas and refresh the camera controls: TrackballControls
+            // computes rotation from its cached screen size, which can go stale while
+            // the container is hidden (zoom would still work, rotation would not).
+            if (graph && graphContainer && graphContainer.clientWidth > 0) {
+                graph.width(graphContainer.clientWidth);
+                graph.height(graphContainer.clientHeight);
+                refreshCameraControls();
+            }
         } else {
             pauseGraph();
         }
@@ -5881,6 +6072,26 @@
         if (!graphPaused || !graph) return;
         graphPaused = false;
         graph.resumeAnimation();
+    }
+
+    /**
+     * Re-read the canvas size into the camera controls. TrackballControls caches
+     * the screen size and derives its rotation speed from it — a stale value
+     * (default 300×150 canvas) makes rotation feel wrong.
+     */
+    function refreshCameraControls() {
+        if (!graph || typeof graph.controls !== 'function') return;
+        var controls;
+        try { controls = graph.controls(); } catch (e) { controls = null; }
+        if (!controls) return;
+        if (typeof controls.handleResize === 'function') {
+            controls.handleResize();
+        }
+        // auraVisualizer.rotateSpeed — 1 = default, 5 = fastest
+        var cfg = window.AURA_CONFIG || {};
+        var speed = typeof cfg.rotateSpeed === 'number' && isFinite(cfg.rotateSpeed)
+            ? Math.min(5, Math.max(1, cfg.rotateSpeed)) : 1;
+        controls.rotateSpeed = speed;
     }
 
     // ============================================================
@@ -6555,7 +6766,7 @@
                 renderRiskDashboard();
                 if (heatmapMode === 'churn' && graph) graph.nodeColor(graph.nodeColor());
                 // Persist as a workspace setting — the host echoes it back via graphConfig
-                vscode.postMessage({ type: 'setRiskWindow', payload: { value: v } });
+                vscode.postMessage({ type: 'updateSetting', payload: { key: 'riskWindow', value: v } });
             });
         }
         var kinds = ['high', 'medium', 'low', 'rising', 'bus'];

@@ -64,7 +64,7 @@ export function activate(context: vscode.ExtensionContext): void {
     context.subscriptions.push(riskStatusBarItem);
 
     // Language Model tools — exposes Aura's codebase graph to VS Code AI agents (Copilot Chat, etc.)
-    registerAuraLmTools(context, () => graphDb);
+    registerAuraLmTools(context, () => graphDb, () => ensureRiskSnapshot());
 
     // Commands
     context.subscriptions.push(
@@ -131,7 +131,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.window.registerWebviewPanelSerializer(WebviewProvider.viewType, {
         async deserializeWebviewPanel(panel: vscode.WebviewPanel): Promise<void> {
             if (!webviewProvider) {
-                webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState, () => graphDb);
+                webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState, () => graphDb, hostDataAccessors());
                 registerOpenFileHandler();
             }
             webviewProvider.restore(panel);
@@ -254,7 +254,7 @@ function registerOpenFileHandler(): void {
 
 async function openVisualizer(context: vscode.ExtensionContext): Promise<void> {
     if (!webviewProvider) {
-        webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState, () => graphDb);
+        webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState, () => graphDb, hostDataAccessors());
         registerOpenFileHandler();
 
 
@@ -834,10 +834,33 @@ function dirtyHotspotIds(snapshot: RiskSnapshot): string[] {
     return ids;
 }
 
+/** Working-tree state keyed by workspace-relative path (the ids used by the graph). */
+function buildWorkingTreePayload(): Record<string, GitFileState> {
+    const files: Record<string, GitFileState> = {};
+    for (const [repoRel, state] of workingTreeFiles) {
+        const wsRel = toWorkspaceRelative(repoRel);
+        if (wsRel) files[wsRel] = state;
+    }
+    return files;
+}
+
+function pushWorkingTreeToWebview(): void {
+    webviewProvider?.sendWorkingTree(buildWorkingTreePayload());
+}
+
+/** Host data the webview pulls on ready / for chat tool calls. */
+function hostDataAccessors() {
+    return {
+        riskSnapshot: () => ensureRiskSnapshot(),
+        workingTree: () => buildWorkingTreePayload() as Record<string, string>,
+    };
+}
+
 async function refreshWorkingTree(): Promise<void> {
     const ws = vscode.workspace.workspaceFolders?.[0];
     if (!ws) {
         workingTreeFiles = new Map();
+        pushWorkingTreeToWebview();
         updateRiskStatusBar();
         return;
     }
@@ -853,6 +876,7 @@ async function refreshWorkingTree(): Promise<void> {
     } catch {
         workingTreeFiles = new Map();
     }
+    pushWorkingTreeToWebview();
     updateRiskStatusBar();
 }
 
@@ -863,7 +887,7 @@ function scheduleWorkingTreeRefresh(): void {
 
 async function focusRiskFromStatusBar(context: vscode.ExtensionContext, nodeId?: string): Promise<void> {
     if (!webviewProvider) {
-        webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState, () => graphDb);
+        webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState, () => graphDb, hostDataAccessors());
         registerOpenFileHandler();
     }
     webviewProvider.show();
@@ -985,7 +1009,7 @@ async function blastRadiusCurrentFile(context: vscode.ExtensionContext): Promise
     if (relativePath.startsWith('..')) return;
 
     if (!webviewProvider) {
-        webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState, () => graphDb);
+        webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState, () => graphDb, hostDataAccessors());
         registerOpenFileHandler();
     }
     webviewProvider.show();

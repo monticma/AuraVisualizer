@@ -20,7 +20,7 @@ The MCP server starts automatically and registers itself in `.vscode/mcp.json`. 
 | `find_cycles` | All circular dependency cycles |
 | `find_dead_code` | Unused exports across the codebase |
 | `find_unused_functions` | Functions/methods never called anywhere — even within their own file |
-| `get_hotspots` | Most complex or impactful files |
+| `get_hotspots` | Most at-risk files, ranked by the repository-relative risk score (percentile-based) with written reasons — optional `window_days`, raw sorts via `sort_by` |
 | `search_symbols` | Find functions, classes, exports by name |
 | `find_heritage` | Inheritance and implementation relationships (extends/implements) |
 | `get_architecture` | High-level overview by language |
@@ -32,7 +32,3 @@ The MCP server starts automatically and registers itself in `.vscode/mcp.json`. 
 ### Export for AI
 
 Use the **Export** button (or command *Aura: Export Graph for AI*) to export the full graph data as JSON for manual analysis.
-
-### Aura Assistant (in-app chat) ✨
-
-Click the **✨** button in the tab bar to open the chat panel and ask about your codebase in natural language. The assistant calls the graph tools (`resolve_context`, `find_cycles`, `find_dead_code`, `get_hotspots`, `find_path`, …) to answer with real data, and every cited file is clickable. Requires the Language Model API (VS Code ≥ 1.95) and a configured LM provider.

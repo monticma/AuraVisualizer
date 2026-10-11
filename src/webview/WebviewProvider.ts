@@ -8,6 +8,33 @@ import type { GraphData } from '../analyzer/index';
 import type { GraphDB } from '../graph-db';
 import { runChatStream } from '../chat';
 import { normalizeRiskWindow } from '../risk/risk-core';
+import type { RiskSnapshot } from '../risk/risk-service';
+
+/** Whitelist of webview-editable settings, with per-key validation. */
+const SETTING_NORMALIZERS: Record<string, (v: unknown) => unknown> = {
+    linkStyle: (v) => (v === 'curved' ? 'curved' : 'straight'),
+    linkCurvature: (v) => clampNumber(v, 0, 1, 0.25),
+    selectedNodeEffect: (v) => (v === 'bloom' ? 'bloom' : 'glow'),
+    bloomStrength: (v) => clampNumber(v, 0, 5, 1.2),
+    bloomRadius: (v) => clampNumber(v, 0, 2, 0.6),
+    bloomThreshold: (v) => clampNumber(v, 0, 1, 0),
+    riskWindow: (v) => normalizeRiskWindow(v),
+    rotateSpeed: (v) => clampNumber(v, 1, 5, 1),
+    autoRefresh: (v) => v === true,
+};
+
+function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
+    return typeof value === 'number' && isFinite(value)
+        ? Math.min(max, Math.max(min, value))
+        : fallback;
+}
+
+/** Sanity-check the rotation-speed setting (1 = default, 5 = fastest). */
+function normalizeRotateSpeed(value: unknown): number {
+    return typeof value === 'number' && isFinite(value)
+        ? Math.min(5, Math.max(1, value))
+        : 1;
+}
 
 export class WebviewProvider {
     public static readonly viewType = 'auraVisualizer.graphView';
@@ -28,11 +55,21 @@ export class WebviewProvider {
     private static readonly VIEW_STATE_KEY = 'aura.viewState';
 
     private getGraphDB: () => GraphDB | undefined;
+    private getHostData: {
+        riskSnapshot?: () => RiskSnapshot | undefined;
+        workingTree?: () => Record<string, string>;
+    };
 
-    constructor(extensionUri: vscode.Uri, workspaceState: vscode.Memento, getGraphDB: () => GraphDB | undefined = () => undefined) {
+    constructor(
+        extensionUri: vscode.Uri,
+        workspaceState: vscode.Memento,
+        getGraphDB: () => GraphDB | undefined = () => undefined,
+        getHostData: { riskSnapshot?: () => RiskSnapshot | undefined; workingTree?: () => Record<string, string> } = {},
+    ) {
         this.extensionUri = extensionUri;
         this.workspaceState = workspaceState;
         this.getGraphDB = getGraphDB;
+        this.getHostData = getHostData;
     }
 
     public show(): vscode.WebviewPanel {
@@ -110,6 +147,10 @@ export class WebviewProvider {
                             this.panel?.webview.postMessage({ type: 'riskFocusFile', payload: { nodeId: this.pendingFocus } });
                             this.pendingFocus = undefined;
                         }
+                        const workingTree = this.getHostData.workingTree?.();
+                        if (workingTree) {
+                            this.panel?.webview.postMessage({ type: 'workingTree', payload: { files: workingTree } });
+                        }
                         break;
                     case 'openFile':
                         if (message.payload) {
@@ -179,16 +220,21 @@ export class WebviewProvider {
                         }
                         break;
                     }
-                    case 'setRiskWindow': {
-                        const p = (message.payload || {}) as { value?: number };
-                        const value = normalizeRiskWindow(p.value);
-                        const config = vscode.workspace.getConfiguration('auraVisualizer');
-                        void config.update('riskWindow', value, vscode.ConfigurationTarget.Workspace).then(
-                            undefined,
-                            () => { /* no workspace folder open — nothing to persist */ }
-                        );
+                    case 'updateSetting': {
+                        const p = (message.payload || {}) as { key?: string; value?: unknown };
+                        const normalize = p.key ? SETTING_NORMALIZERS[p.key] : undefined;
+                        if (p.key && normalize) {
+                            const config = vscode.workspace.getConfiguration('auraVisualizer');
+                            void config.update(p.key, normalize(p.value), vscode.ConfigurationTarget.Workspace).then(
+                                undefined,
+                                () => { /* no workspace folder open — nothing to persist */ }
+                            );
+                        }
                         break;
                     }
+                    case 'openSettings':
+                        void vscode.commands.executeCommand('workbench.action.openSettings', '@ext:monticma-aura.aura-visualizer-3D');
+                        break;
                 }
             },
             null,
@@ -204,7 +250,7 @@ export class WebviewProvider {
             onDone: (fullText) => post('chatDone', { id, fullText }),
             onError: (message) => post('chatError', { id, message }),
             onToolCall: (name) => post('chatTool', { id, name }),
-        });
+        }, this.getHostData.riskSnapshot);
     }
 
     private async handleExportRiskReport(markdown: string): Promise<void> {
@@ -269,6 +315,16 @@ export class WebviewProvider {
         }
     }
 
+    /**
+     * Push fresh working-tree state. No-op when the webview is not ready yet —
+     * the ready handler pulls the current state through the host accessors.
+     */
+    public sendWorkingTree(files: Record<string, string>): void {
+        if (this.webviewReady) {
+            this.panel?.webview.postMessage({ type: 'workingTree', payload: { files } });
+        }
+    }
+
     public sendBlastRadius(nodeId: string): void {
         this.panel?.webview.postMessage({ type: 'blastRadius', payload: { nodeId } });
     }
@@ -294,6 +350,8 @@ export class WebviewProvider {
                     bloomRadius: config.get<number>('bloomRadius', 0.6),
                     bloomThreshold: config.get<number>('bloomThreshold', 0.0),
                     riskWindow: normalizeRiskWindow(config.get<number>('riskWindow', 90)),
+                    rotateSpeed: normalizeRotateSpeed(config.get<number>('rotateSpeed', 1)),
+                    autoRefresh: config.get<boolean>('autoRefresh', true),
                 }
             });
         } catch { /* ignore */ }
@@ -346,6 +404,8 @@ export class WebviewProvider {
                 bloomRadius: config.get<number>('bloomRadius', 0.6),
                 bloomThreshold: config.get<number>('bloomThreshold', 0.0),
                 riskWindow: normalizeRiskWindow(config.get<number>('riskWindow', 90)),
+                rotateSpeed: normalizeRotateSpeed(config.get<number>('rotateSpeed', 1)),
+                autoRefresh: config.get<boolean>('autoRefresh', true),
             });
         } catch { return '{}'; }
     }
@@ -442,6 +502,7 @@ export class WebviewProvider {
             <button class="tab-btn" data-tab="table">📋 Table</button>
             <button class="tab-btn" data-tab="risk">🛡️ Risk</button>
             <button id="qb-toggle" class="qb-toggle" title="Toggle query bar (Ctrl+K)">🔍</button>
+            <button id="settings-toggle" type="button" class="qb-toggle" title="Aura settings">⚙️</button>
             <button id="chat-toggle" type="button" class="qb-toggle chat-toggle" title="Toggle Aura Assistant (AI chat)" hidden>✨</button>
         </nav>
 
@@ -529,6 +590,10 @@ export class WebviewProvider {
                 <div class="panel-metric">
                     <span class="metric-label">Modified</span>
                     <span class="metric-value" id="panel-mtime">—</span>
+                </div>
+                <div class="panel-metric">
+                    <span class="metric-label">Git</span>
+                    <span class="metric-value" id="panel-git">—</span>
                 </div>
                 <div class="panel-metric">
                     <span class="metric-label">Fan-out</span>
@@ -869,6 +934,7 @@ export class WebviewProvider {
             <button class="filter-btn" id="btn-highlight-orphans" title="Orphan nodes">◎ Orphans</button>
             <button class="filter-btn" id="btn-dead-code" title="Dead code detection">☠️ Dead</button>
             <button class="filter-btn" id="btn-cycles" title="Circular dependencies">🔄 Cycles</button>
+            <button class="filter-btn" id="btn-dirty-only" title="Only files with uncommitted changes (git working tree)">✏️ Dirty</button>
             <button class="filter-btn" id="btn-group-dirs" title="Group by directory">📁 Groups</button>
             <button class="filter-btn" id="btn-path-mode" title="Find path between 2 nodes">🔗 Path</button>
             <button class="filter-btn" id="btn-labels" title="Show file names">🏷️ Names</button>
@@ -965,6 +1031,71 @@ export class WebviewProvider {
         <canvas id="minimap-canvas" width="200" height="200"></canvas>
     </div>
 
+    <!-- Settings Modal (overlay) -->
+    <div id="settings-modal" class="hidden">
+        <div class="help-modal-content">
+            <div class="help-modal-header">
+                <span>⚙️ Aura Settings</span>
+                <button id="settings-modal-close" title="Close">✕</button>
+            </div>
+            <div class="help-modal-body">
+                <div class="settings-row">
+                    <label for="set-riskWindow">Risk history window<span class="settings-hint">Git history used for churn, scoring and explanations</span></label>
+                    <select id="set-riskWindow" data-setting="riskWindow">
+                        <option value="30">30 days</option>
+                        <option value="90">90 days</option>
+                        <option value="365">365 days</option>
+                    </select>
+                </div>
+                <div class="settings-row">
+                    <label for="set-rotateSpeed">Mouse rotation speed<span class="settings-hint">Speed when dragging the 3D graph (1 = default)</span></label>
+                    <span class="settings-slider-wrap">
+                        <input type="range" id="set-rotateSpeed" data-setting="rotateSpeed" min="1" max="5" step="0.1" value="1">
+                        <span id="set-rotateSpeed-value">1.0</span>
+                    </span>
+                </div>
+                <div class="settings-row">
+                    <label for="set-linkStyle">Link style<span class="settings-hint">Straight or curved dependency edges</span></label>
+                    <select id="set-linkStyle" data-setting="linkStyle">
+                        <option value="straight">Straight</option>
+                        <option value="curved">Curved</option>
+                    </select>
+                </div>
+                <div class="settings-row">
+                    <label for="set-linkCurvature">Link curvature<span class="settings-hint">0 = straight, 1 = highly curved (when style is curved)</span></label>
+                    <input id="set-linkCurvature" data-setting="linkCurvature" type="number" min="0" max="1" step="0.05" />
+                </div>
+                <div class="settings-row">
+                    <label for="set-selectedNodeEffect">Selected node effect<span class="settings-hint">Soft halo (Glow) or real bloom post-processing</span></label>
+                    <select id="set-selectedNodeEffect" data-setting="selectedNodeEffect">
+                        <option value="glow">Glow</option>
+                        <option value="bloom">Bloom</option>
+                    </select>
+                </div>
+                <div class="settings-row">
+                    <label for="set-bloomStrength">Bloom intensity<span class="settings-hint">Used when the effect is Bloom</span></label>
+                    <input id="set-bloomStrength" data-setting="bloomStrength" type="number" min="0" max="5" step="0.1" />
+                </div>
+                <div class="settings-row">
+                    <label for="set-bloomRadius">Bloom radius</label>
+                    <input id="set-bloomRadius" data-setting="bloomRadius" type="number" min="0" max="2" step="0.1" />
+                </div>
+                <div class="settings-row">
+                    <label for="set-bloomThreshold">Bloom threshold</label>
+                    <input id="set-bloomThreshold" data-setting="bloomThreshold" type="number" min="0" max="1" step="0.05" />
+                </div>
+                <div class="settings-row">
+                    <label for="set-autoRefresh">Auto-refresh on save<span class="settings-hint">Re-analyze changed files automatically</span></label>
+                    <input id="set-autoRefresh" data-setting="autoRefresh" type="checkbox" />
+                </div>
+                <div class="settings-footer">
+                    <span id="settings-open-vscode">Open VS Code Settings →</span>
+                    <span class="settings-hint">All settings: Extensions → Aura Visualizer</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Help Modal -->
     <div id="help-modal" class="hidden">
         <div class="help-modal-content">
@@ -1029,16 +1160,31 @@ export class WebviewProvider {
                 <h3>⏳ Time Travel</h3>
                 <p>Navigate git history commit by commit. Changed files are color-coded: <span style="color:#00ff88">● green</span> = added, <span style="color:#ff2080">● pink</span> = removed, <span style="color:#ffff00">● yellow</span> = modified. Edges follow the same scheme. Press <kbd>V</kbd> or click <strong>⇄</strong> to enter <strong>Compare mode</strong> with a dual slider to diff any two commits.</p>
 
+                <h3>✏️ Git Working Tree</h3>
+                <p>Files with uncommitted changes wear a thin <span style="color:#ffb300">● amber ring</span> in the graph — read straight from <code>git status</code> (modified, staged, untracked, renamed, conflicts). The detail panel shows the exact state on its <strong>Git</strong> line.</p>
+                <p>The <strong>✏️ Dirty</strong> toolbar button filters the graph down to those files (nodes and links); the <code>dirty</code> flag does the same in queries. The VS Code status bar shows the risk of the file you are editing and switches to <strong>⚠ N hotspots in your changes</strong> when your changes touch high-risk files — click it to reveal them in the Risk tab.</p>
+
                 <h3>📂 Directory Filtering</h3>
                 <p>In the <strong>File Explorer</strong> panel, each directory has a checkbox to show/hide its files in the graph. Use the <strong>All</strong> / <strong>None</strong> buttons for batch selection. Directories are checked by default.</p>
 
-                <h3>� Query Filter</h3>
+                <h3>🔍 Query Filter</h3>
                 <p>Open the query bar with the <strong>🔍 button</strong> (far right of the tab bar) or <kbd>Ctrl+K</kbd> / <kbd>Cmd+K</kbd> — it stays hidden until you need it. Type a boolean expression over node metrics, e.g. <code>complexity &gt; 20 AND fanIn &gt; 5</code>.</p>
-                <p><strong>Fields:</strong> <code>complexity</code>, <code>loc</code>, <code>fanin</code> / <code>fanout</code>, <code>size</code>, <code>mtime</code> / <code>lastmodified</code>, <code>symbols</code>, <code>deadexports</code>, <code>language</code>, <code>name</code>, <code>path</code>, <code>group</code>, <code>extension</code>, <code>community</code>, and flags <code>isorphan</code> / <code>isdead</code> / <code>incycle</code> / <code>ispinned</code>.</p>
+                <p><strong>Fields:</strong> <code>complexity</code>, <code>loc</code>, <code>fanin</code> / <code>fanout</code>, <code>size</code>, <code>mtime</code> / <code>lastmodified</code>, <code>symbols</code>, <code>deadexports</code>, <code>language</code>, <code>name</code>, <code>path</code>, <code>group</code>, <code>extension</code>, <code>community</code>, and flags <code>isorphan</code> / <code>isdead</code> / <code>incycle</code> / <code>ispinned</code> / <code>dirty</code>.</p>
                 <p><strong>Operators:</strong> <code>==</code>, <code>!=</code>, <code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, <code>&lt;=</code>, <code>~</code> (regex), <code>!~</code>, <code>in [ ... ]</code>, plus <code>AND</code> / <code>OR</code> / <code>NOT</code>.</p>
                 <p><strong>Modes:</strong> <strong>Highlight</strong> (dim non-matching), <strong>Filter</strong> (hide non-matching), <strong>Select</strong> (multi-select). Press <strong>⭐</strong> to save a query and <strong>📚</strong> to reopen saved ones.</p>
 
-                <h3>�🔗 Function Call Labels</h3>
+                <h3>⚙️ In-App Settings</h3>
+                <p>The <strong>⚙️ button</strong> in the tab bar (next to 🔍 Query) opens a settings modal — changes apply instantly and are saved to your workspace settings:</p>
+                <table class="help-table">
+                    <tr><td><strong>Risk history window</strong></td><td>30 / 90 / 365 days — drives the Risk Map, the status bar and hotspots</td></tr>
+                    <tr><td><strong>Mouse rotation speed</strong></td><td>Slider 1–5 — speed when dragging the 3D graph</td></tr>
+                    <tr><td><strong>Link style</strong></td><td>Straight or curved dependency edges (+ curvature)</td></tr>
+                    <tr><td><strong>Selected node effect</strong></td><td>Glow halo or bloom post-processing (+ intensity / radius / threshold)</td></tr>
+                    <tr><td><strong>Auto-refresh on save</strong></td><td>Re-analyze changed files automatically</td></tr>
+                </table>
+                <p>The footer link opens the full <code>auraVisualizer.*</code> settings list in VS Code.</p>
+
+                <h3>🔗 Function Call Labels</h3>
                 <p>In the detail panel, <code>function-call</code> links display the actual function name (e.g. <code>helper()</code>). For C/C++, function-call links are only created between files connected via <code>#include</code> — no false positives.</p>
 
                 <h3>⚡ Instant Startup</h3>
@@ -1046,9 +1192,6 @@ export class WebviewProvider {
 
                 <h3>📤 Export for AI</h3>
                 <p>Export the graph as JSON for AI assistants. Aura also includes a built-in MCP server for direct AI integration.</p>
-
-                <h3>✨ Aura Assistant (AI chat)</h3>
-                <p>Click the <strong>✨</strong> button in the tab bar to open the chat panel and ask about your codebase. The assistant calls graph tools to answer with real data and cites clickable files.</p>
 
                 <h3>🗺️ Minimap</h3>
                 <p>Toggle with the <strong>🗺️ Map</strong> button. Shows a top-down overview of all nodes. The white rectangle indicates the camera viewport. Click on the minimap to navigate. Drag the header to reposition.</p>

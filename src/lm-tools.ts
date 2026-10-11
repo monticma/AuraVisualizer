@@ -11,6 +11,7 @@
 import * as vscode from 'vscode';
 import type { GraphDB } from './graph-db';
 import { resolveContext } from './mcp/context';
+import { topRiskHotspots, type RiskSnapshot } from './risk/risk-service';
 
 type GetDb = () => GraphDB | undefined;
 
@@ -30,7 +31,7 @@ function notAnalyzedResult(): vscode.LanguageModelToolResult {
 }
 
 /** Register all Aura LM tools. Returns via context.subscriptions. */
-export function registerAuraLmTools(context: vscode.ExtensionContext, getDb: GetDb): void {
+export function registerAuraLmTools(context: vscode.ExtensionContext, getDb: GetDb, getRiskSnapshot?: () => RiskSnapshot | undefined): void {
     const register = <T>(name: string, invoke: (input: T) => vscode.LanguageModelToolResult): void => {
         context.subscriptions.push(
             vscode.lm.registerTool<T>(name, {
@@ -69,8 +70,17 @@ export function registerAuraLmTools(context: vscode.ExtensionContext, getDb: Get
     register<{ limit?: number; sort_by?: string }>('aura_get_hotspots', (input) => {
         const db = getDb();
         if (!db) return notAnalyzedResult();
-        const hotspots = db.getHotspots(input.limit ?? 20, input.sort_by ?? 'impact');
+        const limit = input.limit ?? 20;
+        const sortBy = input.sort_by ?? 'risk';
+        if (sortBy === 'risk') {
+            const snapshot = getRiskSnapshot?.();
+            if (snapshot) {
+                return jsonResult(topRiskHotspots(snapshot, limit));
+            }
+        }
+        const hotspots = db.getHotspots(limit, sortBy === 'risk' ? 'impact' : sortBy);
         return jsonResult({
+            sort_by: sortBy === 'risk' ? 'impact' : sortBy,
             hotspots: hotspots.map(h => ({
                 file: h.id,
                 lines: h.lines,

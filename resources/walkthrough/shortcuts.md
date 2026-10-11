@@ -24,8 +24,10 @@ Quick access to every feature without leaving the keyboard.
 
 | Button | Effect |
 |--------|--------|
-| **� Query** | Toggle the query filter bar (also `Ctrl+K`) — filter / highlight / select files by metric |
-| **�🗺️ Map** | Toggle the minimap — real-time overview that rotates with the camera |
+| **🔍 Query** | Toggle the query filter bar (also `Ctrl+K`) — filter / highlight / select files by metric |
+| **🗺️ Map** | Toggle the minimap — real-time overview that rotates with the camera |
+| **✏️ Dirty** | Show only files with uncommitted changes (git working tree) |
+| **⚙️ Settings** | Open the in-app settings modal — rotation speed, link style, node effect, risk window, auto-refresh |
 
 ### Toolbar sliders
 
@@ -34,3 +36,17 @@ Quick access to every feature without leaving the keyboard.
 | **Node Size** | Scale the visual size of all nodes |
 | **Spread** | Adjust the repulsion force in the layout |
 | **Depth** | Set neighbor depth for pinned focus (1–5) |
+
+### In-App Settings ⚙️
+
+The **⚙️ button** (next to 🔍 Query) opens an in-app settings modal — changes apply instantly and are saved to your workspace settings:
+
+- **Risk history window** — 30 / 90 / 365 days (Risk Map, status bar and hotspots)
+- **Mouse rotation speed** — 1–5 slider, live value shown on the right
+- **Link style & curvature** — straight or curved dependency edges
+- **Selected node effect** — glow halo or bloom post-processing (intensity / radius / threshold)
+- **Auto-refresh on save** — re-analyze changed files automatically
+
+### Status bar
+
+The risk item (bottom right of the VS Code window) shows the risk of the file you are editing — its tooltip lists the written reasons. When your uncommitted changes touch high-risk files it becomes **⚠ N hotspots in your changes**; click it to reveal the file in the Risk tab.

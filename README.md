@@ -134,7 +134,8 @@ Complexity, fan-in, fan-out and churn are **percentile ranks inside your reposit
 - **Codebase Health** — overall health score (`100 − average risk`), plus the most risky and most connected files
 - **Risk Distribution** — high / medium / low buckets with percentages
 - **High / Medium / Low files** — collapsible lists (▼/▶ arrows); each file states *why* it scores that way ("changed 29 times in 90 days (top 1%)", "12 files depend on it"), with the full breakdown on hover. Click a file to select it and focus it in the 3D graph.
-- **History window** — pick 30 / 90 / 365 days of git history; it drives churn, scoring and the explanations
+- **History window** — pick 30 / 90 / 365 days of git history; it drives churn, scoring and the explanations. Also available as the `auraVisualizer.riskWindow` workspace setting, shared with the status bar and the MCP `get_hotspots` tool
+- **🛡️ Status bar** — the risk of the file you are editing (`Risk 72 · top 8%`, written reasons in the tooltip); it switches to **`⚠ N hotspots in your changes`** when your working tree touches high-risk files. Click to jump to the file in the Risk tab
 - **📈 Risk Trend** — average complexity over git history (structural risk proxy)
 - **🔥 Recently Hot** — files modified most in the last 30 days
 - **📊 Churn × Complexity** — scatter matrix (log scale) spotting files that are both complex and heavily churned (red = hot)
@@ -142,6 +143,17 @@ Complexity, fan-in, fan-out and churn are **percentile ranks inside your reposit
 - **📤 Export Report** — writes a Markdown report to `.aura/risk-report.md`, reasons included
 
 Risk buckets: **High ≥ 66**, **Medium 33–65**, **Low < 33**. Churn is measured as commits per file and requires the git **Time Travel** scan.
+
+### Git Working Tree ✏️
+
+Aura reads `git status` and shows what you are working on right now:
+
+- **Dirty rings** — files with uncommitted changes wear a thin amber ring in the 3D graph; the detail panel adds a **Git** line with the exact state (modified / staged / untracked / renamed / conflicted)
+- **✏️ Dirty filter** — toolbar button showing only files with uncommitted changes (nodes *and* links)
+- **Query flag** — `dirty` works in the query bar: `dirty AND complexity > 20`
+- **Status bar alert** — when your changes touch high-risk files, the status bar switches to `⚠ N hotspots in your changes` (see Risk Map)
+
+Everything refreshes automatically on save (debounced, no shell involved).
 
 ### Circular Dependencies 🔄
 
@@ -217,7 +229,7 @@ Filter, highlight, or select files with the built-in **Aura Query Language** —
 | `deadexports` | Number of unused (dead) exports |
 | `language`, `name`, `path`, `group`, `extension` | String metadata |
 | `community` | Detected community name |
-| `isorphan`, `isdead`, `incycle`, `ispinned` | Boolean flags |
+| `isorphan`, `isdead`, `incycle`, `ispinned`, `dirty` | Boolean flags (`dirty` = uncommitted git changes) |
 
 **Operators:** `==`, `!=`, `>`, `<`, `>=`, `<=`, `~` (regex), `!~`, `in [ ... ]`, plus `AND` / `OR` / `NOT` and parentheses.
 
@@ -226,6 +238,7 @@ Filter, highlight, or select files with the built-in **Aura Query Language** —
 - `language in [typescript, python]`
 - `fanIn > 10 AND complexity > 20`
 - `isorphan`
+- `dirty AND complexity > 20` — files being edited right now
 - `path ~ /src\/.*/`
 
 **Modes:** **Highlight** (dim non-matching files), **Filter** (hide non-matching files), **Select** (multi-select matching files).
@@ -249,6 +262,20 @@ Toggle language buttons in the filter bar to show/hide files by type. Multiple l
 | **Node Size** | Scale the visual radius of all nodes |
 | **Spread** | Adjust repulsion force between nodes |
 | **Depth** (1–5) | Set how many neighbor levels to show when pinning focus |
+
+### In-App Settings ⚙️
+
+The **⚙️ button** in the tab bar (next to 🔍 Query) opens an in-app settings modal — no need to dig into VS Code settings:
+
+| Control | Effect |
+|---------|--------|
+| **Risk history window** | 30 / 90 / 365 days of git history — drives the Risk Map, the status bar and hotspots |
+| **Mouse rotation speed** | 1 → 5 slider — how fast dragging rotates the 3D view |
+| **Link style** | Straight or curved dependency edges (+ curvature amount) |
+| **Selected node effect** | Glow halo or bloom post-processing (+ intensity / radius / threshold) |
+| **Auto-refresh on save** | Re-analyze changed files automatically |
+
+Changes apply instantly and are saved to your workspace settings. The footer link opens the full `auraVisualizer.*` list.
 
 ### Incremental Updates
 
@@ -370,7 +397,7 @@ The MCP server exposes your codebase graph to AI tools via stdio transport. It r
 | `find_cycles` | — | All circular dependency cycles |
 | `find_dead_code` | — | Unused exports across the codebase |
 | `find_unused_functions` | `file`, `include_methods` | Functions/methods never called anywhere |
-| `get_hotspots` | `limit`, `sort_by` | Most complex / impactful files |
+| `get_hotspots` | `limit`, `sort_by`, `window_days` | At-risk files ranked by the repository-relative risk score (percentile-based) with written reasons; raw metric sorts still available via `sort_by` |
 | `search_symbols` | `query`, `kind` | Find functions, classes, exports by name |
 | `find_heritage` | `file` | Inheritance and implementation relationships (extends/implements) |
 | `get_architecture` | — | High-level overview by language |
@@ -379,21 +406,23 @@ The MCP server exposes your codebase graph to AI tools via stdio transport. It r
 | `resolve_context` | `task`, `limit` | Ranked list of files most relevant to a natural-language task (deterministic, no LLM) |
 | `generate_documentation` | `hotspot_limit` | Full documentation payload: overview, modules, hotspots, cycles, dead code, inter-module links |
 
-### Aura Assistant (in-app chat) ✨
-
-Click the **✨** button in the tab bar to open the chat panel and ask about your codebase in natural language. The assistant can call the graph tools (`resolve_context`, `find_cycles`, `find_dead_code`, `get_hotspots`, `find_path`, …) to answer with real data, and every cited file is clickable — it opens in the editor or focuses in the 3D graph.
-
-Requires a VS Code build with the **Language Model API** (≥ 1.95) and a configured LM provider (e.g. GitHub Copilot).
-
 ---
 
 ## Settings
+
+All settings live under `auraVisualizer.*` — the most common ones are also editable in-app via the **⚙️ Settings** button.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `auraVisualizer.excludePaths` | `["node_modules", ".git", "dist", "build", "out", "__pycache__"]` | Directories to exclude from analysis |
 | `auraVisualizer.maxFiles` | `500` | Maximum number of files to analyze |
 | `auraVisualizer.autoRefresh` | `true` | Auto-refresh on file save |
+| `auraVisualizer.riskWindow` | `90` | Git history window (30 / 90 / 365 days) used by the Risk Map, the status bar and `get_hotspots` |
+| `auraVisualizer.rotateSpeed` | `1` | Rotation speed when dragging the 3D graph (1–5, 5 = fastest) |
+| `auraVisualizer.linkStyle` | `"straight"` | Edge style in the 3D graph (`straight` / `curved`) |
+| `auraVisualizer.linkCurvature` | `0.25` | Curvature amount when `linkStyle` is `curved` (0–1) |
+| `auraVisualizer.selectedNodeEffect` | `"glow"` | Selected-node highlight — `glow` halo or `bloom` post-processing |
+| `auraVisualizer.bloomStrength` / `bloomRadius` / `bloomThreshold` | `1.2` / `0.6` / `0.0` | Bloom tuning when `selectedNodeEffect` is `bloom` |
 
 ---
 

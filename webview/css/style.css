@@ -114,8 +114,11 @@ html, body {
 }
 .qb-toggle:hover { background: var(--aura-border); }
 #tab-bar .qb-toggle {
-    margin-left: auto;
+    margin-left: 8px;
     align-self: center;
+}
+#tab-bar #qb-toggle {
+    margin-left: auto;
 }
 #tab-bar .qb-toggle.active {
     background: var(--aura-accent);
@@ -1529,7 +1532,8 @@ html, body {
 /* ============================================================
    Help Modal
    ============================================================ */
-#help-modal {
+#help-modal,
+#settings-modal {
     position: fixed;
     top: 0; left: 0;
     width: 100%; height: 100%;
@@ -2699,6 +2703,100 @@ body.chat-open #detail-panel.collapsed { display: none; }
 /* Brief highlight when a file is revealed from the status bar */
 .risk-file-row { transition: background 0.35s ease; }
 .risk-file-row.risk-row-flash { background: rgba(255, 193, 7, 0.22); }
+
+/* ============================================================
+   Settings Modal
+   ============================================================ */
+/* Dropdown options render in a native popup — style them explicitly,
+   otherwise they inherit the select's light text on a white background */
+select option {
+    background: var(--aura-bg);
+    color: var(--aura-fg);
+}
+
+.settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.settings-row:last-of-type { border-bottom: none; }
+
+.settings-row label {
+    color: var(--aura-text);
+    font-size: 12.5px;
+    line-height: 1.35;
+}
+
+.settings-hint {
+    display: block;
+    font-size: 11px;
+    opacity: 0.55;
+    margin-top: 1px;
+    font-weight: 400;
+}
+
+.settings-row select,
+.settings-row input[type="number"] {
+    background: var(--aura-border);
+    color: var(--aura-text);
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 12px;
+    min-width: 120px;
+}
+
+.settings-row select:focus,
+.settings-row input[type="number"]:focus {
+    outline: none;
+    border-color: #60a5fa;
+}
+
+.settings-row input[type="checkbox"] {
+    accent-color: #60a5fa;
+    width: 16px;
+    height: 16px;
+}
+
+.settings-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid var(--aura-border);
+}
+
+#settings-open-vscode {
+    color: #60a5fa;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+#settings-open-vscode:hover { text-decoration: underline; }
+
+.settings-slider-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+#set-rotateSpeed {
+    width: 110px;
+    accent-color: var(--aura-accent);
+}
+
+#set-rotateSpeed-value {
+    display: inline-block;
+    min-width: 26px;
+    text-align: right;
+    font-size: 11px;
+    color: var(--aura-fg);
+}
 .risk-file-info { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .risk-file-name { font-size: 13px; font-weight: 500; }
 .risk-file-path {

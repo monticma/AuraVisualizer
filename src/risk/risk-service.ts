@@ -38,6 +38,11 @@ export interface RiskFileEntry {
     topLabel: string | null;
     bucket: RiskBucket;
     reasons: RiskReason[];
+    /** Raw metrics, carried along for tool responses (MCP / LM tools / chat). */
+    lines: number;
+    complexity: number;
+    fanIn: number;
+    fanOut: number;
 }
 
 export interface RiskSnapshot {
@@ -121,10 +126,56 @@ export function buildRiskSnapshot(
                 churn: churnOf(r.node),
                 authorCount: stats ? stats.authors.size : 0,
             }),
+            lines: r.node.linesOfCode || 0,
+            complexity: r.node.complexity || 0,
+            fanIn: r.node.fanIn || 0,
+            fanOut: r.node.fanOut || 0,
         };
         byId.set(r.node.id, entry);
         if (entry.bucket === 'high') highIds.add(r.node.id);
     }
 
     return { windowDays, byId, highIds, avgScore: raw.length ? total / raw.length : 0 };
+}
+
+export interface RiskHotspot {
+    file: string;
+    risk_score: number;
+    bucket: RiskBucket;
+    top: string | null;
+    reasons: string[];
+    lines: number;
+    complexity: number;
+    fan_in: number;
+    fan_out: number;
+}
+
+export interface RiskHotspotsPayload {
+    sort: 'risk';
+    window_days: number;
+    total: number;
+    hotspots: RiskHotspot[];
+}
+
+/** Top-N by risk score — the shared response shape for MCP, LM tools and chat. */
+export function topRiskHotspots(snapshot: RiskSnapshot, limit: number): RiskHotspotsPayload {
+    const entries = Array.from(snapshot.byId.values())
+        .sort((a, b) => b.score - a.score)
+        .slice(0, Math.max(1, Math.round(limit)));
+    return {
+        sort: 'risk',
+        window_days: snapshot.windowDays,
+        total: entries.length,
+        hotspots: entries.map(e => ({
+            file: e.id,
+            risk_score: Math.round(e.score * 10) / 10,
+            bucket: e.bucket,
+            top: e.topLabel,
+            reasons: e.reasons.map(r => r.text),
+            lines: e.lines,
+            complexity: e.complexity,
+            fan_in: e.fanIn,
+            fan_out: e.fanOut,
+        })),
+    };
 }
