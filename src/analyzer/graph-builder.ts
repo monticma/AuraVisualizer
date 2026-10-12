@@ -14,6 +14,11 @@ import { TreeSitterRustParser } from './parsers/ts-rust-parser';
 import { TreeSitterKotlinParser } from './parsers/ts-kotlin-parser';
 import { TreeSitterRubyParser } from './parsers/ts-ruby-parser';
 import { TreeSitterSwiftParser } from './parsers/ts-swift-parser';
+import { TreeSitterCSharpParser } from './parsers/ts-csharp-parser';
+import { TreeSitterPhpParser } from './parsers/ts-php-parser';
+import { TreeSitterBashParser } from './parsers/ts-bash-parser';
+import { TreeSitterLuaParser } from './parsers/ts-lua-parser';
+import { VueParser } from './parsers/vue-parser';
 import { HTMLParser } from './parsers/html-parser';
 import { CSSParser } from './parsers/css-parser';
 import { computeComplexity } from './complexity';
@@ -35,6 +40,11 @@ const PARSERS: Record<string, BaseParser> = {
     'kotlin': new TreeSitterKotlinParser(),
     'ruby': new TreeSitterRubyParser(),
     'swift': new TreeSitterSwiftParser(),
+    'csharp': new TreeSitterCSharpParser(),
+    'php': new TreeSitterPhpParser(),
+    'vue': new VueParser(),
+    'bash': new TreeSitterBashParser(),
+    'lua': new TreeSitterLuaParser(),
     'html': new HTMLParser(),
     'css': new CSSParser()
 };
@@ -43,10 +53,11 @@ const PARSERS: Record<string, BaseParser> = {
 const LANG_FAMILY: Record<string, string> = {
     'c': 'c', 'cpp': 'c', 'javascript': 'js', 'typescript': 'js', 'python': 'py',
     'java': 'java', 'go': 'go', 'rust': 'rust',
-    'kotlin': 'kotlin', 'ruby': 'ruby', 'swift': 'swift'
+    'kotlin': 'kotlin', 'ruby': 'ruby', 'swift': 'swift',
+    'csharp': 'csharp', 'php': 'php', 'bash': 'bash', 'lua': 'lua'
 };
 
-const SYMBOL_LANGUAGES = new Set(['c', 'cpp', 'javascript', 'typescript', 'python', 'java', 'go', 'rust', 'kotlin', 'ruby', 'swift']);
+const SYMBOL_LANGUAGES = new Set(['c', 'cpp', 'javascript', 'typescript', 'python', 'java', 'go', 'rust', 'kotlin', 'ruby', 'swift', 'csharp', 'php', 'bash', 'lua']);
 const HEADER_EXTS = new Set(['.h', '.hpp', '.hxx', '.hh', '.d.ts']);
 
 /**
@@ -82,7 +93,7 @@ function resolveTarget(target: string, sourceId: string, fileMap: Map<string, Fi
     const relativePath = normalize(join(sourceDir, target));
     if (fileMap.has(relativePath)) return relativePath;
 
-    const extensions = ['.js', '.ts', '.py', '.c', '.h', '.css', '.html'];
+    const extensions = ['.js', '.ts', '.py', '.c', '.h', '.css', '.html', '.cs', '.php', '.sh', '.lua'];
     for (const ext of extensions) {
         if (fileMap.has(relativePath + ext)) return relativePath + ext;
         if (fileMap.has(target + ext)) return target + ext;

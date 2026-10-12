@@ -21,6 +21,11 @@ var LANGUAGE_COLORS = {
     'kotlin':     '#b39ddb',
     'ruby':       '#ef5350',
     'swift':      '#ff7043',
+    'csharp':     '#9c6ade',
+    'php':        '#8892bf',
+    'vue':        '#42b883',
+    'bash':       '#89e051',
+    'lua':        '#536dfe',
     'documentation': '#b0bec5'
 };
 
@@ -38,6 +43,7 @@ var LINK_COLORS = {
     'function-call':  '#81c784aa',
     'extends':        '#f06292cc',
     'implements':     '#ba68c8aa',
+    'source':         '#81c78488',
     'doc-reference':  '#b0bec566'
 };
 
@@ -59,6 +65,11 @@ var LANGUAGE_ICONS = {
     'kotlin':     '🎯',
     'ruby':       '💎',
     'swift':      '🐦',
+    'csharp':     '💜',
+    'php':        '🐘',
+    'vue':        '💚',
+    'bash':       '🐚',
+    'lua':        '🌙',
     'documentation': '📄'
 };
 

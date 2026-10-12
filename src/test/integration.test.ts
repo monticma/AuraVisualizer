@@ -214,3 +214,115 @@ describe('Integration: full analysis pipeline', () => {
         expect(graph.meta.unresolvedReferences).toBeGreaterThanOrEqual(2);
     });
 });
+
+/**
+ * Integration test for the languages added later: C#, PHP, Vue, Bash and Lua
+ * running through the full analysis pipeline (preParseFiles + buildGraph).
+ */
+describe('Integration: C#, PHP, Vue, Bash and Lua', () => {
+    const files = [
+        makeFileInfo({
+            id: 'src/App.cs',
+            content: 'class Dog : Animal {\n    void Speak() { }\n}\n',
+            language: 'csharp', extension: '.cs', group: 'src',
+        }),
+        makeFileInfo({
+            id: 'src/Animal.cs',
+            content: 'public class Animal {\n    public void Breathe() { }\n}\n',
+            language: 'csharp', extension: '.cs', group: 'src',
+        }),
+        makeFileInfo({
+            id: 'src/User.php',
+            content: "<?php\nrequire_once 'helpers.php';\nclass User extends BaseModel {\n    public function greet() { return formatName('x'); }\n}\n",
+            language: 'php', extension: '.php', group: 'src',
+        }),
+        makeFileInfo({
+            id: 'src/BaseModel.php',
+            content: '<?php\nclass BaseModel { }\n',
+            language: 'php', extension: '.php', group: 'src',
+        }),
+        makeFileInfo({
+            id: 'src/helpers.php',
+            content: "<?php\nfunction formatName($n) { return $n; }\n",
+            language: 'php', extension: '.php', group: 'src',
+        }),
+        makeFileInfo({
+            id: 'scripts/main.sh',
+            content: '#!/bin/bash\nsource ./lib.sh\nmain() { echo ok; }\nmain\n',
+            language: 'bash', extension: '.sh', group: 'scripts',
+        }),
+        makeFileInfo({
+            id: 'scripts/lib.sh',
+            content: '#!/bin/bash\nlib_fn() { echo lib; }\n',
+            language: 'bash', extension: '.sh', group: 'scripts',
+        }),
+        makeFileInfo({
+            id: 'web/MyComponent.vue',
+            content: '<template><div>{{ msg }}</div></template>\n<script>\nimport { helper } from "./helper.js";\nexport default { name: "MyComponent" };\n</script>\n',
+            language: 'vue', extension: '.vue', group: 'web',
+        }),
+        makeFileInfo({
+            id: 'web/helper.js',
+            content: 'export function helper() { return 1; }\n',
+            language: 'javascript', extension: '.js', group: 'web',
+        }),
+        makeFileInfo({
+            id: 'scripts/main.lua',
+            content: "local utils = require('utils')\nutilsHelpers()\n",
+            language: 'lua', extension: '.lua', group: 'scripts',
+        }),
+        makeFileInfo({
+            id: 'scripts/utils.lua',
+            content: 'function utilsHelpers()\n    return 1\nend\n',
+            language: 'lua', extension: '.lua', group: 'scripts',
+        }),
+    ];
+
+    let graph: GraphData;
+
+    beforeAll(async () => {
+        await initTreeSitter();
+        const trees = await preParseFiles(files);
+        graph = buildGraph(files, 'NewLangs', {}, trees);
+    });
+
+    it('creates one node per file', () => {
+        expect(graph.nodes).toHaveLength(11);
+    });
+
+    it('links C# inheritance', () => {
+        const link = graph.links.find(l => l.source === 'src/App.cs' && l.target === 'src/Animal.cs');
+        expect(link).toBeDefined();
+        expect(link!.type).toBe('extends');
+    });
+
+    it('links PHP extends, require and cross-file calls', () => {
+        expect(graph.links).toContainEqual(expect.objectContaining({ source: 'src/User.php', target: 'src/BaseModel.php', type: 'extends' }));
+        expect(graph.links).toContainEqual(expect.objectContaining({ source: 'src/User.php', target: 'src/helpers.php', type: 'require' }));
+        expect(graph.links).toContainEqual(expect.objectContaining({ source: 'src/User.php', target: 'src/helpers.php', type: 'function-call' }));
+    });
+
+    it('links Bash sourcing', () => {
+        expect(graph.links).toContainEqual(expect.objectContaining({ source: 'scripts/main.sh', target: 'scripts/lib.sh', type: 'source' }));
+    });
+
+    it('links Vue script imports', () => {
+        expect(graph.links).toContainEqual(expect.objectContaining({ source: 'web/MyComponent.vue', target: 'web/helper.js', type: 'import' }));
+    });
+
+    it('links Lua requires and cross-file calls', () => {
+        expect(graph.links).toContainEqual(expect.objectContaining({ source: 'scripts/main.lua', target: 'scripts/utils.lua', type: 'require' }));
+        expect(graph.links).toContainEqual(expect.objectContaining({ source: 'scripts/main.lua', target: 'scripts/utils.lua', type: 'function-call' }));
+    });
+
+    it('extracts symbols for the new languages', () => {
+        const animal = graph.nodes.find(n => n.id === 'src/Animal.cs')!;
+        expect(animal.symbols!.classes.map(c => c.name)).toContain('Animal');
+        const helpers = graph.nodes.find(n => n.id === 'src/helpers.php')!;
+        expect(helpers.symbols!.functions.map(f => f.name)).toContain('formatName');
+        const lib = graph.nodes.find(n => n.id === 'scripts/lib.sh')!;
+        expect(lib.symbols!.functions.map(f => f.name)).toContain('lib_fn');
+        const utilsLua = graph.nodes.find(n => n.id === 'scripts/utils.lua')!;
+        expect(utilsLua.symbols!.functions.map(f => f.name)).toContain('utilsHelpers');
+    });
+});

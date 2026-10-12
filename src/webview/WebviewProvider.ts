@@ -1009,6 +1009,21 @@ export class WebviewProvider {
             <button class="filter-btn active" data-lang="rust" data-color="#ffb74d">
                 <span class="filter-dot" style="background:#ffb74d"></span> Rust
             </button>
+            <button class="filter-btn active" data-lang="csharp" data-color="#9c6ade">
+                <span class="filter-dot" style="background:#9c6ade"></span> C#
+            </button>
+            <button class="filter-btn active" data-lang="php" data-color="#8892bf">
+                <span class="filter-dot" style="background:#8892bf"></span> PHP
+            </button>
+            <button class="filter-btn active" data-lang="vue" data-color="#42b883">
+                <span class="filter-dot" style="background:#42b883"></span> Vue
+            </button>
+            <button class="filter-btn active" data-lang="bash" data-color="#89e051">
+                <span class="filter-dot" style="background:#89e051"></span> SH
+            </button>
+            <button class="filter-btn active" data-lang="lua" data-color="#536dfe">
+                <span class="filter-dot" style="background:#536dfe"></span> Lua
+            </button>
             <button class="filter-btn" data-lang="documentation" data-color="#b0bec5" style="display:none">
                 <span class="filter-dot" style="background:#b0bec5"></span> 📄 Docs
             </button>

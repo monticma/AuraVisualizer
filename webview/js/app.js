@@ -37,7 +37,7 @@
     var lastHoverId = null;    // dedupe: 3d-force-graph re-fires hover after object rebuilds
     var highlightNodes = new Set();
     var highlightLinks = new Set();
-    var activeLanguages = new Set(['c-source', 'c-header', 'cpp-source', 'cpp-header', 'javascript', 'typescript', 'python', 'css', 'html', 'java', 'go', 'rust']);
+    var activeLanguages = new Set(['c-source', 'c-header', 'cpp-source', 'cpp-header', 'javascript', 'typescript', 'python', 'css', 'html', 'java', 'go', 'rust', 'csharp', 'php', 'vue', 'bash', 'lua']);
     var dagMode = false;
     var showOrphans = false;
     var showDeadCode = false;

@@ -5,6 +5,18 @@ All notable changes to Aura Visualizer are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Support for **C#**, **PHP**, **Vue**, **Bash** and **Lua**: scanning, parsers (Tree-sitter; Vue SFCs are scanned for script/style imports), symbols, cross-file function calls, `extends`/`implements` for C# and PHP, complexity, graph colors, language filters and docs.
+- Per-file notes (colored, persisted in `.aura/annotations.json`) with pulsing graph indicators, a toolbar toggle and the `hasnote` query flag.
+- Rename-aware churn: `git mv` renames are followed in the Risk Map, the status bar and the MCP `get_hotspots` tool.
+
+### Fixed
+- Curved links no longer collapse the frame rate: the simulation settles in the synchronous warmup instead of ticking live (every tick rebuilt each tube geometry).
+- Interaction slowdowns: hover / pin no longer rebuild every link object; delta refreshes keep node positions.
+- Heatmap legend and minimap stay above the bottom bars when they wrap in a narrow webview.
+
 ## [1.1.7] - 2026-08-25
 
 ### Added

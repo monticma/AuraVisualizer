@@ -3,7 +3,7 @@
 Each **node** is a file. Each **edge** is a dependency (import, include, function call, inheritance).
 Node size reflects lines of code. Edge color reflects dependency type.
 
-Aura supports **14 languages**: C, C++, JavaScript, TypeScript, Python, Java, Go, Rust, Kotlin, Ruby, Swift, CSS, HTML, and Markdown / plain-text docs — all parsed with Tree-sitter AST analysis.
+Aura supports **19 languages**: C, C++, JavaScript, TypeScript, Python, Java, Go, Rust, Kotlin, Ruby, Swift, C#, PHP, Vue, Bash, Lua, CSS, HTML, and Markdown / plain-text docs. Code files are parsed with Tree-sitter AST analysis; Vue single-file components are scanned for their `<script>` / `<style>` imports.
 Filter buttons at the bottom show only languages present in your project.
 
 **Mouse controls:**

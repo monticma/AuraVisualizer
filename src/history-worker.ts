@@ -29,6 +29,11 @@ import { TreeSitterRustParser } from './analyzer/parsers/ts-rust-parser';
 import { TreeSitterKotlinParser } from './analyzer/parsers/ts-kotlin-parser';
 import { TreeSitterRubyParser } from './analyzer/parsers/ts-ruby-parser';
 import { TreeSitterSwiftParser } from './analyzer/parsers/ts-swift-parser';
+import { TreeSitterCSharpParser } from './analyzer/parsers/ts-csharp-parser';
+import { TreeSitterPhpParser } from './analyzer/parsers/ts-php-parser';
+import { TreeSitterBashParser } from './analyzer/parsers/ts-bash-parser';
+import { TreeSitterLuaParser } from './analyzer/parsers/ts-lua-parser';
+import { VueParser } from './analyzer/parsers/vue-parser';
 import { HTMLParser } from './analyzer/parsers/html-parser';
 import { CSSParser } from './analyzer/parsers/css-parser';
 import type { BaseParser } from './analyzer/parsers/base-parser';
@@ -50,6 +55,8 @@ const LANGUAGE_MAP: Record<string, string> = {
     '.java': 'java', '.go': 'go', '.rs': 'rust',
     '.kt': 'kotlin', '.kts': 'kotlin',
     '.rb': 'ruby', '.swift': 'swift',
+    '.cs': 'csharp', '.php': 'php', '.vue': 'vue',
+    '.sh': 'bash', '.bash': 'bash', '.lua': 'lua',
     '.md': 'documentation', '.markdown': 'documentation',
     '.txt': 'documentation', '.rst': 'documentation'
 };
@@ -68,16 +75,22 @@ const PARSER_REGISTRY: Record<string, BaseParser> = {
     'kotlin': new TreeSitterKotlinParser(),
     'ruby': new TreeSitterRubyParser(),
     'swift': new TreeSitterSwiftParser(),
+    'csharp': new TreeSitterCSharpParser(),
+    'php': new TreeSitterPhpParser(),
+    'vue': new VueParser(),
+    'bash': new TreeSitterBashParser(),
+    'lua': new TreeSitterLuaParser(),
     'html': new HTMLParser(),
     'css': new CSSParser()
 };
 
 const LANG_FAMILY: Record<string, string> = {
     'c': 'c', 'javascript': 'js', 'typescript': 'js', 'python': 'py',
-    'java': 'java', 'go': 'go', 'rust': 'rust'
+    'java': 'java', 'go': 'go', 'rust': 'rust',
+    'csharp': 'csharp', 'php': 'php', 'bash': 'bash', 'lua': 'lua'
 };
 
-const SYMBOL_LANGUAGES = new Set(['c', 'cpp', 'javascript', 'typescript', 'python', 'java', 'go', 'rust', 'kotlin', 'ruby', 'swift']);
+const SYMBOL_LANGUAGES = new Set(['c', 'cpp', 'javascript', 'typescript', 'python', 'java', 'go', 'rust', 'kotlin', 'ruby', 'swift', 'csharp', 'php', 'bash', 'lua']);
 
 function post(msg: unknown): void {
     parentPort?.postMessage(msg);
@@ -157,13 +170,28 @@ async function analyzeFileForDelta(
                     line: f.line || 0,
                     type: f.type
                 })),
-                structs: raw.structs.map(s => ({ name: s.name, type: s.type })),
-                enums: raw.enums.map(e => ({ name: e.name, type: e.type })),
-                macros: raw.macros.map(m => ({ name: m.name, type: m.type })),
-                classes: raw.classes.map(c => ({ name: c.name, type: c.type })),
-                exports: raw.exports.map(e => ({ name: e.name, type: e.type })),
+                structs: raw.structs.map(s => ({ name: s.name, type: s.type, line: s.line || 0 })),
+                enums: raw.enums.map(e => ({ name: e.name, type: e.type, line: e.line || 0 })),
+                macros: raw.macros.map(m => ({ name: m.name, type: m.type, line: m.line || 0 })),
+                classes: raw.classes.map(c => ({ name: c.name, type: c.type, line: c.line || 0 })),
+                exports: raw.exports.map(e => ({ name: e.name, type: e.type, line: e.line || 0 })),
+                interfaces: (raw.interfaces || []).map(i => ({ name: i.name, type: i.type })),
+                traits: (raw.traits || []).map(t => ({ name: t.name, type: t.type })),
+                typeAliases: (raw.typeAliases || []).map(ta => ({ name: ta.name, type: ta.type })),
+                methods: (raw.methods || []).map(m => ({
+                    name: m.name,
+                    returnType: m.returnType || '',
+                    params: m.params || '',
+                    line: m.line || 0,
+                    type: m.type,
+                    visibility: m.visibility,
+                    isStatic: m.isStatic,
+                    isAsync: m.isAsync
+                })),
                 totalSymbols: raw.functions.length + raw.structs.length + raw.enums.length +
-                    raw.macros.length + raw.classes.length + raw.exports.length
+                    raw.macros.length + raw.classes.length + raw.exports.length +
+                    (raw.interfaces || []).length + (raw.traits || []).length +
+                    (raw.typeAliases || []).length + (raw.methods || []).length
             };
         }
     }

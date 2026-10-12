@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Languages-C%20%7C%20C%2B%2B%20%7C%20JS%20%7C%20TS%20%7C%20Python%20%7C%20Java%20%7C%20Go%20%7C%20Rust%20%7C%20Kotlin%20%7C%20Ruby%20%7C%20Swift%20%7C%20CSS%20%7C%20HTML%20%7C%20Markdown-blue" alt="Languages" />
+  <img src="https://img.shields.io/badge/Languages-C%20%7C%20C%2B%2B%20%7C%20JS%20%7C%20TS%20%7C%20Python%20%7C%20Java%20%7C%20Go%20%7C%20Rust%20%7C%20Kotlin%20%7C%20Ruby%20%7C%20Swift%20%7C%20C%23%20%7C%20PHP%20%7C%20Vue%20%7C%20Bash%20%7C%20Lua%20%7C%20CSS%20%7C%20HTML%20%7C%20Markdown-blue" alt="Languages" />
   <img src="https://img.shields.io/badge/VS%20Code-%3E%3D1.85-007ACC" alt="VS Code" />
   <img src="https://img.shields.io/badge/License-MIT-green" alt="License" />
 </p>
@@ -46,12 +46,17 @@ Powered by **Tree-sitter** AST parsing (WASM) for accurate, structural code anal
 | Kotlin | `.kt`, `.kts` | 🟣 Purple |
 | Ruby | `.rb` | ❤️ Red |
 | Swift | `.swift` | 🟥 Coral |
+| C# | `.cs` | 💜 Violet |
+| PHP | `.php` | 🐘 Periwinkle |
+| Vue | `.vue` | 💚 Vue green |
+| Bash | `.sh`, `.bash` | 🐚 Lime |
+| Lua | `.lua` | 🌙 Indigo |
 | CSS | `.css` | 🟣 Purple |
 | HTML | `.html` | 🟧 Coral |
 | Documentation | `.md`, `.markdown`, `.txt`, `.rst` | 📄 Slate |
 
-Cross-file **function calls** are detected for C, C++, JS/TS, Python, Java, Go, Rust, Kotlin, Ruby, and Swift.
-**Inheritance edges** (`extends` / `implements`) are detected for JS/TS, Python, Java, Go (struct embedding), Rust (trait impl), Kotlin, and Swift (protocol conformance).
+Cross-file **function calls** are detected for C, C++, JS/TS, Python, Java, Go, Rust, Kotlin, Ruby, Swift, C#, PHP, and Lua.
+**Inheritance edges** (`extends` / `implements`) are detected for JS/TS, Python, Java, Go (struct embedding), Rust (trait impl), Kotlin, Swift (protocol conformance), C#, and PHP.
 Language filter buttons are **dynamic** — only languages present in the current analysis are shown.
 
 ### Interactive Exploration
@@ -447,12 +452,13 @@ All settings live under `auraVisualizer.*` — the most common ones are also edi
 | `import` | Yellow | JS/TS `import` |
 | `require` | Yellow (dim) | CommonJS `require()` |
 | `dynamic-import` | Yellow (faint) | `import()` expressions |
-| `function-call` | Green | Cross-file function calls (C, C++, JS/TS, Python, Java, Go, Rust, Kotlin, Ruby, Swift) |
+| `function-call` | Green | Cross-file function calls (C, C++, JS/TS, Python, Java, Go, Rust, Kotlin, Ruby, Swift, C#, PHP, Lua) |
 | `extends` | Pink | Class/struct inheritance |
 | `implements` | Purple | Interface / trait implementation |
-| `script` | Orange | HTML `<script src>` |
+| `script` | Orange | HTML `<script src>` / Vue `<script src>` |
 | `stylesheet` | Purple | HTML `<link rel="stylesheet">` |
 | `css-import` | Purple (dim) | CSS `@import` |
+| `source` | Green (dim) | Shell `source file.sh` / `. file.sh` |
 | `css-url` | Purple (faint) | CSS `url()` references |
 | `doc-reference` | Slate (thin) | Mentions of code symbols / filenames inside `.md` / `.txt` / `.rst` files |
 

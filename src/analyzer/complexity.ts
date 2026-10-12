@@ -22,6 +22,7 @@ export function computeComplexity(fileInfo: FileInfo): ComplexityResult {
         case 'css':
             return computeCSSComplexity(content);
         case 'html':
+        case 'vue':
             return computeHTMLComplexity(content);
         default: {
             const cfg = GENERIC_LANGUAGE_CONFIGS[language];
@@ -159,6 +160,27 @@ function stripHashComments(content: string): string {
         .replace(/#.*$/gm, '');
 }
 
+/** Strip PHP comments (`//`, `#`, block comments) and quoted strings. */
+function stripPhpComments(content: string): string {
+    return content
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/\/\/.*$/gm, '')
+        .replace(/#.*$/gm, '')
+        .replace(/"(?:[^"\\]|\\.)*"/g, '""')
+        .replace(/'(?:[^'\\]|\\.)*'/g, "''");
+}
+
+/** Strip Lua comments (`--`, `--[[ ]]`) and quoted strings. */
+function stripLuaComments(content: string): string {
+    return content
+        .replace(/--\[\[[\s\S]*?\]\]/g, '')
+        .replace(/--[^\[].*$/gm, '')
+        .replace(/--$/gm, '')
+        .replace(/"(?:[^"\\]|\\.)*"/g, '""')
+        .replace(/'(?:[^'\\]|\\.)*'/g, "''")
+        .replace(/\[\[[\s\S]*?\]\]/g, '""');
+}
+
 /** Escape a literal string for use inside a RegExp. */
 function escapeRegex(str: string): string {
     return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -262,5 +284,29 @@ const GENERIC_LANGUAGE_CONFIGS: Record<string, LanguageComplexityConfig> = {
         operators: ['&&', '||', '??'], // nil-coalescing counts as a branch
         ternary: TERNARY_RE,
         strip: stripCLikeComments,
+    },
+    csharp: {
+        keywords: ['if', 'for', 'foreach', 'while', 'do', 'switch', 'case', 'catch', 'when'],
+        operators: ['&&', '||', '??'], // null-coalescing counts as a branch
+        ternary: TERNARY_RE,
+        strip: stripCLikeComments,
+    },
+    php: {
+        keywords: ['if', 'elseif', 'for', 'foreach', 'while', 'do', 'switch', 'case', 'catch'],
+        operators: ['&&', '||', 'and', 'or'],
+        ternary: TERNARY_RE,
+        strip: stripPhpComments,
+    },
+    bash: {
+        keywords: ['if', 'elif', 'for', 'while', 'until', 'case', 'select'],
+        operators: ['&&', '||'],
+        ternary: null, // Shell has no ternary operator
+        strip: stripHashComments,
+    },
+    lua: {
+        keywords: ['if', 'elseif', 'for', 'while', 'repeat', 'until'],
+        operators: ['and', 'or'],
+        ternary: null, // Lua has no ternary operator
+        strip: stripLuaComments,
     },
 };
