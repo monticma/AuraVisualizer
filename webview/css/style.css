@@ -1063,7 +1063,10 @@ html, body {
    ============================================================ */
 #heatmap-legend {
     position: fixed;
-    bottom: 80px; left: 50%;
+    /* --aura-bottom-bars = measured height of the bottom bars (filter bar +
+       time-travel bar), set by app.js so the legend clears them when they wrap. */
+    bottom: calc(var(--aura-bottom-bars, 68px) + 12px); /* fallback = legacy 80px */
+    left: 50%;
     transform: translateX(-50%);
     display: flex;
     align-items: center;
@@ -1644,7 +1647,7 @@ html, body {
    ============================================================ */
 #minimap {
     position: fixed;
-    bottom: 60px;
+    bottom: calc(var(--aura-bottom-bars, 48px) + 12px); /* fallback = legacy 60px */
     left: 16px;
     width: 210px;
     background: var(--aura-sidebar-bg);

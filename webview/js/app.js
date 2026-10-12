@@ -34,6 +34,7 @@
 
     var selectedNode = null;
     var hoveredNode = null;
+    var lastHoverId = null;    // dedupe: 3d-force-graph re-fires hover after object rebuilds
     var highlightNodes = new Set();
     var highlightLinks = new Set();
     var activeLanguages = new Set(['c-source', 'c-header', 'cpp-source', 'cpp-header', 'javascript', 'typescript', 'python', 'css', 'html', 'java', 'go', 'rust']);
@@ -440,6 +441,7 @@
         setupQueryBar();
         setupChat();
         setupRisk();
+        setupBottomBarsOffset();
         vscode.postMessage({ type: 'requestSavedQueries' });
     }
 
@@ -460,6 +462,7 @@
         selectedNode = null;
         explodedNode = null;
         explosionData = null;
+        lastHoverId = null; // the new dataset requires a fresh hover pass
 
         graphData = data;
         buildLinkWidthIndex();
@@ -580,8 +583,12 @@
         computeMetricRanges();
         updateStats(graphData.meta);
 
-        // Re-feed filtered data to the graph — preserves positions
+        // Re-feed filtered data to the graph — preserve positions: no synchronous
+        // warmup, no live engine run either (budgets restored right after the feed).
+        graph.warmupTicks(0);
+        graph.cooldownTicks(0);
         graph.graphData(filterGraphData(graphData));
+        setTimeout(function () { applyEngineBudget(); }, 200);
 
         // Update language buttons
         updateLanguageButtons(graphData.nodes);
@@ -1020,6 +1027,42 @@
         graph.linkCurvature(cfg.linkStyle === 'curved'
             ? (typeof cfg.linkCurvature === 'number' ? cfg.linkCurvature : 0.25)
             : 0);
+        applyEngineBudget();
+    }
+
+    /**
+     * Engine budgets depend on the link style. Curved links are tube meshes whose
+     * geometry is rebuilt from scratch on EVERY engine tick (per link, per frame,
+     * in three-forcegraph) — a live run collapses the frame rate for its whole
+     * duration (up to cooldownTime = 15 s), which also slows the link particles
+     * since they advance per frame. Curved mode therefore settles entirely in the
+     * synchronous warmup and never ticks live; straight links keep the cheap
+     * smooth frame-run settle. These props are read at feed/tick time.
+     */
+    function applyEngineBudget() {
+        if (!graph || typeof graph.warmupTicks !== 'function') return;
+        var curved = (window.AURA_CONFIG || {}).linkStyle === 'curved';
+        graph.warmupTicks(curved ? 220 : 100);
+        graph.cooldownTicks(curved ? 0 : 200);
+        graph.cooldownTime(curved ? 0 : 15000);
+    }
+
+    /**
+     * Re-heat the simulation with a short, bounded live settle (spread slider,
+     * DAG off). Curved mode temporarily lifts its no-live-tick budget so the
+     * change is visible, then restores it.
+     */
+    function reheatWithSettle() {
+        if (!graph) return;
+        var curved = (window.AURA_CONFIG || {}).linkStyle === 'curved';
+        if (curved) {
+            graph.cooldownTicks(120);
+            graph.cooldownTime(6000);
+        }
+        graph.d3ReheatSimulation();
+        if (curved) {
+            setTimeout(function () { applyEngineBudget(); }, 6500);
+        }
     }
 
     function initGraph(data) {
@@ -2470,6 +2513,15 @@
             hoveredSymbolId = null;
         }
 
+        // Dedupe: 3d-force-graph re-fires hover with the same node after any
+        // object rebuild (every right-click rebuilds them). Re-applying the
+        // accessors below rebuilds every link object (linkWidth), so without
+        // this guard one rebuild cascades into more rebuilds, starving the
+        // render loop — which reads as the link particles crawling.
+        var hoverId = node ? node.id : null;
+        if (hoverId === lastHoverId && !symbolChanged) return;
+        lastHoverId = hoverId;
+
         highlightNodes.clear();
         highlightLinks.clear();
 
@@ -2665,13 +2717,17 @@
             return;
         }
 
+        // The blast glow lives in the node three-objects — remember whether a
+        // rebuild is needed to swap it for a regular pin.
+        var wasBlast = blastMode;
+
         // Clear blast mode when switching to regular pin focus
         blastMode = false;
         blastDepths = {};
 
         if (pinnedNode && pinnedNode.id === node.id && !isLightRefresh) {
             clearPinnedFocus();
-            refreshGraphVisuals();
+            refreshFocusVisuals(wasBlast);
             return;
         }
 
@@ -2713,20 +2769,18 @@
             frontier = nextFrontier;
         }
 
-        if (isLightRefresh) {
-            refreshGraphColors();
-        } else {
-            refreshGraphVisuals();
-        }
+        refreshFocusVisuals(wasBlast);
     }
 
     // ============================================================
     // Blast radius (Shift+RightClick) — directional impact analysis
     // ============================================================
     function handleBlastRadius(node, lightRefresh) {
+        var wasBlast = blastMode;
+
         if (blastMode && pinnedNode && pinnedNode.id === node.id && !lightRefresh) {
             clearPinnedFocus();
-            refreshGraphVisuals();
+            refreshFocusVisuals(wasBlast);
             return;
         }
 
@@ -2781,20 +2835,17 @@
         // No dependents found — cancel blast mode
         if (pinnedNodes.size <= 1) {
             clearPinnedFocus();
-            refreshGraphVisuals();
+            refreshFocusVisuals(wasBlast);
             return;
         }
 
-        if (lightRefresh) {
-            refreshGraphColors();
-        } else {
-            refreshGraphVisuals();
-        }
+        refreshFocusVisuals(wasBlast);
     }
 
     function handleBackgroundRightClick() {
+        var hadBlast = blastMode;
         clearPinnedFocus();
-        refreshGraphVisuals();
+        refreshFocusVisuals(hadBlast);
     }
 
     function clearPinnedFocus() {
@@ -2916,10 +2967,11 @@
     // ============================================================
     function computeTimelineImpact() {
         if (!timelineActive || timelineChangedNodes.size === 0 || !graph) {
+            var wasImpact = impactMode;
             impactMode = false;
             clearPinnedFocus();
             if (timelineImpactBtn) timelineImpactBtn.classList.remove('active');
-            refreshGraphVisuals();
+            refreshFocusVisuals(wasImpact);
             return;
         }
 
@@ -2979,7 +3031,8 @@
             }
         }
 
-        refreshGraphVisuals();
+        // blastMode is true here — the internal check rebuilds the impact glow
+        refreshFocusVisuals(false);
     }
 
     function toggleImpactMode() {
@@ -2990,7 +3043,7 @@
             computeTimelineImpact();
         } else {
             clearPinnedFocus();
-            refreshGraphVisuals();
+            refreshFocusVisuals(true); // removing the impact glow needs a rebuild
         }
     }
 
@@ -3040,16 +3093,29 @@
              .nodeThreeObject(graph.nodeThreeObject());
     }
 
-    // Light refresh: update colors without reheating the simulation
+    // Light refresh: color-only updates. Re-applying linkWidth here would make
+    // the library rebuild every link object just to change a color.
     function refreshGraphColors() {
         if (!graph) return;
         graph.nodeColor(graph.nodeColor())
              .linkVisibility(graph.linkVisibility())
-             .linkWidth(graph.linkWidth())
              .linkColor(graph.linkColor())
-             .linkDirectionalArrowLength(graph.linkDirectionalArrowLength())
-             .linkDirectionalParticles(graph.linkDirectionalParticles())
              .nodeThreeObject(graph.nodeThreeObject());
+    }
+
+    // Focus refresh (pin / blast / impact): only node colors, link colors and
+    // the label / blast-glow three-objects change. Re-applying linkWidth,
+    // particles or arrows would rebuild every link object for nothing.
+    // Node three-objects are only rebuilt when the labels or the blast glow
+    // are actually in play (wasBlast: an existing blast glow must be removed).
+    function refreshFocusVisuals(wasBlast) {
+        if (!graph) return;
+        graph.nodeColor(graph.nodeColor())
+             .linkColor(graph.linkColor())
+             .linkVisibility(graph.linkVisibility());
+        if (wasBlast || showLabels || blastMode) {
+            graph.nodeThreeObject(graph.nodeThreeObject());
+        }
     }
 
     // ============================================================
@@ -4556,7 +4622,7 @@
                 graph.dagLevelDistance(dagMode ? 60 : null);
                 if (!dagMode) {
                     graph.numDimensions(3);
-                    graph.d3ReheatSimulation();
+                    reheatWithSettle();
                 }
                 applyFilters();
             }
@@ -4975,7 +5041,7 @@
             spreadMultiplier = parseFloat(e.target.value);
             if (graph) {
                 applySpreadForces();
-                graph.d3ReheatSimulation();
+                reheatWithSettle();
             }
             saveViewState();
         });
@@ -6196,6 +6262,33 @@
 
                 nodes[i].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
             }
+        }
+    }
+
+    // ============================================================
+    // Bottom bars offset
+    // The filter bar and the time-travel bar flex-wrap when the webview
+    // is narrow, which makes them taller. Bottom-anchored overlays
+    // (heatmap legend, minimap) read --aura-bottom-bars so they always
+    // sit above the bars instead of overlapping them.
+    // ============================================================
+    function setupBottomBarsOffset() {
+        var filterBar = $('#filter-bar');
+        var timeBar = $('#timeline-bar');
+
+        function update() {
+            var h = 0;
+            if (filterBar && filterBar.style.display !== 'none') h += filterBar.offsetHeight;
+            if (timeBar && !timeBar.classList.contains('hidden')) h += timeBar.offsetHeight;
+            document.documentElement.style.setProperty('--aura-bottom-bars', h + 'px');
+        }
+
+        update();
+        window.addEventListener('resize', update);
+        if (typeof ResizeObserver !== 'undefined') {
+            var ro = new ResizeObserver(update);
+            if (filterBar) ro.observe(filterBar);
+            if (timeBar) ro.observe(timeBar);
         }
     }
 
