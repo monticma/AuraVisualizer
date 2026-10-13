@@ -47,6 +47,8 @@
     var workingTree = {};      // workspace-relative path → git state (modified / untracked / …)
     var annotations = {};      // workspace-relative path → { text, color, updatedAt }
     var NOTE_COLORS = { yellow: '#fdd835', red: '#ef5350', blue: '#42a5f5', green: '#66bb6a', purple: '#ab47bc' };
+    var warps = [];            // camera bookmarks — { id, name, pos, target, fov?, quickSlot? }
+    var warpEditId = null;     // warp modal: null = capturing a new warp, else the edited warp id
     var cycleNodeIds = new Set();
     var cycleLinkKeys = new Set();
     var multiSelectedNodes = new Set();
@@ -252,6 +254,10 @@
                 if (selectedNode && !selectedNode._isCluster && !selectedNode._isSymbol) {
                     updateNoteEditor(selectedNode);
                 }
+                break;
+            case 'warps':
+                warps = (message.payload && Array.isArray(message.payload.warps)) ? message.payload.warps : [];
+                renderWarpsPanel();
                 break;
             case 'applyQuery':
                 if (message.payload && typeof message.payload.expr === 'string') {
@@ -3698,6 +3704,411 @@
     }
 
     // ============================================================
+    // Warp points (camera bookmarks) — .aura/warps.json
+    // ============================================================
+
+    /** Current camera pose: position, orbit target and FOV. */
+    function captureWarpPose() {
+        if (!graph) return null;
+        var cam = graph.camera();
+        var ctrl = null;
+        try { ctrl = graph.controls(); } catch (e) { ctrl = null; }
+        var target = (ctrl && ctrl.target) || { x: 0, y: 0, z: 0 };
+        return {
+            pos: { x: cam.position.x, y: cam.position.y, z: cam.position.z },
+            target: { x: target.x, y: target.y, z: target.z },
+            quat: { x: cam.quaternion.x, y: cam.quaternion.y, z: cam.quaternion.z, w: cam.quaternion.w },
+            up: { x: cam.up.x, y: cam.up.y, z: cam.up.z },
+            fov: cam.fov
+        };
+    }
+
+    var warpTravel = null;     // active camera flight — { cancel() }
+
+    /** Interrupt an in-flight camera flight, leaving the camera where it is. */
+    function cancelWarpTravel() {
+        if (warpTravel) {
+            warpTravel.cancel();
+            warpTravel = null;
+        }
+    }
+
+    /** Ease in-out cubic — smooth start and end for camera flights. */
+    function easeInOutCubic(t) {
+        return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    }
+
+    /**
+     * Smooth flight to a stored pose (~800 ms).
+     *
+     * Position and orbit target are lerped, and the camera quaternion is
+     * slerped during the flight. Critically, the camera `up` vector is
+     * interpolated too: TrackballControls re-applies lookAt(target) on every
+     * frame (once re-enabled) using `up`, so the roll of the captured view
+     * lives there — the slerped quaternion alone was silently overwritten the
+     * frame the flight ended, snapping the view back to a rotated pose.
+     * Warps with neither up nor quaternion (legacy) keep the old behaviour.
+     */
+    function travelToPose(pos, target, quat, up, fov) {
+        if (!graph || !pos || !target) return;
+        var cam = graph.camera();
+        var T = window.THREE;
+        if (!cam || !T) return;
+
+        cancelWarpTravel();
+
+        var ctrl = null;
+        try { ctrl = graph.controls(); } catch (e) { ctrl = null; }
+
+        var fromPos = cam.position.clone();
+        var fromTarget = (ctrl && ctrl.target) ? ctrl.target.clone() : fromPos.clone();
+        var fromQuat = cam.quaternion.clone();
+        var fromUp = cam.up.clone();
+        var fromFov = cam.fov || 0;
+        var toPos = new T.Vector3(pos.x, pos.y, pos.z);
+        var toTarget = new T.Vector3(target.x, target.y, target.z);
+        var toQuat = quat ? new T.Quaternion(quat.x, quat.y, quat.z, quat.w).normalize() : null;
+        // Orientation target: prefer the stored up vector; rebuild it from the
+        // quaternion when absent (up = quat × world-up reproduces the exact
+        // lookAt orientation of the capture).
+        var toUp = null;
+        if (up && isFinite(up.x) && isFinite(up.y) && isFinite(up.z)) {
+            toUp = new T.Vector3(up.x, up.y, up.z);
+            if (toUp.lengthSq() <= 1e-12) toUp = null;
+            else toUp.normalize();
+        }
+        if (!toUp && toQuat) {
+            toUp = new T.Vector3(0, 1, 0).applyQuaternion(toQuat);
+        }
+        var toFov = (typeof fov === 'number' && isFinite(fov)) ? fov : fromFov;
+        var controlsWereEnabled = ctrl ? !!ctrl.enabled : false;
+        if (ctrl) ctrl.enabled = false; // freeze user input during the flight
+
+        // Any click during the flight hands control back to the user.
+        var interacted = function () { cancelWarpTravel(); };
+        document.addEventListener('mousedown', interacted, true);
+
+        var start = performance.now();
+        var DURATION = 800;
+        var rafId = 0;
+        var cancelled = false;
+
+        warpTravel = {
+            cancel: function () {
+                cancelled = true;
+                if (rafId) cancelAnimationFrame(rafId);
+                document.removeEventListener('mousedown', interacted, true);
+                if (ctrl) ctrl.enabled = controlsWereEnabled;
+            }
+        };
+
+        function step(now) {
+            if (cancelled) return;
+            var t = Math.min(1, (now - start) / DURATION);
+            var k = easeInOutCubic(t);
+
+            cam.position.lerpVectors(fromPos, toPos, k);
+            if (ctrl) ctrl.target.lerpVectors(fromTarget, toTarget, k);
+
+            if (toQuat) {
+                if (typeof cam.quaternion.slerpQuaternions === 'function') {
+                    cam.quaternion.slerpQuaternions(fromQuat, toQuat, k);
+                } else {
+                    cam.quaternion.copy(fromQuat).slerp(toQuat, k);
+                }
+            } else {
+                cam.lookAt(ctrl ? ctrl.target : toTarget); // legacy warp without quaternion
+            }
+
+            if (toUp) {
+                cam.up.lerpVectors(fromUp, toUp, k);
+                if (cam.up.lengthSq() < 1e-8) cam.up.copy(toUp); // guard near-zero lerp
+                cam.up.normalize();
+            }
+
+            if (toFov !== fromFov) {
+                cam.fov = fromFov + (toFov - fromFov) * k;
+                cam.updateProjectionMatrix();
+            }
+
+            if (t < 1) {
+                rafId = requestAnimationFrame(step);
+            } else {
+                cancelWarpTravel(); // done — controls resume with the exact pose
+            }
+        }
+        rafId = requestAnimationFrame(step);
+    }
+
+    function travelToWarp(warp) {
+        if (warp) travelToPose(warp.pos, warp.target, warp.quat, warp.up, warp.fov);
+    }
+
+    function findWarp(id) {
+        for (var i = 0; i < warps.length; i++) {
+            if (warps[i].id === id) return warps[i];
+        }
+        return null;
+    }
+
+    function postWarp(warpInput) {
+        try { vscode.postMessage({ type: 'saveWarp', payload: { warp: warpInput } }); } catch (_) { /* noop */ }
+    }
+
+    function renderWarpsPanel() {
+        var list = $('#warps-list');
+        if (!list) return;
+        list.innerHTML = '';
+
+        // Home row — the default fit-to-view pose, always available.
+        var home = document.createElement('div');
+        home.className = 'warp-row warp-home';
+        home.title = 'Back to the default fit-to-view pose';
+        var homeName = document.createElement('span');
+        homeName.className = 'warp-name';
+        homeName.textContent = '🏠 Home — overview';
+        home.appendChild(homeName);
+        home.addEventListener('click', function () {
+            var btn = $('#btn-recenter');
+            if (btn) btn.click();
+        });
+        list.appendChild(home);
+
+        if (!warps.length) {
+            var empty = document.createElement('div');
+            empty.className = 'warps-empty';
+            empty.textContent = 'No warps yet — travel somewhere, then press the 📌 button above.';
+            list.appendChild(empty);
+            return;
+        }
+
+        for (var i = 0; i < warps.length; i++) {
+            list.appendChild(buildWarpRow(warps[i]));
+        }
+    }
+
+    function buildWarpRow(warp) {
+        var row = document.createElement('div');
+        row.className = 'warp-row';
+
+        var main = document.createElement('div');
+        main.className = 'warp-main';
+        main.title = 'Fly to this warp';
+        main.addEventListener('click', function () { travelToWarp(warp); });
+
+        if (warp.quickSlot) {
+            var slot = document.createElement('span');
+            slot.className = 'warp-slot';
+            slot.textContent = 'Alt+Shift+' + warp.quickSlot;
+            main.appendChild(slot);
+        }
+        var name = document.createElement('span');
+        name.className = 'warp-name';
+        name.textContent = warp.name;
+        main.appendChild(name);
+        row.appendChild(main);
+
+        var actions = document.createElement('div');
+        actions.className = 'warp-actions';
+
+        var editBtn = document.createElement('button');
+        editBtn.textContent = '✏️';
+        editBtn.title = 'Rename / change quick slot';
+        editBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            showWarpModal(warp);
+        });
+        actions.appendChild(editBtn);
+
+        var recaptureBtn = document.createElement('button');
+        recaptureBtn.textContent = '📌';
+        recaptureBtn.title = 'Overwrite with the current camera pose';
+        recaptureBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            var pose = captureWarpPose();
+            if (!pose) return;
+            postWarp({
+                id: warp.id, createdAt: warp.createdAt, name: warp.name,
+                quickSlot: warp.quickSlot || null,
+                pos: pose.pos, target: pose.target, quat: pose.quat, up: pose.up, fov: pose.fov
+            });
+        });
+        actions.appendChild(recaptureBtn);
+
+        var delBtn = document.createElement('button');
+        delBtn.textContent = '🗑️';
+        delBtn.title = 'Delete this warp';
+        delBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            try { vscode.postMessage({ type: 'deleteWarp', payload: { id: warp.id } }); } catch (_) { /* noop */ }
+        });
+        actions.appendChild(delBtn);
+
+        row.appendChild(actions);
+        return row;
+    }
+
+    /** Suggested name for a new capture — first unused "Warp N". */
+    function nextWarpNameSuggestion() {
+        var used = {};
+        for (var i = 0; i < warps.length; i++) used[warps[i].name] = true;
+        for (var n = 1; n <= 999; n++) {
+            if (!used['Warp ' + n]) return 'Warp ' + n;
+        }
+        return 'Warp';
+    }
+
+    /** Open the capture / edit modal — pass a warp to edit, none to capture. */
+    function showWarpModal(warp) {
+        var modal = $('#warp-modal');
+        var input = $('#warp-name-input');
+        var slotSel = $('#warp-slot-select');
+        var title = $('#warp-modal-title');
+        if (!modal || !input || !slotSel) return;
+        warpEditId = warp ? warp.id : null;
+        if (title) title.textContent = warp ? '✏️ Edit Warp' : '📌 New Warp';
+        input.value = warp ? warp.name : nextWarpNameSuggestion();
+        slotSel.value = warp && warp.quickSlot ? String(warp.quickSlot) : '';
+        modal.classList.remove('hidden');
+        setTimeout(function () { try { input.focus(); input.select(); } catch (_) { /* noop */ } }, 0);
+    }
+
+    function hideWarpModal() {
+        var modal = $('#warp-modal');
+        if (modal) modal.classList.add('hidden');
+        warpEditId = null;
+    }
+
+    function saveWarpFromModal() {
+        var input = $('#warp-name-input');
+        var slotSel = $('#warp-slot-select');
+        if (!input || !slotSel) return;
+        var name = input.value || '';
+        var slot = slotSel.value ? parseInt(slotSel.value, 10) : null;
+
+        var existing = warpEditId ? findWarp(warpEditId) : null;
+        if (existing) {
+            // Rename / quick-slot change — keep the stored pose.
+            postWarp({
+                id: existing.id, createdAt: existing.createdAt, name: name,
+                quickSlot: slot || null,
+                pos: existing.pos, target: existing.target, quat: existing.quat, up: existing.up, fov: existing.fov
+            });
+        } else {
+            var pose = captureWarpPose();
+            if (!pose) return;
+            postWarp({ name: name, quickSlot: slot || null, pos: pose.pos, target: pose.target, quat: pose.quat, up: pose.up, fov: pose.fov });
+        }
+        hideWarpModal();
+    }
+
+    function setWarpsPanelVisible(visible) {
+        var panel = $('#warps-panel');
+        var btn = $('#btn-warps-panel');
+        if (!panel) return;
+        panel.classList.toggle('hidden', !visible);
+        if (btn) btn.classList.toggle('active', !!visible);
+        if (visible) renderWarpsPanel();
+    }
+
+    function toggleWarpsPanel() {
+        var panel = $('#warps-panel');
+        if (!panel) return;
+        setWarpsPanelVisible(panel.classList.contains('hidden'));
+    }
+
+    function setupWarps() {
+        var panelBtn = $('#btn-warps-panel');
+        if (panelBtn) panelBtn.addEventListener('click', function () { toggleWarpsPanel(); });
+
+        var closeBtn = $('#warps-panel-close');
+        if (closeBtn) closeBtn.addEventListener('click', function () { setWarpsPanelVisible(false); });
+
+        var captureBtn = $('#warps-capture');
+        if (captureBtn) captureBtn.addEventListener('click', function () { showWarpModal(null); });
+
+        var modal = $('#warp-modal');
+        var modalClose = $('#warp-modal-close');
+        var saveBtn = $('#warp-save');
+        var cancelBtn = $('#warp-cancel');
+        modalClose && modalClose.addEventListener('click', hideWarpModal);
+        cancelBtn && cancelBtn.addEventListener('click', hideWarpModal);
+        saveBtn && saveBtn.addEventListener('click', saveWarpFromModal);
+
+        var nameInput = $('#warp-name-input');
+        if (nameInput) {
+            nameInput.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); saveWarpFromModal(); }
+                else if (e.key === 'Escape') { e.preventDefault(); hideWarpModal(); }
+            });
+        }
+
+        // Modal drag — same pattern as the saved-queries modal.
+        if (modal) {
+            var header = modal.querySelector('.warp-modal-header');
+            if (header) {
+                var dragging = false, ox = 0, oy = 0;
+                header.addEventListener('mousedown', function (e) {
+                    if (e.target.tagName === 'BUTTON') return;
+                    dragging = true;
+                    var rect = modal.getBoundingClientRect();
+                    ox = e.clientX - rect.left;
+                    oy = e.clientY - rect.top;
+                    modal.style.left = rect.left + 'px';
+                    modal.style.top = rect.top + 'px';
+                    modal.style.transform = 'none';
+                    e.preventDefault();
+                });
+                document.addEventListener('mousemove', function (e) {
+                    if (!dragging) return;
+                    var x = Math.max(0, Math.min(e.clientX - ox, window.innerWidth - 60));
+                    var y = Math.max(0, Math.min(e.clientY - oy, window.innerHeight - 40));
+                    modal.style.left = x + 'px';
+                    modal.style.top = y + 'px';
+                });
+                document.addEventListener('mouseup', function () { dragging = false; });
+            }
+            // Esc closes the modal when open.
+            document.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
+                    hideWarpModal();
+                }
+            });
+        }
+
+        // Panel drag — same pattern as the community palette.
+        (function () {
+            var panel = $('#warps-panel');
+            var panelHeader = panel ? panel.querySelector('.warps-panel-header') : null;
+            if (!panelHeader) return;
+            var dragging = false;
+            var offsetX = 0, offsetY = 0;
+            panelHeader.addEventListener('mousedown', function (e) {
+                if (e.target.tagName === 'BUTTON') return;
+                dragging = true;
+                var rect = panel.getBoundingClientRect();
+                offsetX = e.clientX - rect.left;
+                offsetY = e.clientY - rect.top;
+                // Switch from right-anchored to left-anchored positioning
+                panel.style.left = rect.left + 'px';
+                panel.style.top = rect.top + 'px';
+                panel.style.right = 'auto';
+                e.preventDefault();
+            });
+            document.addEventListener('mousemove', function (e) {
+                if (!dragging) return;
+                var x = Math.max(0, Math.min(e.clientX - offsetX, window.innerWidth - 60));
+                var y = Math.max(0, Math.min(e.clientY - offsetY, window.innerHeight - 40));
+                panel.style.left = x + 'px';
+                panel.style.top = y + 'px';
+            });
+            document.addEventListener('mouseup', function () { dragging = false; });
+        })();
+
+        renderWarpsPanel();
+    }
+
+    // ============================================================
     // File Explosion
     // ============================================================
     function explodeFile(node) {
@@ -4684,6 +5095,8 @@
             });
         }
 
+        setupWarps();
+
         $('#btn-cycles').addEventListener('click', function() {
             showCycles = !showCycles;
             $('#btn-cycles').classList.toggle('active', showCycles);
@@ -4744,6 +5157,7 @@
 
         $('#btn-recenter').addEventListener('click', function() {
             if (!graph) return;
+            cancelWarpTravel();
             selectedNode = null;
             highlightNodes.clear();
             highlightLinks.clear();
@@ -5068,6 +5482,20 @@
             // Ignore when typing in an input
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
             if (!graph) return;
+
+            // Alt+Shift+1..9 — fly to the warp assigned to that quick slot.
+            // (Plain Alt+digit is swallowed by VS Code; e.code — the physical Digit
+            // row — keeps this working on AZERTY layouts too.)
+            if (e.altKey && !e.ctrlKey && !e.metaKey && /^Digit[1-9]$/.test(e.code || '')) {
+                e.preventDefault();
+                var slotNum = parseInt(e.code.slice(5), 10);
+                var slotWarp = null;
+                for (var wi = 0; wi < warps.length; wi++) {
+                    if (warps[wi].quickSlot === slotNum) { slotWarp = warps[wi]; break; }
+                }
+                if (slotWarp) travelToWarp(slotWarp);
+                return;
+            }
 
             switch (e.key.toLowerCase()) {
                 case 'f':

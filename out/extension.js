@@ -1,22 +1,5697 @@
-"use strict";var Xi=Object.create;var Vt=Object.defineProperty;var Ki=Object.getOwnPropertyDescriptor;var Qi=Object.getOwnPropertyNames;var Ji=Object.getPrototypeOf,eo=Object.prototype.hasOwnProperty;var Qr=(i,e)=>()=>(e||i((e={exports:{}}).exports,e),e.exports),to=(i,e)=>{for(var t in e)Vt(i,t,{get:e[t],enumerable:!0})},Jr=(i,e,t,n)=>{if(e&&typeof e=="object"||typeof e=="function")for(let r of Qi(e))!eo.call(i,r)&&r!==t&&Vt(i,r,{get:()=>e[r],enumerable:!(n=Ki(e,r))||n.enumerable});return i};var Ee=(i,e,t)=>(t=i!=null?Xi(Ji(i)):{},Jr(e||!i||!i.__esModule?Vt(t,"default",{value:i,enumerable:!0}):t,i)),no=i=>Jr(Vt({},"__esModule",{value:!0}),i);var Os=Qr((exports,module)=>{"use strict";var Module=Module!==void 0?Module:{},TreeSitter=function(){var initPromise,document=typeof window=="object"?{currentScript:window.document.currentScript}:null;class Parser{constructor(){this.initialize()}initialize(){throw new Error("cannot construct a Parser before calling `init()`")}static init(moduleOptions){return initPromise||(Module=Object.assign({},Module,moduleOptions),initPromise=new Promise(resolveInitPromise=>{var moduleOverrides=Object.assign({},Module),arguments_=[],thisProgram="./this.program",quit_=(i,e)=>{throw e},ENVIRONMENT_IS_WEB=typeof window=="object",ENVIRONMENT_IS_WORKER=typeof importScripts=="function",ENVIRONMENT_IS_NODE=typeof process=="object"&&typeof process.versions=="object"&&typeof process.versions.node=="string",scriptDirectory="",read_,readAsync,readBinary,setWindowTitle;function locateFile(i){return Module.locateFile?Module.locateFile(i,scriptDirectory):scriptDirectory+i}function logExceptionOnExit(i){i instanceof ExitStatus||err("exiting due to exception: "+i)}if(ENVIRONMENT_IS_NODE){var fs=require("fs"),nodePath=require("path");scriptDirectory=ENVIRONMENT_IS_WORKER?nodePath.dirname(scriptDirectory)+"/":__dirname+"/",read_=(i,e)=>(i=isFileURI(i)?new URL(i):nodePath.normalize(i),fs.readFileSync(i,e?void 0:"utf8")),readBinary=i=>{var e=read_(i,!0);return e.buffer||(e=new Uint8Array(e)),e},readAsync=(i,e,t)=>{i=isFileURI(i)?new URL(i):nodePath.normalize(i),fs.readFile(i,function(n,r){n?t(n):e(r.buffer)})},process.argv.length>1&&(thisProgram=process.argv[1].replace(/\\/g,"/")),arguments_=process.argv.slice(2),typeof module<"u"&&(module.exports=Module),quit_=(i,e)=>{if(keepRuntimeAlive())throw process.exitCode=i,e;logExceptionOnExit(e),process.exit(i)},Module.inspect=function(){return"[Emscripten Module object]"}}else(ENVIRONMENT_IS_WEB||ENVIRONMENT_IS_WORKER)&&(ENVIRONMENT_IS_WORKER?scriptDirectory=self.location.href:document!==void 0&&document.currentScript&&(scriptDirectory=document.currentScript.src),scriptDirectory=scriptDirectory.indexOf("blob:")!==0?scriptDirectory.substr(0,scriptDirectory.replace(/[?#].*/,"").lastIndexOf("/")+1):"",read_=i=>{var e=new XMLHttpRequest;return e.open("GET",i,!1),e.send(null),e.responseText},ENVIRONMENT_IS_WORKER&&(readBinary=i=>{var e=new XMLHttpRequest;return e.open("GET",i,!1),e.responseType="arraybuffer",e.send(null),new Uint8Array(e.response)}),readAsync=(i,e,t)=>{var n=new XMLHttpRequest;n.open("GET",i,!0),n.responseType="arraybuffer",n.onload=()=>{n.status==200||n.status==0&&n.response?e(n.response):t()},n.onerror=t,n.send(null)},setWindowTitle=i=>document.title=i);var out=Module.print||console.log.bind(console),err=Module.printErr||console.warn.bind(console);Object.assign(Module,moduleOverrides),moduleOverrides=null,Module.arguments&&(arguments_=Module.arguments),Module.thisProgram&&(thisProgram=Module.thisProgram),Module.quit&&(quit_=Module.quit);var STACK_ALIGN=16,dynamicLibraries=Module.dynamicLibraries||[],wasmBinary;Module.wasmBinary&&(wasmBinary=Module.wasmBinary);var noExitRuntime=Module.noExitRuntime||!0,wasmMemory;typeof WebAssembly!="object"&&abort("no native wasm support detected");var ABORT=!1,EXITSTATUS,UTF8Decoder=typeof TextDecoder<"u"?new TextDecoder("utf8"):void 0,buffer,HEAP8,HEAPU8,HEAP16,HEAPU16,HEAP32,HEAPU32,HEAPF32,HEAPF64;function UTF8ArrayToString(i,e,t){for(var n=e+t,r=e;i[r]&&!(r>=n);)++r;if(r-e>16&&i.buffer&&UTF8Decoder)return UTF8Decoder.decode(i.subarray(e,r));for(var s="";e<r;){var o=i[e++];if(128&o){var l=63&i[e++];if((224&o)!=192){var u=63&i[e++];if((o=(240&o)==224?(15&o)<<12|l<<6|u:(7&o)<<18|l<<12|u<<6|63&i[e++])<65536)s+=String.fromCharCode(o);else{var h=o-65536;s+=String.fromCharCode(55296|h>>10,56320|1023&h)}}else s+=String.fromCharCode((31&o)<<6|l)}else s+=String.fromCharCode(o)}return s}function UTF8ToString(i,e){return i?UTF8ArrayToString(HEAPU8,i,e):""}function stringToUTF8Array(i,e,t,n){if(!(n>0))return 0;for(var r=t,s=t+n-1,o=0;o<i.length;++o){var l=i.charCodeAt(o);if(l>=55296&&l<=57343&&(l=65536+((1023&l)<<10)|1023&i.charCodeAt(++o)),l<=127){if(t>=s)break;e[t++]=l}else if(l<=2047){if(t+1>=s)break;e[t++]=192|l>>6,e[t++]=128|63&l}else if(l<=65535){if(t+2>=s)break;e[t++]=224|l>>12,e[t++]=128|l>>6&63,e[t++]=128|63&l}else{if(t+3>=s)break;e[t++]=240|l>>18,e[t++]=128|l>>12&63,e[t++]=128|l>>6&63,e[t++]=128|63&l}}return e[t]=0,t-r}function stringToUTF8(i,e,t){return stringToUTF8Array(i,HEAPU8,e,t)}function lengthBytesUTF8(i){for(var e=0,t=0;t<i.length;++t){var n=i.charCodeAt(t);n<=127?e++:n<=2047?e+=2:n>=55296&&n<=57343?(e+=4,++t):e+=3}return e}function updateGlobalBufferAndViews(i){buffer=i,Module.HEAP8=HEAP8=new Int8Array(i),Module.HEAP16=HEAP16=new Int16Array(i),Module.HEAP32=HEAP32=new Int32Array(i),Module.HEAPU8=HEAPU8=new Uint8Array(i),Module.HEAPU16=HEAPU16=new Uint16Array(i),Module.HEAPU32=HEAPU32=new Uint32Array(i),Module.HEAPF32=HEAPF32=new Float32Array(i),Module.HEAPF64=HEAPF64=new Float64Array(i)}var INITIAL_MEMORY=Module.INITIAL_MEMORY||33554432;wasmMemory=Module.wasmMemory?Module.wasmMemory:new WebAssembly.Memory({initial:INITIAL_MEMORY/65536,maximum:32768}),wasmMemory&&(buffer=wasmMemory.buffer),INITIAL_MEMORY=buffer.byteLength,updateGlobalBufferAndViews(buffer);var wasmTable=new WebAssembly.Table({initial:20,element:"anyfunc"}),__ATPRERUN__=[],__ATINIT__=[],__ATMAIN__=[],__ATPOSTRUN__=[],__RELOC_FUNCS__=[],runtimeInitialized=!1;function keepRuntimeAlive(){return noExitRuntime}function preRun(){if(Module.preRun)for(typeof Module.preRun=="function"&&(Module.preRun=[Module.preRun]);Module.preRun.length;)addOnPreRun(Module.preRun.shift());callRuntimeCallbacks(__ATPRERUN__)}function initRuntime(){runtimeInitialized=!0,callRuntimeCallbacks(__RELOC_FUNCS__),callRuntimeCallbacks(__ATINIT__)}function preMain(){callRuntimeCallbacks(__ATMAIN__)}function postRun(){if(Module.postRun)for(typeof Module.postRun=="function"&&(Module.postRun=[Module.postRun]);Module.postRun.length;)addOnPostRun(Module.postRun.shift());callRuntimeCallbacks(__ATPOSTRUN__)}function addOnPreRun(i){__ATPRERUN__.unshift(i)}function addOnInit(i){__ATINIT__.unshift(i)}function addOnPostRun(i){__ATPOSTRUN__.unshift(i)}var runDependencies=0,runDependencyWatcher=null,dependenciesFulfilled=null;function addRunDependency(i){runDependencies++,Module.monitorRunDependencies&&Module.monitorRunDependencies(runDependencies)}function removeRunDependency(i){if(runDependencies--,Module.monitorRunDependencies&&Module.monitorRunDependencies(runDependencies),runDependencies==0&&(runDependencyWatcher!==null&&(clearInterval(runDependencyWatcher),runDependencyWatcher=null),dependenciesFulfilled)){var e=dependenciesFulfilled;dependenciesFulfilled=null,e()}}function abort(i){throw Module.onAbort&&Module.onAbort(i),err(i="Aborted("+i+")"),ABORT=!0,EXITSTATUS=1,i+=". Build with -sASSERTIONS for more info.",new WebAssembly.RuntimeError(i)}var dataURIPrefix="data:application/octet-stream;base64,",wasmBinaryFile,tempDouble,tempI64;function isDataURI(i){return i.startsWith(dataURIPrefix)}function isFileURI(i){return i.startsWith("file://")}function getBinary(i){try{if(i==wasmBinaryFile&&wasmBinary)return new Uint8Array(wasmBinary);if(readBinary)return readBinary(i);throw"both async and sync fetching of the wasm failed"}catch(e){abort(e)}}function getBinaryPromise(){if(!wasmBinary&&(ENVIRONMENT_IS_WEB||ENVIRONMENT_IS_WORKER)){if(typeof fetch=="function"&&!isFileURI(wasmBinaryFile))return fetch(wasmBinaryFile,{credentials:"same-origin"}).then(function(i){if(!i.ok)throw"failed to load wasm binary file at '"+wasmBinaryFile+"'";return i.arrayBuffer()}).catch(function(){return getBinary(wasmBinaryFile)});if(readAsync)return new Promise(function(i,e){readAsync(wasmBinaryFile,function(t){i(new Uint8Array(t))},e)})}return Promise.resolve().then(function(){return getBinary(wasmBinaryFile)})}function createWasm(){var i={env:asmLibraryArg,wasi_snapshot_preview1:asmLibraryArg,"GOT.mem":new Proxy(asmLibraryArg,GOTHandler),"GOT.func":new Proxy(asmLibraryArg,GOTHandler)};function e(r,s){var o=r.exports;o=relocateExports(o,1024);var l=getDylinkMetadata(s);l.neededDynlibs&&(dynamicLibraries=l.neededDynlibs.concat(dynamicLibraries)),mergeLibSymbols(o,"main"),Module.asm=o,addOnInit(Module.asm.__wasm_call_ctors),__RELOC_FUNCS__.push(Module.asm.__wasm_apply_data_relocs),removeRunDependency("wasm-instantiate")}function t(r){e(r.instance,r.module)}function n(r){return getBinaryPromise().then(function(s){return WebAssembly.instantiate(s,i)}).then(function(s){return s}).then(r,function(s){err("failed to asynchronously prepare wasm: "+s),abort(s)})}if(addRunDependency("wasm-instantiate"),Module.instantiateWasm)try{return Module.instantiateWasm(i,e)}catch(r){return err("Module.instantiateWasm callback failed with error: "+r),!1}return wasmBinary||typeof WebAssembly.instantiateStreaming!="function"||isDataURI(wasmBinaryFile)||isFileURI(wasmBinaryFile)||ENVIRONMENT_IS_NODE||typeof fetch!="function"?n(t):fetch(wasmBinaryFile,{credentials:"same-origin"}).then(function(r){return WebAssembly.instantiateStreaming(r,i).then(t,function(s){return err("wasm streaming compile failed: "+s),err("falling back to ArrayBuffer instantiation"),n(t)})}),{}}wasmBinaryFile="tree-sitter.wasm",isDataURI(wasmBinaryFile)||(wasmBinaryFile=locateFile(wasmBinaryFile));var ASM_CONSTS={};function ExitStatus(i){this.name="ExitStatus",this.message="Program terminated with exit("+i+")",this.status=i}var GOT={},CurrentModuleWeakSymbols=new Set([]),GOTHandler={get:function(i,e){var t=GOT[e];return t||(t=GOT[e]=new WebAssembly.Global({value:"i32",mutable:!0})),CurrentModuleWeakSymbols.has(e)||(t.required=!0),t}};function callRuntimeCallbacks(i){for(;i.length>0;)i.shift()(Module)}function getDylinkMetadata(i){var e=0,t=0;function n(){for(var y=0,S=1;;){var L=i[e++];if(y+=(127&L)*S,S*=128,!(128&L))break}return y}function r(){var y=n();return UTF8ArrayToString(i,(e+=y)-y,y)}function s(y,S){if(y)throw new Error(S)}var o="dylink.0";if(i instanceof WebAssembly.Module){var l=WebAssembly.Module.customSections(i,o);l.length===0&&(o="dylink",l=WebAssembly.Module.customSections(i,o)),s(l.length===0,"need dylink section"),t=(i=new Uint8Array(l[0])).length}else{s(new Uint32Array(new Uint8Array(i.subarray(0,24)).buffer)[0]!=1836278016,"need to see wasm magic number"),s(i[8]!==0,"need the dylink section to be first"),e=9;var u=n();t=e+u,o=r()}var h={neededDynlibs:[],tlsExports:new Set,weakImports:new Set};if(o=="dylink"){h.memorySize=n(),h.memoryAlign=n(),h.tableSize=n(),h.tableAlign=n();for(var m=n(),_=0;_<m;++_){var T=r();h.neededDynlibs.push(T)}}else for(s(o!=="dylink.0");e<t;){var x=i[e++],F=n();if(x===1)h.memorySize=n(),h.memoryAlign=n(),h.tableSize=n(),h.tableAlign=n();else if(x===2)for(m=n(),_=0;_<m;++_)T=r(),h.neededDynlibs.push(T);else if(x===3)for(var v=n();v--;){var b=r();256&n()&&h.tlsExports.add(b)}else if(x===4)for(v=n();v--;)r(),b=r(),(3&n())==1&&h.weakImports.add(b);else e+=F}return h}function getValue(i,e="i8"){switch(e.endsWith("*")&&(e="*"),e){case"i1":case"i8":return HEAP8[i>>0];case"i16":return HEAP16[i>>1];case"i32":case"i64":return HEAP32[i>>2];case"float":return HEAPF32[i>>2];case"double":return HEAPF64[i>>3];case"*":return HEAPU32[i>>2];default:abort("invalid type for getValue: "+e)}return null}function asmjsMangle(i){return i.indexOf("dynCall_")==0||["stackAlloc","stackSave","stackRestore","getTempRet0","setTempRet0"].includes(i)?i:"_"+i}function mergeLibSymbols(i,e){for(var t in i)if(i.hasOwnProperty(t)){asmLibraryArg.hasOwnProperty(t)||(asmLibraryArg[t]=i[t]);var n=asmjsMangle(t);Module.hasOwnProperty(n)||(Module[n]=i[t]),t=="__main_argc_argv"&&(Module._main=i[t])}}var LDSO={loadedLibsByName:{},loadedLibsByHandle:{}};function dynCallLegacy(i,e,t){var n=Module["dynCall_"+i];return t&&t.length?n.apply(null,[e].concat(t)):n.call(null,e)}var wasmTableMirror=[];function getWasmTableEntry(i){var e=wasmTableMirror[i];return e||(i>=wasmTableMirror.length&&(wasmTableMirror.length=i+1),wasmTableMirror[i]=e=wasmTable.get(i)),e}function dynCall(i,e,t){return i.includes("j")?dynCallLegacy(i,e,t):getWasmTableEntry(e).apply(null,t)}function createInvokeFunction(i){return function(){var e=stackSave();try{return dynCall(i,arguments[0],Array.prototype.slice.call(arguments,1))}catch(t){if(stackRestore(e),t!==t+0)throw t;_setThrew(1,0)}}}var ___heap_base=78144;function zeroMemory(i,e){return HEAPU8.fill(0,i,i+e),i}function getMemory(i){if(runtimeInitialized)return zeroMemory(_malloc(i),i);var e=___heap_base,t=e+i+15&-16;return ___heap_base=t,GOT.__heap_base.value=t,e}function isInternalSym(i){return["__cpp_exception","__c_longjmp","__wasm_apply_data_relocs","__dso_handle","__tls_size","__tls_align","__set_stack_limits","_emscripten_tls_init","__wasm_init_tls","__wasm_call_ctors","__start_em_asm","__stop_em_asm"].includes(i)}function uleb128Encode(i,e){i<128?e.push(i):e.push(i%128|128,i>>7)}function sigToWasmTypes(i){for(var e={i:"i32",j:"i32",f:"f32",d:"f64",p:"i32"},t={parameters:[],results:i[0]=="v"?[]:[e[i[0]]]},n=1;n<i.length;++n)t.parameters.push(e[i[n]]),i[n]==="j"&&t.parameters.push("i32");return t}function generateFuncType(i,e){var t=i.slice(0,1),n=i.slice(1),r={i:127,p:127,j:126,f:125,d:124};e.push(96),uleb128Encode(n.length,e);for(var s=0;s<n.length;++s)e.push(r[n[s]]);t=="v"?e.push(0):e.push(1,r[t])}function convertJsFunctionToWasm(i,e){if(typeof WebAssembly.Function=="function")return new WebAssembly.Function(sigToWasmTypes(e),i);var t=[1];generateFuncType(e,t);var n=[0,97,115,109,1,0,0,0,1];uleb128Encode(t.length,n),n.push.apply(n,t),n.push(2,7,1,1,101,1,102,0,0,7,5,1,1,102,0,0);var r=new WebAssembly.Module(new Uint8Array(n));return new WebAssembly.Instance(r,{e:{f:i}}).exports.f}function updateTableMap(i,e){if(functionsInTableMap)for(var t=i;t<i+e;t++){var n=getWasmTableEntry(t);n&&functionsInTableMap.set(n,t)}}var functionsInTableMap=void 0,freeTableIndexes=[];function getEmptyTableSlot(){if(freeTableIndexes.length)return freeTableIndexes.pop();try{wasmTable.grow(1)}catch(i){throw i instanceof RangeError?"Unable to grow wasm table. Set ALLOW_TABLE_GROWTH.":i}return wasmTable.length-1}function setWasmTableEntry(i,e){wasmTable.set(i,e),wasmTableMirror[i]=wasmTable.get(i)}function addFunction(i,e){if(functionsInTableMap||(functionsInTableMap=new WeakMap,updateTableMap(0,wasmTable.length)),functionsInTableMap.has(i))return functionsInTableMap.get(i);var t=getEmptyTableSlot();try{setWasmTableEntry(t,i)}catch(n){if(!(n instanceof TypeError))throw n;setWasmTableEntry(t,convertJsFunctionToWasm(i,e))}return functionsInTableMap.set(i,t),t}function updateGOT(i,e){for(var t in i)if(!isInternalSym(t)){var n=i[t];t.startsWith("orig$")&&(t=t.split("$")[1],e=!0),GOT[t]||(GOT[t]=new WebAssembly.Global({value:"i32",mutable:!0})),(e||GOT[t].value==0)&&(typeof n=="function"?GOT[t].value=addFunction(n):typeof n=="number"?GOT[t].value=n:err("unhandled export type for `"+t+"`: "+typeof n))}}function relocateExports(i,e,t){var n={};for(var r in i){var s=i[r];typeof s=="object"&&(s=s.value),typeof s=="number"&&(s+=e),n[r]=s}return updateGOT(n,t),n}function resolveGlobalSymbol(i,e){var t;return e&&(t=asmLibraryArg["orig$"+i]),t||(t=asmLibraryArg[i])&&t.stub&&(t=void 0),t||(t=Module[asmjsMangle(i)]),!t&&i.startsWith("invoke_")&&(t=createInvokeFunction(i.split("_")[1])),t}function alignMemory(i,e){return Math.ceil(i/e)*e}function loadWebAssemblyModule(binary,flags,handle){var metadata=getDylinkMetadata(binary);function loadModule(){var firstLoad=!handle||!HEAP8[handle+12>>0];if(firstLoad){var memAlign=Math.pow(2,metadata.memoryAlign);memAlign=Math.max(memAlign,STACK_ALIGN);var memoryBase=metadata.memorySize?alignMemory(getMemory(metadata.memorySize+memAlign),memAlign):0,tableBase=metadata.tableSize?wasmTable.length:0;handle&&(HEAP8[handle+12>>0]=1,HEAPU32[handle+16>>2]=memoryBase,HEAP32[handle+20>>2]=metadata.memorySize,HEAPU32[handle+24>>2]=tableBase,HEAP32[handle+28>>2]=metadata.tableSize)}else memoryBase=HEAPU32[handle+16>>2],tableBase=HEAPU32[handle+24>>2];var tableGrowthNeeded=tableBase+metadata.tableSize-wasmTable.length,moduleExports;function resolveSymbol(i){var e=resolveGlobalSymbol(i,!1);return e||(e=moduleExports[i]),e}tableGrowthNeeded>0&&wasmTable.grow(tableGrowthNeeded);var proxyHandler={get:function(i,e){switch(e){case"__memory_base":return memoryBase;case"__table_base":return tableBase}if(e in asmLibraryArg)return asmLibraryArg[e];var t;return e in i||(i[e]=function(){return t||(t=resolveSymbol(e)),t.apply(null,arguments)}),i[e]}},proxy=new Proxy({},proxyHandler),info={"GOT.mem":new Proxy({},GOTHandler),"GOT.func":new Proxy({},GOTHandler),env:proxy,wasi_snapshot_preview1:proxy};function postInstantiation(instance){function addEmAsm(addr,body){for(var args=[],arity=0;arity<16&&body.indexOf("$"+arity)!=-1;arity++)args.push("$"+arity);args=args.join(",");var func="("+args+" ) => { "+body+"};";ASM_CONSTS[start]=eval(func)}if(updateTableMap(tableBase,metadata.tableSize),moduleExports=relocateExports(instance.exports,memoryBase),flags.allowUndefined||reportUndefinedSymbols(),"__start_em_asm"in moduleExports)for(var start=moduleExports.__start_em_asm,stop=moduleExports.__stop_em_asm;start<stop;){var jsString=UTF8ToString(start);addEmAsm(start,jsString),start=HEAPU8.indexOf(0,start)+1}var applyRelocs=moduleExports.__wasm_apply_data_relocs;applyRelocs&&(runtimeInitialized?applyRelocs():__RELOC_FUNCS__.push(applyRelocs));var init=moduleExports.__wasm_call_ctors;return init&&(runtimeInitialized?init():__ATINIT__.push(init)),moduleExports}if(flags.loadAsync){if(binary instanceof WebAssembly.Module){var instance=new WebAssembly.Instance(binary,info);return Promise.resolve(postInstantiation(instance))}return WebAssembly.instantiate(binary,info).then(function(i){return postInstantiation(i.instance)})}var module=binary instanceof WebAssembly.Module?binary:new WebAssembly.Module(binary),instance=new WebAssembly.Instance(module,info);return postInstantiation(instance)}return CurrentModuleWeakSymbols=metadata.weakImports,flags.loadAsync?metadata.neededDynlibs.reduce(function(i,e){return i.then(function(){return loadDynamicLibrary(e,flags)})},Promise.resolve()).then(function(){return loadModule()}):(metadata.neededDynlibs.forEach(function(i){loadDynamicLibrary(i,flags)}),loadModule())}function loadDynamicLibrary(i,e,t){e=e||{global:!0,nodelete:!0};var n=LDSO.loadedLibsByName[i];if(n)return e.global&&!n.global&&(n.global=!0,n.module!=="loading"&&mergeLibSymbols(n.module,i)),e.nodelete&&n.refcount!==1/0&&(n.refcount=1/0),n.refcount++,t&&(LDSO.loadedLibsByHandle[t]=n),!e.loadAsync||Promise.resolve(!0);function r(l){if(e.fs&&e.fs.findObject(l)){var u=e.fs.readFile(l,{encoding:"binary"});return u instanceof Uint8Array||(u=new Uint8Array(u)),e.loadAsync?Promise.resolve(u):u}if(l=locateFile(l),e.loadAsync)return new Promise(function(h,m){readAsync(l,_=>h(new Uint8Array(_)),m)});if(!readBinary)throw new Error(l+": file not found, and synchronous loading of external files is not available");return readBinary(l)}function s(){if(typeof preloadedWasm<"u"&&preloadedWasm[i]){var l=preloadedWasm[i];return e.loadAsync?Promise.resolve(l):l}return e.loadAsync?r(i).then(function(u){return loadWebAssemblyModule(u,e,t)}):loadWebAssemblyModule(r(i),e,t)}function o(l){n.global&&mergeLibSymbols(l,i),n.module=l}return n={refcount:e.nodelete?1/0:1,name:i,module:"loading",global:e.global},LDSO.loadedLibsByName[i]=n,t&&(LDSO.loadedLibsByHandle[t]=n),e.loadAsync?s().then(function(l){return o(l),!0}):(o(s()),!0)}function reportUndefinedSymbols(){for(var i in GOT)if(GOT[i].value==0){var e=resolveGlobalSymbol(i,!0);if(!e&&!GOT[i].required)continue;if(typeof e=="function")GOT[i].value=addFunction(e,e.sig);else{if(typeof e!="number")throw new Error("bad export type for `"+i+"`: "+typeof e);GOT[i].value=e}}}function preloadDylibs(){dynamicLibraries.length?(addRunDependency("preloadDylibs"),dynamicLibraries.reduce(function(i,e){return i.then(function(){return loadDynamicLibrary(e,{loadAsync:!0,global:!0,nodelete:!0,allowUndefined:!0})})},Promise.resolve()).then(function(){reportUndefinedSymbols(),removeRunDependency("preloadDylibs")})):reportUndefinedSymbols()}function setValue(i,e,t="i8"){switch(t.endsWith("*")&&(t="*"),t){case"i1":case"i8":HEAP8[i>>0]=e;break;case"i16":HEAP16[i>>1]=e;break;case"i32":HEAP32[i>>2]=e;break;case"i64":tempI64=[e>>>0,(tempDouble=e,+Math.abs(tempDouble)>=1?tempDouble>0?(0|Math.min(+Math.floor(tempDouble/4294967296),4294967295))>>>0:~~+Math.ceil((tempDouble-+(~~tempDouble>>>0))/4294967296)>>>0:0)],HEAP32[i>>2]=tempI64[0],HEAP32[i+4>>2]=tempI64[1];break;case"float":HEAPF32[i>>2]=e;break;case"double":HEAPF64[i>>3]=e;break;case"*":HEAPU32[i>>2]=e;break;default:abort("invalid type for setValue: "+t)}}var ___memory_base=new WebAssembly.Global({value:"i32",mutable:!1},1024),___stack_pointer=new WebAssembly.Global({value:"i32",mutable:!0},78144),___table_base=new WebAssembly.Global({value:"i32",mutable:!1},1),nowIsMonotonic=!0,_emscripten_get_now;function __emscripten_get_now_is_monotonic(){return nowIsMonotonic}function _abort(){abort("")}function _emscripten_date_now(){return Date.now()}function _emscripten_memcpy_big(i,e,t){HEAPU8.copyWithin(i,e,e+t)}function getHeapMax(){return 2147483648}function emscripten_realloc_buffer(i){try{return wasmMemory.grow(i-buffer.byteLength+65535>>>16),updateGlobalBufferAndViews(wasmMemory.buffer),1}catch{}}function _emscripten_resize_heap(i){var e=HEAPU8.length;i>>>=0;var t=getHeapMax();if(i>t)return!1;for(var n=1;n<=4;n*=2){var r=e*(1+.2/n);if(r=Math.min(r,i+100663296),emscripten_realloc_buffer(Math.min(t,(s=Math.max(i,r))+((o=65536)-s%o)%o)))return!0}var s,o;return!1}__emscripten_get_now_is_monotonic.sig="i",Module._abort=_abort,_abort.sig="v",_emscripten_date_now.sig="d",_emscripten_get_now=ENVIRONMENT_IS_NODE?()=>{var i=process.hrtime();return 1e3*i[0]+i[1]/1e6}:()=>performance.now(),_emscripten_get_now.sig="d",_emscripten_memcpy_big.sig="vppp",_emscripten_resize_heap.sig="ip";var SYSCALLS={DEFAULT_POLLMASK:5,calculateAt:function(i,e,t){if(PATH.isAbs(e))return e;var n;if(i===-100?n=FS.cwd():n=SYSCALLS.getStreamFromFD(i).path,e.length==0){if(!t)throw new FS.ErrnoError(44);return n}return PATH.join2(n,e)},doStat:function(i,e,t){try{var n=i(e)}catch(l){if(l&&l.node&&PATH.normalize(e)!==PATH.normalize(FS.getPath(l.node)))return-54;throw l}HEAP32[t>>2]=n.dev,HEAP32[t+8>>2]=n.ino,HEAP32[t+12>>2]=n.mode,HEAPU32[t+16>>2]=n.nlink,HEAP32[t+20>>2]=n.uid,HEAP32[t+24>>2]=n.gid,HEAP32[t+28>>2]=n.rdev,tempI64=[n.size>>>0,(tempDouble=n.size,+Math.abs(tempDouble)>=1?tempDouble>0?(0|Math.min(+Math.floor(tempDouble/4294967296),4294967295))>>>0:~~+Math.ceil((tempDouble-+(~~tempDouble>>>0))/4294967296)>>>0:0)],HEAP32[t+40>>2]=tempI64[0],HEAP32[t+44>>2]=tempI64[1],HEAP32[t+48>>2]=4096,HEAP32[t+52>>2]=n.blocks;var r=n.atime.getTime(),s=n.mtime.getTime(),o=n.ctime.getTime();return tempI64=[Math.floor(r/1e3)>>>0,(tempDouble=Math.floor(r/1e3),+Math.abs(tempDouble)>=1?tempDouble>0?(0|Math.min(+Math.floor(tempDouble/4294967296),4294967295))>>>0:~~+Math.ceil((tempDouble-+(~~tempDouble>>>0))/4294967296)>>>0:0)],HEAP32[t+56>>2]=tempI64[0],HEAP32[t+60>>2]=tempI64[1],HEAPU32[t+64>>2]=r%1e3*1e3,tempI64=[Math.floor(s/1e3)>>>0,(tempDouble=Math.floor(s/1e3),+Math.abs(tempDouble)>=1?tempDouble>0?(0|Math.min(+Math.floor(tempDouble/4294967296),4294967295))>>>0:~~+Math.ceil((tempDouble-+(~~tempDouble>>>0))/4294967296)>>>0:0)],HEAP32[t+72>>2]=tempI64[0],HEAP32[t+76>>2]=tempI64[1],HEAPU32[t+80>>2]=s%1e3*1e3,tempI64=[Math.floor(o/1e3)>>>0,(tempDouble=Math.floor(o/1e3),+Math.abs(tempDouble)>=1?tempDouble>0?(0|Math.min(+Math.floor(tempDouble/4294967296),4294967295))>>>0:~~+Math.ceil((tempDouble-+(~~tempDouble>>>0))/4294967296)>>>0:0)],HEAP32[t+88>>2]=tempI64[0],HEAP32[t+92>>2]=tempI64[1],HEAPU32[t+96>>2]=o%1e3*1e3,tempI64=[n.ino>>>0,(tempDouble=n.ino,+Math.abs(tempDouble)>=1?tempDouble>0?(0|Math.min(+Math.floor(tempDouble/4294967296),4294967295))>>>0:~~+Math.ceil((tempDouble-+(~~tempDouble>>>0))/4294967296)>>>0:0)],HEAP32[t+104>>2]=tempI64[0],HEAP32[t+108>>2]=tempI64[1],0},doMsync:function(i,e,t,n,r){if(!FS.isFile(e.node.mode))throw new FS.ErrnoError(43);if(2&n)return 0;var s=HEAPU8.slice(i,i+t);FS.msync(e,s,r,t,n)},varargs:void 0,get:function(){return SYSCALLS.varargs+=4,HEAP32[SYSCALLS.varargs-4>>2]},getStr:function(i){return UTF8ToString(i)},getStreamFromFD:function(i){var e=FS.getStream(i);if(!e)throw new FS.ErrnoError(8);return e}};function _proc_exit(i){EXITSTATUS=i,keepRuntimeAlive()||(Module.onExit&&Module.onExit(i),ABORT=!0),quit_(i,new ExitStatus(i))}function exitJS(i,e){EXITSTATUS=i,_proc_exit(i)}_proc_exit.sig="vi";var _exit=exitJS;function _fd_close(i){try{var e=SYSCALLS.getStreamFromFD(i);return FS.close(e),0}catch(t){if(typeof FS>"u"||!(t instanceof FS.ErrnoError))throw t;return t.errno}}function convertI32PairToI53Checked(i,e){return e+2097152>>>0<4194305-!!i?(i>>>0)+4294967296*e:NaN}function _fd_seek(i,e,t,n,r){try{var s=convertI32PairToI53Checked(e,t);if(isNaN(s))return 61;var o=SYSCALLS.getStreamFromFD(i);return FS.llseek(o,s,n),tempI64=[o.position>>>0,(tempDouble=o.position,+Math.abs(tempDouble)>=1?tempDouble>0?(0|Math.min(+Math.floor(tempDouble/4294967296),4294967295))>>>0:~~+Math.ceil((tempDouble-+(~~tempDouble>>>0))/4294967296)>>>0:0)],HEAP32[r>>2]=tempI64[0],HEAP32[r+4>>2]=tempI64[1],o.getdents&&s===0&&n===0&&(o.getdents=null),0}catch(l){if(typeof FS>"u"||!(l instanceof FS.ErrnoError))throw l;return l.errno}}function doWritev(i,e,t,n){for(var r=0,s=0;s<t;s++){var o=HEAPU32[e>>2],l=HEAPU32[e+4>>2];e+=8;var u=FS.write(i,HEAP8,o,l,n);if(u<0)return-1;r+=u,n!==void 0&&(n+=u)}return r}function _fd_write(i,e,t,n){try{var r=doWritev(SYSCALLS.getStreamFromFD(i),e,t);return HEAPU32[n>>2]=r,0}catch(s){if(typeof FS>"u"||!(s instanceof FS.ErrnoError))throw s;return s.errno}}function _tree_sitter_log_callback(i,e){if(currentLogCallback){let t=UTF8ToString(e);currentLogCallback(t,i!==0)}}function _tree_sitter_parse_callback(i,e,t,n,r){var s=currentParseCallback(e,{row:t,column:n});typeof s=="string"?(setValue(r,s.length,"i32"),stringToUTF16(s,i,10240)):setValue(r,0,"i32")}function handleException(i){if(i instanceof ExitStatus||i=="unwind")return EXITSTATUS;quit_(1,i)}function allocateUTF8OnStack(i){var e=lengthBytesUTF8(i)+1,t=stackAlloc(e);return stringToUTF8Array(i,HEAP8,t,e),t}function stringToUTF16(i,e,t){if(t===void 0&&(t=2147483647),t<2)return 0;for(var n=e,r=(t-=2)<2*i.length?t/2:i.length,s=0;s<r;++s){var o=i.charCodeAt(s);HEAP16[e>>1]=o,e+=2}return HEAP16[e>>1]=0,e-n}function AsciiToString(i){for(var e="";;){var t=HEAPU8[i++>>0];if(!t)return e;e+=String.fromCharCode(t)}}_exit.sig="vi",_fd_close.sig="ii",_fd_seek.sig="iijip",_fd_write.sig="iippp";var asmLibraryArg={__heap_base:___heap_base,__indirect_function_table:wasmTable,__memory_base:___memory_base,__stack_pointer:___stack_pointer,__table_base:___table_base,_emscripten_get_now_is_monotonic:__emscripten_get_now_is_monotonic,abort:_abort,emscripten_get_now:_emscripten_get_now,emscripten_memcpy_big:_emscripten_memcpy_big,emscripten_resize_heap:_emscripten_resize_heap,exit:_exit,fd_close:_fd_close,fd_seek:_fd_seek,fd_write:_fd_write,memory:wasmMemory,tree_sitter_log_callback:_tree_sitter_log_callback,tree_sitter_parse_callback:_tree_sitter_parse_callback},asm=createWasm(),___wasm_call_ctors=Module.___wasm_call_ctors=function(){return(___wasm_call_ctors=Module.___wasm_call_ctors=Module.asm.__wasm_call_ctors).apply(null,arguments)},___wasm_apply_data_relocs=Module.___wasm_apply_data_relocs=function(){return(___wasm_apply_data_relocs=Module.___wasm_apply_data_relocs=Module.asm.__wasm_apply_data_relocs).apply(null,arguments)},_malloc=Module._malloc=function(){return(_malloc=Module._malloc=Module.asm.malloc).apply(null,arguments)},_calloc=Module._calloc=function(){return(_calloc=Module._calloc=Module.asm.calloc).apply(null,arguments)},_realloc=Module._realloc=function(){return(_realloc=Module._realloc=Module.asm.realloc).apply(null,arguments)},_free=Module._free=function(){return(_free=Module._free=Module.asm.free).apply(null,arguments)},_ts_language_symbol_count=Module._ts_language_symbol_count=function(){return(_ts_language_symbol_count=Module._ts_language_symbol_count=Module.asm.ts_language_symbol_count).apply(null,arguments)},_ts_language_version=Module._ts_language_version=function(){return(_ts_language_version=Module._ts_language_version=Module.asm.ts_language_version).apply(null,arguments)},_ts_language_field_count=Module._ts_language_field_count=function(){return(_ts_language_field_count=Module._ts_language_field_count=Module.asm.ts_language_field_count).apply(null,arguments)},_ts_language_symbol_name=Module._ts_language_symbol_name=function(){return(_ts_language_symbol_name=Module._ts_language_symbol_name=Module.asm.ts_language_symbol_name).apply(null,arguments)},_ts_language_symbol_for_name=Module._ts_language_symbol_for_name=function(){return(_ts_language_symbol_for_name=Module._ts_language_symbol_for_name=Module.asm.ts_language_symbol_for_name).apply(null,arguments)},_ts_language_symbol_type=Module._ts_language_symbol_type=function(){return(_ts_language_symbol_type=Module._ts_language_symbol_type=Module.asm.ts_language_symbol_type).apply(null,arguments)},_ts_language_field_name_for_id=Module._ts_language_field_name_for_id=function(){return(_ts_language_field_name_for_id=Module._ts_language_field_name_for_id=Module.asm.ts_language_field_name_for_id).apply(null,arguments)},_memset=Module._memset=function(){return(_memset=Module._memset=Module.asm.memset).apply(null,arguments)},_memcpy=Module._memcpy=function(){return(_memcpy=Module._memcpy=Module.asm.memcpy).apply(null,arguments)},_ts_parser_delete=Module._ts_parser_delete=function(){return(_ts_parser_delete=Module._ts_parser_delete=Module.asm.ts_parser_delete).apply(null,arguments)},_ts_parser_reset=Module._ts_parser_reset=function(){return(_ts_parser_reset=Module._ts_parser_reset=Module.asm.ts_parser_reset).apply(null,arguments)},_ts_parser_set_language=Module._ts_parser_set_language=function(){return(_ts_parser_set_language=Module._ts_parser_set_language=Module.asm.ts_parser_set_language).apply(null,arguments)},_ts_parser_timeout_micros=Module._ts_parser_timeout_micros=function(){return(_ts_parser_timeout_micros=Module._ts_parser_timeout_micros=Module.asm.ts_parser_timeout_micros).apply(null,arguments)},_ts_parser_set_timeout_micros=Module._ts_parser_set_timeout_micros=function(){return(_ts_parser_set_timeout_micros=Module._ts_parser_set_timeout_micros=Module.asm.ts_parser_set_timeout_micros).apply(null,arguments)},_memmove=Module._memmove=function(){return(_memmove=Module._memmove=Module.asm.memmove).apply(null,arguments)},_memcmp=Module._memcmp=function(){return(_memcmp=Module._memcmp=Module.asm.memcmp).apply(null,arguments)},_ts_query_new=Module._ts_query_new=function(){return(_ts_query_new=Module._ts_query_new=Module.asm.ts_query_new).apply(null,arguments)},_ts_query_delete=Module._ts_query_delete=function(){return(_ts_query_delete=Module._ts_query_delete=Module.asm.ts_query_delete).apply(null,arguments)},_iswspace=Module._iswspace=function(){return(_iswspace=Module._iswspace=Module.asm.iswspace).apply(null,arguments)},_iswalnum=Module._iswalnum=function(){return(_iswalnum=Module._iswalnum=Module.asm.iswalnum).apply(null,arguments)},_ts_query_pattern_count=Module._ts_query_pattern_count=function(){return(_ts_query_pattern_count=Module._ts_query_pattern_count=Module.asm.ts_query_pattern_count).apply(null,arguments)},_ts_query_capture_count=Module._ts_query_capture_count=function(){return(_ts_query_capture_count=Module._ts_query_capture_count=Module.asm.ts_query_capture_count).apply(null,arguments)},_ts_query_string_count=Module._ts_query_string_count=function(){return(_ts_query_string_count=Module._ts_query_string_count=Module.asm.ts_query_string_count).apply(null,arguments)},_ts_query_capture_name_for_id=Module._ts_query_capture_name_for_id=function(){return(_ts_query_capture_name_for_id=Module._ts_query_capture_name_for_id=Module.asm.ts_query_capture_name_for_id).apply(null,arguments)},_ts_query_string_value_for_id=Module._ts_query_string_value_for_id=function(){return(_ts_query_string_value_for_id=Module._ts_query_string_value_for_id=Module.asm.ts_query_string_value_for_id).apply(null,arguments)},_ts_query_predicates_for_pattern=Module._ts_query_predicates_for_pattern=function(){return(_ts_query_predicates_for_pattern=Module._ts_query_predicates_for_pattern=Module.asm.ts_query_predicates_for_pattern).apply(null,arguments)},_ts_tree_copy=Module._ts_tree_copy=function(){return(_ts_tree_copy=Module._ts_tree_copy=Module.asm.ts_tree_copy).apply(null,arguments)},_ts_tree_delete=Module._ts_tree_delete=function(){return(_ts_tree_delete=Module._ts_tree_delete=Module.asm.ts_tree_delete).apply(null,arguments)},_ts_init=Module._ts_init=function(){return(_ts_init=Module._ts_init=Module.asm.ts_init).apply(null,arguments)},_ts_parser_new_wasm=Module._ts_parser_new_wasm=function(){return(_ts_parser_new_wasm=Module._ts_parser_new_wasm=Module.asm.ts_parser_new_wasm).apply(null,arguments)},_ts_parser_enable_logger_wasm=Module._ts_parser_enable_logger_wasm=function(){return(_ts_parser_enable_logger_wasm=Module._ts_parser_enable_logger_wasm=Module.asm.ts_parser_enable_logger_wasm).apply(null,arguments)},_ts_parser_parse_wasm=Module._ts_parser_parse_wasm=function(){return(_ts_parser_parse_wasm=Module._ts_parser_parse_wasm=Module.asm.ts_parser_parse_wasm).apply(null,arguments)},_ts_language_type_is_named_wasm=Module._ts_language_type_is_named_wasm=function(){return(_ts_language_type_is_named_wasm=Module._ts_language_type_is_named_wasm=Module.asm.ts_language_type_is_named_wasm).apply(null,arguments)},_ts_language_type_is_visible_wasm=Module._ts_language_type_is_visible_wasm=function(){return(_ts_language_type_is_visible_wasm=Module._ts_language_type_is_visible_wasm=Module.asm.ts_language_type_is_visible_wasm).apply(null,arguments)},_ts_tree_root_node_wasm=Module._ts_tree_root_node_wasm=function(){return(_ts_tree_root_node_wasm=Module._ts_tree_root_node_wasm=Module.asm.ts_tree_root_node_wasm).apply(null,arguments)},_ts_tree_edit_wasm=Module._ts_tree_edit_wasm=function(){return(_ts_tree_edit_wasm=Module._ts_tree_edit_wasm=Module.asm.ts_tree_edit_wasm).apply(null,arguments)},_ts_tree_get_changed_ranges_wasm=Module._ts_tree_get_changed_ranges_wasm=function(){return(_ts_tree_get_changed_ranges_wasm=Module._ts_tree_get_changed_ranges_wasm=Module.asm.ts_tree_get_changed_ranges_wasm).apply(null,arguments)},_ts_tree_cursor_new_wasm=Module._ts_tree_cursor_new_wasm=function(){return(_ts_tree_cursor_new_wasm=Module._ts_tree_cursor_new_wasm=Module.asm.ts_tree_cursor_new_wasm).apply(null,arguments)},_ts_tree_cursor_delete_wasm=Module._ts_tree_cursor_delete_wasm=function(){return(_ts_tree_cursor_delete_wasm=Module._ts_tree_cursor_delete_wasm=Module.asm.ts_tree_cursor_delete_wasm).apply(null,arguments)},_ts_tree_cursor_reset_wasm=Module._ts_tree_cursor_reset_wasm=function(){return(_ts_tree_cursor_reset_wasm=Module._ts_tree_cursor_reset_wasm=Module.asm.ts_tree_cursor_reset_wasm).apply(null,arguments)},_ts_tree_cursor_goto_first_child_wasm=Module._ts_tree_cursor_goto_first_child_wasm=function(){return(_ts_tree_cursor_goto_first_child_wasm=Module._ts_tree_cursor_goto_first_child_wasm=Module.asm.ts_tree_cursor_goto_first_child_wasm).apply(null,arguments)},_ts_tree_cursor_goto_next_sibling_wasm=Module._ts_tree_cursor_goto_next_sibling_wasm=function(){return(_ts_tree_cursor_goto_next_sibling_wasm=Module._ts_tree_cursor_goto_next_sibling_wasm=Module.asm.ts_tree_cursor_goto_next_sibling_wasm).apply(null,arguments)},_ts_tree_cursor_goto_parent_wasm=Module._ts_tree_cursor_goto_parent_wasm=function(){return(_ts_tree_cursor_goto_parent_wasm=Module._ts_tree_cursor_goto_parent_wasm=Module.asm.ts_tree_cursor_goto_parent_wasm).apply(null,arguments)},_ts_tree_cursor_current_node_type_id_wasm=Module._ts_tree_cursor_current_node_type_id_wasm=function(){return(_ts_tree_cursor_current_node_type_id_wasm=Module._ts_tree_cursor_current_node_type_id_wasm=Module.asm.ts_tree_cursor_current_node_type_id_wasm).apply(null,arguments)},_ts_tree_cursor_current_node_is_named_wasm=Module._ts_tree_cursor_current_node_is_named_wasm=function(){return(_ts_tree_cursor_current_node_is_named_wasm=Module._ts_tree_cursor_current_node_is_named_wasm=Module.asm.ts_tree_cursor_current_node_is_named_wasm).apply(null,arguments)},_ts_tree_cursor_current_node_is_missing_wasm=Module._ts_tree_cursor_current_node_is_missing_wasm=function(){return(_ts_tree_cursor_current_node_is_missing_wasm=Module._ts_tree_cursor_current_node_is_missing_wasm=Module.asm.ts_tree_cursor_current_node_is_missing_wasm).apply(null,arguments)},_ts_tree_cursor_current_node_id_wasm=Module._ts_tree_cursor_current_node_id_wasm=function(){return(_ts_tree_cursor_current_node_id_wasm=Module._ts_tree_cursor_current_node_id_wasm=Module.asm.ts_tree_cursor_current_node_id_wasm).apply(null,arguments)},_ts_tree_cursor_start_position_wasm=Module._ts_tree_cursor_start_position_wasm=function(){return(_ts_tree_cursor_start_position_wasm=Module._ts_tree_cursor_start_position_wasm=Module.asm.ts_tree_cursor_start_position_wasm).apply(null,arguments)},_ts_tree_cursor_end_position_wasm=Module._ts_tree_cursor_end_position_wasm=function(){return(_ts_tree_cursor_end_position_wasm=Module._ts_tree_cursor_end_position_wasm=Module.asm.ts_tree_cursor_end_position_wasm).apply(null,arguments)},_ts_tree_cursor_start_index_wasm=Module._ts_tree_cursor_start_index_wasm=function(){return(_ts_tree_cursor_start_index_wasm=Module._ts_tree_cursor_start_index_wasm=Module.asm.ts_tree_cursor_start_index_wasm).apply(null,arguments)},_ts_tree_cursor_end_index_wasm=Module._ts_tree_cursor_end_index_wasm=function(){return(_ts_tree_cursor_end_index_wasm=Module._ts_tree_cursor_end_index_wasm=Module.asm.ts_tree_cursor_end_index_wasm).apply(null,arguments)},_ts_tree_cursor_current_field_id_wasm=Module._ts_tree_cursor_current_field_id_wasm=function(){return(_ts_tree_cursor_current_field_id_wasm=Module._ts_tree_cursor_current_field_id_wasm=Module.asm.ts_tree_cursor_current_field_id_wasm).apply(null,arguments)},_ts_tree_cursor_current_node_wasm=Module._ts_tree_cursor_current_node_wasm=function(){return(_ts_tree_cursor_current_node_wasm=Module._ts_tree_cursor_current_node_wasm=Module.asm.ts_tree_cursor_current_node_wasm).apply(null,arguments)},_ts_node_symbol_wasm=Module._ts_node_symbol_wasm=function(){return(_ts_node_symbol_wasm=Module._ts_node_symbol_wasm=Module.asm.ts_node_symbol_wasm).apply(null,arguments)},_ts_node_child_count_wasm=Module._ts_node_child_count_wasm=function(){return(_ts_node_child_count_wasm=Module._ts_node_child_count_wasm=Module.asm.ts_node_child_count_wasm).apply(null,arguments)},_ts_node_named_child_count_wasm=Module._ts_node_named_child_count_wasm=function(){return(_ts_node_named_child_count_wasm=Module._ts_node_named_child_count_wasm=Module.asm.ts_node_named_child_count_wasm).apply(null,arguments)},_ts_node_child_wasm=Module._ts_node_child_wasm=function(){return(_ts_node_child_wasm=Module._ts_node_child_wasm=Module.asm.ts_node_child_wasm).apply(null,arguments)},_ts_node_named_child_wasm=Module._ts_node_named_child_wasm=function(){return(_ts_node_named_child_wasm=Module._ts_node_named_child_wasm=Module.asm.ts_node_named_child_wasm).apply(null,arguments)},_ts_node_child_by_field_id_wasm=Module._ts_node_child_by_field_id_wasm=function(){return(_ts_node_child_by_field_id_wasm=Module._ts_node_child_by_field_id_wasm=Module.asm.ts_node_child_by_field_id_wasm).apply(null,arguments)},_ts_node_next_sibling_wasm=Module._ts_node_next_sibling_wasm=function(){return(_ts_node_next_sibling_wasm=Module._ts_node_next_sibling_wasm=Module.asm.ts_node_next_sibling_wasm).apply(null,arguments)},_ts_node_prev_sibling_wasm=Module._ts_node_prev_sibling_wasm=function(){return(_ts_node_prev_sibling_wasm=Module._ts_node_prev_sibling_wasm=Module.asm.ts_node_prev_sibling_wasm).apply(null,arguments)},_ts_node_next_named_sibling_wasm=Module._ts_node_next_named_sibling_wasm=function(){return(_ts_node_next_named_sibling_wasm=Module._ts_node_next_named_sibling_wasm=Module.asm.ts_node_next_named_sibling_wasm).apply(null,arguments)},_ts_node_prev_named_sibling_wasm=Module._ts_node_prev_named_sibling_wasm=function(){return(_ts_node_prev_named_sibling_wasm=Module._ts_node_prev_named_sibling_wasm=Module.asm.ts_node_prev_named_sibling_wasm).apply(null,arguments)},_ts_node_parent_wasm=Module._ts_node_parent_wasm=function(){return(_ts_node_parent_wasm=Module._ts_node_parent_wasm=Module.asm.ts_node_parent_wasm).apply(null,arguments)},_ts_node_descendant_for_index_wasm=Module._ts_node_descendant_for_index_wasm=function(){return(_ts_node_descendant_for_index_wasm=Module._ts_node_descendant_for_index_wasm=Module.asm.ts_node_descendant_for_index_wasm).apply(null,arguments)},_ts_node_named_descendant_for_index_wasm=Module._ts_node_named_descendant_for_index_wasm=function(){return(_ts_node_named_descendant_for_index_wasm=Module._ts_node_named_descendant_for_index_wasm=Module.asm.ts_node_named_descendant_for_index_wasm).apply(null,arguments)},_ts_node_descendant_for_position_wasm=Module._ts_node_descendant_for_position_wasm=function(){return(_ts_node_descendant_for_position_wasm=Module._ts_node_descendant_for_position_wasm=Module.asm.ts_node_descendant_for_position_wasm).apply(null,arguments)},_ts_node_named_descendant_for_position_wasm=Module._ts_node_named_descendant_for_position_wasm=function(){return(_ts_node_named_descendant_for_position_wasm=Module._ts_node_named_descendant_for_position_wasm=Module.asm.ts_node_named_descendant_for_position_wasm).apply(null,arguments)},_ts_node_start_point_wasm=Module._ts_node_start_point_wasm=function(){return(_ts_node_start_point_wasm=Module._ts_node_start_point_wasm=Module.asm.ts_node_start_point_wasm).apply(null,arguments)},_ts_node_end_point_wasm=Module._ts_node_end_point_wasm=function(){return(_ts_node_end_point_wasm=Module._ts_node_end_point_wasm=Module.asm.ts_node_end_point_wasm).apply(null,arguments)},_ts_node_start_index_wasm=Module._ts_node_start_index_wasm=function(){return(_ts_node_start_index_wasm=Module._ts_node_start_index_wasm=Module.asm.ts_node_start_index_wasm).apply(null,arguments)},_ts_node_end_index_wasm=Module._ts_node_end_index_wasm=function(){return(_ts_node_end_index_wasm=Module._ts_node_end_index_wasm=Module.asm.ts_node_end_index_wasm).apply(null,arguments)},_ts_node_to_string_wasm=Module._ts_node_to_string_wasm=function(){return(_ts_node_to_string_wasm=Module._ts_node_to_string_wasm=Module.asm.ts_node_to_string_wasm).apply(null,arguments)},_ts_node_children_wasm=Module._ts_node_children_wasm=function(){return(_ts_node_children_wasm=Module._ts_node_children_wasm=Module.asm.ts_node_children_wasm).apply(null,arguments)},_ts_node_named_children_wasm=Module._ts_node_named_children_wasm=function(){return(_ts_node_named_children_wasm=Module._ts_node_named_children_wasm=Module.asm.ts_node_named_children_wasm).apply(null,arguments)},_ts_node_descendants_of_type_wasm=Module._ts_node_descendants_of_type_wasm=function(){return(_ts_node_descendants_of_type_wasm=Module._ts_node_descendants_of_type_wasm=Module.asm.ts_node_descendants_of_type_wasm).apply(null,arguments)},_ts_node_is_named_wasm=Module._ts_node_is_named_wasm=function(){return(_ts_node_is_named_wasm=Module._ts_node_is_named_wasm=Module.asm.ts_node_is_named_wasm).apply(null,arguments)},_ts_node_has_changes_wasm=Module._ts_node_has_changes_wasm=function(){return(_ts_node_has_changes_wasm=Module._ts_node_has_changes_wasm=Module.asm.ts_node_has_changes_wasm).apply(null,arguments)},_ts_node_has_error_wasm=Module._ts_node_has_error_wasm=function(){return(_ts_node_has_error_wasm=Module._ts_node_has_error_wasm=Module.asm.ts_node_has_error_wasm).apply(null,arguments)},_ts_node_is_missing_wasm=Module._ts_node_is_missing_wasm=function(){return(_ts_node_is_missing_wasm=Module._ts_node_is_missing_wasm=Module.asm.ts_node_is_missing_wasm).apply(null,arguments)},_ts_query_matches_wasm=Module._ts_query_matches_wasm=function(){return(_ts_query_matches_wasm=Module._ts_query_matches_wasm=Module.asm.ts_query_matches_wasm).apply(null,arguments)},_ts_query_captures_wasm=Module._ts_query_captures_wasm=function(){return(_ts_query_captures_wasm=Module._ts_query_captures_wasm=Module.asm.ts_query_captures_wasm).apply(null,arguments)},___cxa_atexit=Module.___cxa_atexit=function(){return(___cxa_atexit=Module.___cxa_atexit=Module.asm.__cxa_atexit).apply(null,arguments)},_iswdigit=Module._iswdigit=function(){return(_iswdigit=Module._iswdigit=Module.asm.iswdigit).apply(null,arguments)},_iswalpha=Module._iswalpha=function(){return(_iswalpha=Module._iswalpha=Module.asm.iswalpha).apply(null,arguments)},_iswlower=Module._iswlower=function(){return(_iswlower=Module._iswlower=Module.asm.iswlower).apply(null,arguments)},_memchr=Module._memchr=function(){return(_memchr=Module._memchr=Module.asm.memchr).apply(null,arguments)},_strlen=Module._strlen=function(){return(_strlen=Module._strlen=Module.asm.strlen).apply(null,arguments)},_towupper=Module._towupper=function(){return(_towupper=Module._towupper=Module.asm.towupper).apply(null,arguments)},_setThrew=Module._setThrew=function(){return(_setThrew=Module._setThrew=Module.asm.setThrew).apply(null,arguments)},stackSave=Module.stackSave=function(){return(stackSave=Module.stackSave=Module.asm.stackSave).apply(null,arguments)},stackRestore=Module.stackRestore=function(){return(stackRestore=Module.stackRestore=Module.asm.stackRestore).apply(null,arguments)},stackAlloc=Module.stackAlloc=function(){return(stackAlloc=Module.stackAlloc=Module.asm.stackAlloc).apply(null,arguments)},__Znwm=Module.__Znwm=function(){return(__Znwm=Module.__Znwm=Module.asm._Znwm).apply(null,arguments)},__ZdlPv=Module.__ZdlPv=function(){return(__ZdlPv=Module.__ZdlPv=Module.asm._ZdlPv).apply(null,arguments)},__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEED2Ev=Module.__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEED2Ev=function(){return(__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEED2Ev=Module.__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEED2Ev=Module.asm._ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEED2Ev).apply(null,arguments)},__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9__grow_byEmmmmmm=Module.__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9__grow_byEmmmmmm=function(){return(__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9__grow_byEmmmmmm=Module.__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9__grow_byEmmmmmm=Module.asm._ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9__grow_byEmmmmmm).apply(null,arguments)},__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6__initEPKcm=Module.__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6__initEPKcm=function(){return(__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6__initEPKcm=Module.__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6__initEPKcm=Module.asm._ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6__initEPKcm).apply(null,arguments)},__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE7reserveEm=Module.__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE7reserveEm=function(){return(__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE7reserveEm=Module.__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE7reserveEm=Module.asm._ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE7reserveEm).apply(null,arguments)},__ZNKSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE4copyEPcmm=Module.__ZNKSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE4copyEPcmm=function(){return(__ZNKSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE4copyEPcmm=Module.__ZNKSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE4copyEPcmm=Module.asm._ZNKSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE4copyEPcmm).apply(null,arguments)},__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9push_backEc=Module.__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9push_backEc=function(){return(__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9push_backEc=Module.__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9push_backEc=Module.asm._ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9push_backEc).apply(null,arguments)},__ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEED2Ev=Module.__ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEED2Ev=function(){return(__ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEED2Ev=Module.__ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEED2Ev=Module.asm._ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEED2Ev).apply(null,arguments)},__ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEE9push_backEw=Module.__ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEE9push_backEw=function(){return(__ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEE9push_backEw=Module.__ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEE9push_backEw=Module.asm._ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEE9push_backEw).apply(null,arguments)},__ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEE6resizeEmw=Module.__ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEE6resizeEmw=function(){return(__ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEE6resizeEmw=Module.__ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEE6resizeEmw=Module.asm._ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEE6resizeEmw).apply(null,arguments)},dynCall_jiji=Module.dynCall_jiji=function(){return(dynCall_jiji=Module.dynCall_jiji=Module.asm.dynCall_jiji).apply(null,arguments)},_orig$ts_parser_timeout_micros=Module._orig$ts_parser_timeout_micros=function(){return(_orig$ts_parser_timeout_micros=Module._orig$ts_parser_timeout_micros=Module.asm.orig$ts_parser_timeout_micros).apply(null,arguments)},_orig$ts_parser_set_timeout_micros=Module._orig$ts_parser_set_timeout_micros=function(){return(_orig$ts_parser_set_timeout_micros=Module._orig$ts_parser_set_timeout_micros=Module.asm.orig$ts_parser_set_timeout_micros).apply(null,arguments)},calledRun;function callMain(i){var e=Module._main;if(e){(i=i||[]).unshift(thisProgram);var t=i.length,n=stackAlloc(4*(t+1)),r=n>>2;i.forEach(o=>{HEAP32[r++]=allocateUTF8OnStack(o)}),HEAP32[r]=0;try{var s=e(t,n);return exitJS(s,!0),s}catch(o){return handleException(o)}}}Module.AsciiToString=AsciiToString,Module.stringToUTF16=stringToUTF16,dependenciesFulfilled=function i(){calledRun||run(),calledRun||(dependenciesFulfilled=i)};var dylibsLoaded=!1;function run(i){function e(){calledRun||(calledRun=!0,Module.calledRun=!0,ABORT||(initRuntime(),preMain(),Module.onRuntimeInitialized&&Module.onRuntimeInitialized(),shouldRunNow&&callMain(i),postRun()))}i=i||arguments_,runDependencies>0||!dylibsLoaded&&(preloadDylibs(),dylibsLoaded=!0,runDependencies>0)||(preRun(),runDependencies>0||(Module.setStatus?(Module.setStatus("Running..."),setTimeout(function(){setTimeout(function(){Module.setStatus("")},1),e()},1)):e()))}if(Module.preInit)for(typeof Module.preInit=="function"&&(Module.preInit=[Module.preInit]);Module.preInit.length>0;)Module.preInit.pop()();var shouldRunNow=!0;Module.noInitialRun&&(shouldRunNow=!1),run();let C=Module,INTERNAL={},SIZE_OF_INT=4,SIZE_OF_NODE=5*SIZE_OF_INT,SIZE_OF_POINT=2*SIZE_OF_INT,SIZE_OF_RANGE=2*SIZE_OF_INT+2*SIZE_OF_POINT,ZERO_POINT={row:0,column:0},QUERY_WORD_REGEX=/[\w-.]*/g,PREDICATE_STEP_TYPE_CAPTURE=1,PREDICATE_STEP_TYPE_STRING=2,LANGUAGE_FUNCTION_REGEX=/^_?tree_sitter_\w+/;var VERSION,MIN_COMPATIBLE_VERSION,TRANSFER_BUFFER,currentParseCallback,currentLogCallback;class ParserImpl{static init(){TRANSFER_BUFFER=C._ts_init(),VERSION=getValue(TRANSFER_BUFFER,"i32"),MIN_COMPATIBLE_VERSION=getValue(TRANSFER_BUFFER+SIZE_OF_INT,"i32")}initialize(){C._ts_parser_new_wasm(),this[0]=getValue(TRANSFER_BUFFER,"i32"),this[1]=getValue(TRANSFER_BUFFER+SIZE_OF_INT,"i32")}delete(){C._ts_parser_delete(this[0]),C._free(this[1]),this[0]=0,this[1]=0}setLanguage(e){let t;if(e){if(e.constructor!==Language)throw new Error("Argument must be a Language");{t=e[0];let n=C._ts_language_version(t);if(n<MIN_COMPATIBLE_VERSION||VERSION<n)throw new Error(`Incompatible language version ${n}. Compatibility range ${MIN_COMPATIBLE_VERSION} through ${VERSION}.`)}}else t=0,e=null;return this.language=e,C._ts_parser_set_language(this[0],t),this}getLanguage(){return this.language}parse(e,t,n){if(typeof e=="string")currentParseCallback=(u,h,m)=>e.slice(u,m);else{if(typeof e!="function")throw new Error("Argument must be a string or a function");currentParseCallback=e}this.logCallback?(currentLogCallback=this.logCallback,C._ts_parser_enable_logger_wasm(this[0],1)):(currentLogCallback=null,C._ts_parser_enable_logger_wasm(this[0],0));let r=0,s=0;if(n&&n.includedRanges){r=n.includedRanges.length,s=C._calloc(r,SIZE_OF_RANGE);let u=s;for(let h=0;h<r;h++)marshalRange(u,n.includedRanges[h]),u+=SIZE_OF_RANGE}let o=C._ts_parser_parse_wasm(this[0],this[1],t?t[0]:0,s,r);if(!o)throw currentParseCallback=null,currentLogCallback=null,new Error("Parsing failed");let l=new Tree(INTERNAL,o,this.language,currentParseCallback);return currentParseCallback=null,currentLogCallback=null,l}reset(){C._ts_parser_reset(this[0])}setTimeoutMicros(e){C._ts_parser_set_timeout_micros(this[0],e)}getTimeoutMicros(){return C._ts_parser_timeout_micros(this[0])}setLogger(e){if(e){if(typeof e!="function")throw new Error("Logger callback must be a function")}else e=null;return this.logCallback=e,this}getLogger(){return this.logCallback}}class Tree{constructor(e,t,n,r){assertInternal(e),this[0]=t,this.language=n,this.textCallback=r}copy(){let e=C._ts_tree_copy(this[0]);return new Tree(INTERNAL,e,this.language,this.textCallback)}delete(){C._ts_tree_delete(this[0]),this[0]=0}edit(e){marshalEdit(e),C._ts_tree_edit_wasm(this[0])}get rootNode(){return C._ts_tree_root_node_wasm(this[0]),unmarshalNode(this)}getLanguage(){return this.language}walk(){return this.rootNode.walk()}getChangedRanges(e){if(e.constructor!==Tree)throw new TypeError("Argument must be a Tree");C._ts_tree_get_changed_ranges_wasm(this[0],e[0]);let t=getValue(TRANSFER_BUFFER,"i32"),n=getValue(TRANSFER_BUFFER+SIZE_OF_INT,"i32"),r=new Array(t);if(t>0){let s=n;for(let o=0;o<t;o++)r[o]=unmarshalRange(s),s+=SIZE_OF_RANGE;C._free(n)}return r}}class Node{constructor(e,t){assertInternal(e),this.tree=t}get typeId(){return marshalNode(this),C._ts_node_symbol_wasm(this.tree[0])}get type(){return this.tree.language.types[this.typeId]||"ERROR"}get endPosition(){return marshalNode(this),C._ts_node_end_point_wasm(this.tree[0]),unmarshalPoint(TRANSFER_BUFFER)}get endIndex(){return marshalNode(this),C._ts_node_end_index_wasm(this.tree[0])}get text(){return getText(this.tree,this.startIndex,this.endIndex)}isNamed(){return marshalNode(this),C._ts_node_is_named_wasm(this.tree[0])===1}hasError(){return marshalNode(this),C._ts_node_has_error_wasm(this.tree[0])===1}hasChanges(){return marshalNode(this),C._ts_node_has_changes_wasm(this.tree[0])===1}isMissing(){return marshalNode(this),C._ts_node_is_missing_wasm(this.tree[0])===1}equals(e){return this.id===e.id}child(e){return marshalNode(this),C._ts_node_child_wasm(this.tree[0],e),unmarshalNode(this.tree)}namedChild(e){return marshalNode(this),C._ts_node_named_child_wasm(this.tree[0],e),unmarshalNode(this.tree)}childForFieldId(e){return marshalNode(this),C._ts_node_child_by_field_id_wasm(this.tree[0],e),unmarshalNode(this.tree)}childForFieldName(e){let t=this.tree.language.fields.indexOf(e);if(t!==-1)return this.childForFieldId(t)}get childCount(){return marshalNode(this),C._ts_node_child_count_wasm(this.tree[0])}get namedChildCount(){return marshalNode(this),C._ts_node_named_child_count_wasm(this.tree[0])}get firstChild(){return this.child(0)}get firstNamedChild(){return this.namedChild(0)}get lastChild(){return this.child(this.childCount-1)}get lastNamedChild(){return this.namedChild(this.namedChildCount-1)}get children(){if(!this._children){marshalNode(this),C._ts_node_children_wasm(this.tree[0]);let e=getValue(TRANSFER_BUFFER,"i32"),t=getValue(TRANSFER_BUFFER+SIZE_OF_INT,"i32");if(this._children=new Array(e),e>0){let n=t;for(let r=0;r<e;r++)this._children[r]=unmarshalNode(this.tree,n),n+=SIZE_OF_NODE;C._free(t)}}return this._children}get namedChildren(){if(!this._namedChildren){marshalNode(this),C._ts_node_named_children_wasm(this.tree[0]);let e=getValue(TRANSFER_BUFFER,"i32"),t=getValue(TRANSFER_BUFFER+SIZE_OF_INT,"i32");if(this._namedChildren=new Array(e),e>0){let n=t;for(let r=0;r<e;r++)this._namedChildren[r]=unmarshalNode(this.tree,n),n+=SIZE_OF_NODE;C._free(t)}}return this._namedChildren}descendantsOfType(e,t,n){Array.isArray(e)||(e=[e]),t||(t=ZERO_POINT),n||(n=ZERO_POINT);let r=[],s=this.tree.language.types;for(let m=0,_=s.length;m<_;m++)e.includes(s[m])&&r.push(m);let o=C._malloc(SIZE_OF_INT*r.length);for(let m=0,_=r.length;m<_;m++)setValue(o+m*SIZE_OF_INT,r[m],"i32");marshalNode(this),C._ts_node_descendants_of_type_wasm(this.tree[0],o,r.length,t.row,t.column,n.row,n.column);let l=getValue(TRANSFER_BUFFER,"i32"),u=getValue(TRANSFER_BUFFER+SIZE_OF_INT,"i32"),h=new Array(l);if(l>0){let m=u;for(let _=0;_<l;_++)h[_]=unmarshalNode(this.tree,m),m+=SIZE_OF_NODE}return C._free(u),C._free(o),h}get nextSibling(){return marshalNode(this),C._ts_node_next_sibling_wasm(this.tree[0]),unmarshalNode(this.tree)}get previousSibling(){return marshalNode(this),C._ts_node_prev_sibling_wasm(this.tree[0]),unmarshalNode(this.tree)}get nextNamedSibling(){return marshalNode(this),C._ts_node_next_named_sibling_wasm(this.tree[0]),unmarshalNode(this.tree)}get previousNamedSibling(){return marshalNode(this),C._ts_node_prev_named_sibling_wasm(this.tree[0]),unmarshalNode(this.tree)}get parent(){return marshalNode(this),C._ts_node_parent_wasm(this.tree[0]),unmarshalNode(this.tree)}descendantForIndex(e,t=e){if(typeof e!="number"||typeof t!="number")throw new Error("Arguments must be numbers");marshalNode(this);let n=TRANSFER_BUFFER+SIZE_OF_NODE;return setValue(n,e,"i32"),setValue(n+SIZE_OF_INT,t,"i32"),C._ts_node_descendant_for_index_wasm(this.tree[0]),unmarshalNode(this.tree)}namedDescendantForIndex(e,t=e){if(typeof e!="number"||typeof t!="number")throw new Error("Arguments must be numbers");marshalNode(this);let n=TRANSFER_BUFFER+SIZE_OF_NODE;return setValue(n,e,"i32"),setValue(n+SIZE_OF_INT,t,"i32"),C._ts_node_named_descendant_for_index_wasm(this.tree[0]),unmarshalNode(this.tree)}descendantForPosition(e,t=e){if(!isPoint(e)||!isPoint(t))throw new Error("Arguments must be {row, column} objects");marshalNode(this);let n=TRANSFER_BUFFER+SIZE_OF_NODE;return marshalPoint(n,e),marshalPoint(n+SIZE_OF_POINT,t),C._ts_node_descendant_for_position_wasm(this.tree[0]),unmarshalNode(this.tree)}namedDescendantForPosition(e,t=e){if(!isPoint(e)||!isPoint(t))throw new Error("Arguments must be {row, column} objects");marshalNode(this);let n=TRANSFER_BUFFER+SIZE_OF_NODE;return marshalPoint(n,e),marshalPoint(n+SIZE_OF_POINT,t),C._ts_node_named_descendant_for_position_wasm(this.tree[0]),unmarshalNode(this.tree)}walk(){return marshalNode(this),C._ts_tree_cursor_new_wasm(this.tree[0]),new TreeCursor(INTERNAL,this.tree)}toString(){marshalNode(this);let e=C._ts_node_to_string_wasm(this.tree[0]),t=AsciiToString(e);return C._free(e),t}}class TreeCursor{constructor(e,t){assertInternal(e),this.tree=t,unmarshalTreeCursor(this)}delete(){marshalTreeCursor(this),C._ts_tree_cursor_delete_wasm(this.tree[0]),this[0]=this[1]=this[2]=0}reset(e){marshalNode(e),marshalTreeCursor(this,TRANSFER_BUFFER+SIZE_OF_NODE),C._ts_tree_cursor_reset_wasm(this.tree[0]),unmarshalTreeCursor(this)}get nodeType(){return this.tree.language.types[this.nodeTypeId]||"ERROR"}get nodeTypeId(){return marshalTreeCursor(this),C._ts_tree_cursor_current_node_type_id_wasm(this.tree[0])}get nodeId(){return marshalTreeCursor(this),C._ts_tree_cursor_current_node_id_wasm(this.tree[0])}get nodeIsNamed(){return marshalTreeCursor(this),C._ts_tree_cursor_current_node_is_named_wasm(this.tree[0])===1}get nodeIsMissing(){return marshalTreeCursor(this),C._ts_tree_cursor_current_node_is_missing_wasm(this.tree[0])===1}get nodeText(){marshalTreeCursor(this);let e=C._ts_tree_cursor_start_index_wasm(this.tree[0]),t=C._ts_tree_cursor_end_index_wasm(this.tree[0]);return getText(this.tree,e,t)}get startPosition(){return marshalTreeCursor(this),C._ts_tree_cursor_start_position_wasm(this.tree[0]),unmarshalPoint(TRANSFER_BUFFER)}get endPosition(){return marshalTreeCursor(this),C._ts_tree_cursor_end_position_wasm(this.tree[0]),unmarshalPoint(TRANSFER_BUFFER)}get startIndex(){return marshalTreeCursor(this),C._ts_tree_cursor_start_index_wasm(this.tree[0])}get endIndex(){return marshalTreeCursor(this),C._ts_tree_cursor_end_index_wasm(this.tree[0])}currentNode(){return marshalTreeCursor(this),C._ts_tree_cursor_current_node_wasm(this.tree[0]),unmarshalNode(this.tree)}currentFieldId(){return marshalTreeCursor(this),C._ts_tree_cursor_current_field_id_wasm(this.tree[0])}currentFieldName(){return this.tree.language.fields[this.currentFieldId()]}gotoFirstChild(){marshalTreeCursor(this);let e=C._ts_tree_cursor_goto_first_child_wasm(this.tree[0]);return unmarshalTreeCursor(this),e===1}gotoNextSibling(){marshalTreeCursor(this);let e=C._ts_tree_cursor_goto_next_sibling_wasm(this.tree[0]);return unmarshalTreeCursor(this),e===1}gotoParent(){marshalTreeCursor(this);let e=C._ts_tree_cursor_goto_parent_wasm(this.tree[0]);return unmarshalTreeCursor(this),e===1}}class Language{constructor(e,t){assertInternal(e),this[0]=t,this.types=new Array(C._ts_language_symbol_count(this[0]));for(let n=0,r=this.types.length;n<r;n++)C._ts_language_symbol_type(this[0],n)<2&&(this.types[n]=UTF8ToString(C._ts_language_symbol_name(this[0],n)));this.fields=new Array(C._ts_language_field_count(this[0])+1);for(let n=0,r=this.fields.length;n<r;n++){let s=C._ts_language_field_name_for_id(this[0],n);this.fields[n]=s!==0?UTF8ToString(s):null}}get version(){return C._ts_language_version(this[0])}get fieldCount(){return this.fields.length-1}fieldIdForName(e){let t=this.fields.indexOf(e);return t!==-1?t:null}fieldNameForId(e){return this.fields[e]||null}idForNodeType(e,t){let n=lengthBytesUTF8(e),r=C._malloc(n+1);stringToUTF8(e,r,n+1);let s=C._ts_language_symbol_for_name(this[0],r,n,t);return C._free(r),s||null}get nodeTypeCount(){return C._ts_language_symbol_count(this[0])}nodeTypeForId(e){let t=C._ts_language_symbol_name(this[0],e);return t?UTF8ToString(t):null}nodeTypeIsNamed(e){return!!C._ts_language_type_is_named_wasm(this[0],e)}nodeTypeIsVisible(e){return!!C._ts_language_type_is_visible_wasm(this[0],e)}query(e){let t=lengthBytesUTF8(e),n=C._malloc(t+1);stringToUTF8(e,n,t+1);let r=C._ts_query_new(this[0],n,t,TRANSFER_BUFFER,TRANSFER_BUFFER+SIZE_OF_INT);if(!r){let v=getValue(TRANSFER_BUFFER+SIZE_OF_INT,"i32"),b=UTF8ToString(n,getValue(TRANSFER_BUFFER,"i32")).length,y=e.substr(b,100).split(`
-`)[0],S,L=y.match(QUERY_WORD_REGEX)[0];switch(v){case 2:S=new RangeError(`Bad node name '${L}'`);break;case 3:S=new RangeError(`Bad field name '${L}'`);break;case 4:S=new RangeError(`Bad capture name @${L}`);break;case 5:S=new TypeError(`Bad pattern structure at offset ${b}: '${y}'...`),L="";break;default:S=new SyntaxError(`Bad syntax at offset ${b}: '${y}'...`),L=""}throw S.index=b,S.length=L.length,C._free(n),S}let s=C._ts_query_string_count(r),o=C._ts_query_capture_count(r),l=C._ts_query_pattern_count(r),u=new Array(o),h=new Array(s);for(let v=0;v<o;v++){let b=C._ts_query_capture_name_for_id(r,v,TRANSFER_BUFFER),y=getValue(TRANSFER_BUFFER,"i32");u[v]=UTF8ToString(b,y)}for(let v=0;v<s;v++){let b=C._ts_query_string_value_for_id(r,v,TRANSFER_BUFFER),y=getValue(TRANSFER_BUFFER,"i32");h[v]=UTF8ToString(b,y)}let m=new Array(l),_=new Array(l),T=new Array(l),x=new Array(l),F=new Array(l);for(let v=0;v<l;v++){let b=C._ts_query_predicates_for_pattern(r,v,TRANSFER_BUFFER),y=getValue(TRANSFER_BUFFER,"i32");x[v]=[],F[v]=[];let S=[],L=b;for(let ee=0;ee<y;ee++){let N=getValue(L,"i32");L+=SIZE_OF_INT;let B=getValue(L,"i32");if(L+=SIZE_OF_INT,N===PREDICATE_STEP_TYPE_CAPTURE)S.push({type:"capture",name:u[B]});else if(N===PREDICATE_STEP_TYPE_STRING)S.push({type:"string",value:h[B]});else if(S.length>0){if(S[0].type!=="string")throw new Error("Predicates must begin with a literal value");let A=S[0].value,V=!0;switch(A){case"not-eq?":V=!1;case"eq?":if(S.length!==3)throw new Error("Wrong number of arguments to `#eq?` predicate. Expected 2, got "+(S.length-1));if(S[1].type!=="capture")throw new Error(`First argument of \`#eq?\` predicate must be a capture. Got "${S[1].value}"`);if(S[2].type==="capture"){let R=S[1].name,se=S[2].name;F[v].push(function(Ve){let ue,Le;for(let Ze of Ve)Ze.name===R&&(ue=Ze.node),Ze.name===se&&(Le=Ze.node);return ue===void 0||Le===void 0||ue.text===Le.text===V})}else{let R=S[1].name,se=S[2].value;F[v].push(function(Ve){for(let ue of Ve)if(ue.name===R)return ue.node.text===se===V;return!0})}break;case"not-match?":V=!1;case"match?":if(S.length!==3)throw new Error(`Wrong number of arguments to \`#match?\` predicate. Expected 2, got ${S.length-1}.`);if(S[1].type!=="capture")throw new Error(`First argument of \`#match?\` predicate must be a capture. Got "${S[1].value}".`);if(S[2].type!=="string")throw new Error(`Second argument of \`#match?\` predicate must be a string. Got @${S[2].value}.`);let q=S[1].name,$=new RegExp(S[2].value);F[v].push(function(R){for(let se of R)if(se.name===q)return $.test(se.node.text)===V;return!0});break;case"set!":if(S.length<2||S.length>3)throw new Error(`Wrong number of arguments to \`#set!\` predicate. Expected 1 or 2. Got ${S.length-1}.`);if(S.some(R=>R.type!=="string"))throw new Error('Arguments to `#set!` predicate must be a strings.".');m[v]||(m[v]={}),m[v][S[1].value]=S[2]?S[2].value:null;break;case"is?":case"is-not?":if(S.length<2||S.length>3)throw new Error(`Wrong number of arguments to \`#${A}\` predicate. Expected 1 or 2. Got ${S.length-1}.`);if(S.some(R=>R.type!=="string"))throw new Error(`Arguments to \`#${A}\` predicate must be a strings.".`);let re=A==="is?"?_:T;re[v]||(re[v]={}),re[v][S[1].value]=S[2]?S[2].value:null;break;default:x[v].push({operator:A,operands:S.slice(1)})}S.length=0}}Object.freeze(m[v]),Object.freeze(_[v]),Object.freeze(T[v])}return C._free(n),new Query(INTERNAL,r,u,F,x,Object.freeze(m),Object.freeze(_),Object.freeze(T))}static load(e){let t;if(e instanceof Uint8Array)t=Promise.resolve(e);else{let r=e;if(typeof process<"u"&&process.versions&&process.versions.node){let s=require("fs");t=Promise.resolve(s.readFileSync(r))}else t=fetch(r).then(s=>s.arrayBuffer().then(o=>{if(s.ok)return new Uint8Array(o);{let l=new TextDecoder("utf-8").decode(o);throw new Error(`Language.load failed with status ${s.status}.
+"use strict";
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __commonJS = (cb, mod) => function __require() {
+  return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
+};
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-${l}`)}}))}let n=typeof loadSideModule=="function"?loadSideModule:loadWebAssemblyModule;return t.then(r=>n(r,{loadAsync:!0})).then(r=>{let s=Object.keys(r),o=s.find(u=>LANGUAGE_FUNCTION_REGEX.test(u)&&!u.includes("external_scanner_"));o||console.log(`Couldn't find language function in WASM file. Symbols:
-${JSON.stringify(s,null,2)}`);let l=r[o]();return new Language(INTERNAL,l)})}}class Query{constructor(e,t,n,r,s,o,l,u){assertInternal(e),this[0]=t,this.captureNames=n,this.textPredicates=r,this.predicates=s,this.setProperties=o,this.assertedProperties=l,this.refutedProperties=u,this.exceededMatchLimit=!1}delete(){C._ts_query_delete(this[0]),this[0]=0}matches(e,t,n,r){t||(t=ZERO_POINT),n||(n=ZERO_POINT),r||(r={});let s=r.matchLimit;if(s===void 0)s=0;else if(typeof s!="number")throw new Error("Arguments must be numbers");marshalNode(e),C._ts_query_matches_wasm(this[0],e.tree[0],t.row,t.column,n.row,n.column,s);let o=getValue(TRANSFER_BUFFER,"i32"),l=getValue(TRANSFER_BUFFER+SIZE_OF_INT,"i32"),u=getValue(TRANSFER_BUFFER+2*SIZE_OF_INT,"i32"),h=new Array(o);this.exceededMatchLimit=!!u;let m=0,_=l;for(let T=0;T<o;T++){let x=getValue(_,"i32");_+=SIZE_OF_INT;let F=getValue(_,"i32");_+=SIZE_OF_INT;let v=new Array(F);if(_=unmarshalCaptures(this,e.tree,_,v),this.textPredicates[x].every(b=>b(v))){h[m++]={pattern:x,captures:v};let b=this.setProperties[x];b&&(h[T].setProperties=b);let y=this.assertedProperties[x];y&&(h[T].assertedProperties=y);let S=this.refutedProperties[x];S&&(h[T].refutedProperties=S)}}return h.length=m,C._free(l),h}captures(e,t,n,r){t||(t=ZERO_POINT),n||(n=ZERO_POINT),r||(r={});let s=r.matchLimit;if(s===void 0)s=0;else if(typeof s!="number")throw new Error("Arguments must be numbers");marshalNode(e),C._ts_query_captures_wasm(this[0],e.tree[0],t.row,t.column,n.row,n.column,s);let o=getValue(TRANSFER_BUFFER,"i32"),l=getValue(TRANSFER_BUFFER+SIZE_OF_INT,"i32"),u=getValue(TRANSFER_BUFFER+2*SIZE_OF_INT,"i32"),h=[];this.exceededMatchLimit=!!u;let m=[],_=l;for(let T=0;T<o;T++){let x=getValue(_,"i32");_+=SIZE_OF_INT;let F=getValue(_,"i32");_+=SIZE_OF_INT;let v=getValue(_,"i32");if(_+=SIZE_OF_INT,m.length=F,_=unmarshalCaptures(this,e.tree,_,m),this.textPredicates[x].every(b=>b(m))){let b=m[v],y=this.setProperties[x];y&&(b.setProperties=y);let S=this.assertedProperties[x];S&&(b.assertedProperties=S);let L=this.refutedProperties[x];L&&(b.refutedProperties=L),h.push(b)}}return C._free(l),h}predicatesForPattern(e){return this.predicates[e]}didExceedMatchLimit(){return this.exceededMatchLimit}}function getText(i,e,t){let n=t-e,r=i.textCallback(e,null,t);for(e+=r.length;e<t;){let s=i.textCallback(e,null,t);if(!(s&&s.length>0))break;e+=s.length,r+=s}return e>t&&(r=r.slice(0,n)),r}function unmarshalCaptures(i,e,t,n){for(let r=0,s=n.length;r<s;r++){let o=getValue(t,"i32"),l=unmarshalNode(e,t+=SIZE_OF_INT);t+=SIZE_OF_NODE,n[r]={name:i.captureNames[o],node:l}}return t}function assertInternal(i){if(i!==INTERNAL)throw new Error("Illegal constructor")}function isPoint(i){return i&&typeof i.row=="number"&&typeof i.column=="number"}function marshalNode(i){let e=TRANSFER_BUFFER;setValue(e,i.id,"i32"),e+=SIZE_OF_INT,setValue(e,i.startIndex,"i32"),e+=SIZE_OF_INT,setValue(e,i.startPosition.row,"i32"),e+=SIZE_OF_INT,setValue(e,i.startPosition.column,"i32"),e+=SIZE_OF_INT,setValue(e,i[0],"i32")}function unmarshalNode(i,e=TRANSFER_BUFFER){let t=getValue(e,"i32");if(t===0)return null;let n=getValue(e+=SIZE_OF_INT,"i32"),r=getValue(e+=SIZE_OF_INT,"i32"),s=getValue(e+=SIZE_OF_INT,"i32"),o=getValue(e+=SIZE_OF_INT,"i32"),l=new Node(INTERNAL,i);return l.id=t,l.startIndex=n,l.startPosition={row:r,column:s},l[0]=o,l}function marshalTreeCursor(i,e=TRANSFER_BUFFER){setValue(e+0*SIZE_OF_INT,i[0],"i32"),setValue(e+1*SIZE_OF_INT,i[1],"i32"),setValue(e+2*SIZE_OF_INT,i[2],"i32")}function unmarshalTreeCursor(i){i[0]=getValue(TRANSFER_BUFFER+0*SIZE_OF_INT,"i32"),i[1]=getValue(TRANSFER_BUFFER+1*SIZE_OF_INT,"i32"),i[2]=getValue(TRANSFER_BUFFER+2*SIZE_OF_INT,"i32")}function marshalPoint(i,e){setValue(i,e.row,"i32"),setValue(i+SIZE_OF_INT,e.column,"i32")}function unmarshalPoint(i){return{row:getValue(i,"i32"),column:getValue(i+SIZE_OF_INT,"i32")}}function marshalRange(i,e){marshalPoint(i,e.startPosition),marshalPoint(i+=SIZE_OF_POINT,e.endPosition),setValue(i+=SIZE_OF_POINT,e.startIndex,"i32"),setValue(i+=SIZE_OF_INT,e.endIndex,"i32"),i+=SIZE_OF_INT}function unmarshalRange(i){let e={};return e.startPosition=unmarshalPoint(i),i+=SIZE_OF_POINT,e.endPosition=unmarshalPoint(i),i+=SIZE_OF_POINT,e.startIndex=getValue(i,"i32"),i+=SIZE_OF_INT,e.endIndex=getValue(i,"i32"),e}function marshalEdit(i){let e=TRANSFER_BUFFER;marshalPoint(e,i.startPosition),e+=SIZE_OF_POINT,marshalPoint(e,i.oldEndPosition),e+=SIZE_OF_POINT,marshalPoint(e,i.newEndPosition),e+=SIZE_OF_POINT,setValue(e,i.startIndex,"i32"),e+=SIZE_OF_INT,setValue(e,i.oldEndIndex,"i32"),e+=SIZE_OF_INT,setValue(e,i.newEndIndex,"i32"),e+=SIZE_OF_INT}for(let i of Object.getOwnPropertyNames(ParserImpl.prototype))Object.defineProperty(Parser.prototype,i,{value:ParserImpl.prototype[i],enumerable:!1,writable:!1});Parser.Language=Language,Module.onRuntimeInitialized=()=>{ParserImpl.init(),resolveInitPromise()}}))}}return Parser}();typeof exports=="object"&&(module.exports=TreeSitter)});var zs=Qr((wn,We)=>{"use strict";var yn=void 0,bn=function(i){return yn||(yn=new Promise(function(e,t){var n=typeof i<"u"?i:{},r=n.onAbort;n.onAbort=function(a){t(new Error(a)),r&&r(a)},n.postRun=n.postRun||[],n.postRun.push(function(){e(n)}),We=void 0;var s;s||=typeof n<"u"?n:{};var o=!!globalThis.window,l=!!globalThis.WorkerGlobalScope,u=globalThis.process?.versions?.node&&globalThis.process?.type!="renderer";s.onRuntimeInitialized=function(){function a(g,k){switch(typeof k){case"boolean":Zi(g,k?1:0);break;case"number":ji(g,k);break;case"string":zi(g,k,-1,-1);break;case"object":if(k===null)Zr(g);else if(k.length!=null){var O=Ht(k.length);B.set(k,O),Vi(g,O,k.length,-1),yt(O)}else zt(g,"Wrong API use : tried to return a value of an unknown type ("+k+").",-1);break;default:Zr(g)}}function c(g,k){for(var O=[],U=0;U<g;U+=1){var z=Fe(k+4*U,"i32"),K=qi(z);if(K===1||K===2)z=Wi(z);else if(K===3)z=Hi(z);else if(K===4){K=z,z=$i(K),K=Gi(K);for(var ye=new Uint8Array(z),ge=0;ge<z;ge+=1)ye[ge]=B[K+ge];z=ye}else z=null;O.push(z)}return O}function d(g,k){this.Qa=g,this.db=k,this.Oa=1,this.mb=[]}function p(g,k){if(this.db=k,this.fb=$t(g),this.fb===null)throw Error("Unable to allocate memory for the SQL string");this.lb=this.fb,this.$a=this.sb=null}function f(g){if(this.filename="dbfile_"+(4294967295*Math.random()>>>0),g!=null){var k=this.filename,O="/",U=k;if(O&&(O=typeof O=="string"?O:Mn(O),U=k?Tn(O+"/"+k):O),k=vr(!0,!0),U=hi(U,k),g){if(typeof g=="string"){O=Array(g.length);for(var z=0,K=g.length;z<K;++z)O[z]=g.charCodeAt(z);g=O}Lt(U,k|146),O=Qe(U,577),Dr(O,g,0,g.length,0),Un(O),Lt(U,k)}}this.handleError(G(this.filename,w)),this.db=Fe(w,"i32"),Xr(this.db),this.gb={},this.Sa={}}var w=He(4),E=s.cwrap,G=E("sqlite3_open","number",["string","number"]),X=E("sqlite3_close_v2","number",["number"]),j=E("sqlite3_exec","number",["number","string","number","number","number"]),ne=E("sqlite3_changes","number",["number"]),le=E("sqlite3_prepare_v2","number",["number","string","number","number","number"]),Gr=E("sqlite3_sql","string",["number"]),xi=E("sqlite3_normalized_sql","string",["number"]),Wr=E("sqlite3_prepare_v2","number",["number","number","number","number","number"]),Ei=E("sqlite3_bind_text","number",["number","number","number","number","number"]),jr=E("sqlite3_bind_blob","number",["number","number","number","number","number"]),Ni=E("sqlite3_bind_double","number",["number","number","number"]),ki=E("sqlite3_bind_int","number",["number","number","number"]),Fi=E("sqlite3_bind_parameter_index","number",["number","string"]),Ci=E("sqlite3_step","number",["number"]),Ti=E("sqlite3_errmsg","string",["number"]),Ri=E("sqlite3_column_count","number",["number"]),Ii=E("sqlite3_data_count","number",["number"]),Mi=E("sqlite3_column_double","number",["number","number"]),zr=E("sqlite3_column_text","string",["number","number"]),Ai=E("sqlite3_column_blob","number",["number","number"]),Pi=E("sqlite3_column_bytes","number",["number","number"]),Oi=E("sqlite3_column_type","number",["number","number"]),Di=E("sqlite3_column_name","string",["number","number"]),Li=E("sqlite3_reset","number",["number"]),Ui=E("sqlite3_clear_bindings","number",["number"]),Bi=E("sqlite3_finalize","number",["number"]),Vr=E("sqlite3_create_function_v2","number","number string number number number number number number number".split(" ")),qi=E("sqlite3_value_type","number",["number"]),$i=E("sqlite3_value_bytes","number",["number"]),Hi=E("sqlite3_value_text","string",["number"]),Gi=E("sqlite3_value_blob","number",["number"]),Wi=E("sqlite3_value_double","number",["number"]),ji=E("sqlite3_result_double","",["number","number"]),Zr=E("sqlite3_result_null","",["number"]),zi=E("sqlite3_result_text","",["number","string","number","number"]),Vi=E("sqlite3_result_blob","",["number","number","number","number"]),Zi=E("sqlite3_result_int","",["number","number"]),zt=E("sqlite3_result_error","",["number","string","number"]),Yr=E("sqlite3_aggregate_context","number",["number","number"]),Xr=E("RegisterExtensionFunctions","number",["number"]),Kr=E("sqlite3_update_hook","number",["number","number","number"]);d.prototype.bind=function(g){if(!this.Qa)throw"Statement closed";return this.reset(),Array.isArray(g)?this.Gb(g):g!=null&&typeof g=="object"?this.Hb(g):!0},d.prototype.step=function(){if(!this.Qa)throw"Statement closed";this.Oa=1;var g=Ci(this.Qa);switch(g){case 100:return!0;case 101:return!1;default:throw this.db.handleError(g)}},d.prototype.Ab=function(g){return g==null&&(g=this.Oa,this.Oa+=1),Mi(this.Qa,g)},d.prototype.Ob=function(g){if(g==null&&(g=this.Oa,this.Oa+=1),g=zr(this.Qa,g),typeof BigInt!="function")throw Error("BigInt is not supported");return BigInt(g)},d.prototype.Tb=function(g){return g==null&&(g=this.Oa,this.Oa+=1),zr(this.Qa,g)},d.prototype.getBlob=function(g){g==null&&(g=this.Oa,this.Oa+=1);var k=Pi(this.Qa,g);g=Ai(this.Qa,g);for(var O=new Uint8Array(k),U=0;U<k;U+=1)O[U]=B[g+U];return O},d.prototype.get=function(g,k){k=k||{},g!=null&&this.bind(g)&&this.step(),g=[];for(var O=Ii(this.Qa),U=0;U<O;U+=1)switch(Oi(this.Qa,U)){case 1:var z=k.useBigInt?this.Ob(U):this.Ab(U);g.push(z);break;case 2:g.push(this.Ab(U));break;case 3:g.push(this.Tb(U));break;case 4:g.push(this.getBlob(U));break;default:g.push(null)}return g},d.prototype.qb=function(){for(var g=[],k=Ri(this.Qa),O=0;O<k;O+=1)g.push(Di(this.Qa,O));return g},d.prototype.zb=function(g,k){g=this.get(g,k),k=this.qb();for(var O={},U=0;U<k.length;U+=1)O[k[U]]=g[U];return O},d.prototype.Sb=function(){return Gr(this.Qa)},d.prototype.Pb=function(){return xi(this.Qa)},d.prototype.run=function(g){return g!=null&&this.bind(g),this.step(),this.reset()},d.prototype.wb=function(g,k){k==null&&(k=this.Oa,this.Oa+=1),g=$t(g),this.mb.push(g),this.db.handleError(Ei(this.Qa,k,g,-1,0))},d.prototype.Fb=function(g,k){k==null&&(k=this.Oa,this.Oa+=1);var O=Ht(g.length);B.set(g,O),this.mb.push(O),this.db.handleError(jr(this.Qa,k,O,g.length,0))},d.prototype.vb=function(g,k){k==null&&(k=this.Oa,this.Oa+=1),this.db.handleError((g===(g|0)?ki:Ni)(this.Qa,k,g))},d.prototype.Ib=function(g){g==null&&(g=this.Oa,this.Oa+=1),jr(this.Qa,g,0,0,0)},d.prototype.xb=function(g,k){switch(k==null&&(k=this.Oa,this.Oa+=1),typeof g){case"string":this.wb(g,k);return;case"number":this.vb(g,k);return;case"bigint":this.wb(g.toString(),k);return;case"boolean":this.vb(g+0,k);return;case"object":if(g===null){this.Ib(k);return}if(g.length!=null){this.Fb(g,k);return}}throw"Wrong API use : tried to bind a value of an unknown type ("+g+")."},d.prototype.Hb=function(g){var k=this;return Object.keys(g).forEach(function(O){var U=Fi(k.Qa,O);U!==0&&k.xb(g[O],U)}),!0},d.prototype.Gb=function(g){for(var k=0;k<g.length;k+=1)this.xb(g[k],k+1);return!0},d.prototype.reset=function(){return this.freemem(),Ui(this.Qa)===0&&Li(this.Qa)===0},d.prototype.freemem=function(){for(var g;(g=this.mb.pop())!==void 0;)yt(g)},d.prototype.Ya=function(){this.freemem();var g=Bi(this.Qa)===0;return delete this.db.gb[this.Qa],this.Qa=0,g},p.prototype.next=function(){if(this.fb===null)return{done:!0};if(this.$a!==null&&(this.$a.Ya(),this.$a=null),!this.db.db)throw this.ob(),Error("Database closed");var g=Wt(),k=He(4);mt(w),mt(k);try{this.db.handleError(Wr(this.db.db,this.lb,-1,w,k)),this.lb=Fe(k,"i32");var O=Fe(w,"i32");return O===0?(this.ob(),{done:!0}):(this.$a=new d(O,this.db),this.db.gb[O]=this.$a,{value:this.$a,done:!1})}catch(U){throw this.sb=ie(this.lb),this.ob(),U}finally{Gt(g)}},p.prototype.ob=function(){yt(this.fb),this.fb=null},p.prototype.Qb=function(){return this.sb!==null?this.sb:ie(this.lb)},typeof Symbol=="function"&&typeof Symbol.iterator=="symbol"&&(p.prototype[Symbol.iterator]=function(){return this}),f.prototype.run=function(g,k){if(!this.db)throw"Database closed";if(k){g=this.tb(g,k);try{g.step()}finally{g.Ya()}}else this.handleError(j(this.db,g,0,0,w));return this},f.prototype.exec=function(g,k,O){if(!this.db)throw"Database closed";var U=null,z=null,K=null;try{K=z=$t(g);var ye=He(4);for(g=[];Fe(K,"i8")!==0;){mt(w),mt(ye),this.handleError(Wr(this.db,K,-1,w,ye));var ge=Fe(w,"i32");if(K=Fe(ye,"i32"),ge!==0){var pe=null;for(U=new d(ge,this),k!=null&&U.bind(k);U.step();)pe===null&&(pe={columns:U.qb(),values:[]},g.push(pe)),pe.values.push(U.get(null,O));U.Ya()}}return g}catch(be){throw U&&U.Ya(),be}finally{z&&yt(z)}},f.prototype.Mb=function(g,k,O,U,z){typeof k=="function"&&(U=O,O=k,k=void 0),g=this.tb(g,k);try{for(;g.step();)O(g.zb(null,z))}finally{g.Ya()}if(typeof U=="function")return U()},f.prototype.tb=function(g,k){if(mt(w),this.handleError(le(this.db,g,-1,w,0)),g=Fe(w,"i32"),g===0)throw"Nothing to prepare";var O=new d(g,this);return k!=null&&O.bind(k),this.gb[g]=O},f.prototype.Ub=function(g){return new p(g,this)},f.prototype.Nb=function(){Object.values(this.gb).forEach(function(k){k.Ya()}),Object.values(this.Sa).forEach(Me),this.Sa={},this.handleError(X(this.db));var g=_i(this.filename);return this.handleError(G(this.filename,w)),this.db=Fe(w,"i32"),Xr(this.db),g},f.prototype.close=function(){this.db!==null&&(Object.values(this.gb).forEach(function(g){g.Ya()}),Object.values(this.Sa).forEach(Me),this.Sa={},this.Za&&(Me(this.Za),this.Za=void 0),this.handleError(X(this.db)),Ir("/"+this.filename),this.db=null)},f.prototype.handleError=function(g){if(g===0)return null;throw g=Ti(this.db),Error(g)},f.prototype.Rb=function(){return ne(this.db)},f.prototype.Kb=function(g,k){Object.prototype.hasOwnProperty.call(this.Sa,g)&&(Me(this.Sa[g]),delete this.Sa[g]);var O=gt(function(U,z,K){z=c(z,K);try{var ye=k.apply(null,z)}catch(ge){zt(U,ge,-1);return}a(U,ye)},"viii");return this.Sa[g]=O,this.handleError(Vr(this.db,g,k.length,1,0,O,0,0,0)),this},f.prototype.Jb=function(g,k){var O=k.init||function(){return null},U=k.finalize||function(pe){return pe},z=k.step;if(!z)throw"An aggregate function must have a step function in "+g;var K={};Object.hasOwnProperty.call(this.Sa,g)&&(Me(this.Sa[g]),delete this.Sa[g]),k=g+"__finalize",Object.hasOwnProperty.call(this.Sa,k)&&(Me(this.Sa[k]),delete this.Sa[k]);var ye=gt(function(pe,be,jn){var Ge=Yr(pe,1);Object.hasOwnProperty.call(K,Ge)||(K[Ge]=O()),be=c(be,jn),be=[K[Ge]].concat(be);try{K[Ge]=z.apply(null,be)}catch(Yi){delete K[Ge],zt(pe,Yi,-1)}},"viii"),ge=gt(function(pe){var be=Yr(pe,1);try{var jn=U(K[be])}catch(Ge){delete K[be],zt(pe,Ge,-1);return}a(pe,jn),delete K[be]},"vi");return this.Sa[g]=ye,this.Sa[k]=ge,this.handleError(Vr(this.db,g,z.length-1,1,0,0,ye,ge,0)),this},f.prototype.Zb=function(g){return this.Za&&(Kr(this.db,0,0),Me(this.Za),this.Za=void 0),g?(this.Za=gt(function(k,O,U,z,K){switch(O){case 18:k="insert";break;case 23:k="update";break;case 9:k="delete";break;default:throw"unknown operationCode in updateHook callback: "+O}if(U=ie(U),z=ie(z),K>Number.MAX_SAFE_INTEGER)throw"rowId too big to fit inside a Number";g(k,U,z,Number(K))},"viiiij"),Kr(this.db,this.Za,0),this):this},d.prototype.bind=d.prototype.bind,d.prototype.step=d.prototype.step,d.prototype.get=d.prototype.get,d.prototype.getColumnNames=d.prototype.qb,d.prototype.getAsObject=d.prototype.zb,d.prototype.getSQL=d.prototype.Sb,d.prototype.getNormalizedSQL=d.prototype.Pb,d.prototype.run=d.prototype.run,d.prototype.reset=d.prototype.reset,d.prototype.freemem=d.prototype.freemem,d.prototype.free=d.prototype.Ya,p.prototype.next=p.prototype.next,p.prototype.getRemainingSQL=p.prototype.Qb,f.prototype.run=f.prototype.run,f.prototype.exec=f.prototype.exec,f.prototype.each=f.prototype.Mb,f.prototype.prepare=f.prototype.tb,f.prototype.iterateStatements=f.prototype.Ub,f.prototype.export=f.prototype.Nb,f.prototype.close=f.prototype.close,f.prototype.handleError=f.prototype.handleError,f.prototype.getRowsModified=f.prototype.Rb,f.prototype.create_function=f.prototype.Kb,f.prototype.create_aggregate=f.prototype.Jb,f.prototype.updateHook=f.prototype.Zb,s.Database=f};var h="./this.program",m=(a,c)=>{throw c},_=globalThis.document?.currentScript?.src;typeof __filename<"u"?_=__filename:l&&(_=self.location.href);var T="",x,F;if(u){var v=require("node:fs");T=__dirname+"/",F=a=>(a=N(a)?new URL(a):a,v.readFileSync(a)),x=async a=>(a=N(a)?new URL(a):a,v.readFileSync(a,void 0)),1<process.argv.length&&(h=process.argv[1].replace(/\\/g,"/")),process.argv.slice(2),typeof We<"u"&&(We.exports=s),m=(a,c)=>{throw process.exitCode=a,c}}else if(o||l){try{T=new URL(".",_).href}catch{}l&&(F=a=>{var c=new XMLHttpRequest;return c.open("GET",a,!1),c.responseType="arraybuffer",c.send(null),new Uint8Array(c.response)}),x=async a=>{if(N(a))return new Promise((d,p)=>{var f=new XMLHttpRequest;f.open("GET",a,!0),f.responseType="arraybuffer",f.onload=()=>{f.status==200||f.status==0&&f.response?d(f.response):p(f.status)},f.onerror=p,f.send(null)});var c=await fetch(a,{credentials:"same-origin"});if(c.ok)return c.arrayBuffer();throw Error(c.status+" : "+c.url)}}var b=console.log.bind(console),y=console.error.bind(console),S,L=!1,ee,N=a=>a.startsWith("file://"),B,A,V,q,$,re,R,se;function Ve(){var a=jt.buffer;B=new Int8Array(a),V=new Int16Array(a),A=new Uint8Array(a),new Uint16Array(a),q=new Int32Array(a),$=new Uint32Array(a),re=new Float32Array(a),R=new Float64Array(a),se=new BigInt64Array(a),new BigUint64Array(a)}function ue(a){throw s.onAbort?.(a),a="Aborted("+a+")",y(a),L=!0,new WebAssembly.RuntimeError(a+". Build with -sASSERTIONS for more info.")}var Le;async function Ze(a){if(!S)try{var c=await x(a);return new Uint8Array(c)}catch{}if(a==Le&&S)a=new Uint8Array(S);else if(F)a=F(a);else throw"both async and sync fetching of the wasm failed";return a}async function ni(a,c){try{var d=await Ze(a);return await WebAssembly.instantiate(d,c)}catch(p){y(`failed to asynchronously prepare wasm: ${p}`),ue(p)}}async function ri(a){var c=Le;if(!S&&!N(c)&&!u)try{var d=fetch(c,{credentials:"same-origin"});return await WebAssembly.instantiateStreaming(d,a)}catch(p){y(`wasm streaming compile failed: ${p}`),y("falling back to ArrayBuffer instantiation")}return ni(c,a)}class Cn{name="ExitStatus";constructor(c){this.message=`Program terminated with exit(${c})`,this.status=c}}var ur=a=>{for(;0<a.length;)a.shift()(s)},pr=[],mr=[],si=()=>{var a=s.preRun.shift();mr.push(a)},Ue=0,pt=null;function Fe(a,c="i8"){switch(c.endsWith("*")&&(c="*"),c){case"i1":return B[a];case"i8":return B[a];case"i16":return V[a>>1];case"i32":return q[a>>2];case"i64":return se[a>>3];case"float":return re[a>>2];case"double":return R[a>>3];case"*":return $[a>>2];default:ue(`invalid type for getValue: ${c}`)}}var Mt=!0;function mt(a){var c="i32";switch(c.endsWith("*")&&(c="*"),c){case"i1":B[a]=0;break;case"i8":B[a]=0;break;case"i16":V[a>>1]=0;break;case"i32":q[a>>2]=0;break;case"i64":se[a>>3]=BigInt(0);break;case"float":re[a>>2]=0;break;case"double":R[a>>3]=0;break;case"*":$[a>>2]=0;break;default:ue(`invalid type for setValue: ${c}`)}}var fr=new TextDecoder,hr=(a,c,d,p)=>{if(d=c+d,p)return d;for(;a[c]&&!(c>=d);)++c;return c},ie=(a,c,d)=>a?fr.decode(A.subarray(a,hr(A,a,c,d))):"",_r=(a,c)=>{for(var d=0,p=a.length-1;0<=p;p--){var f=a[p];f==="."?a.splice(p,1):f===".."?(a.splice(p,1),d++):d&&(a.splice(p,1),d--)}if(c)for(;d;d--)a.unshift("..");return a},Tn=a=>{var c=a.charAt(0)==="/",d=a.slice(-1)==="/";return(a=_r(a.split("/").filter(p=>!!p),!c).join("/"))||c||(a="."),a&&d&&(a+="/"),(c?"/":"")+a},gr=a=>{var c=/^(\/?|)([\s\S]*?)((?:\.{1,2}|[^\/]+?|)(\.[^.\/]*|))(?:[\/]*)$/.exec(a).slice(1);return a=c[0],c=c[1],!a&&!c?".":(c&&=c.slice(0,-1),a+c)},At=a=>a&&a.match(/([^\/]+|\/)\/*$/)[1],ii=()=>{if(u){var a=require("node:crypto");return c=>a.randomFillSync(c)}return c=>crypto.getRandomValues(c)},yr=a=>{(yr=ii())(a)},oi=(...a)=>{for(var c="",d=!1,p=a.length-1;-1<=p&&!d;p--){if(d=0<=p?a[p]:"/",typeof d!="string")throw new TypeError("Arguments to path.resolve must be strings");if(!d)return"";c=d+"/"+c,d=d.charAt(0)==="/"}return c=_r(c.split("/").filter(f=>!!f),!d).join("/"),(d?"/":"")+c||"."},ft=a=>{var c=hr(a,0);return fr.decode(a.buffer?a.subarray(0,c):new Uint8Array(a.slice(0,c)))},Rn=[],Ye=a=>{for(var c=0,d=0;d<a.length;++d){var p=a.charCodeAt(d);127>=p?c++:2047>=p?c+=2:55296<=p&&57343>=p?(c+=4,++d):c+=3}return c},Se=(a,c,d,p)=>{if(!(0<p))return 0;var f=d;p=d+p-1;for(var w=0;w<a.length;++w){var E=a.codePointAt(w);if(127>=E){if(d>=p)break;c[d++]=E}else if(2047>=E){if(d+1>=p)break;c[d++]=192|E>>6,c[d++]=128|E&63}else if(65535>=E){if(d+2>=p)break;c[d++]=224|E>>12,c[d++]=128|E>>6&63,c[d++]=128|E&63}else{if(d+3>=p)break;c[d++]=240|E>>18,c[d++]=128|E>>12&63,c[d++]=128|E>>6&63,c[d++]=128|E&63,w++}}return c[d]=0,d-f},br=[];function wr(a,c){br[a]={input:[],output:[],eb:c},Dn(a,ai)}var ai={open(a){var c=br[a.node.rdev];if(!c)throw new I(43);a.tty=c,a.seekable=!1},close(a){a.tty.eb.fsync(a.tty)},fsync(a){a.tty.eb.fsync(a.tty)},read(a,c,d,p){if(!a.tty||!a.tty.eb.Bb)throw new I(60);for(var f=0,w=0;w<p;w++){try{var E=a.tty.eb.Bb(a.tty)}catch{throw new I(29)}if(E===void 0&&f===0)throw new I(6);if(E==null)break;f++,c[d+w]=E}return f&&(a.node.atime=Date.now()),f},write(a,c,d,p){if(!a.tty||!a.tty.eb.ub)throw new I(60);try{for(var f=0;f<p;f++)a.tty.eb.ub(a.tty,c[d+f])}catch{throw new I(29)}return p&&(a.node.mtime=a.node.ctime=Date.now()),f}},li={Bb(){e:{if(!Rn.length){var a=null;if(u){var c=Buffer.alloc(256),d=0,p=process.stdin.fd;try{d=v.readSync(p,c,0,256)}catch(f){if(f.toString().includes("EOF"))d=0;else throw f}0<d&&(a=c.slice(0,d).toString("utf-8"))}else globalThis.window?.prompt&&(a=window.prompt("Input: "),a!==null&&(a+=`
-`));if(!a){a=null;break e}c=Array(Ye(a)+1),a=Se(a,c,0,c.length),c.length=a,Rn=c}a=Rn.shift()}return a},ub(a,c){c===null||c===10?(b(ft(a.output)),a.output=[]):c!=0&&a.output.push(c)},fsync(a){0<a.output?.length&&(b(ft(a.output)),a.output=[])},hc(){return{bc:25856,dc:5,ac:191,cc:35387,$b:[3,28,127,21,4,0,1,0,17,19,26,0,18,15,23,22,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}},ic(){return 0},jc(){return[24,80]}},ci={ub(a,c){c===null||c===10?(y(ft(a.output)),a.output=[]):c!=0&&a.output.push(c)},fsync(a){0<a.output?.length&&(y(ft(a.output)),a.output=[])}},W={Wa:null,Xa(){return W.createNode(null,"/",16895,0)},createNode(a,c,d,p){if((d&61440)===24576||(d&61440)===4096)throw new I(63);return W.Wa||(W.Wa={dir:{node:{Ta:W.La.Ta,Ua:W.La.Ua,lookup:W.La.lookup,ib:W.La.ib,rename:W.La.rename,unlink:W.La.unlink,rmdir:W.La.rmdir,readdir:W.La.readdir,symlink:W.La.symlink},stream:{Va:W.Ma.Va}},file:{node:{Ta:W.La.Ta,Ua:W.La.Ua},stream:{Va:W.Ma.Va,read:W.Ma.read,write:W.Ma.write,jb:W.Ma.jb,kb:W.Ma.kb}},link:{node:{Ta:W.La.Ta,Ua:W.La.Ua,readlink:W.La.readlink},stream:{}},yb:{node:{Ta:W.La.Ta,Ua:W.La.Ua},stream:fi}}),d=Nr(a,c,d,p),de(d.mode)?(d.La=W.Wa.dir.node,d.Ma=W.Wa.dir.stream,d.Na={}):(d.mode&61440)===32768?(d.La=W.Wa.file.node,d.Ma=W.Wa.file.stream,d.Ra=0,d.Na=null):(d.mode&61440)===40960?(d.La=W.Wa.link.node,d.Ma=W.Wa.link.stream):(d.mode&61440)===8192&&(d.La=W.Wa.yb.node,d.Ma=W.Wa.yb.stream),d.atime=d.mtime=d.ctime=Date.now(),a&&(a.Na[c]=d,a.atime=a.mtime=a.ctime=d.atime),d},fc(a){return a.Na?a.Na.subarray?a.Na.subarray(0,a.Ra):new Uint8Array(a.Na):new Uint8Array(0)},La:{Ta(a){var c={};return c.dev=(a.mode&61440)===8192?a.id:1,c.ino=a.id,c.mode=a.mode,c.nlink=1,c.uid=0,c.gid=0,c.rdev=a.rdev,de(a.mode)?c.size=4096:(a.mode&61440)===32768?c.size=a.Ra:(a.mode&61440)===40960?c.size=a.link.length:c.size=0,c.atime=new Date(a.atime),c.mtime=new Date(a.mtime),c.ctime=new Date(a.ctime),c.blksize=4096,c.blocks=Math.ceil(c.size/c.blksize),c},Ua(a,c){for(var d of["mode","atime","mtime","ctime"])c[d]!=null&&(a[d]=c[d]);c.size!==void 0&&(c=c.size,a.Ra!=c&&(c==0?(a.Na=null,a.Ra=0):(d=a.Na,a.Na=new Uint8Array(c),d&&a.Na.set(d.subarray(0,Math.min(c,a.Ra))),a.Ra=c)))},lookup(){throw W.nb||(W.nb=new I(44),W.nb.stack="<generic error, no stack>"),W.nb},ib(a,c,d,p){return W.createNode(a,c,d,p)},rename(a,c,d){try{var p=Be(c,d)}catch{}if(p){if(de(a.mode))for(var f in p.Na)throw new I(55);Pn(p)}delete a.parent.Na[a.name],c.Na[d]=a,a.name=d,c.ctime=c.mtime=a.parent.ctime=a.parent.mtime=Date.now()},unlink(a,c){delete a.Na[c],a.ctime=a.mtime=Date.now()},rmdir(a,c){var d=Be(a,c),p;for(p in d.Na)throw new I(55);delete a.Na[c],a.ctime=a.mtime=Date.now()},readdir(a){return[".","..",...Object.keys(a.Na)]},symlink(a,c,d){return a=W.createNode(a,c,41471,0),a.link=d,a},readlink(a){if((a.mode&61440)!==40960)throw new I(28);return a.link}},Ma:{read(a,c,d,p,f){var w=a.node.Na;if(f>=a.node.Ra)return 0;if(a=Math.min(a.node.Ra-f,p),8<a&&w.subarray)c.set(w.subarray(f,f+a),d);else for(p=0;p<a;p++)c[d+p]=w[f+p];return a},write(a,c,d,p,f,w){if(c.buffer===B.buffer&&(w=!1),!p)return 0;if(a=a.node,a.mtime=a.ctime=Date.now(),c.subarray&&(!a.Na||a.Na.subarray)){if(w)return a.Na=c.subarray(d,d+p),a.Ra=p;if(a.Ra===0&&f===0)return a.Na=c.slice(d,d+p),a.Ra=p;if(f+p<=a.Ra)return a.Na.set(c.subarray(d,d+p),f),p}w=f+p;var E=a.Na?a.Na.length:0;if(E>=w||(w=Math.max(w,E*(1048576>E?2:1.125)>>>0),E!=0&&(w=Math.max(w,256)),E=a.Na,a.Na=new Uint8Array(w),0<a.Ra&&a.Na.set(E.subarray(0,a.Ra),0)),a.Na.subarray&&c.subarray)a.Na.set(c.subarray(d,d+p),f);else for(w=0;w<p;w++)a.Na[f+w]=c[d+w];return a.Ra=Math.max(a.Ra,f+p),p},Va(a,c,d){if(d===1?c+=a.position:d===2&&(a.node.mode&61440)===32768&&(c+=a.node.Ra),0>c)throw new I(28);return c},jb(a,c,d,p,f){if((a.node.mode&61440)!==32768)throw new I(43);if(a=a.node.Na,f&2||!a||a.buffer!==B.buffer){f=!0,p=65536*Math.ceil(c/65536);var w=$r(65536,p);if(w&&A.fill(0,w,w+p),p=w,!p)throw new I(48);a&&((0<d||d+c<a.length)&&(a.subarray?a=a.subarray(d,d+c):a=Array.prototype.slice.call(a,d,d+c)),B.set(a,p))}else f=!1,p=a.byteOffset;return{Xb:p,Eb:f}},kb(a,c,d,p){return W.Ma.write(a,c,0,p,d,!1),0}}},vr=(a,c)=>{var d=0;return a&&(d|=365),c&&(d|=146),d},In=null,Sr={},Xe=[],di=1,Re=null,xr=!1,Er=!0,I=class{name="ErrnoError";constructor(a){this.Pa=a}},ui=class{hb={};node=null;get flags(){return this.hb.flags}set flags(a){this.hb.flags=a}get position(){return this.hb.position}set position(a){this.hb.position=a}},pi=class{La={};Ma={};bb=null;constructor(a,c,d,p){a||=this,this.parent=a,this.Xa=a.Xa,this.id=di++,this.name=c,this.mode=d,this.rdev=p,this.atime=this.mtime=this.ctime=Date.now()}get read(){return(this.mode&365)===365}set read(a){a?this.mode|=365:this.mode&=-366}get write(){return(this.mode&146)===146}set write(a){a?this.mode|=146:this.mode&=-147}};function _e(a,c={}){if(!a)throw new I(44);c.pb??(c.pb=!0),a.charAt(0)==="/"||(a="//"+a);var d=0;e:for(;40>d;d++){a=a.split("/").filter(G=>!!G);for(var p=In,f="/",w=0;w<a.length;w++){var E=w===a.length-1;if(E&&c.parent)break;if(a[w]!==".")if(a[w]==="..")if(f=gr(f),p===p.parent){a=f+"/"+a.slice(w+1).join("/"),d--;continue e}else p=p.parent;else{f=Tn(f+"/"+a[w]);try{p=Be(p,a[w])}catch(G){if(G?.Pa===44&&E&&c.Wb)return{path:f};throw G}if(!p.bb||E&&!c.pb||(p=p.bb.root),(p.mode&61440)===40960&&(!E||c.ab)){if(!p.La.readlink)throw new I(52);p=p.La.readlink(p),p.charAt(0)==="/"||(p=gr(f)+"/"+p),a=p+"/"+a.slice(w+1).join("/");continue e}}}return{path:f,node:p}}throw new I(32)}function Mn(a){for(var c;;){if(a===a.parent)return a=a.Xa.Db,c?a[a.length-1]!=="/"?`${a}/${c}`:a+c:a;c=c?`${a.name}/${c}`:a.name,a=a.parent}}function An(a,c){for(var d=0,p=0;p<c.length;p++)d=(d<<5)-d+c.charCodeAt(p)|0;return(a+d>>>0)%Re.length}function Pn(a){var c=An(a.parent.id,a.name);if(Re[c]===a)Re[c]=a.cb;else for(c=Re[c];c;){if(c.cb===a){c.cb=a.cb;break}c=c.cb}}function Be(a,c){var d=de(a.mode)?(d=Ke(a,"x"))?d:a.La.lookup?0:2:54;if(d)throw new I(d);for(d=Re[An(a.id,c)];d;d=d.cb){var p=d.name;if(d.parent.id===a.id&&p===c)return d}return a.La.lookup(a,c)}function Nr(a,c,d,p){return a=new pi(a,c,d,p),c=An(a.parent.id,a.name),a.cb=Re[c],Re[c]=a}function de(a){return(a&61440)===16384}function Ke(a,c){return Er?0:c.includes("r")&&!(a.mode&292)||c.includes("w")&&!(a.mode&146)||c.includes("x")&&!(a.mode&73)?2:0}function kr(a,c){if(!de(a.mode))return 54;try{return Be(a,c),20}catch{}return Ke(a,"wx")}function Fr(a,c,d){try{var p=Be(a,c)}catch(f){return f.Pa}if(a=Ke(a,"wx"))return a;if(d){if(!de(p.mode))return 54;if(p===p.parent||Mn(p)==="/")return 10}else if(de(p.mode))return 31;return 0}function Pt(a){if(!a)throw new I(63);return a}function ce(a){if(a=Xe[a],!a)throw new I(8);return a}function Cr(a,c=-1){if(a=Object.assign(new ui,a),c==-1)e:{for(c=0;4096>=c;c++)if(!Xe[c])break e;throw new I(33)}return a.fd=c,Xe[c]=a}function mi(a,c=-1){return a=Cr(a,c),a.Ma?.ec?.(a),a}function On(a,c,d){var p=a?.Ma.Ua;a=p?a:c,p??=c.La.Ua,Pt(p),p(a,d)}var fi={open(a){a.Ma=Sr[a.node.rdev].Ma,a.Ma.open?.(a)},Va(){throw new I(70)}};function Dn(a,c){Sr[a]={Ma:c}}function Tr(a,c){var d=c==="/";if(d&&In)throw new I(10);if(!d&&c){var p=_e(c,{pb:!1});if(c=p.path,p=p.node,p.bb)throw new I(10);if(!de(p.mode))throw new I(54)}c={type:a,kc:{},Db:c,Vb:[]},a=a.Xa(c),a.Xa=c,c.root=a,d?In=a:p&&(p.bb=c,p.Xa&&p.Xa.Vb.push(c))}function Ot(a,c,d){var p=_e(a,{parent:!0}).node;if(a=At(a),!a)throw new I(28);if(a==="."||a==="..")throw new I(20);var f=kr(p,a);if(f)throw new I(f);if(!p.La.ib)throw new I(63);return p.La.ib(p,a,c,d)}function hi(a,c=438){return Ot(a,c&4095|32768,0)}function xe(a,c=511){return Ot(a,c&1023|16384,0)}function Dt(a,c,d){typeof d>"u"&&(d=c,c=438),Ot(a,c|8192,d)}function Ln(a,c){if(!oi(a))throw new I(44);var d=_e(c,{parent:!0}).node;if(!d)throw new I(44);c=At(c);var p=kr(d,c);if(p)throw new I(p);if(!d.La.symlink)throw new I(63);d.La.symlink(d,c,a)}function Rr(a){var c=_e(a,{parent:!0}).node;a=At(a);var d=Be(c,a),p=Fr(c,a,!0);if(p)throw new I(p);if(!c.La.rmdir)throw new I(63);if(d.bb)throw new I(10);c.La.rmdir(c,a),Pn(d)}function Ir(a){var c=_e(a,{parent:!0}).node;if(!c)throw new I(44);a=At(a);var d=Be(c,a),p=Fr(c,a,!1);if(p)throw new I(p);if(!c.La.unlink)throw new I(63);if(d.bb)throw new I(10);c.La.unlink(c,a),Pn(d)}function ht(a,c){return a=_e(a,{ab:!c}).node,Pt(a.La.Ta)(a)}function Mr(a,c,d,p){On(a,c,{mode:d&4095|c.mode&-4096,ctime:Date.now(),Lb:p})}function Lt(a,c){a=typeof a=="string"?_e(a,{ab:!0}).node:a,Mr(null,a,c)}function Ar(a,c,d){if(de(c.mode))throw new I(31);if((c.mode&61440)!==32768)throw new I(28);var p=Ke(c,"w");if(p)throw new I(p);On(a,c,{size:d,timestamp:Date.now()})}function Qe(a,c,d=438){if(a==="")throw new I(44);if(typeof c=="string"){var p={r:0,"r+":2,w:577,"w+":578,a:1089,"a+":1090}[c];if(typeof p>"u")throw Error(`Unknown file open mode: ${c}`);c=p}if(d=c&64?d&4095|32768:0,typeof a=="object")p=a;else{var f=a.endsWith("/"),w=_e(a,{ab:!(c&131072),Wb:!0});p=w.node,a=w.path}if(w=!1,c&64)if(p){if(c&128)throw new I(20)}else{if(f)throw new I(31);p=Ot(a,d|511,0),w=!0}if(!p)throw new I(44);if((p.mode&61440)===8192&&(c&=-513),c&65536&&!de(p.mode))throw new I(54);if(!w&&(p?(p.mode&61440)===40960?f=32:(f=["r","w","rw"][c&3],c&512&&(f+="w"),f=de(p.mode)&&(f!=="r"||c&576)?31:Ke(p,f)):f=44,f))throw new I(f);return c&512&&!w&&(f=p,f=typeof f=="string"?_e(f,{ab:!0}).node:f,Ar(null,f,0)),c=Cr({node:p,path:Mn(p),flags:c&-131713,seekable:!0,position:0,Ma:p.Ma,Yb:[],error:!1}),c.Ma.open&&c.Ma.open(c),w&&Lt(p,d&511),c}function Un(a){if(a.fd===null)throw new I(8);a.rb&&(a.rb=null);try{a.Ma.close&&a.Ma.close(a)}catch(c){throw c}finally{Xe[a.fd]=null}a.fd=null}function Pr(a,c,d){if(a.fd===null)throw new I(8);if(!a.seekable||!a.Ma.Va)throw new I(70);if(d!=0&&d!=1&&d!=2)throw new I(28);a.position=a.Ma.Va(a,c,d),a.Yb=[]}function Or(a,c,d,p,f){if(0>p||0>f)throw new I(28);if(a.fd===null)throw new I(8);if((a.flags&2097155)===1)throw new I(8);if(de(a.node.mode))throw new I(31);if(!a.Ma.read)throw new I(28);var w=typeof f<"u";if(!w)f=a.position;else if(!a.seekable)throw new I(70);return c=a.Ma.read(a,c,d,p,f),w||(a.position+=c),c}function Dr(a,c,d,p,f){if(0>p||0>f)throw new I(28);if(a.fd===null)throw new I(8);if(!(a.flags&2097155))throw new I(8);if(de(a.node.mode))throw new I(31);if(!a.Ma.write)throw new I(28);a.seekable&&a.flags&1024&&Pr(a,0,2);var w=typeof f<"u";if(!w)f=a.position;else if(!a.seekable)throw new I(70);return c=a.Ma.write(a,c,d,p,f,void 0),w||(a.position+=c),c}function _i(a){var c=c||0,d="binary";d!=="utf8"&&d!=="binary"&&ue(`Invalid encoding type "${d}"`),c=Qe(a,c),a=ht(a).size;var p=new Uint8Array(a);return Or(c,p,0,a,0),d==="utf8"&&(p=ft(p)),Un(c),p}function Ie(a,c,d){a=Tn("/dev/"+a);var p=vr(!!c,!!d);Ie.Cb??(Ie.Cb=64);var f=Ie.Cb++<<8|0;Dn(f,{open(w){w.seekable=!1},close(){d?.buffer?.length&&d(10)},read(w,E,G,X){for(var j=0,ne=0;ne<X;ne++){try{var le=c()}catch{throw new I(29)}if(le===void 0&&j===0)throw new I(6);if(le==null)break;j++,E[G+ne]=le}return j&&(w.node.atime=Date.now()),j},write(w,E,G,X){for(var j=0;j<X;j++)try{d(E[G+j])}catch{throw new I(29)}return X&&(w.node.mtime=w.node.ctime=Date.now()),j}}),Dt(a,p,f)}var te={};function qe(a,c,d){if(c.charAt(0)==="/")return c;if(a=a===-100?"/":ce(a).path,c.length==0){if(!d)throw new I(44);return a}return a+"/"+c}function Ut(a,c){$[a>>2]=c.dev,$[a+4>>2]=c.mode,$[a+8>>2]=c.nlink,$[a+12>>2]=c.uid,$[a+16>>2]=c.gid,$[a+20>>2]=c.rdev,se[a+24>>3]=BigInt(c.size),q[a+32>>2]=4096,q[a+36>>2]=c.blocks;var d=c.atime.getTime(),p=c.mtime.getTime(),f=c.ctime.getTime();return se[a+40>>3]=BigInt(Math.floor(d/1e3)),$[a+48>>2]=d%1e3*1e6,se[a+56>>3]=BigInt(Math.floor(p/1e3)),$[a+64>>2]=p%1e3*1e6,se[a+72>>3]=BigInt(Math.floor(f/1e3)),$[a+80>>2]=f%1e3*1e6,se[a+88>>3]=BigInt(c.ino),0}var Bt=void 0,qt=()=>{var a=q[+Bt>>2];return Bt+=4,a},Bn=0,gi=[0,31,60,91,121,152,182,213,244,274,305,335],yi=[0,31,59,90,120,151,181,212,243,273,304,334],_t={},Lr=a=>{ee=a,Mt||0<Bn||(s.onExit?.(a),L=!0),m(a,new Cn(a))},bi=a=>{if(!L)try{a()}catch(c){c instanceof Cn||c=="unwind"||m(1,c)}finally{if(!(Mt||0<Bn))try{ee=a=ee,Lr(a)}catch(c){c instanceof Cn||c=="unwind"||m(1,c)}}},qn={},Ur=()=>{if(!$n){var a={USER:"web_user",LOGNAME:"web_user",PATH:"/",PWD:"/",HOME:"/home/web_user",LANG:(globalThis.navigator?.language??"C").replace("-","_")+".UTF-8",_:h||"./this.program"},c;for(c in qn)qn[c]===void 0?delete a[c]:a[c]=qn[c];var d=[];for(c in a)d.push(`${c}=${a[c]}`);$n=d}return $n},$n,wi=(a,c,d,p)=>{var f={string:j=>{var ne=0;if(j!=null&&j!==0){ne=Ye(j)+1;var le=He(ne);Se(j,A,le,ne),ne=le}return ne},array:j=>{var ne=He(j.length);return B.set(j,ne),ne}};a=s["_"+a];var w=[],E=0;if(p)for(var G=0;G<p.length;G++){var X=f[d[G]];X?(E===0&&(E=Wt()),w[G]=X(p[G])):w[G]=p[G]}return d=a(...w),d=function(j){return E!==0&&Gt(E),c==="string"?ie(j):c==="boolean"?!!j:j}(d)},$t=a=>{var c=Ye(a)+1,d=Ht(c);return d&&Se(a,A,d,c),d},$e,Hn=[],Me=a=>{$e.delete(Ae.get(a)),Ae.set(a,null),Hn.push(a)},Br=a=>{let c=a.length;return[c%128|128,c>>7,...a]},vi={i:127,p:127,j:126,f:125,d:124,e:111},qr=a=>Br(Array.from(a,c=>vi[c])),gt=(a,c)=>{if(!$e){$e=new WeakMap;var d=Ae.length;if($e)for(var p=0;p<0+d;p++){var f=Ae.get(p);f&&$e.set(f,p)}}if(d=$e.get(a)||0)return d;d=Hn.length?Hn.pop():Ae.grow(1);try{Ae.set(d,a)}catch(w){if(!(w instanceof TypeError))throw w;c=Uint8Array.of(0,97,115,109,1,0,0,0,1,...Br([1,96,...qr(c.slice(1)),...qr(c[0]==="v"?"":c[0])]),2,7,1,1,101,1,102,0,0,7,5,1,1,102,0,0),c=new WebAssembly.Module(c),c=new WebAssembly.Instance(c,{e:{f:a}}).exports.f,Ae.set(d,c)}return $e.set(a,d),d};if(Re=Array(4096),Tr(W,"/"),xe("/tmp"),xe("/home"),xe("/home/web_user"),function(){xe("/dev"),Dn(259,{read:()=>0,write:(p,f,w,E)=>E,Va:()=>0}),Dt("/dev/null",259),wr(1280,li),wr(1536,ci),Dt("/dev/tty",1280),Dt("/dev/tty1",1536);var a=new Uint8Array(1024),c=0,d=()=>(c===0&&(yr(a),c=a.byteLength),a[--c]);Ie("random",d),Ie("urandom",d),xe("/dev/shm"),xe("/dev/shm/tmp")}(),function(){xe("/proc");var a=xe("/proc/self");xe("/proc/self/fd"),Tr({Xa(){var c=Nr(a,"fd",16895,73);return c.Ma={Va:W.Ma.Va},c.La={lookup(d,p){d=+p;var f=ce(d);return d={parent:null,Xa:{Db:"fake"},La:{readlink:()=>f.path},id:d+1},d.parent=d},readdir(){return Array.from(Xe.entries()).filter(([,d])=>d).map(([d])=>d.toString())}},c}},"/proc/self/fd")}(),s.noExitRuntime&&(Mt=s.noExitRuntime),s.print&&(b=s.print),s.printErr&&(y=s.printErr),s.wasmBinary&&(S=s.wasmBinary),s.thisProgram&&(h=s.thisProgram),s.preInit)for(typeof s.preInit=="function"&&(s.preInit=[s.preInit]);0<s.preInit.length;)s.preInit.shift()();s.stackSave=()=>Wt(),s.stackRestore=a=>Gt(a),s.stackAlloc=a=>He(a),s.cwrap=(a,c,d,p)=>{var f=!d||d.every(w=>w==="number"||w==="boolean");return c!=="string"&&f&&!p?s["_"+a]:(...w)=>wi(a,c,d,w)},s.addFunction=gt,s.removeFunction=Me,s.UTF8ToString=ie,s.stringToNewUTF8=$t,s.writeArrayToMemory=(a,c)=>{B.set(a,c)};var Ht,yt,$r,Hr,Gt,He,Wt,jt,Ae,Si={a:(a,c,d,p)=>ue(`Assertion failed: ${ie(a)}, at: `+[c?ie(c):"unknown filename",d,p?ie(p):"unknown function"]),i:function(a,c){try{return a=ie(a),Lt(a,c),0}catch(d){if(typeof te>"u"||d.name!=="ErrnoError")throw d;return-d.Pa}},L:function(a,c,d){try{if(c=ie(c),c=qe(a,c),d&-8)return-28;var p=_e(c,{ab:!0}).node;return p?(a="",d&4&&(a+="r"),d&2&&(a+="w"),d&1&&(a+="x"),a&&Ke(p,a)?-2:0):-44}catch(f){if(typeof te>"u"||f.name!=="ErrnoError")throw f;return-f.Pa}},j:function(a,c){try{var d=ce(a);return Mr(d,d.node,c,!1),0}catch(p){if(typeof te>"u"||p.name!=="ErrnoError")throw p;return-p.Pa}},h:function(a){try{var c=ce(a);return On(c,c.node,{timestamp:Date.now(),Lb:!1}),0}catch(d){if(typeof te>"u"||d.name!=="ErrnoError")throw d;return-d.Pa}},b:function(a,c,d){Bt=d;try{var p=ce(a);switch(c){case 0:var f=qt();if(0>f)break;for(;Xe[f];)f++;return mi(p,f).fd;case 1:case 2:return 0;case 3:return p.flags;case 4:return f=qt(),p.flags|=f,0;case 12:return f=qt(),V[f+0>>1]=2,0;case 13:case 14:return 0}return-28}catch(w){if(typeof te>"u"||w.name!=="ErrnoError")throw w;return-w.Pa}},g:function(a,c){try{var d=ce(a),p=d.node,f=d.Ma.Ta;a=f?d:p,f??=p.La.Ta,Pt(f);var w=f(a);return Ut(c,w)}catch(E){if(typeof te>"u"||E.name!=="ErrnoError")throw E;return-E.Pa}},H:function(a,c){c=-9007199254740992>c||9007199254740992<c?NaN:Number(c);try{if(isNaN(c))return-61;var d=ce(a);if(0>c||!(d.flags&2097155))throw new I(28);return Ar(d,d.node,c),0}catch(p){if(typeof te>"u"||p.name!=="ErrnoError")throw p;return-p.Pa}},G:function(a,c){try{if(c===0)return-28;var d=Ye("/")+1;return c<d?-68:(Se("/",A,a,c),d)}catch(p){if(typeof te>"u"||p.name!=="ErrnoError")throw p;return-p.Pa}},K:function(a,c){try{return a=ie(a),Ut(c,ht(a,!0))}catch(d){if(typeof te>"u"||d.name!=="ErrnoError")throw d;return-d.Pa}},C:function(a,c,d){try{return c=ie(c),c=qe(a,c),xe(c,d),0}catch(p){if(typeof te>"u"||p.name!=="ErrnoError")throw p;return-p.Pa}},J:function(a,c,d,p){try{c=ie(c);var f=p&256;return c=qe(a,c,p&4096),Ut(d,f?ht(c,!0):ht(c))}catch(w){if(typeof te>"u"||w.name!=="ErrnoError")throw w;return-w.Pa}},x:function(a,c,d,p){Bt=p;try{c=ie(c),c=qe(a,c);var f=p?qt():0;return Qe(c,d,f).fd}catch(w){if(typeof te>"u"||w.name!=="ErrnoError")throw w;return-w.Pa}},v:function(a,c,d,p){try{if(c=ie(c),c=qe(a,c),0>=p)return-28;var f=_e(c).node;if(!f)throw new I(44);if(!f.La.readlink)throw new I(28);var w=f.La.readlink(f),E=Math.min(p,Ye(w)),G=B[d+E];return Se(w,A,d,p+1),B[d+E]=G,E}catch(X){if(typeof te>"u"||X.name!=="ErrnoError")throw X;return-X.Pa}},u:function(a){try{return a=ie(a),Rr(a),0}catch(c){if(typeof te>"u"||c.name!=="ErrnoError")throw c;return-c.Pa}},f:function(a,c){try{return a=ie(a),Ut(c,ht(a))}catch(d){if(typeof te>"u"||d.name!=="ErrnoError")throw d;return-d.Pa}},r:function(a,c,d){try{if(c=ie(c),c=qe(a,c),d)if(d===512)Rr(c);else return-28;else Ir(c);return 0}catch(p){if(typeof te>"u"||p.name!=="ErrnoError")throw p;return-p.Pa}},q:function(a,c,d){try{c=ie(c),c=qe(a,c,!0);var p=Date.now(),f,w;if(d){var E=$[d>>2]+4294967296*q[d+4>>2],G=q[d+8>>2];G==1073741823?f=p:G==1073741822?f=null:f=1e3*E+G/1e6,d+=16,E=$[d>>2]+4294967296*q[d+4>>2],G=q[d+8>>2],G==1073741823?w=p:G==1073741822?w=null:w=1e3*E+G/1e6}else w=f=p;if((w??f)!==null){a=f;var X=_e(c,{ab:!0}).node;Pt(X.La.Ua)(X,{atime:a,mtime:w})}return 0}catch(j){if(typeof te>"u"||j.name!=="ErrnoError")throw j;return-j.Pa}},m:()=>ue(""),l:()=>{Mt=!1,Bn=0},A:function(a,c){a=-9007199254740992>a||9007199254740992<a?NaN:Number(a),a=new Date(1e3*a),q[c>>2]=a.getSeconds(),q[c+4>>2]=a.getMinutes(),q[c+8>>2]=a.getHours(),q[c+12>>2]=a.getDate(),q[c+16>>2]=a.getMonth(),q[c+20>>2]=a.getFullYear()-1900,q[c+24>>2]=a.getDay();var d=a.getFullYear();q[c+28>>2]=(d%4!==0||d%100===0&&d%400!==0?yi:gi)[a.getMonth()]+a.getDate()-1|0,q[c+36>>2]=-(60*a.getTimezoneOffset()),d=new Date(a.getFullYear(),6,1).getTimezoneOffset();var p=new Date(a.getFullYear(),0,1).getTimezoneOffset();q[c+32>>2]=(d!=p&&a.getTimezoneOffset()==Math.min(p,d))|0},y:function(a,c,d,p,f,w,E){f=-9007199254740992>f||9007199254740992<f?NaN:Number(f);try{var G=ce(p);if(c&2&&!(d&2)&&(G.flags&2097155)!==2)throw new I(2);if((G.flags&2097155)===1)throw new I(2);if(!G.Ma.jb)throw new I(43);if(!a)throw new I(28);var X=G.Ma.jb(G,a,f,c,d),j=X.Xb;return q[w>>2]=X.Eb,$[E>>2]=j,0}catch(ne){if(typeof te>"u"||ne.name!=="ErrnoError")throw ne;return-ne.Pa}},z:function(a,c,d,p,f,w){w=-9007199254740992>w||9007199254740992<w?NaN:Number(w);try{var E=ce(f);if(d&2){if(d=w,(E.node.mode&61440)!==32768)throw new I(43);if(!(p&2)){var G=A.slice(a,a+c);E.Ma.kb&&E.Ma.kb(E,G,d,c,p)}}}catch(X){if(typeof te>"u"||X.name!=="ErrnoError")throw X;return-X.Pa}},n:(a,c)=>{if(_t[a]&&(clearTimeout(_t[a].id),delete _t[a]),!c)return 0;var d=setTimeout(()=>{delete _t[a],bi(()=>Hr(a,performance.now()))},c);return _t[a]={id:d,lc:c},0},B:(a,c,d,p)=>{var f=new Date().getFullYear(),w=new Date(f,0,1).getTimezoneOffset();f=new Date(f,6,1).getTimezoneOffset(),$[a>>2]=60*Math.max(w,f),q[c>>2]=+(w!=f),c=E=>{var G=Math.abs(E);return`UTC${0<=E?"-":"+"}${String(Math.floor(G/60)).padStart(2,"0")}${String(G%60).padStart(2,"0")}`},a=c(w),c=c(f),f<w?(Se(a,A,d,17),Se(c,A,p,17)):(Se(a,A,p,17),Se(c,A,d,17))},d:()=>Date.now(),s:()=>2147483648,c:()=>performance.now(),o:a=>{var c=A.length;if(a>>>=0,2147483648<a)return!1;for(var d=1;4>=d;d*=2){var p=c*(1+.2/d);p=Math.min(p,a+100663296);e:{p=(Math.min(2147483648,65536*Math.ceil(Math.max(a,p)/65536))-jt.buffer.byteLength+65535)/65536|0;try{jt.grow(p),Ve();var f=1;break e}catch{}f=void 0}if(f)return!0}return!1},E:(a,c)=>{var d=0,p=0,f;for(f of Ur()){var w=c+d;$[a+p>>2]=w,d+=Se(f,A,w,1/0)+1,p+=4}return 0},F:(a,c)=>{var d=Ur();$[a>>2]=d.length,a=0;for(var p of d)a+=Ye(p)+1;return $[c>>2]=a,0},e:function(a){try{var c=ce(a);return Un(c),0}catch(d){if(typeof te>"u"||d.name!=="ErrnoError")throw d;return d.Pa}},p:function(a,c){try{var d=ce(a);return B[c]=d.tty?2:de(d.mode)?3:(d.mode&61440)===40960?7:4,V[c+2>>1]=0,se[c+8>>3]=BigInt(0),se[c+16>>3]=BigInt(0),0}catch(p){if(typeof te>"u"||p.name!=="ErrnoError")throw p;return p.Pa}},w:function(a,c,d,p){try{e:{var f=ce(a);a=c;for(var w,E=c=0;E<d;E++){var G=$[a>>2],X=$[a+4>>2];a+=8;var j=Or(f,B,G,X,w);if(0>j){var ne=-1;break e}if(c+=j,j<X)break;typeof w<"u"&&(w+=j)}ne=c}return $[p>>2]=ne,0}catch(le){if(typeof te>"u"||le.name!=="ErrnoError")throw le;return le.Pa}},D:function(a,c,d,p){c=-9007199254740992>c||9007199254740992<c?NaN:Number(c);try{if(isNaN(c))return 61;var f=ce(a);return Pr(f,c,d),se[p>>3]=BigInt(f.position),f.rb&&c===0&&d===0&&(f.rb=null),0}catch(w){if(typeof te>"u"||w.name!=="ErrnoError")throw w;return w.Pa}},I:function(a){try{var c=ce(a);return c.Ma?.fsync?.(c)}catch(d){if(typeof te>"u"||d.name!=="ErrnoError")throw d;return d.Pa}},t:function(a,c,d,p){try{e:{var f=ce(a);a=c;for(var w,E=c=0;E<d;E++){var G=$[a>>2],X=$[a+4>>2];a+=8;var j=Dr(f,B,G,X,w);if(0>j){var ne=-1;break e}if(c+=j,j<X)break;typeof w<"u"&&(w+=j)}ne=c}return $[p>>2]=ne,0}catch(le){if(typeof te>"u"||le.name!=="ErrnoError")throw le;return le.Pa}},k:Lr};function Gn(){function a(){if(s.calledRun=!0,!L){if(!s.noFSInit&&!xr){var c,d;xr=!0,c??=s.stdin,d??=s.stdout,p??=s.stderr,c?Ie("stdin",c):Ln("/dev/tty","/dev/stdin"),d?Ie("stdout",null,d):Ln("/dev/tty","/dev/stdout"),p?Ie("stderr",null,p):Ln("/dev/tty1","/dev/stderr"),Qe("/dev/stdin",0),Qe("/dev/stdout",1),Qe("/dev/stderr",1)}if(Wn.N(),Er=!1,s.onRuntimeInitialized?.(),s.postRun)for(typeof s.postRun=="function"&&(s.postRun=[s.postRun]);s.postRun.length;){var p=s.postRun.shift();pr.push(p)}ur(pr)}}if(0<Ue)pt=Gn;else{if(s.preRun)for(typeof s.preRun=="function"&&(s.preRun=[s.preRun]);s.preRun.length;)si();ur(mr),0<Ue?pt=Gn:s.setStatus?(s.setStatus("Running..."),setTimeout(()=>{setTimeout(()=>s.setStatus(""),1),a()},1)):a()}}var Wn;return async function(){function a(d){return d=Wn=d.exports,s._sqlite3_free=d.P,s._sqlite3_value_text=d.Q,s._sqlite3_prepare_v2=d.R,s._sqlite3_step=d.S,s._sqlite3_reset=d.T,s._sqlite3_exec=d.U,s._sqlite3_finalize=d.V,s._sqlite3_column_name=d.W,s._sqlite3_column_text=d.X,s._sqlite3_column_type=d.Y,s._sqlite3_errmsg=d.Z,s._sqlite3_clear_bindings=d._,s._sqlite3_value_blob=d.$,s._sqlite3_value_bytes=d.aa,s._sqlite3_value_double=d.ba,s._sqlite3_value_int=d.ca,s._sqlite3_value_type=d.da,s._sqlite3_result_blob=d.ea,s._sqlite3_result_double=d.fa,s._sqlite3_result_error=d.ga,s._sqlite3_result_int=d.ha,s._sqlite3_result_int64=d.ia,s._sqlite3_result_null=d.ja,s._sqlite3_result_text=d.ka,s._sqlite3_aggregate_context=d.la,s._sqlite3_column_count=d.ma,s._sqlite3_data_count=d.na,s._sqlite3_column_blob=d.oa,s._sqlite3_column_bytes=d.pa,s._sqlite3_column_double=d.qa,s._sqlite3_bind_blob=d.ra,s._sqlite3_bind_double=d.sa,s._sqlite3_bind_int=d.ta,s._sqlite3_bind_text=d.ua,s._sqlite3_bind_parameter_index=d.va,s._sqlite3_sql=d.wa,s._sqlite3_normalized_sql=d.xa,s._sqlite3_changes=d.ya,s._sqlite3_close_v2=d.za,s._sqlite3_create_function_v2=d.Aa,s._sqlite3_update_hook=d.Ba,s._sqlite3_open=d.Ca,Ht=s._malloc=d.Da,yt=s._free=d.Ea,s._RegisterExtensionFunctions=d.Fa,$r=d.Ga,Hr=d.Ha,Gt=d.Ia,He=d.Ja,Wt=d.Ka,jt=d.M,Ae=d.O,Ve(),Ue--,s.monitorRunDependencies?.(Ue),Ue==0&&pt&&(d=pt,pt=null,d()),Wn}Ue++,s.monitorRunDependencies?.(Ue);var c={a:Si};return s.instantiateWasm?new Promise(d=>{s.instantiateWasm(c,(p,f)=>{d(a(p,f))})}):(Le??=s.locateFile?s.locateFile("sql-wasm.wasm",T):T+"sql-wasm.wasm",a((await ri(c)).instance))}(),Gn(),n}),yn)};typeof wn=="object"&&typeof We=="object"?(We.exports=bn,We.exports.default=bn):typeof define=="function"&&define.amd?define([],function(){return bn}):typeof wn=="object"&&(wn.Module=bn)});var Sa={};to(Sa,{activate:()=>sa,deactivate:()=>va});module.exports=no(Sa);var M=Ee(require("vscode")),Y=Ee(require("path")),ke=Ee(require("fs/promises")),ze=require("fs"),cr=require("worker_threads");var H=Ee(require("vscode")),Vn=Ee(require("path"));var me=Ee(require("vscode"));var ro=new Set(["add","the","a","an","to","in","of","for","and","or","with","on","this","that","into","from","using","use","make","new","fix","implement","create","change","update","remove","delete","need","want","should","would","can","code","project","file","files","how","what","where","which","when","why","do","does","is","are","be","by","as","at","it","we","you","i","me"]);function so(i){if(!i)return[];let e=i.replace(/([a-z0-9])([A-Z])/g,"$1 $2").replace(/([A-Z]+)([A-Z][a-z])/g,"$1 $2").toLowerCase().split(/[^a-z0-9]+/).filter(t=>t.length>1&&!ro.has(t));return[...new Set(e)]}function Zt(i,e,t=10){let n=so(e);if(n.length===0)return{task:e,files:[],note:'Could not extract meaningful keywords from the task. Try a more specific description (e.g. "add oauth login").'};let r=i.getAllNodes(),s=Math.max(r.length,1),o=new Map,l=v=>{let b=o.get(v);return b||(b={score:0,symbols:new Map,docHits:[]},o.set(v,b)),b},u=new Map;for(let v of n){let b=new Set;for(let y of i.searchSymbols(v))b.add(y.nodeId);for(let y of r)(y.name.toLowerCase().includes(v)||y.id.toLowerCase().includes(v))&&b.add(y.id);for(let y of i.searchDocs(v,50))b.add(y.fileId);u.set(v,b.size)}let h=v=>{let b=u.get(v)||0;return 1+Math.log(s/(1+b))};for(let v of n){let b=h(v);for(let y of i.searchSymbols(v)){let S=y.name.toLowerCase()===v,L=l(y.nodeId);L.score+=(S?10:5)*b,L.symbols.has(y.name)||L.symbols.set(y.name,{symbol:y.name,kind:y.kind,line:y.line,visibility:y.visibility})}}for(let v of n){let b=h(v);for(let y of r){let S=y.name.toLowerCase(),L=y.id.toLowerCase();S===v?l(y.id).score+=8*b:S.includes(v)?l(y.id).score+=6*b:L.includes(v)&&(l(y.id).score+=4*b)}}for(let v of n){let b=h(v);for(let y of i.searchDocs(v,20)){let S=l(y.fileId);S.score+=3*b,S.docHits.length<5&&S.docHits.push({section:y.section,line:y.lineStart,excerpt:y.content.slice(0,200)})}}let m=1,_=1;for(let v of r)v.fan_in>m&&(m=v.fan_in),v.last_modified>_&&(_=v.last_modified);let T=new Map(r.map(v=>[v.id,v]));for(let[v,b]of o){let y=T.get(v);y&&(b.score+=5*(y.fan_in/m),b.score+=2*(y.last_modified/_))}let F=[...o.entries()].map(([v,b])=>({file:v,a:b})).sort((v,b)=>b.a.score-v.a.score||v.file.localeCompare(b.file)).slice(0,t).map(({file:v,a:b})=>{let y=i.getNodeDetail(v);return{file:v,score:Math.round(b.score*100)/100,metrics:y?{language:y.language,lines:y.lines,complexity:y.complexity,fan_in:y.fan_in,fan_out:y.fan_out}:void 0,anchors:[...b.symbols.values()],doc_hits:b.docHits,neighborhood:y?{dependencies:y.dependencies.slice(0,12),dependents:y.dependents.slice(0,12)}:void 0}});return{task:e,files:F,note:"Deterministic ranking: symbol matches (\xD710 exact / \xD75 substring), filename (\xD78/\xD76/\xD74), docs (\xD73), weighted by token frequency (IDF), plus fan_in and recency. No LLM involved."}}var io=[30,90,365],oo=90,ao=20;function et(i){return typeof i=="number"&&io.indexOf(i)!==-1?i:oo}function Je(i){let e=i.slice().sort((t,n)=>t-n);return t=>{let n=e.length;if(n===0)return 0;let r=0,s=n;for(;r<s;){let _=r+s>>1;e[_]<t?r=_+1:s=_}let o=r,l=o,u=n;for(;l<u;){let _=l+u>>1;e[_]<=t?l=_+1:u=_}let h=l-o,m=n-h;return m<=0?0:Math.min(1,o/m)}}function es(i,e){let t=[],n=[],r=[],s=[];for(let o of i)t.push(o.complexity||0),n.push(o.fanIn||0),r.push(o.fanOut||0),s.push(e(o)||0);return{complexity:Je(t),fanIn:Je(n),fanOut:Je(r),churn:Je(s)}}function bt(i){let e=Math.round((1-i)*100);return e<=0?"the highest":e>=100?null:"top "+e+"%"}var lo=66,co=33;function ts(i){return i>=lo?"high":i>=co?"medium":"low"}function ns(i,e,t){let n=i.complexity||0,r=i.fanIn||0,s=i.fanOut||0,o=e?e.complexity(n):Math.min(n/50,1),l=e?e.fanIn(r):Math.min(r/20,1),u=e?e.fanOut(s):Math.min(s/30,1),h=e?e.churn(t):Math.min(t/ao,1),m=i.cycleIds&&i.cycleIds.length>0?1:0,_=i.symbols&&i.symbols.totalSymbols||0,T=i.deadExports&&i.deadExports.length||0,x=_>0?Math.min(T/_,1):0;return 100*(.3*o+.2*l+.1*u+.15*m+.15*x+.1*h)}function rs(i,e,t){let n=[],r=i.complexity||0,s=i.fanIn||0,o=i.fanOut||0,l=t.churn||0,u=i.symbols&&i.symbols.totalSymbols||0,h=i.deadExports&&i.deadExports.length||0,m=t.authorCount||0,_;if(r>0){let T=e?e.complexity(r):0;_=bt(T),n.push({weight:.3*T,text:"complexity "+r+(_?" ("+_+" of the repo)":"")})}if(s>0){let T=e?e.fanIn(s):0;_=bt(T),n.push({weight:.2*T,text:s+(s===1?" file depends on it":" files depend on it")+(_?" ("+_+")":"")})}if(l>0){let T=e?e.churn(l):0;_=bt(T),n.push({weight:.1*T,text:"changed "+l+" time"+(l===1?"":"s")+" in "+t.windowDays+" days"+(_?" ("+_+")":"")})}if(o>0){let T=e?e.fanOut(o):0;n.push({weight:.1*T,text:"depends on "+o+" file"+(o===1?"":"s")})}if(i.cycleIds&&i.cycleIds.length>0&&n.push({weight:.15,text:"in a dependency cycle"}),h>0){let T=u>0?h/u:0;n.push({weight:.15*T,text:h+" unused symbol"+(h===1?"":"s")+" of "+u})}return m===1?n.push({weight:0,text:"single author"}):m>1&&n.push({weight:0,text:m+" authors"}),n.sort((T,x)=>x.weight-T.weight),n}function ss(i){let e=new Map;for(let n of i)for(let r of n.files||[])r.status==="R"&&r.oldPath&&r.path&&r.oldPath!==r.path&&!e.has(r.oldPath)&&e.set(r.oldPath,r.path);let t=new Map;return n=>{let r=t.get(n);if(r!==void 0)return r;let s=n,o=new Set([s]);for(;e.has(s);){let l=e.get(s);if(o.has(l))break;o.add(l),s=l}return t.set(n,s),s}}function is(i,e,t,n=Date.now()){let s=n-t*864e5,o=ss(e),l=new Map;for(let b of e){let y=new Date(b.date).getTime();isNaN(y)&&(y=0);let S=y>=s,L=b.author||"unknown";for(let ee of b.files||[]){let N=ee.path;if(!N)continue;let B=o(N),A=l.get(B);A||(A={commits:0,authors:new Set},l.set(B,A)),S&&A.commits++,A.authors.add(L)}}let u=b=>{let y=b.id,S=b.path,L=y?l.get(y):void 0,ee=S?l.get(S):void 0;return(L?L.commits:0)||(ee?ee.commits:0)},h=b=>(b.id?l.get(b.id):void 0)||(b.path?l.get(b.path):void 0),m=es(i,u),_=[];for(let b of i)_.push({node:b,score:ns(b,m,u(b))});let T=Je(_.map(b=>b.score)),x=new Map,F=new Set,v=0;for(let b of _){v+=b.score;let y=h(b.node),S=T(b.score),L={id:b.node.id,score:b.score,scorePct:S,topLabel:bt(S),bucket:ts(b.score),reasons:rs(b.node,m,{windowDays:t,churn:u(b.node),authorCount:y?y.authors.size:0}),lines:b.node.linesOfCode||0,complexity:b.node.complexity||0,fanIn:b.node.fanIn||0,fanOut:b.node.fanOut||0};x.set(b.node.id,L),L.bucket==="high"&&F.add(b.node.id)}return{windowDays:t,byId:x,highIds:F,avgScore:_.length?v/_.length:0}}function Yt(i,e){let t=Array.from(i.byId.values()).sort((n,r)=>r.score-n.score).slice(0,Math.max(1,Math.round(e)));return{sort:"risk",window_days:i.windowDays,total:t.length,hotspots:t.map(n=>({file:n.id,risk_score:Math.round(n.score*10)/10,bucket:n.bucket,top:n.topLabel,reasons:n.reasons.map(r=>r.text),lines:n.lines,complexity:n.complexity,fan_in:n.fanIn,fan_out:n.fanOut}))}}var os="You are Aura, the code architecture assistant of the Aura 3D Visualizer extension. You have access to tools that query the analyzed codebase. ALWAYS call the relevant tool(s) when the question is about the codebase (files, dependencies, orphan files, cycles, dead code, hotspots, symbols, architecture, documentation). Answer ONLY from the tool results \u2014 never guess or invent files. When citing files, use the format `path/to/file.ts:line`. If a tool returns no results, say so honestly instead of guessing.",uo=[{name:"aura_resolve_context",description:"Given a natural-language task description, return the most relevant files in the codebase, ranked, with path:line anchors and metrics.",inputSchema:{type:"object",properties:{task:{type:"string",description:'Task description, e.g. "add oauth login"'},limit:{type:"number",description:"Maximum files to return (default 8)"}},required:["task"]}},{name:"aura_find_orphan_files",description:"Return files that nothing imports (fan_in = 0). These are orphan or entry-point files. Use this to answer questions about orphaned, isolated or unused files.",inputSchema:{type:"object",properties:{limit:{type:"number",description:"Maximum files to return (default 100)"}}}},{name:"aura_find_cycles",description:"Return all circular dependency cycles between files in the codebase.",inputSchema:{type:"object",properties:{}}},{name:"aura_find_dead_code",description:"Return exported symbols that are never imported or called anywhere (dead code).",inputSchema:{type:"object",properties:{}}},{name:"aura_get_hotspots",description:"Return the most at-risk files, ranked by Aura's repository-relative risk score (percentile-based, with written reasons). NOT for line counts \u2014 use aura_get_largest_files for that.",inputSchema:{type:"object",properties:{limit:{type:"number",description:"Maximum files (default 20)"}}}},{name:"aura_get_largest_files",description:"Return the files with the most lines of code, sorted by descending line count, including their complexity. Use this for questions about the largest / biggest files.",inputSchema:{type:"object",properties:{limit:{type:"number",description:"Maximum files (default 20)"}}}},{name:"aura_find_path",description:"Find the shortest dependency path between two files.",inputSchema:{type:"object",properties:{from:{type:"string",description:"Source file path"},to:{type:"string",description:"Target file path"}},required:["from","to"]}},{name:"aura_search_symbols",description:"Search for functions, classes, interfaces, methods or other symbols by name.",inputSchema:{type:"object",properties:{query:{type:"string",description:"Search string (substring match)"},kind:{type:"string",description:"Optional filter: function, method, class, struct, enum, macro, export, interface, trait, type_alias"}},required:["query"]}},{name:"aura_search_docs",description:"Full-text search across project documentation (Markdown, text, reStructuredText).",inputSchema:{type:"object",properties:{query:{type:"string",description:"Natural-language keywords"},limit:{type:"number",description:"Maximum chunks (default 10)"}},required:["query"]}},{name:"aura_get_architecture",description:"Return the high-level architecture overview: file count, lines of code and average complexity grouped by language.",inputSchema:{type:"object",properties:{}}},{name:"aura_find_unused_functions",description:"Return functions and methods that are never called anywhere in the codebase.",inputSchema:{type:"object",properties:{file:{type:"string",description:"Optional file path to limit the search"}}}},{name:"aura_find_dependents",description:'Return the files that depend on a given file (blast radius / impact analysis). Use this to answer "what depends on X" or "what would be affected if X changes".',inputSchema:{type:"object",properties:{file:{type:"string",description:"File path relative to the workspace root"},depth:{type:"number",description:"Maximum depth (default 5)"}},required:["file"]}},{name:"aura_find_dependencies",description:"Return the transitive dependencies of a file (what it imports/requires).",inputSchema:{type:"object",properties:{file:{type:"string",description:"File path relative to the workspace root"},depth:{type:"number",description:"Maximum depth (default 5)"}},required:["file"]}},{name:"aura_find_heritage",description:"Return inheritance and implementation relationships (extends/implements edges).",inputSchema:{type:"object",properties:{file:{type:"string",description:"Optional file path to filter heritage edges for"}}}},{name:"aura_get_communities",description:"Return architectural communities (modules) detected via the Louvain algorithm \u2014 groups of files by dependency coupling.",inputSchema:{type:"object",properties:{}}}];function wt(i,e){if(!e)return null;let t=i.getAllNodes();if(t.some(r=>r.id===e))return e;let n=e.toLowerCase();for(let r of t)if(r.name.toLowerCase()===n)return r.id;for(let r of t)if(r.id.toLowerCase().endsWith("/"+n))return r.id;for(let r of t)if(r.id.toLowerCase().includes(n))return r.id;return null}function po(i,e,t,n){switch(e){case"aura_resolve_context":return Zt(i,t.task,t.limit||8);case"aura_find_orphan_files":{let r=i.getOrphanFiles(t.limit||100);return{files:r.map(s=>({file:s.id,language:s.language,lines:s.lines,fan_in:s.fan_in,fan_out:s.fan_out,complexity:s.complexity})),total:r.length}}case"aura_find_cycles":{let r=i.getCycles();return{cycles:r.map(s=>({files:s,length:s.length})),total:r.length}}case"aura_find_dead_code":{let r=i.getDeadCode();return{symbols:r.map(s=>({file:s.nodeId,symbol:s.symbol,kind:s.kind})),total:r.length}}case"aura_get_hotspots":{let r=t.limit||20,s=n?.();if(s)return Yt(s,r);let o=i.getHotspots(r,"impact");return{hotspots:o.map(l=>({file:l.id,lines:l.lines,complexity:l.complexity,fan_in:l.fan_in,fan_out:l.fan_out,impact_score:l.impact_score})),total:o.length}}case"aura_get_largest_files":{let r=i.getHotspots(t.limit||20,"lines");return{files:r.map(s=>({file:s.id,lines:s.lines,complexity:s.complexity,fan_in:s.fan_in,fan_out:s.fan_out})),total:r.length}}case"aura_find_path":{let r=wt(i,t.from),s=wt(i,t.to);if(!r||!s)return{error:`Could not resolve ${r?t.to:t.from}. Ask the user for the exact path.`};let o=i.findPath(r,s);return o?{from:t.from,resolved_from:r,to:t.to,resolved_to:s,path:o,length:o.length-1}:{from:t.from,resolved_from:r,to:t.to,resolved_to:s,path:null}}case"aura_search_symbols":{let r=i.searchSymbols(t.query,t.kind);return{results:r.map(s=>({file:s.nodeId,symbol:s.name,kind:s.kind,line:s.line,visibility:s.visibility})),total:r.length}}case"aura_search_docs":{let r=i.searchDocs(t.query,t.limit||10);return{results:r.map(s=>({file:s.fileId,section:s.section,line:s.lineStart,excerpt:s.content.slice(0,300)})),total:r.length}}case"aura_get_architecture":{let r=i.getArchitectureOverview(),s=i.getAllMeta();return{project:s.projectName||"unknown",total_files:Number(s.totalFiles)||0,total_links:Number(s.totalLinks)||0,languages:r.map(o=>({language:o.language,files:o.count,total_loc:o.total_loc,avg_complexity:o.avg_complexity}))}}case"aura_find_unused_functions":{let r=i.getUnusedFunctions(t.file,!0);return{functions:r.map(s=>({file:s.nodeId,name:s.name,kind:s.kind,line:s.line})),total:r.length}}case"aura_find_dependents":{let r=wt(i,t.file);if(!r)return{error:`File not found: ${t.file}. Ask the user for the exact path, or use aura_search_symbols to find it.`};let s=i.getBlastRadius(r,t.depth||5);return{file:t.file,resolved_file:r,dependents:s.map(o=>({file:o.id,depth:o.depth,risk:o.risk})),total:s.length}}case"aura_find_dependencies":{let r=wt(i,t.file);if(!r)return{error:`File not found: ${t.file}. Ask the user for the exact path, or use aura_search_symbols to find it.`};let s=i.getDependencies(r,t.depth||5);return{file:t.file,resolved_file:r,dependencies:s.map(o=>({file:o.id,depth:o.depth})),total:s.length}}case"aura_find_heritage":{let r=t.file?wt(i,t.file):void 0;if(t.file&&!r)return{error:`File not found: ${t.file}`};let s=i.getHeritage(r);return{heritage:s.map(o=>({source:o.source,target:o.target,type:o.type,label:o.label})),total:s.length}}case"aura_get_communities":{let r=i.getCommunities(),s={};for(let l of r)(s[l.community]??=[]).push(l.nodeId);let o=Object.entries(s).filter(([,l])=>l.length>=2).map(([l,u])=>({community:parseInt(l),size:u.length,files:u})).sort((l,u)=>u.size-l.size);return{modules:o,total:o.length}}default:return{error:`Unknown tool: ${e}`}}}async function as(i,e,t,n){let r;try{let m=await me.lm.selectChatModels({});if(m.length===0){t.onError("No language model available. Configure a chat model in VS Code (e.g. GitHub Copilot) and retry.");return}r=m[0]}catch(m){t.onError(m instanceof Error?m.message:String(m));return}let s=i(),o=s?os+`
+// node_modules/web-tree-sitter/tree-sitter.js
+var require_tree_sitter = __commonJS({
+  "node_modules/web-tree-sitter/tree-sitter.js"(exports, module) {
+    "use strict";
+    var Module = void 0 !== Module ? Module : {};
+    var TreeSitter = function() {
+      var initPromise, document = "object" == typeof window ? { currentScript: window.document.currentScript } : null;
+      class Parser {
+        constructor() {
+          this.initialize();
+        }
+        initialize() {
+          throw new Error("cannot construct a Parser before calling `init()`");
+        }
+        static init(moduleOptions) {
+          return initPromise || (Module = Object.assign({}, Module, moduleOptions), initPromise = new Promise((resolveInitPromise) => {
+            var moduleOverrides = Object.assign({}, Module), arguments_ = [], thisProgram = "./this.program", quit_ = (e, t) => {
+              throw t;
+            }, ENVIRONMENT_IS_WEB = "object" == typeof window, ENVIRONMENT_IS_WORKER = "function" == typeof importScripts, ENVIRONMENT_IS_NODE = "object" == typeof process && "object" == typeof process.versions && "string" == typeof process.versions.node, scriptDirectory = "", read_, readAsync, readBinary, setWindowTitle;
+            function locateFile(e) {
+              return Module.locateFile ? Module.locateFile(e, scriptDirectory) : scriptDirectory + e;
+            }
+            function logExceptionOnExit(e) {
+              if (e instanceof ExitStatus)
+                return;
+              err("exiting due to exception: " + e);
+            }
+            if (ENVIRONMENT_IS_NODE) {
+              var fs = require("fs"), nodePath = require("path");
+              scriptDirectory = ENVIRONMENT_IS_WORKER ? nodePath.dirname(scriptDirectory) + "/" : __dirname + "/", read_ = (e, t) => (e = isFileURI(e) ? new URL(e) : nodePath.normalize(e), fs.readFileSync(e, t ? void 0 : "utf8")), readBinary = (e) => {
+                var t = read_(e, true);
+                return t.buffer || (t = new Uint8Array(t)), t;
+              }, readAsync = (e, t, r) => {
+                e = isFileURI(e) ? new URL(e) : nodePath.normalize(e), fs.readFile(e, function(e2, _) {
+                  e2 ? r(e2) : t(_.buffer);
+                });
+              }, process.argv.length > 1 && (thisProgram = process.argv[1].replace(/\\/g, "/")), arguments_ = process.argv.slice(2), "undefined" != typeof module && (module.exports = Module), quit_ = (e, t) => {
+                if (keepRuntimeAlive())
+                  throw process.exitCode = e, t;
+                logExceptionOnExit(t), process.exit(e);
+              }, Module.inspect = function() {
+                return "[Emscripten Module object]";
+              };
+            } else
+              (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER) && (ENVIRONMENT_IS_WORKER ? scriptDirectory = self.location.href : void 0 !== document && document.currentScript && (scriptDirectory = document.currentScript.src), scriptDirectory = 0 !== scriptDirectory.indexOf("blob:") ? scriptDirectory.substr(0, scriptDirectory.replace(/[?#].*/, "").lastIndexOf("/") + 1) : "", read_ = (e) => {
+                var t = new XMLHttpRequest();
+                return t.open("GET", e, false), t.send(null), t.responseText;
+              }, ENVIRONMENT_IS_WORKER && (readBinary = (e) => {
+                var t = new XMLHttpRequest();
+                return t.open("GET", e, false), t.responseType = "arraybuffer", t.send(null), new Uint8Array(t.response);
+              }), readAsync = (e, t, r) => {
+                var _ = new XMLHttpRequest();
+                _.open("GET", e, true), _.responseType = "arraybuffer", _.onload = () => {
+                  200 == _.status || 0 == _.status && _.response ? t(_.response) : r();
+                }, _.onerror = r, _.send(null);
+              }, setWindowTitle = (e) => document.title = e);
+            var out = Module.print || console.log.bind(console), err = Module.printErr || console.warn.bind(console);
+            Object.assign(Module, moduleOverrides), moduleOverrides = null, Module.arguments && (arguments_ = Module.arguments), Module.thisProgram && (thisProgram = Module.thisProgram), Module.quit && (quit_ = Module.quit);
+            var STACK_ALIGN = 16, dynamicLibraries = Module.dynamicLibraries || [], wasmBinary;
+            Module.wasmBinary && (wasmBinary = Module.wasmBinary);
+            var noExitRuntime = Module.noExitRuntime || true, wasmMemory;
+            "object" != typeof WebAssembly && abort("no native wasm support detected");
+            var ABORT = false, EXITSTATUS, UTF8Decoder = "undefined" != typeof TextDecoder ? new TextDecoder("utf8") : void 0, buffer, HEAP8, HEAPU8, HEAP16, HEAPU16, HEAP32, HEAPU32, HEAPF32, HEAPF64;
+            function UTF8ArrayToString(e, t, r) {
+              for (var _ = t + r, n = t; e[n] && !(n >= _); )
+                ++n;
+              if (n - t > 16 && e.buffer && UTF8Decoder)
+                return UTF8Decoder.decode(e.subarray(t, n));
+              for (var s = ""; t < n; ) {
+                var a = e[t++];
+                if (128 & a) {
+                  var o = 63 & e[t++];
+                  if (192 != (224 & a)) {
+                    var i = 63 & e[t++];
+                    if ((a = 224 == (240 & a) ? (15 & a) << 12 | o << 6 | i : (7 & a) << 18 | o << 12 | i << 6 | 63 & e[t++]) < 65536)
+                      s += String.fromCharCode(a);
+                    else {
+                      var l = a - 65536;
+                      s += String.fromCharCode(55296 | l >> 10, 56320 | 1023 & l);
+                    }
+                  } else
+                    s += String.fromCharCode((31 & a) << 6 | o);
+                } else
+                  s += String.fromCharCode(a);
+              }
+              return s;
+            }
+            function UTF8ToString(e, t) {
+              return e ? UTF8ArrayToString(HEAPU8, e, t) : "";
+            }
+            function stringToUTF8Array(e, t, r, _) {
+              if (!(_ > 0))
+                return 0;
+              for (var n = r, s = r + _ - 1, a = 0; a < e.length; ++a) {
+                var o = e.charCodeAt(a);
+                if (o >= 55296 && o <= 57343)
+                  o = 65536 + ((1023 & o) << 10) | 1023 & e.charCodeAt(++a);
+                if (o <= 127) {
+                  if (r >= s)
+                    break;
+                  t[r++] = o;
+                } else if (o <= 2047) {
+                  if (r + 1 >= s)
+                    break;
+                  t[r++] = 192 | o >> 6, t[r++] = 128 | 63 & o;
+                } else if (o <= 65535) {
+                  if (r + 2 >= s)
+                    break;
+                  t[r++] = 224 | o >> 12, t[r++] = 128 | o >> 6 & 63, t[r++] = 128 | 63 & o;
+                } else {
+                  if (r + 3 >= s)
+                    break;
+                  t[r++] = 240 | o >> 18, t[r++] = 128 | o >> 12 & 63, t[r++] = 128 | o >> 6 & 63, t[r++] = 128 | 63 & o;
+                }
+              }
+              return t[r] = 0, r - n;
+            }
+            function stringToUTF8(e, t, r) {
+              return stringToUTF8Array(e, HEAPU8, t, r);
+            }
+            function lengthBytesUTF8(e) {
+              for (var t = 0, r = 0; r < e.length; ++r) {
+                var _ = e.charCodeAt(r);
+                _ <= 127 ? t++ : _ <= 2047 ? t += 2 : _ >= 55296 && _ <= 57343 ? (t += 4, ++r) : t += 3;
+              }
+              return t;
+            }
+            function updateGlobalBufferAndViews(e) {
+              buffer = e, Module.HEAP8 = HEAP8 = new Int8Array(e), Module.HEAP16 = HEAP16 = new Int16Array(e), Module.HEAP32 = HEAP32 = new Int32Array(e), Module.HEAPU8 = HEAPU8 = new Uint8Array(e), Module.HEAPU16 = HEAPU16 = new Uint16Array(e), Module.HEAPU32 = HEAPU32 = new Uint32Array(e), Module.HEAPF32 = HEAPF32 = new Float32Array(e), Module.HEAPF64 = HEAPF64 = new Float64Array(e);
+            }
+            var INITIAL_MEMORY = Module.INITIAL_MEMORY || 33554432;
+            wasmMemory = Module.wasmMemory ? Module.wasmMemory : new WebAssembly.Memory({ initial: INITIAL_MEMORY / 65536, maximum: 32768 }), wasmMemory && (buffer = wasmMemory.buffer), INITIAL_MEMORY = buffer.byteLength, updateGlobalBufferAndViews(buffer);
+            var wasmTable = new WebAssembly.Table({ initial: 20, element: "anyfunc" }), __ATPRERUN__ = [], __ATINIT__ = [], __ATMAIN__ = [], __ATPOSTRUN__ = [], __RELOC_FUNCS__ = [], runtimeInitialized = false;
+            function keepRuntimeAlive() {
+              return noExitRuntime;
+            }
+            function preRun() {
+              if (Module.preRun)
+                for ("function" == typeof Module.preRun && (Module.preRun = [Module.preRun]); Module.preRun.length; )
+                  addOnPreRun(Module.preRun.shift());
+              callRuntimeCallbacks(__ATPRERUN__);
+            }
+            function initRuntime() {
+              runtimeInitialized = true, callRuntimeCallbacks(__RELOC_FUNCS__), callRuntimeCallbacks(__ATINIT__);
+            }
+            function preMain() {
+              callRuntimeCallbacks(__ATMAIN__);
+            }
+            function postRun() {
+              if (Module.postRun)
+                for ("function" == typeof Module.postRun && (Module.postRun = [Module.postRun]); Module.postRun.length; )
+                  addOnPostRun(Module.postRun.shift());
+              callRuntimeCallbacks(__ATPOSTRUN__);
+            }
+            function addOnPreRun(e) {
+              __ATPRERUN__.unshift(e);
+            }
+            function addOnInit(e) {
+              __ATINIT__.unshift(e);
+            }
+            function addOnPostRun(e) {
+              __ATPOSTRUN__.unshift(e);
+            }
+            var runDependencies = 0, runDependencyWatcher = null, dependenciesFulfilled = null;
+            function addRunDependency(e) {
+              runDependencies++, Module.monitorRunDependencies && Module.monitorRunDependencies(runDependencies);
+            }
+            function removeRunDependency(e) {
+              if (runDependencies--, Module.monitorRunDependencies && Module.monitorRunDependencies(runDependencies), 0 == runDependencies && (null !== runDependencyWatcher && (clearInterval(runDependencyWatcher), runDependencyWatcher = null), dependenciesFulfilled)) {
+                var t = dependenciesFulfilled;
+                dependenciesFulfilled = null, t();
+              }
+            }
+            function abort(e) {
+              throw Module.onAbort && Module.onAbort(e), err(e = "Aborted(" + e + ")"), ABORT = true, EXITSTATUS = 1, e += ". Build with -sASSERTIONS for more info.", new WebAssembly.RuntimeError(e);
+            }
+            var dataURIPrefix = "data:application/octet-stream;base64,", wasmBinaryFile, tempDouble, tempI64;
+            function isDataURI(e) {
+              return e.startsWith(dataURIPrefix);
+            }
+            function isFileURI(e) {
+              return e.startsWith("file://");
+            }
+            function getBinary(e) {
+              try {
+                if (e == wasmBinaryFile && wasmBinary)
+                  return new Uint8Array(wasmBinary);
+                if (readBinary)
+                  return readBinary(e);
+                throw "both async and sync fetching of the wasm failed";
+              } catch (e2) {
+                abort(e2);
+              }
+            }
+            function getBinaryPromise() {
+              if (!wasmBinary && (ENVIRONMENT_IS_WEB || ENVIRONMENT_IS_WORKER)) {
+                if ("function" == typeof fetch && !isFileURI(wasmBinaryFile))
+                  return fetch(wasmBinaryFile, { credentials: "same-origin" }).then(function(e) {
+                    if (!e.ok)
+                      throw "failed to load wasm binary file at '" + wasmBinaryFile + "'";
+                    return e.arrayBuffer();
+                  }).catch(function() {
+                    return getBinary(wasmBinaryFile);
+                  });
+                if (readAsync)
+                  return new Promise(function(e, t) {
+                    readAsync(wasmBinaryFile, function(t2) {
+                      e(new Uint8Array(t2));
+                    }, t);
+                  });
+              }
+              return Promise.resolve().then(function() {
+                return getBinary(wasmBinaryFile);
+              });
+            }
+            function createWasm() {
+              var e = { env: asmLibraryArg, wasi_snapshot_preview1: asmLibraryArg, "GOT.mem": new Proxy(asmLibraryArg, GOTHandler), "GOT.func": new Proxy(asmLibraryArg, GOTHandler) };
+              function t(e2, t2) {
+                var r2 = e2.exports;
+                r2 = relocateExports(r2, 1024);
+                var _2 = getDylinkMetadata(t2);
+                _2.neededDynlibs && (dynamicLibraries = _2.neededDynlibs.concat(dynamicLibraries)), mergeLibSymbols(r2, "main"), Module.asm = r2, addOnInit(Module.asm.__wasm_call_ctors), __RELOC_FUNCS__.push(Module.asm.__wasm_apply_data_relocs), removeRunDependency("wasm-instantiate");
+              }
+              function r(e2) {
+                t(e2.instance, e2.module);
+              }
+              function _(t2) {
+                return getBinaryPromise().then(function(t3) {
+                  return WebAssembly.instantiate(t3, e);
+                }).then(function(e2) {
+                  return e2;
+                }).then(t2, function(e2) {
+                  err("failed to asynchronously prepare wasm: " + e2), abort(e2);
+                });
+              }
+              if (addRunDependency("wasm-instantiate"), Module.instantiateWasm)
+                try {
+                  return Module.instantiateWasm(e, t);
+                } catch (e2) {
+                  return err("Module.instantiateWasm callback failed with error: " + e2), false;
+                }
+              return wasmBinary || "function" != typeof WebAssembly.instantiateStreaming || isDataURI(wasmBinaryFile) || isFileURI(wasmBinaryFile) || ENVIRONMENT_IS_NODE || "function" != typeof fetch ? _(r) : fetch(wasmBinaryFile, { credentials: "same-origin" }).then(function(t2) {
+                return WebAssembly.instantiateStreaming(t2, e).then(r, function(e2) {
+                  return err("wasm streaming compile failed: " + e2), err("falling back to ArrayBuffer instantiation"), _(r);
+                });
+              }), {};
+            }
+            wasmBinaryFile = "tree-sitter.wasm", isDataURI(wasmBinaryFile) || (wasmBinaryFile = locateFile(wasmBinaryFile));
+            var ASM_CONSTS = {};
+            function ExitStatus(e) {
+              this.name = "ExitStatus", this.message = "Program terminated with exit(" + e + ")", this.status = e;
+            }
+            var GOT = {}, CurrentModuleWeakSymbols = /* @__PURE__ */ new Set([]), GOTHandler = { get: function(e, t) {
+              var r = GOT[t];
+              return r || (r = GOT[t] = new WebAssembly.Global({ value: "i32", mutable: true })), CurrentModuleWeakSymbols.has(t) || (r.required = true), r;
+            } };
+            function callRuntimeCallbacks(e) {
+              for (; e.length > 0; )
+                e.shift()(Module);
+            }
+            function getDylinkMetadata(e) {
+              var t = 0, r = 0;
+              function _() {
+                for (var r2 = 0, _2 = 1; ; ) {
+                  var n2 = e[t++];
+                  if (r2 += (127 & n2) * _2, _2 *= 128, !(128 & n2))
+                    break;
+                }
+                return r2;
+              }
+              function n() {
+                var r2 = _();
+                return UTF8ArrayToString(e, (t += r2) - r2, r2);
+              }
+              function s(e2, t2) {
+                if (e2)
+                  throw new Error(t2);
+              }
+              var a = "dylink.0";
+              if (e instanceof WebAssembly.Module) {
+                var o = WebAssembly.Module.customSections(e, a);
+                0 === o.length && (a = "dylink", o = WebAssembly.Module.customSections(e, a)), s(0 === o.length, "need dylink section"), r = (e = new Uint8Array(o[0])).length;
+              } else {
+                s(!(1836278016 == new Uint32Array(new Uint8Array(e.subarray(0, 24)).buffer)[0]), "need to see wasm magic number"), s(0 !== e[8], "need the dylink section to be first"), t = 9;
+                var i = _();
+                r = t + i, a = n();
+              }
+              var l = { neededDynlibs: [], tlsExports: /* @__PURE__ */ new Set(), weakImports: /* @__PURE__ */ new Set() };
+              if ("dylink" == a) {
+                l.memorySize = _(), l.memoryAlign = _(), l.tableSize = _(), l.tableAlign = _();
+                for (var u = _(), d = 0; d < u; ++d) {
+                  var c = n();
+                  l.neededDynlibs.push(c);
+                }
+              } else {
+                s("dylink.0" !== a);
+                for (; t < r; ) {
+                  var m = e[t++], p = _();
+                  if (1 === m)
+                    l.memorySize = _(), l.memoryAlign = _(), l.tableSize = _(), l.tableAlign = _();
+                  else if (2 === m)
+                    for (u = _(), d = 0; d < u; ++d)
+                      c = n(), l.neededDynlibs.push(c);
+                  else if (3 === m)
+                    for (var f = _(); f--; ) {
+                      var h = n();
+                      256 & _() && l.tlsExports.add(h);
+                    }
+                  else if (4 === m)
+                    for (f = _(); f--; ) {
+                      n(), h = n();
+                      1 == (3 & _()) && l.weakImports.add(h);
+                    }
+                  else
+                    t += p;
+                }
+              }
+              return l;
+            }
+            function getValue(e, t = "i8") {
+              switch (t.endsWith("*") && (t = "*"), t) {
+                case "i1":
+                case "i8":
+                  return HEAP8[e >> 0];
+                case "i16":
+                  return HEAP16[e >> 1];
+                case "i32":
+                case "i64":
+                  return HEAP32[e >> 2];
+                case "float":
+                  return HEAPF32[e >> 2];
+                case "double":
+                  return HEAPF64[e >> 3];
+                case "*":
+                  return HEAPU32[e >> 2];
+                default:
+                  abort("invalid type for getValue: " + t);
+              }
+              return null;
+            }
+            function asmjsMangle(e) {
+              return 0 == e.indexOf("dynCall_") || ["stackAlloc", "stackSave", "stackRestore", "getTempRet0", "setTempRet0"].includes(e) ? e : "_" + e;
+            }
+            function mergeLibSymbols(e, t) {
+              for (var r in e)
+                if (e.hasOwnProperty(r)) {
+                  asmLibraryArg.hasOwnProperty(r) || (asmLibraryArg[r] = e[r]);
+                  var _ = asmjsMangle(r);
+                  Module.hasOwnProperty(_) || (Module[_] = e[r]), "__main_argc_argv" == r && (Module._main = e[r]);
+                }
+            }
+            var LDSO = { loadedLibsByName: {}, loadedLibsByHandle: {} };
+            function dynCallLegacy(e, t, r) {
+              var _ = Module["dynCall_" + e];
+              return r && r.length ? _.apply(null, [t].concat(r)) : _.call(null, t);
+            }
+            var wasmTableMirror = [];
+            function getWasmTableEntry(e) {
+              var t = wasmTableMirror[e];
+              return t || (e >= wasmTableMirror.length && (wasmTableMirror.length = e + 1), wasmTableMirror[e] = t = wasmTable.get(e)), t;
+            }
+            function dynCall(e, t, r) {
+              return e.includes("j") ? dynCallLegacy(e, t, r) : getWasmTableEntry(t).apply(null, r);
+            }
+            function createInvokeFunction(e) {
+              return function() {
+                var t = stackSave();
+                try {
+                  return dynCall(e, arguments[0], Array.prototype.slice.call(arguments, 1));
+                } catch (e2) {
+                  if (stackRestore(t), e2 !== e2 + 0)
+                    throw e2;
+                  _setThrew(1, 0);
+                }
+              };
+            }
+            var ___heap_base = 78144;
+            function zeroMemory(e, t) {
+              return HEAPU8.fill(0, e, e + t), e;
+            }
+            function getMemory(e) {
+              if (runtimeInitialized)
+                return zeroMemory(_malloc(e), e);
+              var t = ___heap_base, r = t + e + 15 & -16;
+              return ___heap_base = r, GOT.__heap_base.value = r, t;
+            }
+            function isInternalSym(e) {
+              return ["__cpp_exception", "__c_longjmp", "__wasm_apply_data_relocs", "__dso_handle", "__tls_size", "__tls_align", "__set_stack_limits", "_emscripten_tls_init", "__wasm_init_tls", "__wasm_call_ctors", "__start_em_asm", "__stop_em_asm"].includes(e);
+            }
+            function uleb128Encode(e, t) {
+              e < 128 ? t.push(e) : t.push(e % 128 | 128, e >> 7);
+            }
+            function sigToWasmTypes(e) {
+              for (var t = { i: "i32", j: "i32", f: "f32", d: "f64", p: "i32" }, r = { parameters: [], results: "v" == e[0] ? [] : [t[e[0]]] }, _ = 1; _ < e.length; ++_)
+                r.parameters.push(t[e[_]]), "j" === e[_] && r.parameters.push("i32");
+              return r;
+            }
+            function generateFuncType(e, t) {
+              var r = e.slice(0, 1), _ = e.slice(1), n = { i: 127, p: 127, j: 126, f: 125, d: 124 };
+              t.push(96), uleb128Encode(_.length, t);
+              for (var s = 0; s < _.length; ++s)
+                t.push(n[_[s]]);
+              "v" == r ? t.push(0) : t.push(1, n[r]);
+            }
+            function convertJsFunctionToWasm(e, t) {
+              if ("function" == typeof WebAssembly.Function)
+                return new WebAssembly.Function(sigToWasmTypes(t), e);
+              var r = [1];
+              generateFuncType(t, r);
+              var _ = [0, 97, 115, 109, 1, 0, 0, 0, 1];
+              uleb128Encode(r.length, _), _.push.apply(_, r), _.push(2, 7, 1, 1, 101, 1, 102, 0, 0, 7, 5, 1, 1, 102, 0, 0);
+              var n = new WebAssembly.Module(new Uint8Array(_));
+              return new WebAssembly.Instance(n, { e: { f: e } }).exports.f;
+            }
+            function updateTableMap(e, t) {
+              if (functionsInTableMap)
+                for (var r = e; r < e + t; r++) {
+                  var _ = getWasmTableEntry(r);
+                  _ && functionsInTableMap.set(_, r);
+                }
+            }
+            var functionsInTableMap = void 0, freeTableIndexes = [];
+            function getEmptyTableSlot() {
+              if (freeTableIndexes.length)
+                return freeTableIndexes.pop();
+              try {
+                wasmTable.grow(1);
+              } catch (e) {
+                if (!(e instanceof RangeError))
+                  throw e;
+                throw "Unable to grow wasm table. Set ALLOW_TABLE_GROWTH.";
+              }
+              return wasmTable.length - 1;
+            }
+            function setWasmTableEntry(e, t) {
+              wasmTable.set(e, t), wasmTableMirror[e] = wasmTable.get(e);
+            }
+            function addFunction(e, t) {
+              if (functionsInTableMap || (functionsInTableMap = /* @__PURE__ */ new WeakMap(), updateTableMap(0, wasmTable.length)), functionsInTableMap.has(e))
+                return functionsInTableMap.get(e);
+              var r = getEmptyTableSlot();
+              try {
+                setWasmTableEntry(r, e);
+              } catch (_) {
+                if (!(_ instanceof TypeError))
+                  throw _;
+                setWasmTableEntry(r, convertJsFunctionToWasm(e, t));
+              }
+              return functionsInTableMap.set(e, r), r;
+            }
+            function updateGOT(e, t) {
+              for (var r in e)
+                if (!isInternalSym(r)) {
+                  var _ = e[r];
+                  r.startsWith("orig$") && (r = r.split("$")[1], t = true), GOT[r] || (GOT[r] = new WebAssembly.Global({ value: "i32", mutable: true })), (t || 0 == GOT[r].value) && ("function" == typeof _ ? GOT[r].value = addFunction(_) : "number" == typeof _ ? GOT[r].value = _ : err("unhandled export type for `" + r + "`: " + typeof _));
+                }
+            }
+            function relocateExports(e, t, r) {
+              var _ = {};
+              for (var n in e) {
+                var s = e[n];
+                "object" == typeof s && (s = s.value), "number" == typeof s && (s += t), _[n] = s;
+              }
+              return updateGOT(_, r), _;
+            }
+            function resolveGlobalSymbol(e, t) {
+              var r;
+              return t && (r = asmLibraryArg["orig$" + e]), r || (r = asmLibraryArg[e]) && r.stub && (r = void 0), r || (r = Module[asmjsMangle(e)]), !r && e.startsWith("invoke_") && (r = createInvokeFunction(e.split("_")[1])), r;
+            }
+            function alignMemory(e, t) {
+              return Math.ceil(e / t) * t;
+            }
+            function loadWebAssemblyModule(binary, flags, handle) {
+              var metadata = getDylinkMetadata(binary);
+              function loadModule() {
+                var firstLoad = !handle || !HEAP8[handle + 12 >> 0];
+                if (firstLoad) {
+                  var memAlign = Math.pow(2, metadata.memoryAlign);
+                  memAlign = Math.max(memAlign, STACK_ALIGN);
+                  var memoryBase = metadata.memorySize ? alignMemory(getMemory(metadata.memorySize + memAlign), memAlign) : 0, tableBase = metadata.tableSize ? wasmTable.length : 0;
+                  handle && (HEAP8[handle + 12 >> 0] = 1, HEAPU32[handle + 16 >> 2] = memoryBase, HEAP32[handle + 20 >> 2] = metadata.memorySize, HEAPU32[handle + 24 >> 2] = tableBase, HEAP32[handle + 28 >> 2] = metadata.tableSize);
+                } else
+                  memoryBase = HEAPU32[handle + 16 >> 2], tableBase = HEAPU32[handle + 24 >> 2];
+                var tableGrowthNeeded = tableBase + metadata.tableSize - wasmTable.length, moduleExports;
+                function resolveSymbol(e) {
+                  var t = resolveGlobalSymbol(e, false);
+                  return t || (t = moduleExports[e]), t;
+                }
+                tableGrowthNeeded > 0 && wasmTable.grow(tableGrowthNeeded);
+                var proxyHandler = { get: function(e, t) {
+                  switch (t) {
+                    case "__memory_base":
+                      return memoryBase;
+                    case "__table_base":
+                      return tableBase;
+                  }
+                  if (t in asmLibraryArg)
+                    return asmLibraryArg[t];
+                  var r;
+                  t in e || (e[t] = function() {
+                    return r || (r = resolveSymbol(t)), r.apply(null, arguments);
+                  });
+                  return e[t];
+                } }, proxy = new Proxy({}, proxyHandler), info = { "GOT.mem": new Proxy({}, GOTHandler), "GOT.func": new Proxy({}, GOTHandler), env: proxy, wasi_snapshot_preview1: proxy };
+                function postInstantiation(instance) {
+                  function addEmAsm(addr, body) {
+                    for (var args = [], arity = 0; arity < 16 && -1 != body.indexOf("$" + arity); arity++)
+                      args.push("$" + arity);
+                    args = args.join(",");
+                    var func = "(" + args + " ) => { " + body + "};";
+                    ASM_CONSTS[start] = eval(func);
+                  }
+                  if (updateTableMap(tableBase, metadata.tableSize), moduleExports = relocateExports(instance.exports, memoryBase), flags.allowUndefined || reportUndefinedSymbols(), "__start_em_asm" in moduleExports)
+                    for (var start = moduleExports.__start_em_asm, stop = moduleExports.__stop_em_asm; start < stop; ) {
+                      var jsString = UTF8ToString(start);
+                      addEmAsm(start, jsString), start = HEAPU8.indexOf(0, start) + 1;
+                    }
+                  var applyRelocs = moduleExports.__wasm_apply_data_relocs;
+                  applyRelocs && (runtimeInitialized ? applyRelocs() : __RELOC_FUNCS__.push(applyRelocs));
+                  var init = moduleExports.__wasm_call_ctors;
+                  return init && (runtimeInitialized ? init() : __ATINIT__.push(init)), moduleExports;
+                }
+                if (flags.loadAsync) {
+                  if (binary instanceof WebAssembly.Module) {
+                    var instance = new WebAssembly.Instance(binary, info);
+                    return Promise.resolve(postInstantiation(instance));
+                  }
+                  return WebAssembly.instantiate(binary, info).then(function(e) {
+                    return postInstantiation(e.instance);
+                  });
+                }
+                var module = binary instanceof WebAssembly.Module ? binary : new WebAssembly.Module(binary), instance = new WebAssembly.Instance(module, info);
+                return postInstantiation(instance);
+              }
+              return CurrentModuleWeakSymbols = metadata.weakImports, flags.loadAsync ? metadata.neededDynlibs.reduce(function(e, t) {
+                return e.then(function() {
+                  return loadDynamicLibrary(t, flags);
+                });
+              }, Promise.resolve()).then(function() {
+                return loadModule();
+              }) : (metadata.neededDynlibs.forEach(function(e) {
+                loadDynamicLibrary(e, flags);
+              }), loadModule());
+            }
+            function loadDynamicLibrary(e, t, r) {
+              t = t || { global: true, nodelete: true };
+              var _ = LDSO.loadedLibsByName[e];
+              if (_)
+                return t.global && !_.global && (_.global = true, "loading" !== _.module && mergeLibSymbols(_.module, e)), t.nodelete && _.refcount !== 1 / 0 && (_.refcount = 1 / 0), _.refcount++, r && (LDSO.loadedLibsByHandle[r] = _), !t.loadAsync || Promise.resolve(true);
+              function n(e2) {
+                if (t.fs && t.fs.findObject(e2)) {
+                  var r2 = t.fs.readFile(e2, { encoding: "binary" });
+                  return r2 instanceof Uint8Array || (r2 = new Uint8Array(r2)), t.loadAsync ? Promise.resolve(r2) : r2;
+                }
+                if (e2 = locateFile(e2), t.loadAsync)
+                  return new Promise(function(t2, r3) {
+                    readAsync(e2, (e3) => t2(new Uint8Array(e3)), r3);
+                  });
+                if (!readBinary)
+                  throw new Error(e2 + ": file not found, and synchronous loading of external files is not available");
+                return readBinary(e2);
+              }
+              function s() {
+                if ("undefined" != typeof preloadedWasm && preloadedWasm[e]) {
+                  var _2 = preloadedWasm[e];
+                  return t.loadAsync ? Promise.resolve(_2) : _2;
+                }
+                return t.loadAsync ? n(e).then(function(e2) {
+                  return loadWebAssemblyModule(e2, t, r);
+                }) : loadWebAssemblyModule(n(e), t, r);
+              }
+              function a(t2) {
+                _.global && mergeLibSymbols(t2, e), _.module = t2;
+              }
+              return _ = { refcount: t.nodelete ? 1 / 0 : 1, name: e, module: "loading", global: t.global }, LDSO.loadedLibsByName[e] = _, r && (LDSO.loadedLibsByHandle[r] = _), t.loadAsync ? s().then(function(e2) {
+                return a(e2), true;
+              }) : (a(s()), true);
+            }
+            function reportUndefinedSymbols() {
+              for (var e in GOT)
+                if (0 == GOT[e].value) {
+                  var t = resolveGlobalSymbol(e, true);
+                  if (!t && !GOT[e].required)
+                    continue;
+                  if ("function" == typeof t)
+                    GOT[e].value = addFunction(t, t.sig);
+                  else {
+                    if ("number" != typeof t)
+                      throw new Error("bad export type for `" + e + "`: " + typeof t);
+                    GOT[e].value = t;
+                  }
+                }
+            }
+            function preloadDylibs() {
+              dynamicLibraries.length ? (addRunDependency("preloadDylibs"), dynamicLibraries.reduce(function(e, t) {
+                return e.then(function() {
+                  return loadDynamicLibrary(t, { loadAsync: true, global: true, nodelete: true, allowUndefined: true });
+                });
+              }, Promise.resolve()).then(function() {
+                reportUndefinedSymbols(), removeRunDependency("preloadDylibs");
+              })) : reportUndefinedSymbols();
+            }
+            function setValue(e, t, r = "i8") {
+              switch (r.endsWith("*") && (r = "*"), r) {
+                case "i1":
+                case "i8":
+                  HEAP8[e >> 0] = t;
+                  break;
+                case "i16":
+                  HEAP16[e >> 1] = t;
+                  break;
+                case "i32":
+                  HEAP32[e >> 2] = t;
+                  break;
+                case "i64":
+                  tempI64 = [t >>> 0, (tempDouble = t, +Math.abs(tempDouble) >= 1 ? tempDouble > 0 ? (0 | Math.min(+Math.floor(tempDouble / 4294967296), 4294967295)) >>> 0 : ~~+Math.ceil((tempDouble - +(~~tempDouble >>> 0)) / 4294967296) >>> 0 : 0)], HEAP32[e >> 2] = tempI64[0], HEAP32[e + 4 >> 2] = tempI64[1];
+                  break;
+                case "float":
+                  HEAPF32[e >> 2] = t;
+                  break;
+                case "double":
+                  HEAPF64[e >> 3] = t;
+                  break;
+                case "*":
+                  HEAPU32[e >> 2] = t;
+                  break;
+                default:
+                  abort("invalid type for setValue: " + r);
+              }
+            }
+            var ___memory_base = new WebAssembly.Global({ value: "i32", mutable: false }, 1024), ___stack_pointer = new WebAssembly.Global({ value: "i32", mutable: true }, 78144), ___table_base = new WebAssembly.Global({ value: "i32", mutable: false }, 1), nowIsMonotonic = true, _emscripten_get_now;
+            function __emscripten_get_now_is_monotonic() {
+              return nowIsMonotonic;
+            }
+            function _abort() {
+              abort("");
+            }
+            function _emscripten_date_now() {
+              return Date.now();
+            }
+            function _emscripten_memcpy_big(e, t, r) {
+              HEAPU8.copyWithin(e, t, t + r);
+            }
+            function getHeapMax() {
+              return 2147483648;
+            }
+            function emscripten_realloc_buffer(e) {
+              try {
+                return wasmMemory.grow(e - buffer.byteLength + 65535 >>> 16), updateGlobalBufferAndViews(wasmMemory.buffer), 1;
+              } catch (e2) {
+              }
+            }
+            function _emscripten_resize_heap(e) {
+              var t = HEAPU8.length;
+              e >>>= 0;
+              var r = getHeapMax();
+              if (e > r)
+                return false;
+              for (var _ = 1; _ <= 4; _ *= 2) {
+                var n = t * (1 + 0.2 / _);
+                if (n = Math.min(n, e + 100663296), emscripten_realloc_buffer(Math.min(r, (s = Math.max(e, n)) + ((a = 65536) - s % a) % a)))
+                  return true;
+              }
+              var s, a;
+              return false;
+            }
+            __emscripten_get_now_is_monotonic.sig = "i", Module._abort = _abort, _abort.sig = "v", _emscripten_date_now.sig = "d", _emscripten_get_now = ENVIRONMENT_IS_NODE ? () => {
+              var e = process.hrtime();
+              return 1e3 * e[0] + e[1] / 1e6;
+            } : () => performance.now(), _emscripten_get_now.sig = "d", _emscripten_memcpy_big.sig = "vppp", _emscripten_resize_heap.sig = "ip";
+            var SYSCALLS = { DEFAULT_POLLMASK: 5, calculateAt: function(e, t, r) {
+              if (PATH.isAbs(t))
+                return t;
+              var _;
+              -100 === e ? _ = FS.cwd() : _ = SYSCALLS.getStreamFromFD(e).path;
+              if (0 == t.length) {
+                if (!r)
+                  throw new FS.ErrnoError(44);
+                return _;
+              }
+              return PATH.join2(_, t);
+            }, doStat: function(e, t, r) {
+              try {
+                var _ = e(t);
+              } catch (e2) {
+                if (e2 && e2.node && PATH.normalize(t) !== PATH.normalize(FS.getPath(e2.node)))
+                  return -54;
+                throw e2;
+              }
+              HEAP32[r >> 2] = _.dev, HEAP32[r + 8 >> 2] = _.ino, HEAP32[r + 12 >> 2] = _.mode, HEAPU32[r + 16 >> 2] = _.nlink, HEAP32[r + 20 >> 2] = _.uid, HEAP32[r + 24 >> 2] = _.gid, HEAP32[r + 28 >> 2] = _.rdev, tempI64 = [_.size >>> 0, (tempDouble = _.size, +Math.abs(tempDouble) >= 1 ? tempDouble > 0 ? (0 | Math.min(+Math.floor(tempDouble / 4294967296), 4294967295)) >>> 0 : ~~+Math.ceil((tempDouble - +(~~tempDouble >>> 0)) / 4294967296) >>> 0 : 0)], HEAP32[r + 40 >> 2] = tempI64[0], HEAP32[r + 44 >> 2] = tempI64[1], HEAP32[r + 48 >> 2] = 4096, HEAP32[r + 52 >> 2] = _.blocks;
+              var n = _.atime.getTime(), s = _.mtime.getTime(), a = _.ctime.getTime();
+              return tempI64 = [Math.floor(n / 1e3) >>> 0, (tempDouble = Math.floor(n / 1e3), +Math.abs(tempDouble) >= 1 ? tempDouble > 0 ? (0 | Math.min(+Math.floor(tempDouble / 4294967296), 4294967295)) >>> 0 : ~~+Math.ceil((tempDouble - +(~~tempDouble >>> 0)) / 4294967296) >>> 0 : 0)], HEAP32[r + 56 >> 2] = tempI64[0], HEAP32[r + 60 >> 2] = tempI64[1], HEAPU32[r + 64 >> 2] = n % 1e3 * 1e3, tempI64 = [Math.floor(s / 1e3) >>> 0, (tempDouble = Math.floor(s / 1e3), +Math.abs(tempDouble) >= 1 ? tempDouble > 0 ? (0 | Math.min(+Math.floor(tempDouble / 4294967296), 4294967295)) >>> 0 : ~~+Math.ceil((tempDouble - +(~~tempDouble >>> 0)) / 4294967296) >>> 0 : 0)], HEAP32[r + 72 >> 2] = tempI64[0], HEAP32[r + 76 >> 2] = tempI64[1], HEAPU32[r + 80 >> 2] = s % 1e3 * 1e3, tempI64 = [Math.floor(a / 1e3) >>> 0, (tempDouble = Math.floor(a / 1e3), +Math.abs(tempDouble) >= 1 ? tempDouble > 0 ? (0 | Math.min(+Math.floor(tempDouble / 4294967296), 4294967295)) >>> 0 : ~~+Math.ceil((tempDouble - +(~~tempDouble >>> 0)) / 4294967296) >>> 0 : 0)], HEAP32[r + 88 >> 2] = tempI64[0], HEAP32[r + 92 >> 2] = tempI64[1], HEAPU32[r + 96 >> 2] = a % 1e3 * 1e3, tempI64 = [_.ino >>> 0, (tempDouble = _.ino, +Math.abs(tempDouble) >= 1 ? tempDouble > 0 ? (0 | Math.min(+Math.floor(tempDouble / 4294967296), 4294967295)) >>> 0 : ~~+Math.ceil((tempDouble - +(~~tempDouble >>> 0)) / 4294967296) >>> 0 : 0)], HEAP32[r + 104 >> 2] = tempI64[0], HEAP32[r + 108 >> 2] = tempI64[1], 0;
+            }, doMsync: function(e, t, r, _, n) {
+              if (!FS.isFile(t.node.mode))
+                throw new FS.ErrnoError(43);
+              if (2 & _)
+                return 0;
+              var s = HEAPU8.slice(e, e + r);
+              FS.msync(t, s, n, r, _);
+            }, varargs: void 0, get: function() {
+              return SYSCALLS.varargs += 4, HEAP32[SYSCALLS.varargs - 4 >> 2];
+            }, getStr: function(e) {
+              return UTF8ToString(e);
+            }, getStreamFromFD: function(e) {
+              var t = FS.getStream(e);
+              if (!t)
+                throw new FS.ErrnoError(8);
+              return t;
+            } };
+            function _proc_exit(e) {
+              EXITSTATUS = e, keepRuntimeAlive() || (Module.onExit && Module.onExit(e), ABORT = true), quit_(e, new ExitStatus(e));
+            }
+            function exitJS(e, t) {
+              EXITSTATUS = e, _proc_exit(e);
+            }
+            _proc_exit.sig = "vi";
+            var _exit = exitJS;
+            function _fd_close(e) {
+              try {
+                var t = SYSCALLS.getStreamFromFD(e);
+                return FS.close(t), 0;
+              } catch (e2) {
+                if ("undefined" == typeof FS || !(e2 instanceof FS.ErrnoError))
+                  throw e2;
+                return e2.errno;
+              }
+            }
+            function convertI32PairToI53Checked(e, t) {
+              return t + 2097152 >>> 0 < 4194305 - !!e ? (e >>> 0) + 4294967296 * t : NaN;
+            }
+            function _fd_seek(e, t, r, _, n) {
+              try {
+                var s = convertI32PairToI53Checked(t, r);
+                if (isNaN(s))
+                  return 61;
+                var a = SYSCALLS.getStreamFromFD(e);
+                return FS.llseek(a, s, _), tempI64 = [a.position >>> 0, (tempDouble = a.position, +Math.abs(tempDouble) >= 1 ? tempDouble > 0 ? (0 | Math.min(+Math.floor(tempDouble / 4294967296), 4294967295)) >>> 0 : ~~+Math.ceil((tempDouble - +(~~tempDouble >>> 0)) / 4294967296) >>> 0 : 0)], HEAP32[n >> 2] = tempI64[0], HEAP32[n + 4 >> 2] = tempI64[1], a.getdents && 0 === s && 0 === _ && (a.getdents = null), 0;
+              } catch (e2) {
+                if ("undefined" == typeof FS || !(e2 instanceof FS.ErrnoError))
+                  throw e2;
+                return e2.errno;
+              }
+            }
+            function doWritev(e, t, r, _) {
+              for (var n = 0, s = 0; s < r; s++) {
+                var a = HEAPU32[t >> 2], o = HEAPU32[t + 4 >> 2];
+                t += 8;
+                var i = FS.write(e, HEAP8, a, o, _);
+                if (i < 0)
+                  return -1;
+                n += i, void 0 !== _ && (_ += i);
+              }
+              return n;
+            }
+            function _fd_write(e, t, r, _) {
+              try {
+                var n = doWritev(SYSCALLS.getStreamFromFD(e), t, r);
+                return HEAPU32[_ >> 2] = n, 0;
+              } catch (e2) {
+                if ("undefined" == typeof FS || !(e2 instanceof FS.ErrnoError))
+                  throw e2;
+                return e2.errno;
+              }
+            }
+            function _tree_sitter_log_callback(e, t) {
+              if (currentLogCallback) {
+                const r = UTF8ToString(t);
+                currentLogCallback(r, 0 !== e);
+              }
+            }
+            function _tree_sitter_parse_callback(e, t, r, _, n) {
+              var s = currentParseCallback(t, { row: r, column: _ });
+              "string" == typeof s ? (setValue(n, s.length, "i32"), stringToUTF16(s, e, 10240)) : setValue(n, 0, "i32");
+            }
+            function handleException(e) {
+              if (e instanceof ExitStatus || "unwind" == e)
+                return EXITSTATUS;
+              quit_(1, e);
+            }
+            function allocateUTF8OnStack(e) {
+              var t = lengthBytesUTF8(e) + 1, r = stackAlloc(t);
+              return stringToUTF8Array(e, HEAP8, r, t), r;
+            }
+            function stringToUTF16(e, t, r) {
+              if (void 0 === r && (r = 2147483647), r < 2)
+                return 0;
+              for (var _ = t, n = (r -= 2) < 2 * e.length ? r / 2 : e.length, s = 0; s < n; ++s) {
+                var a = e.charCodeAt(s);
+                HEAP16[t >> 1] = a, t += 2;
+              }
+              return HEAP16[t >> 1] = 0, t - _;
+            }
+            function AsciiToString(e) {
+              for (var t = ""; ; ) {
+                var r = HEAPU8[e++ >> 0];
+                if (!r)
+                  return t;
+                t += String.fromCharCode(r);
+              }
+            }
+            _exit.sig = "vi", _fd_close.sig = "ii", _fd_seek.sig = "iijip", _fd_write.sig = "iippp";
+            var asmLibraryArg = { __heap_base: ___heap_base, __indirect_function_table: wasmTable, __memory_base: ___memory_base, __stack_pointer: ___stack_pointer, __table_base: ___table_base, _emscripten_get_now_is_monotonic: __emscripten_get_now_is_monotonic, abort: _abort, emscripten_get_now: _emscripten_get_now, emscripten_memcpy_big: _emscripten_memcpy_big, emscripten_resize_heap: _emscripten_resize_heap, exit: _exit, fd_close: _fd_close, fd_seek: _fd_seek, fd_write: _fd_write, memory: wasmMemory, tree_sitter_log_callback: _tree_sitter_log_callback, tree_sitter_parse_callback: _tree_sitter_parse_callback }, asm = createWasm(), ___wasm_call_ctors = Module.___wasm_call_ctors = function() {
+              return (___wasm_call_ctors = Module.___wasm_call_ctors = Module.asm.__wasm_call_ctors).apply(null, arguments);
+            }, ___wasm_apply_data_relocs = Module.___wasm_apply_data_relocs = function() {
+              return (___wasm_apply_data_relocs = Module.___wasm_apply_data_relocs = Module.asm.__wasm_apply_data_relocs).apply(null, arguments);
+            }, _malloc = Module._malloc = function() {
+              return (_malloc = Module._malloc = Module.asm.malloc).apply(null, arguments);
+            }, _calloc = Module._calloc = function() {
+              return (_calloc = Module._calloc = Module.asm.calloc).apply(null, arguments);
+            }, _realloc = Module._realloc = function() {
+              return (_realloc = Module._realloc = Module.asm.realloc).apply(null, arguments);
+            }, _free = Module._free = function() {
+              return (_free = Module._free = Module.asm.free).apply(null, arguments);
+            }, _ts_language_symbol_count = Module._ts_language_symbol_count = function() {
+              return (_ts_language_symbol_count = Module._ts_language_symbol_count = Module.asm.ts_language_symbol_count).apply(null, arguments);
+            }, _ts_language_version = Module._ts_language_version = function() {
+              return (_ts_language_version = Module._ts_language_version = Module.asm.ts_language_version).apply(null, arguments);
+            }, _ts_language_field_count = Module._ts_language_field_count = function() {
+              return (_ts_language_field_count = Module._ts_language_field_count = Module.asm.ts_language_field_count).apply(null, arguments);
+            }, _ts_language_symbol_name = Module._ts_language_symbol_name = function() {
+              return (_ts_language_symbol_name = Module._ts_language_symbol_name = Module.asm.ts_language_symbol_name).apply(null, arguments);
+            }, _ts_language_symbol_for_name = Module._ts_language_symbol_for_name = function() {
+              return (_ts_language_symbol_for_name = Module._ts_language_symbol_for_name = Module.asm.ts_language_symbol_for_name).apply(null, arguments);
+            }, _ts_language_symbol_type = Module._ts_language_symbol_type = function() {
+              return (_ts_language_symbol_type = Module._ts_language_symbol_type = Module.asm.ts_language_symbol_type).apply(null, arguments);
+            }, _ts_language_field_name_for_id = Module._ts_language_field_name_for_id = function() {
+              return (_ts_language_field_name_for_id = Module._ts_language_field_name_for_id = Module.asm.ts_language_field_name_for_id).apply(null, arguments);
+            }, _memset = Module._memset = function() {
+              return (_memset = Module._memset = Module.asm.memset).apply(null, arguments);
+            }, _memcpy = Module._memcpy = function() {
+              return (_memcpy = Module._memcpy = Module.asm.memcpy).apply(null, arguments);
+            }, _ts_parser_delete = Module._ts_parser_delete = function() {
+              return (_ts_parser_delete = Module._ts_parser_delete = Module.asm.ts_parser_delete).apply(null, arguments);
+            }, _ts_parser_reset = Module._ts_parser_reset = function() {
+              return (_ts_parser_reset = Module._ts_parser_reset = Module.asm.ts_parser_reset).apply(null, arguments);
+            }, _ts_parser_set_language = Module._ts_parser_set_language = function() {
+              return (_ts_parser_set_language = Module._ts_parser_set_language = Module.asm.ts_parser_set_language).apply(null, arguments);
+            }, _ts_parser_timeout_micros = Module._ts_parser_timeout_micros = function() {
+              return (_ts_parser_timeout_micros = Module._ts_parser_timeout_micros = Module.asm.ts_parser_timeout_micros).apply(null, arguments);
+            }, _ts_parser_set_timeout_micros = Module._ts_parser_set_timeout_micros = function() {
+              return (_ts_parser_set_timeout_micros = Module._ts_parser_set_timeout_micros = Module.asm.ts_parser_set_timeout_micros).apply(null, arguments);
+            }, _memmove = Module._memmove = function() {
+              return (_memmove = Module._memmove = Module.asm.memmove).apply(null, arguments);
+            }, _memcmp = Module._memcmp = function() {
+              return (_memcmp = Module._memcmp = Module.asm.memcmp).apply(null, arguments);
+            }, _ts_query_new = Module._ts_query_new = function() {
+              return (_ts_query_new = Module._ts_query_new = Module.asm.ts_query_new).apply(null, arguments);
+            }, _ts_query_delete = Module._ts_query_delete = function() {
+              return (_ts_query_delete = Module._ts_query_delete = Module.asm.ts_query_delete).apply(null, arguments);
+            }, _iswspace = Module._iswspace = function() {
+              return (_iswspace = Module._iswspace = Module.asm.iswspace).apply(null, arguments);
+            }, _iswalnum = Module._iswalnum = function() {
+              return (_iswalnum = Module._iswalnum = Module.asm.iswalnum).apply(null, arguments);
+            }, _ts_query_pattern_count = Module._ts_query_pattern_count = function() {
+              return (_ts_query_pattern_count = Module._ts_query_pattern_count = Module.asm.ts_query_pattern_count).apply(null, arguments);
+            }, _ts_query_capture_count = Module._ts_query_capture_count = function() {
+              return (_ts_query_capture_count = Module._ts_query_capture_count = Module.asm.ts_query_capture_count).apply(null, arguments);
+            }, _ts_query_string_count = Module._ts_query_string_count = function() {
+              return (_ts_query_string_count = Module._ts_query_string_count = Module.asm.ts_query_string_count).apply(null, arguments);
+            }, _ts_query_capture_name_for_id = Module._ts_query_capture_name_for_id = function() {
+              return (_ts_query_capture_name_for_id = Module._ts_query_capture_name_for_id = Module.asm.ts_query_capture_name_for_id).apply(null, arguments);
+            }, _ts_query_string_value_for_id = Module._ts_query_string_value_for_id = function() {
+              return (_ts_query_string_value_for_id = Module._ts_query_string_value_for_id = Module.asm.ts_query_string_value_for_id).apply(null, arguments);
+            }, _ts_query_predicates_for_pattern = Module._ts_query_predicates_for_pattern = function() {
+              return (_ts_query_predicates_for_pattern = Module._ts_query_predicates_for_pattern = Module.asm.ts_query_predicates_for_pattern).apply(null, arguments);
+            }, _ts_tree_copy = Module._ts_tree_copy = function() {
+              return (_ts_tree_copy = Module._ts_tree_copy = Module.asm.ts_tree_copy).apply(null, arguments);
+            }, _ts_tree_delete = Module._ts_tree_delete = function() {
+              return (_ts_tree_delete = Module._ts_tree_delete = Module.asm.ts_tree_delete).apply(null, arguments);
+            }, _ts_init = Module._ts_init = function() {
+              return (_ts_init = Module._ts_init = Module.asm.ts_init).apply(null, arguments);
+            }, _ts_parser_new_wasm = Module._ts_parser_new_wasm = function() {
+              return (_ts_parser_new_wasm = Module._ts_parser_new_wasm = Module.asm.ts_parser_new_wasm).apply(null, arguments);
+            }, _ts_parser_enable_logger_wasm = Module._ts_parser_enable_logger_wasm = function() {
+              return (_ts_parser_enable_logger_wasm = Module._ts_parser_enable_logger_wasm = Module.asm.ts_parser_enable_logger_wasm).apply(null, arguments);
+            }, _ts_parser_parse_wasm = Module._ts_parser_parse_wasm = function() {
+              return (_ts_parser_parse_wasm = Module._ts_parser_parse_wasm = Module.asm.ts_parser_parse_wasm).apply(null, arguments);
+            }, _ts_language_type_is_named_wasm = Module._ts_language_type_is_named_wasm = function() {
+              return (_ts_language_type_is_named_wasm = Module._ts_language_type_is_named_wasm = Module.asm.ts_language_type_is_named_wasm).apply(null, arguments);
+            }, _ts_language_type_is_visible_wasm = Module._ts_language_type_is_visible_wasm = function() {
+              return (_ts_language_type_is_visible_wasm = Module._ts_language_type_is_visible_wasm = Module.asm.ts_language_type_is_visible_wasm).apply(null, arguments);
+            }, _ts_tree_root_node_wasm = Module._ts_tree_root_node_wasm = function() {
+              return (_ts_tree_root_node_wasm = Module._ts_tree_root_node_wasm = Module.asm.ts_tree_root_node_wasm).apply(null, arguments);
+            }, _ts_tree_edit_wasm = Module._ts_tree_edit_wasm = function() {
+              return (_ts_tree_edit_wasm = Module._ts_tree_edit_wasm = Module.asm.ts_tree_edit_wasm).apply(null, arguments);
+            }, _ts_tree_get_changed_ranges_wasm = Module._ts_tree_get_changed_ranges_wasm = function() {
+              return (_ts_tree_get_changed_ranges_wasm = Module._ts_tree_get_changed_ranges_wasm = Module.asm.ts_tree_get_changed_ranges_wasm).apply(null, arguments);
+            }, _ts_tree_cursor_new_wasm = Module._ts_tree_cursor_new_wasm = function() {
+              return (_ts_tree_cursor_new_wasm = Module._ts_tree_cursor_new_wasm = Module.asm.ts_tree_cursor_new_wasm).apply(null, arguments);
+            }, _ts_tree_cursor_delete_wasm = Module._ts_tree_cursor_delete_wasm = function() {
+              return (_ts_tree_cursor_delete_wasm = Module._ts_tree_cursor_delete_wasm = Module.asm.ts_tree_cursor_delete_wasm).apply(null, arguments);
+            }, _ts_tree_cursor_reset_wasm = Module._ts_tree_cursor_reset_wasm = function() {
+              return (_ts_tree_cursor_reset_wasm = Module._ts_tree_cursor_reset_wasm = Module.asm.ts_tree_cursor_reset_wasm).apply(null, arguments);
+            }, _ts_tree_cursor_goto_first_child_wasm = Module._ts_tree_cursor_goto_first_child_wasm = function() {
+              return (_ts_tree_cursor_goto_first_child_wasm = Module._ts_tree_cursor_goto_first_child_wasm = Module.asm.ts_tree_cursor_goto_first_child_wasm).apply(null, arguments);
+            }, _ts_tree_cursor_goto_next_sibling_wasm = Module._ts_tree_cursor_goto_next_sibling_wasm = function() {
+              return (_ts_tree_cursor_goto_next_sibling_wasm = Module._ts_tree_cursor_goto_next_sibling_wasm = Module.asm.ts_tree_cursor_goto_next_sibling_wasm).apply(null, arguments);
+            }, _ts_tree_cursor_goto_parent_wasm = Module._ts_tree_cursor_goto_parent_wasm = function() {
+              return (_ts_tree_cursor_goto_parent_wasm = Module._ts_tree_cursor_goto_parent_wasm = Module.asm.ts_tree_cursor_goto_parent_wasm).apply(null, arguments);
+            }, _ts_tree_cursor_current_node_type_id_wasm = Module._ts_tree_cursor_current_node_type_id_wasm = function() {
+              return (_ts_tree_cursor_current_node_type_id_wasm = Module._ts_tree_cursor_current_node_type_id_wasm = Module.asm.ts_tree_cursor_current_node_type_id_wasm).apply(null, arguments);
+            }, _ts_tree_cursor_current_node_is_named_wasm = Module._ts_tree_cursor_current_node_is_named_wasm = function() {
+              return (_ts_tree_cursor_current_node_is_named_wasm = Module._ts_tree_cursor_current_node_is_named_wasm = Module.asm.ts_tree_cursor_current_node_is_named_wasm).apply(null, arguments);
+            }, _ts_tree_cursor_current_node_is_missing_wasm = Module._ts_tree_cursor_current_node_is_missing_wasm = function() {
+              return (_ts_tree_cursor_current_node_is_missing_wasm = Module._ts_tree_cursor_current_node_is_missing_wasm = Module.asm.ts_tree_cursor_current_node_is_missing_wasm).apply(null, arguments);
+            }, _ts_tree_cursor_current_node_id_wasm = Module._ts_tree_cursor_current_node_id_wasm = function() {
+              return (_ts_tree_cursor_current_node_id_wasm = Module._ts_tree_cursor_current_node_id_wasm = Module.asm.ts_tree_cursor_current_node_id_wasm).apply(null, arguments);
+            }, _ts_tree_cursor_start_position_wasm = Module._ts_tree_cursor_start_position_wasm = function() {
+              return (_ts_tree_cursor_start_position_wasm = Module._ts_tree_cursor_start_position_wasm = Module.asm.ts_tree_cursor_start_position_wasm).apply(null, arguments);
+            }, _ts_tree_cursor_end_position_wasm = Module._ts_tree_cursor_end_position_wasm = function() {
+              return (_ts_tree_cursor_end_position_wasm = Module._ts_tree_cursor_end_position_wasm = Module.asm.ts_tree_cursor_end_position_wasm).apply(null, arguments);
+            }, _ts_tree_cursor_start_index_wasm = Module._ts_tree_cursor_start_index_wasm = function() {
+              return (_ts_tree_cursor_start_index_wasm = Module._ts_tree_cursor_start_index_wasm = Module.asm.ts_tree_cursor_start_index_wasm).apply(null, arguments);
+            }, _ts_tree_cursor_end_index_wasm = Module._ts_tree_cursor_end_index_wasm = function() {
+              return (_ts_tree_cursor_end_index_wasm = Module._ts_tree_cursor_end_index_wasm = Module.asm.ts_tree_cursor_end_index_wasm).apply(null, arguments);
+            }, _ts_tree_cursor_current_field_id_wasm = Module._ts_tree_cursor_current_field_id_wasm = function() {
+              return (_ts_tree_cursor_current_field_id_wasm = Module._ts_tree_cursor_current_field_id_wasm = Module.asm.ts_tree_cursor_current_field_id_wasm).apply(null, arguments);
+            }, _ts_tree_cursor_current_node_wasm = Module._ts_tree_cursor_current_node_wasm = function() {
+              return (_ts_tree_cursor_current_node_wasm = Module._ts_tree_cursor_current_node_wasm = Module.asm.ts_tree_cursor_current_node_wasm).apply(null, arguments);
+            }, _ts_node_symbol_wasm = Module._ts_node_symbol_wasm = function() {
+              return (_ts_node_symbol_wasm = Module._ts_node_symbol_wasm = Module.asm.ts_node_symbol_wasm).apply(null, arguments);
+            }, _ts_node_child_count_wasm = Module._ts_node_child_count_wasm = function() {
+              return (_ts_node_child_count_wasm = Module._ts_node_child_count_wasm = Module.asm.ts_node_child_count_wasm).apply(null, arguments);
+            }, _ts_node_named_child_count_wasm = Module._ts_node_named_child_count_wasm = function() {
+              return (_ts_node_named_child_count_wasm = Module._ts_node_named_child_count_wasm = Module.asm.ts_node_named_child_count_wasm).apply(null, arguments);
+            }, _ts_node_child_wasm = Module._ts_node_child_wasm = function() {
+              return (_ts_node_child_wasm = Module._ts_node_child_wasm = Module.asm.ts_node_child_wasm).apply(null, arguments);
+            }, _ts_node_named_child_wasm = Module._ts_node_named_child_wasm = function() {
+              return (_ts_node_named_child_wasm = Module._ts_node_named_child_wasm = Module.asm.ts_node_named_child_wasm).apply(null, arguments);
+            }, _ts_node_child_by_field_id_wasm = Module._ts_node_child_by_field_id_wasm = function() {
+              return (_ts_node_child_by_field_id_wasm = Module._ts_node_child_by_field_id_wasm = Module.asm.ts_node_child_by_field_id_wasm).apply(null, arguments);
+            }, _ts_node_next_sibling_wasm = Module._ts_node_next_sibling_wasm = function() {
+              return (_ts_node_next_sibling_wasm = Module._ts_node_next_sibling_wasm = Module.asm.ts_node_next_sibling_wasm).apply(null, arguments);
+            }, _ts_node_prev_sibling_wasm = Module._ts_node_prev_sibling_wasm = function() {
+              return (_ts_node_prev_sibling_wasm = Module._ts_node_prev_sibling_wasm = Module.asm.ts_node_prev_sibling_wasm).apply(null, arguments);
+            }, _ts_node_next_named_sibling_wasm = Module._ts_node_next_named_sibling_wasm = function() {
+              return (_ts_node_next_named_sibling_wasm = Module._ts_node_next_named_sibling_wasm = Module.asm.ts_node_next_named_sibling_wasm).apply(null, arguments);
+            }, _ts_node_prev_named_sibling_wasm = Module._ts_node_prev_named_sibling_wasm = function() {
+              return (_ts_node_prev_named_sibling_wasm = Module._ts_node_prev_named_sibling_wasm = Module.asm.ts_node_prev_named_sibling_wasm).apply(null, arguments);
+            }, _ts_node_parent_wasm = Module._ts_node_parent_wasm = function() {
+              return (_ts_node_parent_wasm = Module._ts_node_parent_wasm = Module.asm.ts_node_parent_wasm).apply(null, arguments);
+            }, _ts_node_descendant_for_index_wasm = Module._ts_node_descendant_for_index_wasm = function() {
+              return (_ts_node_descendant_for_index_wasm = Module._ts_node_descendant_for_index_wasm = Module.asm.ts_node_descendant_for_index_wasm).apply(null, arguments);
+            }, _ts_node_named_descendant_for_index_wasm = Module._ts_node_named_descendant_for_index_wasm = function() {
+              return (_ts_node_named_descendant_for_index_wasm = Module._ts_node_named_descendant_for_index_wasm = Module.asm.ts_node_named_descendant_for_index_wasm).apply(null, arguments);
+            }, _ts_node_descendant_for_position_wasm = Module._ts_node_descendant_for_position_wasm = function() {
+              return (_ts_node_descendant_for_position_wasm = Module._ts_node_descendant_for_position_wasm = Module.asm.ts_node_descendant_for_position_wasm).apply(null, arguments);
+            }, _ts_node_named_descendant_for_position_wasm = Module._ts_node_named_descendant_for_position_wasm = function() {
+              return (_ts_node_named_descendant_for_position_wasm = Module._ts_node_named_descendant_for_position_wasm = Module.asm.ts_node_named_descendant_for_position_wasm).apply(null, arguments);
+            }, _ts_node_start_point_wasm = Module._ts_node_start_point_wasm = function() {
+              return (_ts_node_start_point_wasm = Module._ts_node_start_point_wasm = Module.asm.ts_node_start_point_wasm).apply(null, arguments);
+            }, _ts_node_end_point_wasm = Module._ts_node_end_point_wasm = function() {
+              return (_ts_node_end_point_wasm = Module._ts_node_end_point_wasm = Module.asm.ts_node_end_point_wasm).apply(null, arguments);
+            }, _ts_node_start_index_wasm = Module._ts_node_start_index_wasm = function() {
+              return (_ts_node_start_index_wasm = Module._ts_node_start_index_wasm = Module.asm.ts_node_start_index_wasm).apply(null, arguments);
+            }, _ts_node_end_index_wasm = Module._ts_node_end_index_wasm = function() {
+              return (_ts_node_end_index_wasm = Module._ts_node_end_index_wasm = Module.asm.ts_node_end_index_wasm).apply(null, arguments);
+            }, _ts_node_to_string_wasm = Module._ts_node_to_string_wasm = function() {
+              return (_ts_node_to_string_wasm = Module._ts_node_to_string_wasm = Module.asm.ts_node_to_string_wasm).apply(null, arguments);
+            }, _ts_node_children_wasm = Module._ts_node_children_wasm = function() {
+              return (_ts_node_children_wasm = Module._ts_node_children_wasm = Module.asm.ts_node_children_wasm).apply(null, arguments);
+            }, _ts_node_named_children_wasm = Module._ts_node_named_children_wasm = function() {
+              return (_ts_node_named_children_wasm = Module._ts_node_named_children_wasm = Module.asm.ts_node_named_children_wasm).apply(null, arguments);
+            }, _ts_node_descendants_of_type_wasm = Module._ts_node_descendants_of_type_wasm = function() {
+              return (_ts_node_descendants_of_type_wasm = Module._ts_node_descendants_of_type_wasm = Module.asm.ts_node_descendants_of_type_wasm).apply(null, arguments);
+            }, _ts_node_is_named_wasm = Module._ts_node_is_named_wasm = function() {
+              return (_ts_node_is_named_wasm = Module._ts_node_is_named_wasm = Module.asm.ts_node_is_named_wasm).apply(null, arguments);
+            }, _ts_node_has_changes_wasm = Module._ts_node_has_changes_wasm = function() {
+              return (_ts_node_has_changes_wasm = Module._ts_node_has_changes_wasm = Module.asm.ts_node_has_changes_wasm).apply(null, arguments);
+            }, _ts_node_has_error_wasm = Module._ts_node_has_error_wasm = function() {
+              return (_ts_node_has_error_wasm = Module._ts_node_has_error_wasm = Module.asm.ts_node_has_error_wasm).apply(null, arguments);
+            }, _ts_node_is_missing_wasm = Module._ts_node_is_missing_wasm = function() {
+              return (_ts_node_is_missing_wasm = Module._ts_node_is_missing_wasm = Module.asm.ts_node_is_missing_wasm).apply(null, arguments);
+            }, _ts_query_matches_wasm = Module._ts_query_matches_wasm = function() {
+              return (_ts_query_matches_wasm = Module._ts_query_matches_wasm = Module.asm.ts_query_matches_wasm).apply(null, arguments);
+            }, _ts_query_captures_wasm = Module._ts_query_captures_wasm = function() {
+              return (_ts_query_captures_wasm = Module._ts_query_captures_wasm = Module.asm.ts_query_captures_wasm).apply(null, arguments);
+            }, ___cxa_atexit = Module.___cxa_atexit = function() {
+              return (___cxa_atexit = Module.___cxa_atexit = Module.asm.__cxa_atexit).apply(null, arguments);
+            }, _iswdigit = Module._iswdigit = function() {
+              return (_iswdigit = Module._iswdigit = Module.asm.iswdigit).apply(null, arguments);
+            }, _iswalpha = Module._iswalpha = function() {
+              return (_iswalpha = Module._iswalpha = Module.asm.iswalpha).apply(null, arguments);
+            }, _iswlower = Module._iswlower = function() {
+              return (_iswlower = Module._iswlower = Module.asm.iswlower).apply(null, arguments);
+            }, _memchr = Module._memchr = function() {
+              return (_memchr = Module._memchr = Module.asm.memchr).apply(null, arguments);
+            }, _strlen = Module._strlen = function() {
+              return (_strlen = Module._strlen = Module.asm.strlen).apply(null, arguments);
+            }, _towupper = Module._towupper = function() {
+              return (_towupper = Module._towupper = Module.asm.towupper).apply(null, arguments);
+            }, _setThrew = Module._setThrew = function() {
+              return (_setThrew = Module._setThrew = Module.asm.setThrew).apply(null, arguments);
+            }, stackSave = Module.stackSave = function() {
+              return (stackSave = Module.stackSave = Module.asm.stackSave).apply(null, arguments);
+            }, stackRestore = Module.stackRestore = function() {
+              return (stackRestore = Module.stackRestore = Module.asm.stackRestore).apply(null, arguments);
+            }, stackAlloc = Module.stackAlloc = function() {
+              return (stackAlloc = Module.stackAlloc = Module.asm.stackAlloc).apply(null, arguments);
+            }, __Znwm = Module.__Znwm = function() {
+              return (__Znwm = Module.__Znwm = Module.asm._Znwm).apply(null, arguments);
+            }, __ZdlPv = Module.__ZdlPv = function() {
+              return (__ZdlPv = Module.__ZdlPv = Module.asm._ZdlPv).apply(null, arguments);
+            }, __ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEED2Ev = Module.__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEED2Ev = function() {
+              return (__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEED2Ev = Module.__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEED2Ev = Module.asm._ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEED2Ev).apply(null, arguments);
+            }, __ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9__grow_byEmmmmmm = Module.__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9__grow_byEmmmmmm = function() {
+              return (__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9__grow_byEmmmmmm = Module.__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9__grow_byEmmmmmm = Module.asm._ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9__grow_byEmmmmmm).apply(null, arguments);
+            }, __ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6__initEPKcm = Module.__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6__initEPKcm = function() {
+              return (__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6__initEPKcm = Module.__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6__initEPKcm = Module.asm._ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE6__initEPKcm).apply(null, arguments);
+            }, __ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE7reserveEm = Module.__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE7reserveEm = function() {
+              return (__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE7reserveEm = Module.__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE7reserveEm = Module.asm._ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE7reserveEm).apply(null, arguments);
+            }, __ZNKSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE4copyEPcmm = Module.__ZNKSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE4copyEPcmm = function() {
+              return (__ZNKSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE4copyEPcmm = Module.__ZNKSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE4copyEPcmm = Module.asm._ZNKSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE4copyEPcmm).apply(null, arguments);
+            }, __ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9push_backEc = Module.__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9push_backEc = function() {
+              return (__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9push_backEc = Module.__ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9push_backEc = Module.asm._ZNSt3__212basic_stringIcNS_11char_traitsIcEENS_9allocatorIcEEE9push_backEc).apply(null, arguments);
+            }, __ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEED2Ev = Module.__ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEED2Ev = function() {
+              return (__ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEED2Ev = Module.__ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEED2Ev = Module.asm._ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEED2Ev).apply(null, arguments);
+            }, __ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEE9push_backEw = Module.__ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEE9push_backEw = function() {
+              return (__ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEE9push_backEw = Module.__ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEE9push_backEw = Module.asm._ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEE9push_backEw).apply(null, arguments);
+            }, __ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEE6resizeEmw = Module.__ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEE6resizeEmw = function() {
+              return (__ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEE6resizeEmw = Module.__ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEE6resizeEmw = Module.asm._ZNSt3__212basic_stringIwNS_11char_traitsIwEENS_9allocatorIwEEE6resizeEmw).apply(null, arguments);
+            }, dynCall_jiji = Module.dynCall_jiji = function() {
+              return (dynCall_jiji = Module.dynCall_jiji = Module.asm.dynCall_jiji).apply(null, arguments);
+            }, _orig$ts_parser_timeout_micros = Module._orig$ts_parser_timeout_micros = function() {
+              return (_orig$ts_parser_timeout_micros = Module._orig$ts_parser_timeout_micros = Module.asm.orig$ts_parser_timeout_micros).apply(null, arguments);
+            }, _orig$ts_parser_set_timeout_micros = Module._orig$ts_parser_set_timeout_micros = function() {
+              return (_orig$ts_parser_set_timeout_micros = Module._orig$ts_parser_set_timeout_micros = Module.asm.orig$ts_parser_set_timeout_micros).apply(null, arguments);
+            }, calledRun;
+            function callMain(e) {
+              var t = Module._main;
+              if (t) {
+                (e = e || []).unshift(thisProgram);
+                var r = e.length, _ = stackAlloc(4 * (r + 1)), n = _ >> 2;
+                e.forEach((e2) => {
+                  HEAP32[n++] = allocateUTF8OnStack(e2);
+                }), HEAP32[n] = 0;
+                try {
+                  var s = t(r, _);
+                  return exitJS(s, true), s;
+                } catch (e2) {
+                  return handleException(e2);
+                }
+              }
+            }
+            Module.AsciiToString = AsciiToString, Module.stringToUTF16 = stringToUTF16, dependenciesFulfilled = function e() {
+              calledRun || run(), calledRun || (dependenciesFulfilled = e);
+            };
+            var dylibsLoaded = false;
+            function run(e) {
+              function t() {
+                calledRun || (calledRun = true, Module.calledRun = true, ABORT || (initRuntime(), preMain(), Module.onRuntimeInitialized && Module.onRuntimeInitialized(), shouldRunNow && callMain(e), postRun()));
+              }
+              e = e || arguments_, runDependencies > 0 || !dylibsLoaded && (preloadDylibs(), dylibsLoaded = true, runDependencies > 0) || (preRun(), runDependencies > 0 || (Module.setStatus ? (Module.setStatus("Running..."), setTimeout(function() {
+                setTimeout(function() {
+                  Module.setStatus("");
+                }, 1), t();
+              }, 1)) : t()));
+            }
+            if (Module.preInit)
+              for ("function" == typeof Module.preInit && (Module.preInit = [Module.preInit]); Module.preInit.length > 0; )
+                Module.preInit.pop()();
+            var shouldRunNow = true;
+            Module.noInitialRun && (shouldRunNow = false), run();
+            const C = Module, INTERNAL = {}, SIZE_OF_INT = 4, SIZE_OF_NODE = 5 * SIZE_OF_INT, SIZE_OF_POINT = 2 * SIZE_OF_INT, SIZE_OF_RANGE = 2 * SIZE_OF_INT + 2 * SIZE_OF_POINT, ZERO_POINT = { row: 0, column: 0 }, QUERY_WORD_REGEX = /[\w-.]*/g, PREDICATE_STEP_TYPE_CAPTURE = 1, PREDICATE_STEP_TYPE_STRING = 2, LANGUAGE_FUNCTION_REGEX = /^_?tree_sitter_\w+/;
+            var VERSION, MIN_COMPATIBLE_VERSION, TRANSFER_BUFFER, currentParseCallback, currentLogCallback;
+            class ParserImpl {
+              static init() {
+                TRANSFER_BUFFER = C._ts_init(), VERSION = getValue(TRANSFER_BUFFER, "i32"), MIN_COMPATIBLE_VERSION = getValue(TRANSFER_BUFFER + SIZE_OF_INT, "i32");
+              }
+              initialize() {
+                C._ts_parser_new_wasm(), this[0] = getValue(TRANSFER_BUFFER, "i32"), this[1] = getValue(TRANSFER_BUFFER + SIZE_OF_INT, "i32");
+              }
+              delete() {
+                C._ts_parser_delete(this[0]), C._free(this[1]), this[0] = 0, this[1] = 0;
+              }
+              setLanguage(e) {
+                let t;
+                if (e) {
+                  if (e.constructor !== Language)
+                    throw new Error("Argument must be a Language");
+                  {
+                    t = e[0];
+                    const r = C._ts_language_version(t);
+                    if (r < MIN_COMPATIBLE_VERSION || VERSION < r)
+                      throw new Error(`Incompatible language version ${r}. Compatibility range ${MIN_COMPATIBLE_VERSION} through ${VERSION}.`);
+                  }
+                } else
+                  t = 0, e = null;
+                return this.language = e, C._ts_parser_set_language(this[0], t), this;
+              }
+              getLanguage() {
+                return this.language;
+              }
+              parse(e, t, r) {
+                if ("string" == typeof e)
+                  currentParseCallback = (t2, r2, _2) => e.slice(t2, _2);
+                else {
+                  if ("function" != typeof e)
+                    throw new Error("Argument must be a string or a function");
+                  currentParseCallback = e;
+                }
+                this.logCallback ? (currentLogCallback = this.logCallback, C._ts_parser_enable_logger_wasm(this[0], 1)) : (currentLogCallback = null, C._ts_parser_enable_logger_wasm(this[0], 0));
+                let _ = 0, n = 0;
+                if (r && r.includedRanges) {
+                  _ = r.includedRanges.length, n = C._calloc(_, SIZE_OF_RANGE);
+                  let e2 = n;
+                  for (let t2 = 0; t2 < _; t2++)
+                    marshalRange(e2, r.includedRanges[t2]), e2 += SIZE_OF_RANGE;
+                }
+                const s = C._ts_parser_parse_wasm(this[0], this[1], t ? t[0] : 0, n, _);
+                if (!s)
+                  throw currentParseCallback = null, currentLogCallback = null, new Error("Parsing failed");
+                const a = new Tree(INTERNAL, s, this.language, currentParseCallback);
+                return currentParseCallback = null, currentLogCallback = null, a;
+              }
+              reset() {
+                C._ts_parser_reset(this[0]);
+              }
+              setTimeoutMicros(e) {
+                C._ts_parser_set_timeout_micros(this[0], e);
+              }
+              getTimeoutMicros() {
+                return C._ts_parser_timeout_micros(this[0]);
+              }
+              setLogger(e) {
+                if (e) {
+                  if ("function" != typeof e)
+                    throw new Error("Logger callback must be a function");
+                } else
+                  e = null;
+                return this.logCallback = e, this;
+              }
+              getLogger() {
+                return this.logCallback;
+              }
+            }
+            class Tree {
+              constructor(e, t, r, _) {
+                assertInternal(e), this[0] = t, this.language = r, this.textCallback = _;
+              }
+              copy() {
+                const e = C._ts_tree_copy(this[0]);
+                return new Tree(INTERNAL, e, this.language, this.textCallback);
+              }
+              delete() {
+                C._ts_tree_delete(this[0]), this[0] = 0;
+              }
+              edit(e) {
+                marshalEdit(e), C._ts_tree_edit_wasm(this[0]);
+              }
+              get rootNode() {
+                return C._ts_tree_root_node_wasm(this[0]), unmarshalNode(this);
+              }
+              getLanguage() {
+                return this.language;
+              }
+              walk() {
+                return this.rootNode.walk();
+              }
+              getChangedRanges(e) {
+                if (e.constructor !== Tree)
+                  throw new TypeError("Argument must be a Tree");
+                C._ts_tree_get_changed_ranges_wasm(this[0], e[0]);
+                const t = getValue(TRANSFER_BUFFER, "i32"), r = getValue(TRANSFER_BUFFER + SIZE_OF_INT, "i32"), _ = new Array(t);
+                if (t > 0) {
+                  let e2 = r;
+                  for (let r2 = 0; r2 < t; r2++)
+                    _[r2] = unmarshalRange(e2), e2 += SIZE_OF_RANGE;
+                  C._free(r);
+                }
+                return _;
+              }
+            }
+            class Node {
+              constructor(e, t) {
+                assertInternal(e), this.tree = t;
+              }
+              get typeId() {
+                return marshalNode(this), C._ts_node_symbol_wasm(this.tree[0]);
+              }
+              get type() {
+                return this.tree.language.types[this.typeId] || "ERROR";
+              }
+              get endPosition() {
+                return marshalNode(this), C._ts_node_end_point_wasm(this.tree[0]), unmarshalPoint(TRANSFER_BUFFER);
+              }
+              get endIndex() {
+                return marshalNode(this), C._ts_node_end_index_wasm(this.tree[0]);
+              }
+              get text() {
+                return getText(this.tree, this.startIndex, this.endIndex);
+              }
+              isNamed() {
+                return marshalNode(this), 1 === C._ts_node_is_named_wasm(this.tree[0]);
+              }
+              hasError() {
+                return marshalNode(this), 1 === C._ts_node_has_error_wasm(this.tree[0]);
+              }
+              hasChanges() {
+                return marshalNode(this), 1 === C._ts_node_has_changes_wasm(this.tree[0]);
+              }
+              isMissing() {
+                return marshalNode(this), 1 === C._ts_node_is_missing_wasm(this.tree[0]);
+              }
+              equals(e) {
+                return this.id === e.id;
+              }
+              child(e) {
+                return marshalNode(this), C._ts_node_child_wasm(this.tree[0], e), unmarshalNode(this.tree);
+              }
+              namedChild(e) {
+                return marshalNode(this), C._ts_node_named_child_wasm(this.tree[0], e), unmarshalNode(this.tree);
+              }
+              childForFieldId(e) {
+                return marshalNode(this), C._ts_node_child_by_field_id_wasm(this.tree[0], e), unmarshalNode(this.tree);
+              }
+              childForFieldName(e) {
+                const t = this.tree.language.fields.indexOf(e);
+                if (-1 !== t)
+                  return this.childForFieldId(t);
+              }
+              get childCount() {
+                return marshalNode(this), C._ts_node_child_count_wasm(this.tree[0]);
+              }
+              get namedChildCount() {
+                return marshalNode(this), C._ts_node_named_child_count_wasm(this.tree[0]);
+              }
+              get firstChild() {
+                return this.child(0);
+              }
+              get firstNamedChild() {
+                return this.namedChild(0);
+              }
+              get lastChild() {
+                return this.child(this.childCount - 1);
+              }
+              get lastNamedChild() {
+                return this.namedChild(this.namedChildCount - 1);
+              }
+              get children() {
+                if (!this._children) {
+                  marshalNode(this), C._ts_node_children_wasm(this.tree[0]);
+                  const e = getValue(TRANSFER_BUFFER, "i32"), t = getValue(TRANSFER_BUFFER + SIZE_OF_INT, "i32");
+                  if (this._children = new Array(e), e > 0) {
+                    let r = t;
+                    for (let t2 = 0; t2 < e; t2++)
+                      this._children[t2] = unmarshalNode(this.tree, r), r += SIZE_OF_NODE;
+                    C._free(t);
+                  }
+                }
+                return this._children;
+              }
+              get namedChildren() {
+                if (!this._namedChildren) {
+                  marshalNode(this), C._ts_node_named_children_wasm(this.tree[0]);
+                  const e = getValue(TRANSFER_BUFFER, "i32"), t = getValue(TRANSFER_BUFFER + SIZE_OF_INT, "i32");
+                  if (this._namedChildren = new Array(e), e > 0) {
+                    let r = t;
+                    for (let t2 = 0; t2 < e; t2++)
+                      this._namedChildren[t2] = unmarshalNode(this.tree, r), r += SIZE_OF_NODE;
+                    C._free(t);
+                  }
+                }
+                return this._namedChildren;
+              }
+              descendantsOfType(e, t, r) {
+                Array.isArray(e) || (e = [e]), t || (t = ZERO_POINT), r || (r = ZERO_POINT);
+                const _ = [], n = this.tree.language.types;
+                for (let t2 = 0, r2 = n.length; t2 < r2; t2++)
+                  e.includes(n[t2]) && _.push(t2);
+                const s = C._malloc(SIZE_OF_INT * _.length);
+                for (let e2 = 0, t2 = _.length; e2 < t2; e2++)
+                  setValue(s + e2 * SIZE_OF_INT, _[e2], "i32");
+                marshalNode(this), C._ts_node_descendants_of_type_wasm(this.tree[0], s, _.length, t.row, t.column, r.row, r.column);
+                const a = getValue(TRANSFER_BUFFER, "i32"), o = getValue(TRANSFER_BUFFER + SIZE_OF_INT, "i32"), i = new Array(a);
+                if (a > 0) {
+                  let e2 = o;
+                  for (let t2 = 0; t2 < a; t2++)
+                    i[t2] = unmarshalNode(this.tree, e2), e2 += SIZE_OF_NODE;
+                }
+                return C._free(o), C._free(s), i;
+              }
+              get nextSibling() {
+                return marshalNode(this), C._ts_node_next_sibling_wasm(this.tree[0]), unmarshalNode(this.tree);
+              }
+              get previousSibling() {
+                return marshalNode(this), C._ts_node_prev_sibling_wasm(this.tree[0]), unmarshalNode(this.tree);
+              }
+              get nextNamedSibling() {
+                return marshalNode(this), C._ts_node_next_named_sibling_wasm(this.tree[0]), unmarshalNode(this.tree);
+              }
+              get previousNamedSibling() {
+                return marshalNode(this), C._ts_node_prev_named_sibling_wasm(this.tree[0]), unmarshalNode(this.tree);
+              }
+              get parent() {
+                return marshalNode(this), C._ts_node_parent_wasm(this.tree[0]), unmarshalNode(this.tree);
+              }
+              descendantForIndex(e, t = e) {
+                if ("number" != typeof e || "number" != typeof t)
+                  throw new Error("Arguments must be numbers");
+                marshalNode(this);
+                let r = TRANSFER_BUFFER + SIZE_OF_NODE;
+                return setValue(r, e, "i32"), setValue(r + SIZE_OF_INT, t, "i32"), C._ts_node_descendant_for_index_wasm(this.tree[0]), unmarshalNode(this.tree);
+              }
+              namedDescendantForIndex(e, t = e) {
+                if ("number" != typeof e || "number" != typeof t)
+                  throw new Error("Arguments must be numbers");
+                marshalNode(this);
+                let r = TRANSFER_BUFFER + SIZE_OF_NODE;
+                return setValue(r, e, "i32"), setValue(r + SIZE_OF_INT, t, "i32"), C._ts_node_named_descendant_for_index_wasm(this.tree[0]), unmarshalNode(this.tree);
+              }
+              descendantForPosition(e, t = e) {
+                if (!isPoint(e) || !isPoint(t))
+                  throw new Error("Arguments must be {row, column} objects");
+                marshalNode(this);
+                let r = TRANSFER_BUFFER + SIZE_OF_NODE;
+                return marshalPoint(r, e), marshalPoint(r + SIZE_OF_POINT, t), C._ts_node_descendant_for_position_wasm(this.tree[0]), unmarshalNode(this.tree);
+              }
+              namedDescendantForPosition(e, t = e) {
+                if (!isPoint(e) || !isPoint(t))
+                  throw new Error("Arguments must be {row, column} objects");
+                marshalNode(this);
+                let r = TRANSFER_BUFFER + SIZE_OF_NODE;
+                return marshalPoint(r, e), marshalPoint(r + SIZE_OF_POINT, t), C._ts_node_named_descendant_for_position_wasm(this.tree[0]), unmarshalNode(this.tree);
+              }
+              walk() {
+                return marshalNode(this), C._ts_tree_cursor_new_wasm(this.tree[0]), new TreeCursor(INTERNAL, this.tree);
+              }
+              toString() {
+                marshalNode(this);
+                const e = C._ts_node_to_string_wasm(this.tree[0]), t = AsciiToString(e);
+                return C._free(e), t;
+              }
+            }
+            class TreeCursor {
+              constructor(e, t) {
+                assertInternal(e), this.tree = t, unmarshalTreeCursor(this);
+              }
+              delete() {
+                marshalTreeCursor(this), C._ts_tree_cursor_delete_wasm(this.tree[0]), this[0] = this[1] = this[2] = 0;
+              }
+              reset(e) {
+                marshalNode(e), marshalTreeCursor(this, TRANSFER_BUFFER + SIZE_OF_NODE), C._ts_tree_cursor_reset_wasm(this.tree[0]), unmarshalTreeCursor(this);
+              }
+              get nodeType() {
+                return this.tree.language.types[this.nodeTypeId] || "ERROR";
+              }
+              get nodeTypeId() {
+                return marshalTreeCursor(this), C._ts_tree_cursor_current_node_type_id_wasm(this.tree[0]);
+              }
+              get nodeId() {
+                return marshalTreeCursor(this), C._ts_tree_cursor_current_node_id_wasm(this.tree[0]);
+              }
+              get nodeIsNamed() {
+                return marshalTreeCursor(this), 1 === C._ts_tree_cursor_current_node_is_named_wasm(this.tree[0]);
+              }
+              get nodeIsMissing() {
+                return marshalTreeCursor(this), 1 === C._ts_tree_cursor_current_node_is_missing_wasm(this.tree[0]);
+              }
+              get nodeText() {
+                marshalTreeCursor(this);
+                const e = C._ts_tree_cursor_start_index_wasm(this.tree[0]), t = C._ts_tree_cursor_end_index_wasm(this.tree[0]);
+                return getText(this.tree, e, t);
+              }
+              get startPosition() {
+                return marshalTreeCursor(this), C._ts_tree_cursor_start_position_wasm(this.tree[0]), unmarshalPoint(TRANSFER_BUFFER);
+              }
+              get endPosition() {
+                return marshalTreeCursor(this), C._ts_tree_cursor_end_position_wasm(this.tree[0]), unmarshalPoint(TRANSFER_BUFFER);
+              }
+              get startIndex() {
+                return marshalTreeCursor(this), C._ts_tree_cursor_start_index_wasm(this.tree[0]);
+              }
+              get endIndex() {
+                return marshalTreeCursor(this), C._ts_tree_cursor_end_index_wasm(this.tree[0]);
+              }
+              currentNode() {
+                return marshalTreeCursor(this), C._ts_tree_cursor_current_node_wasm(this.tree[0]), unmarshalNode(this.tree);
+              }
+              currentFieldId() {
+                return marshalTreeCursor(this), C._ts_tree_cursor_current_field_id_wasm(this.tree[0]);
+              }
+              currentFieldName() {
+                return this.tree.language.fields[this.currentFieldId()];
+              }
+              gotoFirstChild() {
+                marshalTreeCursor(this);
+                const e = C._ts_tree_cursor_goto_first_child_wasm(this.tree[0]);
+                return unmarshalTreeCursor(this), 1 === e;
+              }
+              gotoNextSibling() {
+                marshalTreeCursor(this);
+                const e = C._ts_tree_cursor_goto_next_sibling_wasm(this.tree[0]);
+                return unmarshalTreeCursor(this), 1 === e;
+              }
+              gotoParent() {
+                marshalTreeCursor(this);
+                const e = C._ts_tree_cursor_goto_parent_wasm(this.tree[0]);
+                return unmarshalTreeCursor(this), 1 === e;
+              }
+            }
+            class Language {
+              constructor(e, t) {
+                assertInternal(e), this[0] = t, this.types = new Array(C._ts_language_symbol_count(this[0]));
+                for (let e2 = 0, t2 = this.types.length; e2 < t2; e2++)
+                  C._ts_language_symbol_type(this[0], e2) < 2 && (this.types[e2] = UTF8ToString(C._ts_language_symbol_name(this[0], e2)));
+                this.fields = new Array(C._ts_language_field_count(this[0]) + 1);
+                for (let e2 = 0, t2 = this.fields.length; e2 < t2; e2++) {
+                  const t3 = C._ts_language_field_name_for_id(this[0], e2);
+                  this.fields[e2] = 0 !== t3 ? UTF8ToString(t3) : null;
+                }
+              }
+              get version() {
+                return C._ts_language_version(this[0]);
+              }
+              get fieldCount() {
+                return this.fields.length - 1;
+              }
+              fieldIdForName(e) {
+                const t = this.fields.indexOf(e);
+                return -1 !== t ? t : null;
+              }
+              fieldNameForId(e) {
+                return this.fields[e] || null;
+              }
+              idForNodeType(e, t) {
+                const r = lengthBytesUTF8(e), _ = C._malloc(r + 1);
+                stringToUTF8(e, _, r + 1);
+                const n = C._ts_language_symbol_for_name(this[0], _, r, t);
+                return C._free(_), n || null;
+              }
+              get nodeTypeCount() {
+                return C._ts_language_symbol_count(this[0]);
+              }
+              nodeTypeForId(e) {
+                const t = C._ts_language_symbol_name(this[0], e);
+                return t ? UTF8ToString(t) : null;
+              }
+              nodeTypeIsNamed(e) {
+                return !!C._ts_language_type_is_named_wasm(this[0], e);
+              }
+              nodeTypeIsVisible(e) {
+                return !!C._ts_language_type_is_visible_wasm(this[0], e);
+              }
+              query(e) {
+                const t = lengthBytesUTF8(e), r = C._malloc(t + 1);
+                stringToUTF8(e, r, t + 1);
+                const _ = C._ts_query_new(this[0], r, t, TRANSFER_BUFFER, TRANSFER_BUFFER + SIZE_OF_INT);
+                if (!_) {
+                  const t2 = getValue(TRANSFER_BUFFER + SIZE_OF_INT, "i32"), _2 = UTF8ToString(r, getValue(TRANSFER_BUFFER, "i32")).length, n2 = e.substr(_2, 100).split("\n")[0];
+                  let s2, a2 = n2.match(QUERY_WORD_REGEX)[0];
+                  switch (t2) {
+                    case 2:
+                      s2 = new RangeError(`Bad node name '${a2}'`);
+                      break;
+                    case 3:
+                      s2 = new RangeError(`Bad field name '${a2}'`);
+                      break;
+                    case 4:
+                      s2 = new RangeError(`Bad capture name @${a2}`);
+                      break;
+                    case 5:
+                      s2 = new TypeError(`Bad pattern structure at offset ${_2}: '${n2}'...`), a2 = "";
+                      break;
+                    default:
+                      s2 = new SyntaxError(`Bad syntax at offset ${_2}: '${n2}'...`), a2 = "";
+                  }
+                  throw s2.index = _2, s2.length = a2.length, C._free(r), s2;
+                }
+                const n = C._ts_query_string_count(_), s = C._ts_query_capture_count(_), a = C._ts_query_pattern_count(_), o = new Array(s), i = new Array(n);
+                for (let e2 = 0; e2 < s; e2++) {
+                  const t2 = C._ts_query_capture_name_for_id(_, e2, TRANSFER_BUFFER), r2 = getValue(TRANSFER_BUFFER, "i32");
+                  o[e2] = UTF8ToString(t2, r2);
+                }
+                for (let e2 = 0; e2 < n; e2++) {
+                  const t2 = C._ts_query_string_value_for_id(_, e2, TRANSFER_BUFFER), r2 = getValue(TRANSFER_BUFFER, "i32");
+                  i[e2] = UTF8ToString(t2, r2);
+                }
+                const l = new Array(a), u = new Array(a), d = new Array(a), c = new Array(a), m = new Array(a);
+                for (let e2 = 0; e2 < a; e2++) {
+                  const t2 = C._ts_query_predicates_for_pattern(_, e2, TRANSFER_BUFFER), r2 = getValue(TRANSFER_BUFFER, "i32");
+                  c[e2] = [], m[e2] = [];
+                  const n2 = [];
+                  let s2 = t2;
+                  for (let t3 = 0; t3 < r2; t3++) {
+                    const t4 = getValue(s2, "i32");
+                    s2 += SIZE_OF_INT;
+                    const r3 = getValue(s2, "i32");
+                    if (s2 += SIZE_OF_INT, t4 === PREDICATE_STEP_TYPE_CAPTURE)
+                      n2.push({ type: "capture", name: o[r3] });
+                    else if (t4 === PREDICATE_STEP_TYPE_STRING)
+                      n2.push({ type: "string", value: i[r3] });
+                    else if (n2.length > 0) {
+                      if ("string" !== n2[0].type)
+                        throw new Error("Predicates must begin with a literal value");
+                      const t5 = n2[0].value;
+                      let r4 = true;
+                      switch (t5) {
+                        case "not-eq?":
+                          r4 = false;
+                        case "eq?":
+                          if (3 !== n2.length)
+                            throw new Error("Wrong number of arguments to `#eq?` predicate. Expected 2, got " + (n2.length - 1));
+                          if ("capture" !== n2[1].type)
+                            throw new Error(`First argument of \`#eq?\` predicate must be a capture. Got "${n2[1].value}"`);
+                          if ("capture" === n2[2].type) {
+                            const t6 = n2[1].name, _3 = n2[2].name;
+                            m[e2].push(function(e3) {
+                              let n3, s4;
+                              for (const r5 of e3)
+                                r5.name === t6 && (n3 = r5.node), r5.name === _3 && (s4 = r5.node);
+                              return void 0 === n3 || void 0 === s4 || n3.text === s4.text === r4;
+                            });
+                          } else {
+                            const t6 = n2[1].name, _3 = n2[2].value;
+                            m[e2].push(function(e3) {
+                              for (const n3 of e3)
+                                if (n3.name === t6)
+                                  return n3.node.text === _3 === r4;
+                              return true;
+                            });
+                          }
+                          break;
+                        case "not-match?":
+                          r4 = false;
+                        case "match?":
+                          if (3 !== n2.length)
+                            throw new Error(`Wrong number of arguments to \`#match?\` predicate. Expected 2, got ${n2.length - 1}.`);
+                          if ("capture" !== n2[1].type)
+                            throw new Error(`First argument of \`#match?\` predicate must be a capture. Got "${n2[1].value}".`);
+                          if ("string" !== n2[2].type)
+                            throw new Error(`Second argument of \`#match?\` predicate must be a string. Got @${n2[2].value}.`);
+                          const _2 = n2[1].name, s3 = new RegExp(n2[2].value);
+                          m[e2].push(function(e3) {
+                            for (const t6 of e3)
+                              if (t6.name === _2)
+                                return s3.test(t6.node.text) === r4;
+                            return true;
+                          });
+                          break;
+                        case "set!":
+                          if (n2.length < 2 || n2.length > 3)
+                            throw new Error(`Wrong number of arguments to \`#set!\` predicate. Expected 1 or 2. Got ${n2.length - 1}.`);
+                          if (n2.some((e3) => "string" !== e3.type))
+                            throw new Error('Arguments to `#set!` predicate must be a strings.".');
+                          l[e2] || (l[e2] = {}), l[e2][n2[1].value] = n2[2] ? n2[2].value : null;
+                          break;
+                        case "is?":
+                        case "is-not?":
+                          if (n2.length < 2 || n2.length > 3)
+                            throw new Error(`Wrong number of arguments to \`#${t5}\` predicate. Expected 1 or 2. Got ${n2.length - 1}.`);
+                          if (n2.some((e3) => "string" !== e3.type))
+                            throw new Error(`Arguments to \`#${t5}\` predicate must be a strings.".`);
+                          const a2 = "is?" === t5 ? u : d;
+                          a2[e2] || (a2[e2] = {}), a2[e2][n2[1].value] = n2[2] ? n2[2].value : null;
+                          break;
+                        default:
+                          c[e2].push({ operator: t5, operands: n2.slice(1) });
+                      }
+                      n2.length = 0;
+                    }
+                  }
+                  Object.freeze(l[e2]), Object.freeze(u[e2]), Object.freeze(d[e2]);
+                }
+                return C._free(r), new Query(INTERNAL, _, o, m, c, Object.freeze(l), Object.freeze(u), Object.freeze(d));
+              }
+              static load(e) {
+                let t;
+                if (e instanceof Uint8Array)
+                  t = Promise.resolve(e);
+                else {
+                  const r2 = e;
+                  if ("undefined" != typeof process && process.versions && process.versions.node) {
+                    const e2 = require("fs");
+                    t = Promise.resolve(e2.readFileSync(r2));
+                  } else
+                    t = fetch(r2).then((e2) => e2.arrayBuffer().then((t2) => {
+                      if (e2.ok)
+                        return new Uint8Array(t2);
+                      {
+                        const r3 = new TextDecoder("utf-8").decode(t2);
+                        throw new Error(`Language.load failed with status ${e2.status}.
 
-USER QUESTION: `+e:os+`
+${r3}`);
+                      }
+                    }));
+                }
+                const r = "function" == typeof loadSideModule ? loadSideModule : loadWebAssemblyModule;
+                return t.then((e2) => r(e2, { loadAsync: true })).then((e2) => {
+                  const t2 = Object.keys(e2), r2 = t2.find((e3) => LANGUAGE_FUNCTION_REGEX.test(e3) && !e3.includes("external_scanner_"));
+                  r2 || console.log(`Couldn't find language function in WASM file. Symbols:
+${JSON.stringify(t2, null, 2)}`);
+                  const _ = e2[r2]();
+                  return new Language(INTERNAL, _);
+                });
+              }
+            }
+            class Query {
+              constructor(e, t, r, _, n, s, a, o) {
+                assertInternal(e), this[0] = t, this.captureNames = r, this.textPredicates = _, this.predicates = n, this.setProperties = s, this.assertedProperties = a, this.refutedProperties = o, this.exceededMatchLimit = false;
+              }
+              delete() {
+                C._ts_query_delete(this[0]), this[0] = 0;
+              }
+              matches(e, t, r, _) {
+                t || (t = ZERO_POINT), r || (r = ZERO_POINT), _ || (_ = {});
+                let n = _.matchLimit;
+                if (void 0 === n)
+                  n = 0;
+                else if ("number" != typeof n)
+                  throw new Error("Arguments must be numbers");
+                marshalNode(e), C._ts_query_matches_wasm(this[0], e.tree[0], t.row, t.column, r.row, r.column, n);
+                const s = getValue(TRANSFER_BUFFER, "i32"), a = getValue(TRANSFER_BUFFER + SIZE_OF_INT, "i32"), o = getValue(TRANSFER_BUFFER + 2 * SIZE_OF_INT, "i32"), i = new Array(s);
+                this.exceededMatchLimit = !!o;
+                let l = 0, u = a;
+                for (let t2 = 0; t2 < s; t2++) {
+                  const r2 = getValue(u, "i32");
+                  u += SIZE_OF_INT;
+                  const _2 = getValue(u, "i32");
+                  u += SIZE_OF_INT;
+                  const n2 = new Array(_2);
+                  if (u = unmarshalCaptures(this, e.tree, u, n2), this.textPredicates[r2].every((e2) => e2(n2))) {
+                    i[l++] = { pattern: r2, captures: n2 };
+                    const e2 = this.setProperties[r2];
+                    e2 && (i[t2].setProperties = e2);
+                    const _3 = this.assertedProperties[r2];
+                    _3 && (i[t2].assertedProperties = _3);
+                    const s2 = this.refutedProperties[r2];
+                    s2 && (i[t2].refutedProperties = s2);
+                  }
+                }
+                return i.length = l, C._free(a), i;
+              }
+              captures(e, t, r, _) {
+                t || (t = ZERO_POINT), r || (r = ZERO_POINT), _ || (_ = {});
+                let n = _.matchLimit;
+                if (void 0 === n)
+                  n = 0;
+                else if ("number" != typeof n)
+                  throw new Error("Arguments must be numbers");
+                marshalNode(e), C._ts_query_captures_wasm(this[0], e.tree[0], t.row, t.column, r.row, r.column, n);
+                const s = getValue(TRANSFER_BUFFER, "i32"), a = getValue(TRANSFER_BUFFER + SIZE_OF_INT, "i32"), o = getValue(TRANSFER_BUFFER + 2 * SIZE_OF_INT, "i32"), i = [];
+                this.exceededMatchLimit = !!o;
+                const l = [];
+                let u = a;
+                for (let t2 = 0; t2 < s; t2++) {
+                  const t3 = getValue(u, "i32");
+                  u += SIZE_OF_INT;
+                  const r2 = getValue(u, "i32");
+                  u += SIZE_OF_INT;
+                  const _2 = getValue(u, "i32");
+                  if (u += SIZE_OF_INT, l.length = r2, u = unmarshalCaptures(this, e.tree, u, l), this.textPredicates[t3].every((e2) => e2(l))) {
+                    const e2 = l[_2], r3 = this.setProperties[t3];
+                    r3 && (e2.setProperties = r3);
+                    const n2 = this.assertedProperties[t3];
+                    n2 && (e2.assertedProperties = n2);
+                    const s2 = this.refutedProperties[t3];
+                    s2 && (e2.refutedProperties = s2), i.push(e2);
+                  }
+                }
+                return C._free(a), i;
+              }
+              predicatesForPattern(e) {
+                return this.predicates[e];
+              }
+              didExceedMatchLimit() {
+                return this.exceededMatchLimit;
+              }
+            }
+            function getText(e, t, r) {
+              const _ = r - t;
+              let n = e.textCallback(t, null, r);
+              for (t += n.length; t < r; ) {
+                const _2 = e.textCallback(t, null, r);
+                if (!(_2 && _2.length > 0))
+                  break;
+                t += _2.length, n += _2;
+              }
+              return t > r && (n = n.slice(0, _)), n;
+            }
+            function unmarshalCaptures(e, t, r, _) {
+              for (let n = 0, s = _.length; n < s; n++) {
+                const s2 = getValue(r, "i32"), a = unmarshalNode(t, r += SIZE_OF_INT);
+                r += SIZE_OF_NODE, _[n] = { name: e.captureNames[s2], node: a };
+              }
+              return r;
+            }
+            function assertInternal(e) {
+              if (e !== INTERNAL)
+                throw new Error("Illegal constructor");
+            }
+            function isPoint(e) {
+              return e && "number" == typeof e.row && "number" == typeof e.column;
+            }
+            function marshalNode(e) {
+              let t = TRANSFER_BUFFER;
+              setValue(t, e.id, "i32"), t += SIZE_OF_INT, setValue(t, e.startIndex, "i32"), t += SIZE_OF_INT, setValue(t, e.startPosition.row, "i32"), t += SIZE_OF_INT, setValue(t, e.startPosition.column, "i32"), t += SIZE_OF_INT, setValue(t, e[0], "i32");
+            }
+            function unmarshalNode(e, t = TRANSFER_BUFFER) {
+              const r = getValue(t, "i32");
+              if (0 === r)
+                return null;
+              const _ = getValue(t += SIZE_OF_INT, "i32"), n = getValue(t += SIZE_OF_INT, "i32"), s = getValue(t += SIZE_OF_INT, "i32"), a = getValue(t += SIZE_OF_INT, "i32"), o = new Node(INTERNAL, e);
+              return o.id = r, o.startIndex = _, o.startPosition = { row: n, column: s }, o[0] = a, o;
+            }
+            function marshalTreeCursor(e, t = TRANSFER_BUFFER) {
+              setValue(t + 0 * SIZE_OF_INT, e[0], "i32"), setValue(t + 1 * SIZE_OF_INT, e[1], "i32"), setValue(t + 2 * SIZE_OF_INT, e[2], "i32");
+            }
+            function unmarshalTreeCursor(e) {
+              e[0] = getValue(TRANSFER_BUFFER + 0 * SIZE_OF_INT, "i32"), e[1] = getValue(TRANSFER_BUFFER + 1 * SIZE_OF_INT, "i32"), e[2] = getValue(TRANSFER_BUFFER + 2 * SIZE_OF_INT, "i32");
+            }
+            function marshalPoint(e, t) {
+              setValue(e, t.row, "i32"), setValue(e + SIZE_OF_INT, t.column, "i32");
+            }
+            function unmarshalPoint(e) {
+              return { row: getValue(e, "i32"), column: getValue(e + SIZE_OF_INT, "i32") };
+            }
+            function marshalRange(e, t) {
+              marshalPoint(e, t.startPosition), marshalPoint(e += SIZE_OF_POINT, t.endPosition), setValue(e += SIZE_OF_POINT, t.startIndex, "i32"), setValue(e += SIZE_OF_INT, t.endIndex, "i32"), e += SIZE_OF_INT;
+            }
+            function unmarshalRange(e) {
+              const t = {};
+              return t.startPosition = unmarshalPoint(e), e += SIZE_OF_POINT, t.endPosition = unmarshalPoint(e), e += SIZE_OF_POINT, t.startIndex = getValue(e, "i32"), e += SIZE_OF_INT, t.endIndex = getValue(e, "i32"), t;
+            }
+            function marshalEdit(e) {
+              let t = TRANSFER_BUFFER;
+              marshalPoint(t, e.startPosition), t += SIZE_OF_POINT, marshalPoint(t, e.oldEndPosition), t += SIZE_OF_POINT, marshalPoint(t, e.newEndPosition), t += SIZE_OF_POINT, setValue(t, e.startIndex, "i32"), t += SIZE_OF_INT, setValue(t, e.oldEndIndex, "i32"), t += SIZE_OF_INT, setValue(t, e.newEndIndex, "i32"), t += SIZE_OF_INT;
+            }
+            for (const e of Object.getOwnPropertyNames(ParserImpl.prototype))
+              Object.defineProperty(Parser.prototype, e, { value: ParserImpl.prototype[e], enumerable: false, writable: false });
+            Parser.Language = Language, Module.onRuntimeInitialized = () => {
+              ParserImpl.init(), resolveInitPromise();
+            };
+          }));
+        }
+      }
+      return Parser;
+    }();
+    "object" == typeof exports && (module.exports = TreeSitter);
+  }
+});
 
-(The workspace has not been analyzed yet \u2014 no codebase tools are available. Tell the user to run "Aura: Visualize Codebase".)
+// node_modules/sql.js/dist/sql-wasm.js
+var require_sql_wasm = __commonJS({
+  "node_modules/sql.js/dist/sql-wasm.js"(exports2, module2) {
+    "use strict";
+    var initSqlJsPromise = void 0;
+    var initSqlJs2 = function(moduleConfig) {
+      if (initSqlJsPromise) {
+        return initSqlJsPromise;
+      }
+      initSqlJsPromise = new Promise(function(resolveModule, reject) {
+        var Module2 = typeof moduleConfig !== "undefined" ? moduleConfig : {};
+        var originalOnAbortFunction = Module2["onAbort"];
+        Module2["onAbort"] = function(errorThatCausedAbort) {
+          reject(new Error(errorThatCausedAbort));
+          if (originalOnAbortFunction) {
+            originalOnAbortFunction(errorThatCausedAbort);
+          }
+        };
+        Module2["postRun"] = Module2["postRun"] || [];
+        Module2["postRun"].push(function() {
+          resolveModule(Module2);
+        });
+        module2 = void 0;
+        var k;
+        k ||= typeof Module2 != "undefined" ? Module2 : {};
+        var aa = !!globalThis.window, ba = !!globalThis.WorkerGlobalScope, ca = globalThis.process?.versions?.node && "renderer" != globalThis.process?.type;
+        k.onRuntimeInitialized = function() {
+          function a(f, l) {
+            switch (typeof l) {
+              case "boolean":
+                bc(f, l ? 1 : 0);
+                break;
+              case "number":
+                cc(f, l);
+                break;
+              case "string":
+                dc(f, l, -1, -1);
+                break;
+              case "object":
+                if (null === l)
+                  lb(f);
+                else if (null != l.length) {
+                  var n = da(l.length);
+                  m.set(l, n);
+                  ec(f, n, l.length, -1);
+                  ea(n);
+                } else
+                  sa(f, "Wrong API use : tried to return a value of an unknown type (" + l + ").", -1);
+                break;
+              default:
+                lb(f);
+            }
+          }
+          function b(f, l) {
+            for (var n = [], p = 0; p < f; p += 1) {
+              var u = r(l + 4 * p, "i32"), v = fc(u);
+              if (1 === v || 2 === v)
+                u = gc(u);
+              else if (3 === v)
+                u = hc(u);
+              else if (4 === v) {
+                v = u;
+                u = ic(v);
+                v = jc(v);
+                for (var K = new Uint8Array(u), I = 0; I < u; I += 1)
+                  K[I] = m[v + I];
+                u = K;
+              } else
+                u = null;
+              n.push(u);
+            }
+            return n;
+          }
+          function c(f, l) {
+            this.Qa = f;
+            this.db = l;
+            this.Oa = 1;
+            this.mb = [];
+          }
+          function d(f, l) {
+            this.db = l;
+            this.fb = fa(f);
+            if (null === this.fb)
+              throw Error("Unable to allocate memory for the SQL string");
+            this.lb = this.fb;
+            this.$a = this.sb = null;
+          }
+          function e(f) {
+            this.filename = "dbfile_" + (4294967295 * Math.random() >>> 0);
+            if (null != f) {
+              var l = this.filename, n = "/", p = l;
+              n && (n = "string" == typeof n ? n : ha(n), p = l ? ia(n + "/" + l) : n);
+              l = ja(true, true);
+              p = ka(
+                p,
+                l
+              );
+              if (f) {
+                if ("string" == typeof f) {
+                  n = Array(f.length);
+                  for (var u = 0, v = f.length; u < v; ++u)
+                    n[u] = f.charCodeAt(u);
+                  f = n;
+                }
+                la(p, l | 146);
+                n = ma(p, 577);
+                na(n, f, 0, f.length, 0);
+                oa(n);
+                la(p, l);
+              }
+            }
+            this.handleError(q(this.filename, g));
+            this.db = r(g, "i32");
+            ob(this.db);
+            this.gb = {};
+            this.Sa = {};
+          }
+          var g = y(4), h = k.cwrap, q = h("sqlite3_open", "number", ["string", "number"]), w = h("sqlite3_close_v2", "number", ["number"]), t = h("sqlite3_exec", "number", ["number", "string", "number", "number", "number"]), x = h("sqlite3_changes", "number", ["number"]), D = h(
+            "sqlite3_prepare_v2",
+            "number",
+            ["number", "string", "number", "number", "number"]
+          ), pb = h("sqlite3_sql", "string", ["number"]), lc = h("sqlite3_normalized_sql", "string", ["number"]), qb = h("sqlite3_prepare_v2", "number", ["number", "number", "number", "number", "number"]), mc = h("sqlite3_bind_text", "number", ["number", "number", "number", "number", "number"]), rb = h("sqlite3_bind_blob", "number", ["number", "number", "number", "number", "number"]), nc = h("sqlite3_bind_double", "number", ["number", "number", "number"]), oc = h("sqlite3_bind_int", "number", [
+            "number",
+            "number",
+            "number"
+          ]), pc = h("sqlite3_bind_parameter_index", "number", ["number", "string"]), qc = h("sqlite3_step", "number", ["number"]), rc = h("sqlite3_errmsg", "string", ["number"]), sc = h("sqlite3_column_count", "number", ["number"]), tc = h("sqlite3_data_count", "number", ["number"]), uc = h("sqlite3_column_double", "number", ["number", "number"]), sb = h("sqlite3_column_text", "string", ["number", "number"]), vc = h("sqlite3_column_blob", "number", ["number", "number"]), wc = h("sqlite3_column_bytes", "number", ["number", "number"]), xc = h(
+            "sqlite3_column_type",
+            "number",
+            ["number", "number"]
+          ), yc = h("sqlite3_column_name", "string", ["number", "number"]), zc = h("sqlite3_reset", "number", ["number"]), Ac = h("sqlite3_clear_bindings", "number", ["number"]), Bc = h("sqlite3_finalize", "number", ["number"]), tb = h("sqlite3_create_function_v2", "number", "number string number number number number number number number".split(" ")), fc = h("sqlite3_value_type", "number", ["number"]), ic = h("sqlite3_value_bytes", "number", ["number"]), hc = h("sqlite3_value_text", "string", ["number"]), jc = h(
+            "sqlite3_value_blob",
+            "number",
+            ["number"]
+          ), gc = h("sqlite3_value_double", "number", ["number"]), cc = h("sqlite3_result_double", "", ["number", "number"]), lb = h("sqlite3_result_null", "", ["number"]), dc = h("sqlite3_result_text", "", ["number", "string", "number", "number"]), ec = h("sqlite3_result_blob", "", ["number", "number", "number", "number"]), bc = h("sqlite3_result_int", "", ["number", "number"]), sa = h("sqlite3_result_error", "", ["number", "string", "number"]), ub = h("sqlite3_aggregate_context", "number", ["number", "number"]), ob = h(
+            "RegisterExtensionFunctions",
+            "number",
+            ["number"]
+          ), vb = h("sqlite3_update_hook", "number", ["number", "number", "number"]);
+          c.prototype.bind = function(f) {
+            if (!this.Qa)
+              throw "Statement closed";
+            this.reset();
+            return Array.isArray(f) ? this.Gb(f) : null != f && "object" === typeof f ? this.Hb(f) : true;
+          };
+          c.prototype.step = function() {
+            if (!this.Qa)
+              throw "Statement closed";
+            this.Oa = 1;
+            var f = qc(this.Qa);
+            switch (f) {
+              case 100:
+                return true;
+              case 101:
+                return false;
+              default:
+                throw this.db.handleError(f);
+            }
+          };
+          c.prototype.Ab = function(f) {
+            null == f && (f = this.Oa, this.Oa += 1);
+            return uc(this.Qa, f);
+          };
+          c.prototype.Ob = function(f) {
+            null == f && (f = this.Oa, this.Oa += 1);
+            f = sb(this.Qa, f);
+            if ("function" !== typeof BigInt)
+              throw Error("BigInt is not supported");
+            return BigInt(f);
+          };
+          c.prototype.Tb = function(f) {
+            null == f && (f = this.Oa, this.Oa += 1);
+            return sb(this.Qa, f);
+          };
+          c.prototype.getBlob = function(f) {
+            null == f && (f = this.Oa, this.Oa += 1);
+            var l = wc(this.Qa, f);
+            f = vc(this.Qa, f);
+            for (var n = new Uint8Array(l), p = 0; p < l; p += 1)
+              n[p] = m[f + p];
+            return n;
+          };
+          c.prototype.get = function(f, l) {
+            l = l || {};
+            null != f && this.bind(f) && this.step();
+            f = [];
+            for (var n = tc(this.Qa), p = 0; p < n; p += 1)
+              switch (xc(this.Qa, p)) {
+                case 1:
+                  var u = l.useBigInt ? this.Ob(p) : this.Ab(p);
+                  f.push(u);
+                  break;
+                case 2:
+                  f.push(this.Ab(p));
+                  break;
+                case 3:
+                  f.push(this.Tb(p));
+                  break;
+                case 4:
+                  f.push(this.getBlob(p));
+                  break;
+                default:
+                  f.push(null);
+              }
+            return f;
+          };
+          c.prototype.qb = function() {
+            for (var f = [], l = sc(this.Qa), n = 0; n < l; n += 1)
+              f.push(yc(this.Qa, n));
+            return f;
+          };
+          c.prototype.zb = function(f, l) {
+            f = this.get(f, l);
+            l = this.qb();
+            for (var n = {}, p = 0; p < l.length; p += 1)
+              n[l[p]] = f[p];
+            return n;
+          };
+          c.prototype.Sb = function() {
+            return pb(this.Qa);
+          };
+          c.prototype.Pb = function() {
+            return lc(this.Qa);
+          };
+          c.prototype.run = function(f) {
+            null != f && this.bind(f);
+            this.step();
+            return this.reset();
+          };
+          c.prototype.wb = function(f, l) {
+            null == l && (l = this.Oa, this.Oa += 1);
+            f = fa(f);
+            this.mb.push(f);
+            this.db.handleError(mc(this.Qa, l, f, -1, 0));
+          };
+          c.prototype.Fb = function(f, l) {
+            null == l && (l = this.Oa, this.Oa += 1);
+            var n = da(f.length);
+            m.set(f, n);
+            this.mb.push(n);
+            this.db.handleError(rb(this.Qa, l, n, f.length, 0));
+          };
+          c.prototype.vb = function(f, l) {
+            null == l && (l = this.Oa, this.Oa += 1);
+            this.db.handleError((f === (f | 0) ? oc : nc)(
+              this.Qa,
+              l,
+              f
+            ));
+          };
+          c.prototype.Ib = function(f) {
+            null == f && (f = this.Oa, this.Oa += 1);
+            rb(this.Qa, f, 0, 0, 0);
+          };
+          c.prototype.xb = function(f, l) {
+            null == l && (l = this.Oa, this.Oa += 1);
+            switch (typeof f) {
+              case "string":
+                this.wb(f, l);
+                return;
+              case "number":
+                this.vb(f, l);
+                return;
+              case "bigint":
+                this.wb(f.toString(), l);
+                return;
+              case "boolean":
+                this.vb(f + 0, l);
+                return;
+              case "object":
+                if (null === f) {
+                  this.Ib(l);
+                  return;
+                }
+                if (null != f.length) {
+                  this.Fb(f, l);
+                  return;
+                }
+            }
+            throw "Wrong API use : tried to bind a value of an unknown type (" + f + ").";
+          };
+          c.prototype.Hb = function(f) {
+            var l = this;
+            Object.keys(f).forEach(function(n) {
+              var p = pc(l.Qa, n);
+              0 !== p && l.xb(f[n], p);
+            });
+            return true;
+          };
+          c.prototype.Gb = function(f) {
+            for (var l = 0; l < f.length; l += 1)
+              this.xb(f[l], l + 1);
+            return true;
+          };
+          c.prototype.reset = function() {
+            this.freemem();
+            return 0 === Ac(this.Qa) && 0 === zc(this.Qa);
+          };
+          c.prototype.freemem = function() {
+            for (var f; void 0 !== (f = this.mb.pop()); )
+              ea(f);
+          };
+          c.prototype.Ya = function() {
+            this.freemem();
+            var f = 0 === Bc(this.Qa);
+            delete this.db.gb[this.Qa];
+            this.Qa = 0;
+            return f;
+          };
+          d.prototype.next = function() {
+            if (null === this.fb)
+              return { done: true };
+            null !== this.$a && (this.$a.Ya(), this.$a = null);
+            if (!this.db.db)
+              throw this.ob(), Error("Database closed");
+            var f = pa(), l = y(4);
+            qa(g);
+            qa(l);
+            try {
+              this.db.handleError(qb(this.db.db, this.lb, -1, g, l));
+              this.lb = r(l, "i32");
+              var n = r(g, "i32");
+              if (0 === n)
+                return this.ob(), { done: true };
+              this.$a = new c(n, this.db);
+              this.db.gb[n] = this.$a;
+              return { value: this.$a, done: false };
+            } catch (p) {
+              throw this.sb = z(this.lb), this.ob(), p;
+            } finally {
+              ra(f);
+            }
+          };
+          d.prototype.ob = function() {
+            ea(this.fb);
+            this.fb = null;
+          };
+          d.prototype.Qb = function() {
+            return null !== this.sb ? this.sb : z(this.lb);
+          };
+          "function" === typeof Symbol && "symbol" === typeof Symbol.iterator && (d.prototype[Symbol.iterator] = function() {
+            return this;
+          });
+          e.prototype.run = function(f, l) {
+            if (!this.db)
+              throw "Database closed";
+            if (l) {
+              f = this.tb(f, l);
+              try {
+                f.step();
+              } finally {
+                f.Ya();
+              }
+            } else
+              this.handleError(t(this.db, f, 0, 0, g));
+            return this;
+          };
+          e.prototype.exec = function(f, l, n) {
+            if (!this.db)
+              throw "Database closed";
+            var p = null, u = null, v = null;
+            try {
+              v = u = fa(f);
+              var K = y(4);
+              for (f = []; 0 !== r(v, "i8"); ) {
+                qa(g);
+                qa(K);
+                this.handleError(qb(this.db, v, -1, g, K));
+                var I = r(
+                  g,
+                  "i32"
+                );
+                v = r(K, "i32");
+                if (0 !== I) {
+                  var H = null;
+                  p = new c(I, this);
+                  for (null != l && p.bind(l); p.step(); )
+                    null === H && (H = { columns: p.qb(), values: [] }, f.push(H)), H.values.push(p.get(null, n));
+                  p.Ya();
+                }
+              }
+              return f;
+            } catch (L) {
+              throw p && p.Ya(), L;
+            } finally {
+              u && ea(u);
+            }
+          };
+          e.prototype.Mb = function(f, l, n, p, u) {
+            "function" === typeof l && (p = n, n = l, l = void 0);
+            f = this.tb(f, l);
+            try {
+              for (; f.step(); )
+                n(f.zb(null, u));
+            } finally {
+              f.Ya();
+            }
+            if ("function" === typeof p)
+              return p();
+          };
+          e.prototype.tb = function(f, l) {
+            qa(g);
+            this.handleError(D(this.db, f, -1, g, 0));
+            f = r(g, "i32");
+            if (0 === f)
+              throw "Nothing to prepare";
+            var n = new c(f, this);
+            null != l && n.bind(l);
+            return this.gb[f] = n;
+          };
+          e.prototype.Ub = function(f) {
+            return new d(f, this);
+          };
+          e.prototype.Nb = function() {
+            Object.values(this.gb).forEach(function(l) {
+              l.Ya();
+            });
+            Object.values(this.Sa).forEach(A);
+            this.Sa = {};
+            this.handleError(w(this.db));
+            var f = ta(this.filename);
+            this.handleError(q(this.filename, g));
+            this.db = r(g, "i32");
+            ob(this.db);
+            return f;
+          };
+          e.prototype.close = function() {
+            null !== this.db && (Object.values(this.gb).forEach(function(f) {
+              f.Ya();
+            }), Object.values(this.Sa).forEach(A), this.Sa = {}, this.Za && (A(this.Za), this.Za = void 0), this.handleError(w(this.db)), ua("/" + this.filename), this.db = null);
+          };
+          e.prototype.handleError = function(f) {
+            if (0 === f)
+              return null;
+            f = rc(this.db);
+            throw Error(f);
+          };
+          e.prototype.Rb = function() {
+            return x(this.db);
+          };
+          e.prototype.Kb = function(f, l) {
+            Object.prototype.hasOwnProperty.call(this.Sa, f) && (A(this.Sa[f]), delete this.Sa[f]);
+            var n = va(function(p, u, v) {
+              u = b(u, v);
+              try {
+                var K = l.apply(null, u);
+              } catch (I) {
+                sa(p, I, -1);
+                return;
+              }
+              a(p, K);
+            }, "viii");
+            this.Sa[f] = n;
+            this.handleError(tb(
+              this.db,
+              f,
+              l.length,
+              1,
+              0,
+              n,
+              0,
+              0,
+              0
+            ));
+            return this;
+          };
+          e.prototype.Jb = function(f, l) {
+            var n = l.init || function() {
+              return null;
+            }, p = l.finalize || function(H) {
+              return H;
+            }, u = l.step;
+            if (!u)
+              throw "An aggregate function must have a step function in " + f;
+            var v = {};
+            Object.hasOwnProperty.call(this.Sa, f) && (A(this.Sa[f]), delete this.Sa[f]);
+            l = f + "__finalize";
+            Object.hasOwnProperty.call(this.Sa, l) && (A(this.Sa[l]), delete this.Sa[l]);
+            var K = va(function(H, L, Pa) {
+              var V = ub(H, 1);
+              Object.hasOwnProperty.call(v, V) || (v[V] = n());
+              L = b(L, Pa);
+              L = [v[V]].concat(L);
+              try {
+                v[V] = u.apply(null, L);
+              } catch (Dc) {
+                delete v[V], sa(H, Dc, -1);
+              }
+            }, "viii"), I = va(function(H) {
+              var L = ub(H, 1);
+              try {
+                var Pa = p(v[L]);
+              } catch (V) {
+                delete v[L];
+                sa(H, V, -1);
+                return;
+              }
+              a(H, Pa);
+              delete v[L];
+            }, "vi");
+            this.Sa[f] = K;
+            this.Sa[l] = I;
+            this.handleError(tb(this.db, f, u.length - 1, 1, 0, 0, K, I, 0));
+            return this;
+          };
+          e.prototype.Zb = function(f) {
+            this.Za && (vb(this.db, 0, 0), A(this.Za), this.Za = void 0);
+            if (!f)
+              return this;
+            this.Za = va(function(l, n, p, u, v) {
+              switch (n) {
+                case 18:
+                  l = "insert";
+                  break;
+                case 23:
+                  l = "update";
+                  break;
+                case 9:
+                  l = "delete";
+                  break;
+                default:
+                  throw "unknown operationCode in updateHook callback: " + n;
+              }
+              p = z(p);
+              u = z(u);
+              if (v > Number.MAX_SAFE_INTEGER)
+                throw "rowId too big to fit inside a Number";
+              f(l, p, u, Number(v));
+            }, "viiiij");
+            vb(this.db, this.Za, 0);
+            return this;
+          };
+          c.prototype.bind = c.prototype.bind;
+          c.prototype.step = c.prototype.step;
+          c.prototype.get = c.prototype.get;
+          c.prototype.getColumnNames = c.prototype.qb;
+          c.prototype.getAsObject = c.prototype.zb;
+          c.prototype.getSQL = c.prototype.Sb;
+          c.prototype.getNormalizedSQL = c.prototype.Pb;
+          c.prototype.run = c.prototype.run;
+          c.prototype.reset = c.prototype.reset;
+          c.prototype.freemem = c.prototype.freemem;
+          c.prototype.free = c.prototype.Ya;
+          d.prototype.next = d.prototype.next;
+          d.prototype.getRemainingSQL = d.prototype.Qb;
+          e.prototype.run = e.prototype.run;
+          e.prototype.exec = e.prototype.exec;
+          e.prototype.each = e.prototype.Mb;
+          e.prototype.prepare = e.prototype.tb;
+          e.prototype.iterateStatements = e.prototype.Ub;
+          e.prototype["export"] = e.prototype.Nb;
+          e.prototype.close = e.prototype.close;
+          e.prototype.handleError = e.prototype.handleError;
+          e.prototype.getRowsModified = e.prototype.Rb;
+          e.prototype.create_function = e.prototype.Kb;
+          e.prototype.create_aggregate = e.prototype.Jb;
+          e.prototype.updateHook = e.prototype.Zb;
+          k.Database = e;
+        };
+        var wa = "./this.program", xa = (a, b) => {
+          throw b;
+        }, ya = globalThis.document?.currentScript?.src;
+        "undefined" != typeof __filename ? ya = __filename : ba && (ya = self.location.href);
+        var za = "", Aa, Ba;
+        if (ca) {
+          var fs3 = require("node:fs");
+          za = __dirname + "/";
+          Ba = (a) => {
+            a = Ca(a) ? new URL(a) : a;
+            return fs3.readFileSync(a);
+          };
+          Aa = async (a) => {
+            a = Ca(a) ? new URL(a) : a;
+            return fs3.readFileSync(a, void 0);
+          };
+          1 < process.argv.length && (wa = process.argv[1].replace(/\\/g, "/"));
+          process.argv.slice(2);
+          "undefined" != typeof module2 && (module2.exports = k);
+          xa = (a, b) => {
+            process.exitCode = a;
+            throw b;
+          };
+        } else if (aa || ba) {
+          try {
+            za = new URL(".", ya).href;
+          } catch {
+          }
+          ba && (Ba = (a) => {
+            var b = new XMLHttpRequest();
+            b.open("GET", a, false);
+            b.responseType = "arraybuffer";
+            b.send(null);
+            return new Uint8Array(b.response);
+          });
+          Aa = async (a) => {
+            if (Ca(a))
+              return new Promise((c, d) => {
+                var e = new XMLHttpRequest();
+                e.open("GET", a, true);
+                e.responseType = "arraybuffer";
+                e.onload = () => {
+                  200 == e.status || 0 == e.status && e.response ? c(e.response) : d(e.status);
+                };
+                e.onerror = d;
+                e.send(null);
+              });
+            var b = await fetch(a, { credentials: "same-origin" });
+            if (b.ok)
+              return b.arrayBuffer();
+            throw Error(b.status + " : " + b.url);
+          };
+        }
+        var Da = console.log.bind(console), B = console.error.bind(console), Ea, Fa = false, Ga, Ca = (a) => a.startsWith("file://"), m, C2, Ha, E, F, Ia, Ja, G;
+        function Ka() {
+          var a = La.buffer;
+          m = new Int8Array(a);
+          Ha = new Int16Array(a);
+          C2 = new Uint8Array(a);
+          new Uint16Array(a);
+          E = new Int32Array(a);
+          F = new Uint32Array(a);
+          Ia = new Float32Array(a);
+          Ja = new Float64Array(a);
+          G = new BigInt64Array(a);
+          new BigUint64Array(a);
+        }
+        function Ma(a) {
+          k.onAbort?.(a);
+          a = "Aborted(" + a + ")";
+          B(a);
+          Fa = true;
+          throw new WebAssembly.RuntimeError(a + ". Build with -sASSERTIONS for more info.");
+        }
+        var Na;
+        async function Oa(a) {
+          if (!Ea)
+            try {
+              var b = await Aa(a);
+              return new Uint8Array(b);
+            } catch {
+            }
+          if (a == Na && Ea)
+            a = new Uint8Array(Ea);
+          else if (Ba)
+            a = Ba(a);
+          else
+            throw "both async and sync fetching of the wasm failed";
+          return a;
+        }
+        async function Qa(a, b) {
+          try {
+            var c = await Oa(a);
+            return await WebAssembly.instantiate(c, b);
+          } catch (d) {
+            B(`failed to asynchronously prepare wasm: ${d}`), Ma(d);
+          }
+        }
+        async function Ra(a) {
+          var b = Na;
+          if (!Ea && !Ca(b) && !ca)
+            try {
+              var c = fetch(b, { credentials: "same-origin" });
+              return await WebAssembly.instantiateStreaming(c, a);
+            } catch (d) {
+              B(`wasm streaming compile failed: ${d}`), B("falling back to ArrayBuffer instantiation");
+            }
+          return Qa(b, a);
+        }
+        class Sa {
+          name = "ExitStatus";
+          constructor(a) {
+            this.message = `Program terminated with exit(${a})`;
+            this.status = a;
+          }
+        }
+        var Ta = (a) => {
+          for (; 0 < a.length; )
+            a.shift()(k);
+        }, Ua = [], Va = [], Wa = () => {
+          var a = k.preRun.shift();
+          Va.push(a);
+        }, J = 0, Xa = null;
+        function r(a, b = "i8") {
+          b.endsWith("*") && (b = "*");
+          switch (b) {
+            case "i1":
+              return m[a];
+            case "i8":
+              return m[a];
+            case "i16":
+              return Ha[a >> 1];
+            case "i32":
+              return E[a >> 2];
+            case "i64":
+              return G[a >> 3];
+            case "float":
+              return Ia[a >> 2];
+            case "double":
+              return Ja[a >> 3];
+            case "*":
+              return F[a >> 2];
+            default:
+              Ma(`invalid type for getValue: ${b}`);
+          }
+        }
+        var Ya = true;
+        function qa(a) {
+          var b = "i32";
+          b.endsWith("*") && (b = "*");
+          switch (b) {
+            case "i1":
+              m[a] = 0;
+              break;
+            case "i8":
+              m[a] = 0;
+              break;
+            case "i16":
+              Ha[a >> 1] = 0;
+              break;
+            case "i32":
+              E[a >> 2] = 0;
+              break;
+            case "i64":
+              G[a >> 3] = BigInt(0);
+              break;
+            case "float":
+              Ia[a >> 2] = 0;
+              break;
+            case "double":
+              Ja[a >> 3] = 0;
+              break;
+            case "*":
+              F[a >> 2] = 0;
+              break;
+            default:
+              Ma(`invalid type for setValue: ${b}`);
+          }
+        }
+        var Za = new TextDecoder(), $a = (a, b, c, d) => {
+          c = b + c;
+          if (d)
+            return c;
+          for (; a[b] && !(b >= c); )
+            ++b;
+          return b;
+        }, z = (a, b, c) => a ? Za.decode(C2.subarray(a, $a(C2, a, b, c))) : "", ab = (a, b) => {
+          for (var c = 0, d = a.length - 1; 0 <= d; d--) {
+            var e = a[d];
+            "." === e ? a.splice(d, 1) : ".." === e ? (a.splice(d, 1), c++) : c && (a.splice(d, 1), c--);
+          }
+          if (b)
+            for (; c; c--)
+              a.unshift("..");
+          return a;
+        }, ia = (a) => {
+          var b = "/" === a.charAt(0), c = "/" === a.slice(-1);
+          (a = ab(a.split("/").filter((d) => !!d), !b).join("/")) || b || (a = ".");
+          a && c && (a += "/");
+          return (b ? "/" : "") + a;
+        }, bb = (a) => {
+          var b = /^(\/?|)([\s\S]*?)((?:\.{1,2}|[^\/]+?|)(\.[^.\/]*|))(?:[\/]*)$/.exec(a).slice(1);
+          a = b[0];
+          b = b[1];
+          if (!a && !b)
+            return ".";
+          b &&= b.slice(0, -1);
+          return a + b;
+        }, cb = (a) => a && a.match(/([^\/]+|\/)\/*$/)[1], db = () => {
+          if (ca) {
+            var a = require("node:crypto");
+            return (b) => a.randomFillSync(b);
+          }
+          return (b) => crypto.getRandomValues(b);
+        }, eb = (a) => {
+          (eb = db())(a);
+        }, fb = (...a) => {
+          for (var b = "", c = false, d = a.length - 1; -1 <= d && !c; d--) {
+            c = 0 <= d ? a[d] : "/";
+            if ("string" != typeof c)
+              throw new TypeError("Arguments to path.resolve must be strings");
+            if (!c)
+              return "";
+            b = c + "/" + b;
+            c = "/" === c.charAt(0);
+          }
+          b = ab(b.split("/").filter((e) => !!e), !c).join("/");
+          return (c ? "/" : "") + b || ".";
+        }, gb = (a) => {
+          var b = $a(a, 0);
+          return Za.decode(a.buffer ? a.subarray(0, b) : new Uint8Array(a.slice(0, b)));
+        }, hb = [], ib = (a) => {
+          for (var b = 0, c = 0; c < a.length; ++c) {
+            var d = a.charCodeAt(c);
+            127 >= d ? b++ : 2047 >= d ? b += 2 : 55296 <= d && 57343 >= d ? (b += 4, ++c) : b += 3;
+          }
+          return b;
+        }, M = (a, b, c, d) => {
+          if (!(0 < d))
+            return 0;
+          var e = c;
+          d = c + d - 1;
+          for (var g = 0; g < a.length; ++g) {
+            var h = a.codePointAt(g);
+            if (127 >= h) {
+              if (c >= d)
+                break;
+              b[c++] = h;
+            } else if (2047 >= h) {
+              if (c + 1 >= d)
+                break;
+              b[c++] = 192 | h >> 6;
+              b[c++] = 128 | h & 63;
+            } else if (65535 >= h) {
+              if (c + 2 >= d)
+                break;
+              b[c++] = 224 | h >> 12;
+              b[c++] = 128 | h >> 6 & 63;
+              b[c++] = 128 | h & 63;
+            } else {
+              if (c + 3 >= d)
+                break;
+              b[c++] = 240 | h >> 18;
+              b[c++] = 128 | h >> 12 & 63;
+              b[c++] = 128 | h >> 6 & 63;
+              b[c++] = 128 | h & 63;
+              g++;
+            }
+          }
+          b[c] = 0;
+          return c - e;
+        }, jb = [];
+        function kb(a, b) {
+          jb[a] = { input: [], output: [], eb: b };
+          mb(a, nb);
+        }
+        var nb = { open(a) {
+          var b = jb[a.node.rdev];
+          if (!b)
+            throw new N(43);
+          a.tty = b;
+          a.seekable = false;
+        }, close(a) {
+          a.tty.eb.fsync(a.tty);
+        }, fsync(a) {
+          a.tty.eb.fsync(a.tty);
+        }, read(a, b, c, d) {
+          if (!a.tty || !a.tty.eb.Bb)
+            throw new N(60);
+          for (var e = 0, g = 0; g < d; g++) {
+            try {
+              var h = a.tty.eb.Bb(a.tty);
+            } catch (q) {
+              throw new N(29);
+            }
+            if (void 0 === h && 0 === e)
+              throw new N(6);
+            if (null === h || void 0 === h)
+              break;
+            e++;
+            b[c + g] = h;
+          }
+          e && (a.node.atime = Date.now());
+          return e;
+        }, write(a, b, c, d) {
+          if (!a.tty || !a.tty.eb.ub)
+            throw new N(60);
+          try {
+            for (var e = 0; e < d; e++)
+              a.tty.eb.ub(a.tty, b[c + e]);
+          } catch (g) {
+            throw new N(29);
+          }
+          d && (a.node.mtime = a.node.ctime = Date.now());
+          return e;
+        } }, wb = { Bb() {
+          a: {
+            if (!hb.length) {
+              var a = null;
+              if (ca) {
+                var b = Buffer.alloc(256), c = 0, d = process.stdin.fd;
+                try {
+                  c = fs3.readSync(d, b, 0, 256);
+                } catch (e) {
+                  if (e.toString().includes("EOF"))
+                    c = 0;
+                  else
+                    throw e;
+                }
+                0 < c && (a = b.slice(0, c).toString("utf-8"));
+              } else
+                globalThis.window?.prompt && (a = window.prompt("Input: "), null !== a && (a += "\n"));
+              if (!a) {
+                a = null;
+                break a;
+              }
+              b = Array(ib(a) + 1);
+              a = M(a, b, 0, b.length);
+              b.length = a;
+              hb = b;
+            }
+            a = hb.shift();
+          }
+          return a;
+        }, ub(a, b) {
+          null === b || 10 === b ? (Da(gb(a.output)), a.output = []) : 0 != b && a.output.push(b);
+        }, fsync(a) {
+          0 < a.output?.length && (Da(gb(a.output)), a.output = []);
+        }, hc() {
+          return { bc: 25856, dc: 5, ac: 191, cc: 35387, $b: [3, 28, 127, 21, 4, 0, 1, 0, 17, 19, 26, 0, 18, 15, 23, 22, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0] };
+        }, ic() {
+          return 0;
+        }, jc() {
+          return [24, 80];
+        } }, xb = { ub(a, b) {
+          null === b || 10 === b ? (B(gb(a.output)), a.output = []) : 0 != b && a.output.push(b);
+        }, fsync(a) {
+          0 < a.output?.length && (B(gb(a.output)), a.output = []);
+        } }, O = { Wa: null, Xa() {
+          return O.createNode(null, "/", 16895, 0);
+        }, createNode(a, b, c, d) {
+          if (24576 === (c & 61440) || 4096 === (c & 61440))
+            throw new N(63);
+          O.Wa || (O.Wa = { dir: { node: { Ta: O.La.Ta, Ua: O.La.Ua, lookup: O.La.lookup, ib: O.La.ib, rename: O.La.rename, unlink: O.La.unlink, rmdir: O.La.rmdir, readdir: O.La.readdir, symlink: O.La.symlink }, stream: { Va: O.Ma.Va } }, file: { node: { Ta: O.La.Ta, Ua: O.La.Ua }, stream: { Va: O.Ma.Va, read: O.Ma.read, write: O.Ma.write, jb: O.Ma.jb, kb: O.Ma.kb } }, link: { node: { Ta: O.La.Ta, Ua: O.La.Ua, readlink: O.La.readlink }, stream: {} }, yb: { node: { Ta: O.La.Ta, Ua: O.La.Ua }, stream: yb } });
+          c = zb(a, b, c, d);
+          P(c.mode) ? (c.La = O.Wa.dir.node, c.Ma = O.Wa.dir.stream, c.Na = {}) : 32768 === (c.mode & 61440) ? (c.La = O.Wa.file.node, c.Ma = O.Wa.file.stream, c.Ra = 0, c.Na = null) : 40960 === (c.mode & 61440) ? (c.La = O.Wa.link.node, c.Ma = O.Wa.link.stream) : 8192 === (c.mode & 61440) && (c.La = O.Wa.yb.node, c.Ma = O.Wa.yb.stream);
+          c.atime = c.mtime = c.ctime = Date.now();
+          a && (a.Na[b] = c, a.atime = a.mtime = a.ctime = c.atime);
+          return c;
+        }, fc(a) {
+          return a.Na ? a.Na.subarray ? a.Na.subarray(0, a.Ra) : new Uint8Array(a.Na) : new Uint8Array(0);
+        }, La: {
+          Ta(a) {
+            var b = {};
+            b.dev = 8192 === (a.mode & 61440) ? a.id : 1;
+            b.ino = a.id;
+            b.mode = a.mode;
+            b.nlink = 1;
+            b.uid = 0;
+            b.gid = 0;
+            b.rdev = a.rdev;
+            P(a.mode) ? b.size = 4096 : 32768 === (a.mode & 61440) ? b.size = a.Ra : 40960 === (a.mode & 61440) ? b.size = a.link.length : b.size = 0;
+            b.atime = new Date(a.atime);
+            b.mtime = new Date(a.mtime);
+            b.ctime = new Date(a.ctime);
+            b.blksize = 4096;
+            b.blocks = Math.ceil(b.size / b.blksize);
+            return b;
+          },
+          Ua(a, b) {
+            for (var c of ["mode", "atime", "mtime", "ctime"])
+              null != b[c] && (a[c] = b[c]);
+            void 0 !== b.size && (b = b.size, a.Ra != b && (0 == b ? (a.Na = null, a.Ra = 0) : (c = a.Na, a.Na = new Uint8Array(b), c && a.Na.set(c.subarray(0, Math.min(b, a.Ra))), a.Ra = b)));
+          },
+          lookup() {
+            O.nb || (O.nb = new N(44), O.nb.stack = "<generic error, no stack>");
+            throw O.nb;
+          },
+          ib(a, b, c, d) {
+            return O.createNode(a, b, c, d);
+          },
+          rename(a, b, c) {
+            try {
+              var d = Q(b, c);
+            } catch (g) {
+            }
+            if (d) {
+              if (P(a.mode))
+                for (var e in d.Na)
+                  throw new N(55);
+              Ab(d);
+            }
+            delete a.parent.Na[a.name];
+            b.Na[c] = a;
+            a.name = c;
+            b.ctime = b.mtime = a.parent.ctime = a.parent.mtime = Date.now();
+          },
+          unlink(a, b) {
+            delete a.Na[b];
+            a.ctime = a.mtime = Date.now();
+          },
+          rmdir(a, b) {
+            var c = Q(a, b), d;
+            for (d in c.Na)
+              throw new N(55);
+            delete a.Na[b];
+            a.ctime = a.mtime = Date.now();
+          },
+          readdir(a) {
+            return [".", "..", ...Object.keys(a.Na)];
+          },
+          symlink(a, b, c) {
+            a = O.createNode(a, b, 41471, 0);
+            a.link = c;
+            return a;
+          },
+          readlink(a) {
+            if (40960 !== (a.mode & 61440))
+              throw new N(28);
+            return a.link;
+          }
+        }, Ma: { read(a, b, c, d, e) {
+          var g = a.node.Na;
+          if (e >= a.node.Ra)
+            return 0;
+          a = Math.min(a.node.Ra - e, d);
+          if (8 < a && g.subarray)
+            b.set(g.subarray(e, e + a), c);
+          else
+            for (d = 0; d < a; d++)
+              b[c + d] = g[e + d];
+          return a;
+        }, write(a, b, c, d, e, g) {
+          b.buffer === m.buffer && (g = false);
+          if (!d)
+            return 0;
+          a = a.node;
+          a.mtime = a.ctime = Date.now();
+          if (b.subarray && (!a.Na || a.Na.subarray)) {
+            if (g)
+              return a.Na = b.subarray(c, c + d), a.Ra = d;
+            if (0 === a.Ra && 0 === e)
+              return a.Na = b.slice(c, c + d), a.Ra = d;
+            if (e + d <= a.Ra)
+              return a.Na.set(b.subarray(c, c + d), e), d;
+          }
+          g = e + d;
+          var h = a.Na ? a.Na.length : 0;
+          h >= g || (g = Math.max(g, h * (1048576 > h ? 2 : 1.125) >>> 0), 0 != h && (g = Math.max(g, 256)), h = a.Na, a.Na = new Uint8Array(g), 0 < a.Ra && a.Na.set(h.subarray(0, a.Ra), 0));
+          if (a.Na.subarray && b.subarray)
+            a.Na.set(b.subarray(c, c + d), e);
+          else
+            for (g = 0; g < d; g++)
+              a.Na[e + g] = b[c + g];
+          a.Ra = Math.max(a.Ra, e + d);
+          return d;
+        }, Va(a, b, c) {
+          1 === c ? b += a.position : 2 === c && 32768 === (a.node.mode & 61440) && (b += a.node.Ra);
+          if (0 > b)
+            throw new N(28);
+          return b;
+        }, jb(a, b, c, d, e) {
+          if (32768 !== (a.node.mode & 61440))
+            throw new N(43);
+          a = a.node.Na;
+          if (e & 2 || !a || a.buffer !== m.buffer) {
+            e = true;
+            d = 65536 * Math.ceil(b / 65536);
+            var g = Bb(65536, d);
+            g && C2.fill(0, g, g + d);
+            d = g;
+            if (!d)
+              throw new N(48);
+            if (a) {
+              if (0 < c || c + b < a.length)
+                a.subarray ? a = a.subarray(c, c + b) : a = Array.prototype.slice.call(a, c, c + b);
+              m.set(a, d);
+            }
+          } else
+            e = false, d = a.byteOffset;
+          return { Xb: d, Eb: e };
+        }, kb(a, b, c, d) {
+          O.Ma.write(a, b, 0, d, c, false);
+          return 0;
+        } } }, ja = (a, b) => {
+          var c = 0;
+          a && (c |= 365);
+          b && (c |= 146);
+          return c;
+        }, Cb = null, Db = {}, Eb = [], Fb = 1, R = null, Gb = false, Hb = true, N = class {
+          name = "ErrnoError";
+          constructor(a) {
+            this.Pa = a;
+          }
+        }, Ib = class {
+          hb = {};
+          node = null;
+          get flags() {
+            return this.hb.flags;
+          }
+          set flags(a) {
+            this.hb.flags = a;
+          }
+          get position() {
+            return this.hb.position;
+          }
+          set position(a) {
+            this.hb.position = a;
+          }
+        }, Jb = class {
+          La = {};
+          Ma = {};
+          bb = null;
+          constructor(a, b, c, d) {
+            a ||= this;
+            this.parent = a;
+            this.Xa = a.Xa;
+            this.id = Fb++;
+            this.name = b;
+            this.mode = c;
+            this.rdev = d;
+            this.atime = this.mtime = this.ctime = Date.now();
+          }
+          get read() {
+            return 365 === (this.mode & 365);
+          }
+          set read(a) {
+            a ? this.mode |= 365 : this.mode &= -366;
+          }
+          get write() {
+            return 146 === (this.mode & 146);
+          }
+          set write(a) {
+            a ? this.mode |= 146 : this.mode &= -147;
+          }
+        };
+        function S(a, b = {}) {
+          if (!a)
+            throw new N(44);
+          b.pb ?? (b.pb = true);
+          "/" === a.charAt(0) || (a = "//" + a);
+          var c = 0;
+          a:
+            for (; 40 > c; c++) {
+              a = a.split("/").filter((q) => !!q);
+              for (var d = Cb, e = "/", g = 0; g < a.length; g++) {
+                var h = g === a.length - 1;
+                if (h && b.parent)
+                  break;
+                if ("." !== a[g])
+                  if (".." === a[g])
+                    if (e = bb(e), d === d.parent) {
+                      a = e + "/" + a.slice(g + 1).join("/");
+                      c--;
+                      continue a;
+                    } else
+                      d = d.parent;
+                  else {
+                    e = ia(e + "/" + a[g]);
+                    try {
+                      d = Q(d, a[g]);
+                    } catch (q) {
+                      if (44 === q?.Pa && h && b.Wb)
+                        return { path: e };
+                      throw q;
+                    }
+                    !d.bb || h && !b.pb || (d = d.bb.root);
+                    if (40960 === (d.mode & 61440) && (!h || b.ab)) {
+                      if (!d.La.readlink)
+                        throw new N(52);
+                      d = d.La.readlink(d);
+                      "/" === d.charAt(0) || (d = bb(e) + "/" + d);
+                      a = d + "/" + a.slice(g + 1).join("/");
+                      continue a;
+                    }
+                  }
+              }
+              return { path: e, node: d };
+            }
+          throw new N(32);
+        }
+        function ha(a) {
+          for (var b; ; ) {
+            if (a === a.parent)
+              return a = a.Xa.Db, b ? "/" !== a[a.length - 1] ? `${a}/${b}` : a + b : a;
+            b = b ? `${a.name}/${b}` : a.name;
+            a = a.parent;
+          }
+        }
+        function Kb(a, b) {
+          for (var c = 0, d = 0; d < b.length; d++)
+            c = (c << 5) - c + b.charCodeAt(d) | 0;
+          return (a + c >>> 0) % R.length;
+        }
+        function Ab(a) {
+          var b = Kb(a.parent.id, a.name);
+          if (R[b] === a)
+            R[b] = a.cb;
+          else
+            for (b = R[b]; b; ) {
+              if (b.cb === a) {
+                b.cb = a.cb;
+                break;
+              }
+              b = b.cb;
+            }
+        }
+        function Q(a, b) {
+          var c = P(a.mode) ? (c = Lb(a, "x")) ? c : a.La.lookup ? 0 : 2 : 54;
+          if (c)
+            throw new N(c);
+          for (c = R[Kb(a.id, b)]; c; c = c.cb) {
+            var d = c.name;
+            if (c.parent.id === a.id && d === b)
+              return c;
+          }
+          return a.La.lookup(a, b);
+        }
+        function zb(a, b, c, d) {
+          a = new Jb(a, b, c, d);
+          b = Kb(a.parent.id, a.name);
+          a.cb = R[b];
+          return R[b] = a;
+        }
+        function P(a) {
+          return 16384 === (a & 61440);
+        }
+        function Lb(a, b) {
+          return Hb ? 0 : b.includes("r") && !(a.mode & 292) || b.includes("w") && !(a.mode & 146) || b.includes("x") && !(a.mode & 73) ? 2 : 0;
+        }
+        function Mb(a, b) {
+          if (!P(a.mode))
+            return 54;
+          try {
+            return Q(a, b), 20;
+          } catch (c) {
+          }
+          return Lb(a, "wx");
+        }
+        function Nb(a, b, c) {
+          try {
+            var d = Q(a, b);
+          } catch (e) {
+            return e.Pa;
+          }
+          if (a = Lb(a, "wx"))
+            return a;
+          if (c) {
+            if (!P(d.mode))
+              return 54;
+            if (d === d.parent || "/" === ha(d))
+              return 10;
+          } else if (P(d.mode))
+            return 31;
+          return 0;
+        }
+        function Ob(a) {
+          if (!a)
+            throw new N(63);
+          return a;
+        }
+        function T(a) {
+          a = Eb[a];
+          if (!a)
+            throw new N(8);
+          return a;
+        }
+        function Pb(a, b = -1) {
+          a = Object.assign(new Ib(), a);
+          if (-1 == b)
+            a: {
+              for (b = 0; 4096 >= b; b++)
+                if (!Eb[b])
+                  break a;
+              throw new N(33);
+            }
+          a.fd = b;
+          return Eb[b] = a;
+        }
+        function Qb(a, b = -1) {
+          a = Pb(a, b);
+          a.Ma?.ec?.(a);
+          return a;
+        }
+        function Rb(a, b, c) {
+          var d = a?.Ma.Ua;
+          a = d ? a : b;
+          d ??= b.La.Ua;
+          Ob(d);
+          d(a, c);
+        }
+        var yb = { open(a) {
+          a.Ma = Db[a.node.rdev].Ma;
+          a.Ma.open?.(a);
+        }, Va() {
+          throw new N(70);
+        } };
+        function mb(a, b) {
+          Db[a] = { Ma: b };
+        }
+        function Sb(a, b) {
+          var c = "/" === b;
+          if (c && Cb)
+            throw new N(10);
+          if (!c && b) {
+            var d = S(b, { pb: false });
+            b = d.path;
+            d = d.node;
+            if (d.bb)
+              throw new N(10);
+            if (!P(d.mode))
+              throw new N(54);
+          }
+          b = { type: a, kc: {}, Db: b, Vb: [] };
+          a = a.Xa(b);
+          a.Xa = b;
+          b.root = a;
+          c ? Cb = a : d && (d.bb = b, d.Xa && d.Xa.Vb.push(b));
+        }
+        function Tb(a, b, c) {
+          var d = S(a, { parent: true }).node;
+          a = cb(a);
+          if (!a)
+            throw new N(28);
+          if ("." === a || ".." === a)
+            throw new N(20);
+          var e = Mb(d, a);
+          if (e)
+            throw new N(e);
+          if (!d.La.ib)
+            throw new N(63);
+          return d.La.ib(d, a, b, c);
+        }
+        function ka(a, b = 438) {
+          return Tb(a, b & 4095 | 32768, 0);
+        }
+        function U(a, b = 511) {
+          return Tb(a, b & 1023 | 16384, 0);
+        }
+        function Ub(a, b, c) {
+          "undefined" == typeof c && (c = b, b = 438);
+          Tb(a, b | 8192, c);
+        }
+        function Vb(a, b) {
+          if (!fb(a))
+            throw new N(44);
+          var c = S(b, { parent: true }).node;
+          if (!c)
+            throw new N(44);
+          b = cb(b);
+          var d = Mb(c, b);
+          if (d)
+            throw new N(d);
+          if (!c.La.symlink)
+            throw new N(63);
+          c.La.symlink(c, b, a);
+        }
+        function Wb(a) {
+          var b = S(a, { parent: true }).node;
+          a = cb(a);
+          var c = Q(b, a), d = Nb(b, a, true);
+          if (d)
+            throw new N(d);
+          if (!b.La.rmdir)
+            throw new N(63);
+          if (c.bb)
+            throw new N(10);
+          b.La.rmdir(b, a);
+          Ab(c);
+        }
+        function ua(a) {
+          var b = S(a, { parent: true }).node;
+          if (!b)
+            throw new N(44);
+          a = cb(a);
+          var c = Q(b, a), d = Nb(b, a, false);
+          if (d)
+            throw new N(d);
+          if (!b.La.unlink)
+            throw new N(63);
+          if (c.bb)
+            throw new N(10);
+          b.La.unlink(b, a);
+          Ab(c);
+        }
+        function Xb(a, b) {
+          a = S(a, { ab: !b }).node;
+          return Ob(a.La.Ta)(a);
+        }
+        function Yb(a, b, c, d) {
+          Rb(a, b, { mode: c & 4095 | b.mode & -4096, ctime: Date.now(), Lb: d });
+        }
+        function la(a, b) {
+          a = "string" == typeof a ? S(a, { ab: true }).node : a;
+          Yb(null, a, b);
+        }
+        function Zb(a, b, c) {
+          if (P(b.mode))
+            throw new N(31);
+          if (32768 !== (b.mode & 61440))
+            throw new N(28);
+          var d = Lb(b, "w");
+          if (d)
+            throw new N(d);
+          Rb(a, b, { size: c, timestamp: Date.now() });
+        }
+        function ma(a, b, c = 438) {
+          if ("" === a)
+            throw new N(44);
+          if ("string" == typeof b) {
+            var d = { r: 0, "r+": 2, w: 577, "w+": 578, a: 1089, "a+": 1090 }[b];
+            if ("undefined" == typeof d)
+              throw Error(`Unknown file open mode: ${b}`);
+            b = d;
+          }
+          c = b & 64 ? c & 4095 | 32768 : 0;
+          if ("object" == typeof a)
+            d = a;
+          else {
+            var e = a.endsWith("/");
+            var g = S(a, { ab: !(b & 131072), Wb: true });
+            d = g.node;
+            a = g.path;
+          }
+          g = false;
+          if (b & 64)
+            if (d) {
+              if (b & 128)
+                throw new N(20);
+            } else {
+              if (e)
+                throw new N(31);
+              d = Tb(a, c | 511, 0);
+              g = true;
+            }
+          if (!d)
+            throw new N(44);
+          8192 === (d.mode & 61440) && (b &= -513);
+          if (b & 65536 && !P(d.mode))
+            throw new N(54);
+          if (!g && (d ? 40960 === (d.mode & 61440) ? e = 32 : (e = ["r", "w", "rw"][b & 3], b & 512 && (e += "w"), e = P(d.mode) && ("r" !== e || b & 576) ? 31 : Lb(d, e)) : e = 44, e))
+            throw new N(e);
+          b & 512 && !g && (e = d, e = "string" == typeof e ? S(e, { ab: true }).node : e, Zb(null, e, 0));
+          b = Pb({ node: d, path: ha(d), flags: b & -131713, seekable: true, position: 0, Ma: d.Ma, Yb: [], error: false });
+          b.Ma.open && b.Ma.open(b);
+          g && la(d, c & 511);
+          return b;
+        }
+        function oa(a) {
+          if (null === a.fd)
+            throw new N(8);
+          a.rb && (a.rb = null);
+          try {
+            a.Ma.close && a.Ma.close(a);
+          } catch (b) {
+            throw b;
+          } finally {
+            Eb[a.fd] = null;
+          }
+          a.fd = null;
+        }
+        function $b(a, b, c) {
+          if (null === a.fd)
+            throw new N(8);
+          if (!a.seekable || !a.Ma.Va)
+            throw new N(70);
+          if (0 != c && 1 != c && 2 != c)
+            throw new N(28);
+          a.position = a.Ma.Va(a, b, c);
+          a.Yb = [];
+        }
+        function ac(a, b, c, d, e) {
+          if (0 > d || 0 > e)
+            throw new N(28);
+          if (null === a.fd)
+            throw new N(8);
+          if (1 === (a.flags & 2097155))
+            throw new N(8);
+          if (P(a.node.mode))
+            throw new N(31);
+          if (!a.Ma.read)
+            throw new N(28);
+          var g = "undefined" != typeof e;
+          if (!g)
+            e = a.position;
+          else if (!a.seekable)
+            throw new N(70);
+          b = a.Ma.read(a, b, c, d, e);
+          g || (a.position += b);
+          return b;
+        }
+        function na(a, b, c, d, e) {
+          if (0 > d || 0 > e)
+            throw new N(28);
+          if (null === a.fd)
+            throw new N(8);
+          if (0 === (a.flags & 2097155))
+            throw new N(8);
+          if (P(a.node.mode))
+            throw new N(31);
+          if (!a.Ma.write)
+            throw new N(28);
+          a.seekable && a.flags & 1024 && $b(a, 0, 2);
+          var g = "undefined" != typeof e;
+          if (!g)
+            e = a.position;
+          else if (!a.seekable)
+            throw new N(70);
+          b = a.Ma.write(a, b, c, d, e, void 0);
+          g || (a.position += b);
+          return b;
+        }
+        function ta(a) {
+          var b = b || 0;
+          var c = "binary";
+          "utf8" !== c && "binary" !== c && Ma(`Invalid encoding type "${c}"`);
+          b = ma(a, b);
+          a = Xb(a).size;
+          var d = new Uint8Array(a);
+          ac(b, d, 0, a, 0);
+          "utf8" === c && (d = gb(d));
+          oa(b);
+          return d;
+        }
+        function W(a, b, c) {
+          a = ia("/dev/" + a);
+          var d = ja(!!b, !!c);
+          W.Cb ?? (W.Cb = 64);
+          var e = W.Cb++ << 8 | 0;
+          mb(e, { open(g) {
+            g.seekable = false;
+          }, close() {
+            c?.buffer?.length && c(10);
+          }, read(g, h, q, w) {
+            for (var t = 0, x = 0; x < w; x++) {
+              try {
+                var D = b();
+              } catch (pb) {
+                throw new N(29);
+              }
+              if (void 0 === D && 0 === t)
+                throw new N(6);
+              if (null === D || void 0 === D)
+                break;
+              t++;
+              h[q + x] = D;
+            }
+            t && (g.node.atime = Date.now());
+            return t;
+          }, write(g, h, q, w) {
+            for (var t = 0; t < w; t++)
+              try {
+                c(h[q + t]);
+              } catch (x) {
+                throw new N(29);
+              }
+            w && (g.node.mtime = g.node.ctime = Date.now());
+            return t;
+          } });
+          Ub(a, d, e);
+        }
+        var X = {};
+        function Y(a, b, c) {
+          if ("/" === b.charAt(0))
+            return b;
+          a = -100 === a ? "/" : T(a).path;
+          if (0 == b.length) {
+            if (!c)
+              throw new N(44);
+            return a;
+          }
+          return a + "/" + b;
+        }
+        function kc(a, b) {
+          F[a >> 2] = b.dev;
+          F[a + 4 >> 2] = b.mode;
+          F[a + 8 >> 2] = b.nlink;
+          F[a + 12 >> 2] = b.uid;
+          F[a + 16 >> 2] = b.gid;
+          F[a + 20 >> 2] = b.rdev;
+          G[a + 24 >> 3] = BigInt(b.size);
+          E[a + 32 >> 2] = 4096;
+          E[a + 36 >> 2] = b.blocks;
+          var c = b.atime.getTime(), d = b.mtime.getTime(), e = b.ctime.getTime();
+          G[a + 40 >> 3] = BigInt(Math.floor(c / 1e3));
+          F[a + 48 >> 2] = c % 1e3 * 1e6;
+          G[a + 56 >> 3] = BigInt(Math.floor(d / 1e3));
+          F[a + 64 >> 2] = d % 1e3 * 1e6;
+          G[a + 72 >> 3] = BigInt(Math.floor(e / 1e3));
+          F[a + 80 >> 2] = e % 1e3 * 1e6;
+          G[a + 88 >> 3] = BigInt(b.ino);
+          return 0;
+        }
+        var Cc = void 0, Ec = () => {
+          var a = E[+Cc >> 2];
+          Cc += 4;
+          return a;
+        }, Fc = 0, Gc = [0, 31, 60, 91, 121, 152, 182, 213, 244, 274, 305, 335], Hc = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334], Ic = {}, Jc = (a) => {
+          Ga = a;
+          Ya || 0 < Fc || (k.onExit?.(a), Fa = true);
+          xa(a, new Sa(a));
+        }, Kc = (a) => {
+          if (!Fa)
+            try {
+              a();
+            } catch (b) {
+              b instanceof Sa || "unwind" == b || xa(1, b);
+            } finally {
+              if (!(Ya || 0 < Fc))
+                try {
+                  Ga = a = Ga, Jc(a);
+                } catch (b) {
+                  b instanceof Sa || "unwind" == b || xa(1, b);
+                }
+            }
+        }, Lc = {}, Nc = () => {
+          if (!Mc) {
+            var a = { USER: "web_user", LOGNAME: "web_user", PATH: "/", PWD: "/", HOME: "/home/web_user", LANG: (globalThis.navigator?.language ?? "C").replace("-", "_") + ".UTF-8", _: wa || "./this.program" }, b;
+            for (b in Lc)
+              void 0 === Lc[b] ? delete a[b] : a[b] = Lc[b];
+            var c = [];
+            for (b in a)
+              c.push(`${b}=${a[b]}`);
+            Mc = c;
+          }
+          return Mc;
+        }, Mc, Oc = (a, b, c, d) => {
+          var e = { string: (t) => {
+            var x = 0;
+            if (null !== t && void 0 !== t && 0 !== t) {
+              x = ib(t) + 1;
+              var D = y(x);
+              M(t, C2, D, x);
+              x = D;
+            }
+            return x;
+          }, array: (t) => {
+            var x = y(t.length);
+            m.set(t, x);
+            return x;
+          } };
+          a = k["_" + a];
+          var g = [], h = 0;
+          if (d)
+            for (var q = 0; q < d.length; q++) {
+              var w = e[c[q]];
+              w ? (0 === h && (h = pa()), g[q] = w(d[q])) : g[q] = d[q];
+            }
+          c = a(...g);
+          return c = function(t) {
+            0 !== h && ra(h);
+            return "string" === b ? z(t) : "boolean" === b ? !!t : t;
+          }(c);
+        }, fa = (a) => {
+          var b = ib(a) + 1, c = da(b);
+          c && M(a, C2, c, b);
+          return c;
+        }, Pc, Qc = [], A = (a) => {
+          Pc.delete(Z.get(a));
+          Z.set(a, null);
+          Qc.push(a);
+        }, Rc = (a) => {
+          const b = a.length;
+          return [b % 128 | 128, b >> 7, ...a];
+        }, Sc = { i: 127, p: 127, j: 126, f: 125, d: 124, e: 111 }, Tc = (a) => Rc(Array.from(a, (b) => Sc[b])), va = (a, b) => {
+          if (!Pc) {
+            Pc = /* @__PURE__ */ new WeakMap();
+            var c = Z.length;
+            if (Pc)
+              for (var d = 0; d < 0 + c; d++) {
+                var e = Z.get(d);
+                e && Pc.set(e, d);
+              }
+          }
+          if (c = Pc.get(a) || 0)
+            return c;
+          c = Qc.length ? Qc.pop() : Z.grow(1);
+          try {
+            Z.set(c, a);
+          } catch (g) {
+            if (!(g instanceof TypeError))
+              throw g;
+            b = Uint8Array.of(0, 97, 115, 109, 1, 0, 0, 0, 1, ...Rc([1, 96, ...Tc(b.slice(1)), ...Tc("v" === b[0] ? "" : b[0])]), 2, 7, 1, 1, 101, 1, 102, 0, 0, 7, 5, 1, 1, 102, 0, 0);
+            b = new WebAssembly.Module(b);
+            b = new WebAssembly.Instance(b, { e: { f: a } }).exports.f;
+            Z.set(c, b);
+          }
+          Pc.set(a, c);
+          return c;
+        };
+        R = Array(4096);
+        Sb(O, "/");
+        U("/tmp");
+        U("/home");
+        U("/home/web_user");
+        (function() {
+          U("/dev");
+          mb(259, { read: () => 0, write: (d, e, g, h) => h, Va: () => 0 });
+          Ub("/dev/null", 259);
+          kb(1280, wb);
+          kb(1536, xb);
+          Ub("/dev/tty", 1280);
+          Ub("/dev/tty1", 1536);
+          var a = new Uint8Array(1024), b = 0, c = () => {
+            0 === b && (eb(a), b = a.byteLength);
+            return a[--b];
+          };
+          W("random", c);
+          W("urandom", c);
+          U("/dev/shm");
+          U("/dev/shm/tmp");
+        })();
+        (function() {
+          U("/proc");
+          var a = U("/proc/self");
+          U("/proc/self/fd");
+          Sb({ Xa() {
+            var b = zb(a, "fd", 16895, 73);
+            b.Ma = { Va: O.Ma.Va };
+            b.La = { lookup(c, d) {
+              c = +d;
+              var e = T(c);
+              c = { parent: null, Xa: { Db: "fake" }, La: { readlink: () => e.path }, id: c + 1 };
+              return c.parent = c;
+            }, readdir() {
+              return Array.from(Eb.entries()).filter(([, c]) => c).map(([c]) => c.toString());
+            } };
+            return b;
+          } }, "/proc/self/fd");
+        })();
+        k.noExitRuntime && (Ya = k.noExitRuntime);
+        k.print && (Da = k.print);
+        k.printErr && (B = k.printErr);
+        k.wasmBinary && (Ea = k.wasmBinary);
+        k.thisProgram && (wa = k.thisProgram);
+        if (k.preInit)
+          for ("function" == typeof k.preInit && (k.preInit = [k.preInit]); 0 < k.preInit.length; )
+            k.preInit.shift()();
+        k.stackSave = () => pa();
+        k.stackRestore = (a) => ra(a);
+        k.stackAlloc = (a) => y(a);
+        k.cwrap = (a, b, c, d) => {
+          var e = !c || c.every((g) => "number" === g || "boolean" === g);
+          return "string" !== b && e && !d ? k["_" + a] : (...g) => Oc(a, b, c, g);
+        };
+        k.addFunction = va;
+        k.removeFunction = A;
+        k.UTF8ToString = z;
+        k.stringToNewUTF8 = fa;
+        k.writeArrayToMemory = (a, b) => {
+          m.set(a, b);
+        };
+        var da, ea, Bb, Uc, ra, y, pa, La, Z, Vc = {
+          a: (a, b, c, d) => Ma(`Assertion failed: ${z(a)}, at: ` + [b ? z(b) : "unknown filename", c, d ? z(d) : "unknown function"]),
+          i: function(a, b) {
+            try {
+              return a = z(a), la(a, b), 0;
+            } catch (c) {
+              if ("undefined" == typeof X || "ErrnoError" !== c.name)
+                throw c;
+              return -c.Pa;
+            }
+          },
+          L: function(a, b, c) {
+            try {
+              b = z(b);
+              b = Y(a, b);
+              if (c & -8)
+                return -28;
+              var d = S(b, { ab: true }).node;
+              if (!d)
+                return -44;
+              a = "";
+              c & 4 && (a += "r");
+              c & 2 && (a += "w");
+              c & 1 && (a += "x");
+              return a && Lb(d, a) ? -2 : 0;
+            } catch (e) {
+              if ("undefined" == typeof X || "ErrnoError" !== e.name)
+                throw e;
+              return -e.Pa;
+            }
+          },
+          j: function(a, b) {
+            try {
+              var c = T(a);
+              Yb(c, c.node, b, false);
+              return 0;
+            } catch (d) {
+              if ("undefined" == typeof X || "ErrnoError" !== d.name)
+                throw d;
+              return -d.Pa;
+            }
+          },
+          h: function(a) {
+            try {
+              var b = T(a);
+              Rb(b, b.node, { timestamp: Date.now(), Lb: false });
+              return 0;
+            } catch (c) {
+              if ("undefined" == typeof X || "ErrnoError" !== c.name)
+                throw c;
+              return -c.Pa;
+            }
+          },
+          b: function(a, b, c) {
+            Cc = c;
+            try {
+              var d = T(a);
+              switch (b) {
+                case 0:
+                  var e = Ec();
+                  if (0 > e)
+                    break;
+                  for (; Eb[e]; )
+                    e++;
+                  return Qb(d, e).fd;
+                case 1:
+                case 2:
+                  return 0;
+                case 3:
+                  return d.flags;
+                case 4:
+                  return e = Ec(), d.flags |= e, 0;
+                case 12:
+                  return e = Ec(), Ha[e + 0 >> 1] = 2, 0;
+                case 13:
+                case 14:
+                  return 0;
+              }
+              return -28;
+            } catch (g) {
+              if ("undefined" == typeof X || "ErrnoError" !== g.name)
+                throw g;
+              return -g.Pa;
+            }
+          },
+          g: function(a, b) {
+            try {
+              var c = T(a), d = c.node, e = c.Ma.Ta;
+              a = e ? c : d;
+              e ??= d.La.Ta;
+              Ob(e);
+              var g = e(a);
+              return kc(b, g);
+            } catch (h) {
+              if ("undefined" == typeof X || "ErrnoError" !== h.name)
+                throw h;
+              return -h.Pa;
+            }
+          },
+          H: function(a, b) {
+            b = -9007199254740992 > b || 9007199254740992 < b ? NaN : Number(b);
+            try {
+              if (isNaN(b))
+                return -61;
+              var c = T(a);
+              if (0 > b || 0 === (c.flags & 2097155))
+                throw new N(28);
+              Zb(c, c.node, b);
+              return 0;
+            } catch (d) {
+              if ("undefined" == typeof X || "ErrnoError" !== d.name)
+                throw d;
+              return -d.Pa;
+            }
+          },
+          G: function(a, b) {
+            try {
+              if (0 === b)
+                return -28;
+              var c = ib("/") + 1;
+              if (b < c)
+                return -68;
+              M("/", C2, a, b);
+              return c;
+            } catch (d) {
+              if ("undefined" == typeof X || "ErrnoError" !== d.name)
+                throw d;
+              return -d.Pa;
+            }
+          },
+          K: function(a, b) {
+            try {
+              return a = z(a), kc(b, Xb(a, true));
+            } catch (c) {
+              if ("undefined" == typeof X || "ErrnoError" !== c.name)
+                throw c;
+              return -c.Pa;
+            }
+          },
+          C: function(a, b, c) {
+            try {
+              return b = z(b), b = Y(a, b), U(b, c), 0;
+            } catch (d) {
+              if ("undefined" == typeof X || "ErrnoError" !== d.name)
+                throw d;
+              return -d.Pa;
+            }
+          },
+          J: function(a, b, c, d) {
+            try {
+              b = z(b);
+              var e = d & 256;
+              b = Y(a, b, d & 4096);
+              return kc(c, e ? Xb(b, true) : Xb(b));
+            } catch (g) {
+              if ("undefined" == typeof X || "ErrnoError" !== g.name)
+                throw g;
+              return -g.Pa;
+            }
+          },
+          x: function(a, b, c, d) {
+            Cc = d;
+            try {
+              b = z(b);
+              b = Y(a, b);
+              var e = d ? Ec() : 0;
+              return ma(b, c, e).fd;
+            } catch (g) {
+              if ("undefined" == typeof X || "ErrnoError" !== g.name)
+                throw g;
+              return -g.Pa;
+            }
+          },
+          v: function(a, b, c, d) {
+            try {
+              b = z(b);
+              b = Y(a, b);
+              if (0 >= d)
+                return -28;
+              var e = S(b).node;
+              if (!e)
+                throw new N(44);
+              if (!e.La.readlink)
+                throw new N(28);
+              var g = e.La.readlink(e);
+              var h = Math.min(d, ib(g)), q = m[c + h];
+              M(
+                g,
+                C2,
+                c,
+                d + 1
+              );
+              m[c + h] = q;
+              return h;
+            } catch (w) {
+              if ("undefined" == typeof X || "ErrnoError" !== w.name)
+                throw w;
+              return -w.Pa;
+            }
+          },
+          u: function(a) {
+            try {
+              return a = z(a), Wb(a), 0;
+            } catch (b) {
+              if ("undefined" == typeof X || "ErrnoError" !== b.name)
+                throw b;
+              return -b.Pa;
+            }
+          },
+          f: function(a, b) {
+            try {
+              return a = z(a), kc(b, Xb(a));
+            } catch (c) {
+              if ("undefined" == typeof X || "ErrnoError" !== c.name)
+                throw c;
+              return -c.Pa;
+            }
+          },
+          r: function(a, b, c) {
+            try {
+              b = z(b);
+              b = Y(a, b);
+              if (c)
+                if (512 === c)
+                  Wb(b);
+                else
+                  return -28;
+              else
+                ua(b);
+              return 0;
+            } catch (d) {
+              if ("undefined" == typeof X || "ErrnoError" !== d.name)
+                throw d;
+              return -d.Pa;
+            }
+          },
+          q: function(a, b, c) {
+            try {
+              b = z(b);
+              b = Y(a, b, true);
+              var d = Date.now(), e, g;
+              if (c) {
+                var h = F[c >> 2] + 4294967296 * E[c + 4 >> 2], q = E[c + 8 >> 2];
+                1073741823 == q ? e = d : 1073741822 == q ? e = null : e = 1e3 * h + q / 1e6;
+                c += 16;
+                h = F[c >> 2] + 4294967296 * E[c + 4 >> 2];
+                q = E[c + 8 >> 2];
+                1073741823 == q ? g = d : 1073741822 == q ? g = null : g = 1e3 * h + q / 1e6;
+              } else
+                g = e = d;
+              if (null !== (g ?? e)) {
+                a = e;
+                var w = S(b, { ab: true }).node;
+                Ob(w.La.Ua)(w, { atime: a, mtime: g });
+              }
+              return 0;
+            } catch (t) {
+              if ("undefined" == typeof X || "ErrnoError" !== t.name)
+                throw t;
+              return -t.Pa;
+            }
+          },
+          m: () => Ma(""),
+          l: () => {
+            Ya = false;
+            Fc = 0;
+          },
+          A: function(a, b) {
+            a = -9007199254740992 > a || 9007199254740992 < a ? NaN : Number(a);
+            a = new Date(1e3 * a);
+            E[b >> 2] = a.getSeconds();
+            E[b + 4 >> 2] = a.getMinutes();
+            E[b + 8 >> 2] = a.getHours();
+            E[b + 12 >> 2] = a.getDate();
+            E[b + 16 >> 2] = a.getMonth();
+            E[b + 20 >> 2] = a.getFullYear() - 1900;
+            E[b + 24 >> 2] = a.getDay();
+            var c = a.getFullYear();
+            E[b + 28 >> 2] = (0 !== c % 4 || 0 === c % 100 && 0 !== c % 400 ? Hc : Gc)[a.getMonth()] + a.getDate() - 1 | 0;
+            E[b + 36 >> 2] = -(60 * a.getTimezoneOffset());
+            c = new Date(a.getFullYear(), 6, 1).getTimezoneOffset();
+            var d = new Date(a.getFullYear(), 0, 1).getTimezoneOffset();
+            E[b + 32 >> 2] = (c != d && a.getTimezoneOffset() == Math.min(d, c)) | 0;
+          },
+          y: function(a, b, c, d, e, g, h) {
+            e = -9007199254740992 > e || 9007199254740992 < e ? NaN : Number(e);
+            try {
+              var q = T(d);
+              if (0 !== (b & 2) && 0 === (c & 2) && 2 !== (q.flags & 2097155))
+                throw new N(2);
+              if (1 === (q.flags & 2097155))
+                throw new N(2);
+              if (!q.Ma.jb)
+                throw new N(43);
+              if (!a)
+                throw new N(28);
+              var w = q.Ma.jb(q, a, e, b, c);
+              var t = w.Xb;
+              E[g >> 2] = w.Eb;
+              F[h >> 2] = t;
+              return 0;
+            } catch (x) {
+              if ("undefined" == typeof X || "ErrnoError" !== x.name)
+                throw x;
+              return -x.Pa;
+            }
+          },
+          z: function(a, b, c, d, e, g) {
+            g = -9007199254740992 > g || 9007199254740992 < g ? NaN : Number(g);
+            try {
+              var h = T(e);
+              if (c & 2) {
+                c = g;
+                if (32768 !== (h.node.mode & 61440))
+                  throw new N(43);
+                if (!(d & 2)) {
+                  var q = C2.slice(a, a + b);
+                  h.Ma.kb && h.Ma.kb(h, q, c, b, d);
+                }
+              }
+            } catch (w) {
+              if ("undefined" == typeof X || "ErrnoError" !== w.name)
+                throw w;
+              return -w.Pa;
+            }
+          },
+          n: (a, b) => {
+            Ic[a] && (clearTimeout(Ic[a].id), delete Ic[a]);
+            if (!b)
+              return 0;
+            var c = setTimeout(() => {
+              delete Ic[a];
+              Kc(() => Uc(a, performance.now()));
+            }, b);
+            Ic[a] = { id: c, lc: b };
+            return 0;
+          },
+          B: (a, b, c, d) => {
+            var e = (/* @__PURE__ */ new Date()).getFullYear(), g = new Date(e, 0, 1).getTimezoneOffset();
+            e = new Date(e, 6, 1).getTimezoneOffset();
+            F[a >> 2] = 60 * Math.max(g, e);
+            E[b >> 2] = Number(g != e);
+            b = (h) => {
+              var q = Math.abs(h);
+              return `UTC${0 <= h ? "-" : "+"}${String(Math.floor(q / 60)).padStart(2, "0")}${String(q % 60).padStart(2, "0")}`;
+            };
+            a = b(g);
+            b = b(e);
+            e < g ? (M(a, C2, c, 17), M(b, C2, d, 17)) : (M(a, C2, d, 17), M(b, C2, c, 17));
+          },
+          d: () => Date.now(),
+          s: () => 2147483648,
+          c: () => performance.now(),
+          o: (a) => {
+            var b = C2.length;
+            a >>>= 0;
+            if (2147483648 < a)
+              return false;
+            for (var c = 1; 4 >= c; c *= 2) {
+              var d = b * (1 + 0.2 / c);
+              d = Math.min(d, a + 100663296);
+              a: {
+                d = (Math.min(2147483648, 65536 * Math.ceil(Math.max(
+                  a,
+                  d
+                ) / 65536)) - La.buffer.byteLength + 65535) / 65536 | 0;
+                try {
+                  La.grow(d);
+                  Ka();
+                  var e = 1;
+                  break a;
+                } catch (g) {
+                }
+                e = void 0;
+              }
+              if (e)
+                return true;
+            }
+            return false;
+          },
+          E: (a, b) => {
+            var c = 0, d = 0, e;
+            for (e of Nc()) {
+              var g = b + c;
+              F[a + d >> 2] = g;
+              c += M(e, C2, g, Infinity) + 1;
+              d += 4;
+            }
+            return 0;
+          },
+          F: (a, b) => {
+            var c = Nc();
+            F[a >> 2] = c.length;
+            a = 0;
+            for (var d of c)
+              a += ib(d) + 1;
+            F[b >> 2] = a;
+            return 0;
+          },
+          e: function(a) {
+            try {
+              var b = T(a);
+              oa(b);
+              return 0;
+            } catch (c) {
+              if ("undefined" == typeof X || "ErrnoError" !== c.name)
+                throw c;
+              return c.Pa;
+            }
+          },
+          p: function(a, b) {
+            try {
+              var c = T(a);
+              m[b] = c.tty ? 2 : P(c.mode) ? 3 : 40960 === (c.mode & 61440) ? 7 : 4;
+              Ha[b + 2 >> 1] = 0;
+              G[b + 8 >> 3] = BigInt(0);
+              G[b + 16 >> 3] = BigInt(0);
+              return 0;
+            } catch (d) {
+              if ("undefined" == typeof X || "ErrnoError" !== d.name)
+                throw d;
+              return d.Pa;
+            }
+          },
+          w: function(a, b, c, d) {
+            try {
+              a: {
+                var e = T(a);
+                a = b;
+                for (var g, h = b = 0; h < c; h++) {
+                  var q = F[a >> 2], w = F[a + 4 >> 2];
+                  a += 8;
+                  var t = ac(e, m, q, w, g);
+                  if (0 > t) {
+                    var x = -1;
+                    break a;
+                  }
+                  b += t;
+                  if (t < w)
+                    break;
+                  "undefined" != typeof g && (g += t);
+                }
+                x = b;
+              }
+              F[d >> 2] = x;
+              return 0;
+            } catch (D) {
+              if ("undefined" == typeof X || "ErrnoError" !== D.name)
+                throw D;
+              return D.Pa;
+            }
+          },
+          D: function(a, b, c, d) {
+            b = -9007199254740992 > b || 9007199254740992 < b ? NaN : Number(b);
+            try {
+              if (isNaN(b))
+                return 61;
+              var e = T(a);
+              $b(e, b, c);
+              G[d >> 3] = BigInt(e.position);
+              e.rb && 0 === b && 0 === c && (e.rb = null);
+              return 0;
+            } catch (g) {
+              if ("undefined" == typeof X || "ErrnoError" !== g.name)
+                throw g;
+              return g.Pa;
+            }
+          },
+          I: function(a) {
+            try {
+              var b = T(a);
+              return b.Ma?.fsync?.(b);
+            } catch (c) {
+              if ("undefined" == typeof X || "ErrnoError" !== c.name)
+                throw c;
+              return c.Pa;
+            }
+          },
+          t: function(a, b, c, d) {
+            try {
+              a: {
+                var e = T(a);
+                a = b;
+                for (var g, h = b = 0; h < c; h++) {
+                  var q = F[a >> 2], w = F[a + 4 >> 2];
+                  a += 8;
+                  var t = na(e, m, q, w, g);
+                  if (0 > t) {
+                    var x = -1;
+                    break a;
+                  }
+                  b += t;
+                  if (t < w)
+                    break;
+                  "undefined" != typeof g && (g += t);
+                }
+                x = b;
+              }
+              F[d >> 2] = x;
+              return 0;
+            } catch (D) {
+              if ("undefined" == typeof X || "ErrnoError" !== D.name)
+                throw D;
+              return D.Pa;
+            }
+          },
+          k: Jc
+        };
+        function Wc() {
+          function a() {
+            k.calledRun = true;
+            if (!Fa) {
+              if (!k.noFSInit && !Gb) {
+                var b, c;
+                Gb = true;
+                b ??= k.stdin;
+                c ??= k.stdout;
+                d ??= k.stderr;
+                b ? W("stdin", b) : Vb("/dev/tty", "/dev/stdin");
+                c ? W("stdout", null, c) : Vb("/dev/tty", "/dev/stdout");
+                d ? W("stderr", null, d) : Vb("/dev/tty1", "/dev/stderr");
+                ma("/dev/stdin", 0);
+                ma("/dev/stdout", 1);
+                ma("/dev/stderr", 1);
+              }
+              Xc.N();
+              Hb = false;
+              k.onRuntimeInitialized?.();
+              if (k.postRun)
+                for ("function" == typeof k.postRun && (k.postRun = [k.postRun]); k.postRun.length; ) {
+                  var d = k.postRun.shift();
+                  Ua.push(d);
+                }
+              Ta(Ua);
+            }
+          }
+          if (0 < J)
+            Xa = Wc;
+          else {
+            if (k.preRun)
+              for ("function" == typeof k.preRun && (k.preRun = [k.preRun]); k.preRun.length; )
+                Wa();
+            Ta(Va);
+            0 < J ? Xa = Wc : k.setStatus ? (k.setStatus("Running..."), setTimeout(() => {
+              setTimeout(() => k.setStatus(""), 1);
+              a();
+            }, 1)) : a();
+          }
+        }
+        var Xc;
+        (async function() {
+          function a(c) {
+            c = Xc = c.exports;
+            k._sqlite3_free = c.P;
+            k._sqlite3_value_text = c.Q;
+            k._sqlite3_prepare_v2 = c.R;
+            k._sqlite3_step = c.S;
+            k._sqlite3_reset = c.T;
+            k._sqlite3_exec = c.U;
+            k._sqlite3_finalize = c.V;
+            k._sqlite3_column_name = c.W;
+            k._sqlite3_column_text = c.X;
+            k._sqlite3_column_type = c.Y;
+            k._sqlite3_errmsg = c.Z;
+            k._sqlite3_clear_bindings = c._;
+            k._sqlite3_value_blob = c.$;
+            k._sqlite3_value_bytes = c.aa;
+            k._sqlite3_value_double = c.ba;
+            k._sqlite3_value_int = c.ca;
+            k._sqlite3_value_type = c.da;
+            k._sqlite3_result_blob = c.ea;
+            k._sqlite3_result_double = c.fa;
+            k._sqlite3_result_error = c.ga;
+            k._sqlite3_result_int = c.ha;
+            k._sqlite3_result_int64 = c.ia;
+            k._sqlite3_result_null = c.ja;
+            k._sqlite3_result_text = c.ka;
+            k._sqlite3_aggregate_context = c.la;
+            k._sqlite3_column_count = c.ma;
+            k._sqlite3_data_count = c.na;
+            k._sqlite3_column_blob = c.oa;
+            k._sqlite3_column_bytes = c.pa;
+            k._sqlite3_column_double = c.qa;
+            k._sqlite3_bind_blob = c.ra;
+            k._sqlite3_bind_double = c.sa;
+            k._sqlite3_bind_int = c.ta;
+            k._sqlite3_bind_text = c.ua;
+            k._sqlite3_bind_parameter_index = c.va;
+            k._sqlite3_sql = c.wa;
+            k._sqlite3_normalized_sql = c.xa;
+            k._sqlite3_changes = c.ya;
+            k._sqlite3_close_v2 = c.za;
+            k._sqlite3_create_function_v2 = c.Aa;
+            k._sqlite3_update_hook = c.Ba;
+            k._sqlite3_open = c.Ca;
+            da = k._malloc = c.Da;
+            ea = k._free = c.Ea;
+            k._RegisterExtensionFunctions = c.Fa;
+            Bb = c.Ga;
+            Uc = c.Ha;
+            ra = c.Ia;
+            y = c.Ja;
+            pa = c.Ka;
+            La = c.M;
+            Z = c.O;
+            Ka();
+            J--;
+            k.monitorRunDependencies?.(J);
+            0 == J && Xa && (c = Xa, Xa = null, c());
+            return Xc;
+          }
+          J++;
+          k.monitorRunDependencies?.(J);
+          var b = { a: Vc };
+          if (k.instantiateWasm)
+            return new Promise((c) => {
+              k.instantiateWasm(b, (d, e) => {
+                c(a(d, e));
+              });
+            });
+          Na ??= k.locateFile ? k.locateFile("sql-wasm.wasm", za) : za + "sql-wasm.wasm";
+          return a((await Ra(b)).instance);
+        })();
+        Wc();
+        return Module2;
+      });
+      return initSqlJsPromise;
+    };
+    if (typeof exports2 === "object" && typeof module2 === "object") {
+      module2.exports = initSqlJs2;
+      module2.exports.default = initSqlJs2;
+    } else if (typeof define === "function" && define["amd"]) {
+      define([], function() {
+        return initSqlJs2;
+      });
+    } else if (typeof exports2 === "object") {
+      exports2["Module"] = initSqlJs2;
+    }
+  }
+});
 
-USER QUESTION: `+e,l=[me.LanguageModelChatMessage.User(o)],u=uo.map(m=>({name:m.name,description:m.description,inputSchema:m.inputSchema})),h=6;try{let m="";for(let _=0;_<h;_++){let T=s?{tools:u}:{},x=await r.sendRequest(l,T,void 0),F=[];for await(let v of x.stream)v instanceof me.LanguageModelTextPart?(m+=v.value,t.onChunk(v.value)):v instanceof me.LanguageModelToolCallPart&&F.push(v);if(F.length===0||!s)break;for(let v of F){t.onToolCall&&t.onToolCall(v.name);let b;try{b=po(s,v.name,v.input,n)}catch(y){b={error:y instanceof Error?y.message:String(y)}}l.push(me.LanguageModelChatMessage.Assistant([v])),l.push(me.LanguageModelChatMessage.User([new me.LanguageModelToolResultPart(v.callId,[new me.LanguageModelTextPart(JSON.stringify(b))])]))}}t.onDone(m)}catch(m){t.onError(m instanceof Error?m.message:String(m))}}var mo={yellow:"#fdd835",red:"#ef5350",blue:"#42a5f5",green:"#66bb6a",purple:"#ab47bc"},fo="yellow",ho=2e3;function ls(i){return typeof i=="string"&&i in mo?i:fo}function cs(i){return typeof i=="string"?i.trim().slice(0,ho):""}function ds(i){if(!i)return{};try{let e=JSON.parse(i),t=e&&typeof e=="object"?e.notes:void 0;if(!t||typeof t!="object")return{};let n={};for(let[r,s]of Object.entries(t)){let o=s,l=cs(o.text);l&&(n[r]={text:l,color:ls(o.color),updatedAt:typeof o.updatedAt=="string"?o.updatedAt:""})}return n}catch{return{}}}function us(i){return JSON.stringify({version:1,notes:i},null,2)+`
-`}function ps(i,e,t,n,r=new Date){let s=cs(t);return s?{...i,[e]:{text:s,color:ls(n),updatedAt:r.toISOString()}}:zn(i,e)}function zn(i,e){if(!(e in i))return i;let t={...i};return delete t[e],t}var _o={linkStyle:i=>i==="curved"?"curved":"straight",linkCurvature:i=>vt(i,0,1,.25),selectedNodeEffect:i=>i==="bloom"?"bloom":"glow",bloomStrength:i=>vt(i,0,5,1.2),bloomRadius:i=>vt(i,0,2,.6),bloomThreshold:i=>vt(i,0,1,0),riskWindow:i=>et(i),rotateSpeed:i=>vt(i,1,5,1),autoRefresh:i=>i===!0};function vt(i,e,t,n){return typeof i=="number"&&isFinite(i)?Math.min(t,Math.max(e,i)):n}function ms(i){return typeof i=="number"&&isFinite(i)?Math.min(5,Math.max(1,i)):1}var Pe=class i{static viewType="auraVisualizer.graphView";panel;extensionUri;workspaceState;disposables=[];onOpenFileEmitter=new H.EventEmitter;onOpenFile=this.onOpenFileEmitter.event;onDisposeEmitter=new H.EventEmitter;onDidDispose=this.onDisposeEmitter.event;pendingData;pendingHistoryIndex;pendingDeltas=[];pendingFocus;webviewReady=!1;static VIEW_STATE_KEY="aura.viewState";getGraphDB;getHostData;constructor(e,t,n=()=>{},r={}){this.extensionUri=e,this.workspaceState=t,this.getGraphDB=n,this.getHostData=r}show(){return this.panel?(this.panel.reveal(H.ViewColumn.One),this.panel):(this.panel=H.window.createWebviewPanel(i.viewType,"Aura \u2014 3D Visualizer",H.ViewColumn.One,{enableScripts:!0,retainContextWhenHidden:!0,localResourceRoots:[H.Uri.joinPath(this.extensionUri,"out","webview")]}),this.initPanel(),this.panel)}restore(e){this.panel=e,e.webview.options={enableScripts:!0,localResourceRoots:[H.Uri.joinPath(this.extensionUri,"out","webview")]},this.initPanel()}initPanel(){this.panel&&(this.panel.iconPath=H.Uri.joinPath(this.extensionUri,"resources","aura-star-icon.png"),this.panel.webview.html=this.getHtmlContent(this.panel.webview),this.setupMessageHandler(),this.panel.onDidDispose(()=>{this.panel=void 0,this.webviewReady=!1,this.pendingDeltas=[],this.disposables.forEach(e=>e.dispose()),this.disposables=[],this.onDisposeEmitter.fire()}))}setupMessageHandler(){this.panel&&this.panel.webview.onDidReceiveMessage(e=>{switch(e.type){case"ready":this.webviewReady=!0,this.sendSettings(),this.pendingData&&this.panel?.webview.postMessage({type:"graphData",payload:this.pendingData}),this.pendingHistoryIndex&&this.panel?.webview.postMessage({type:"historyIndex",payload:this.pendingHistoryIndex});for(let n of this.pendingDeltas)this.panel?.webview.postMessage({type:"historyDelta",payload:n});this.pendingFocus&&(this.panel?.webview.postMessage({type:"riskFocusFile",payload:{nodeId:this.pendingFocus}}),this.pendingFocus=void 0);let t=this.getHostData.workingTree?.();t&&this.panel?.webview.postMessage({type:"workingTree",payload:{files:t}}),this.sendAnnotations();break;case"openFile":e.payload&&this.onOpenFileEmitter.fire({path:e.payload.path,line:e.payload.line});break;case"requestRefresh":H.commands.executeCommand("auraVisualizer.refresh");break;case"requestExport":H.commands.executeCommand("auraVisualizer.exportGraph");break;case"saveViewState":e.payload&&this.workspaceState.update(i.VIEW_STATE_KEY,e.payload);break;case"requestViewState":this.sendSavedViewState();break;case"requestSavedQueries":{let n=this.getGraphDB(),r=[];if(n)try{r=n.listSavedQueries().map(s=>({id:s.id,name:s.name,expr:s.expr,mode:s.mode,createdAt:s.createdAt}))}catch(s){console.error("[aura] listSavedQueries failed:",s)}this.panel?.webview.postMessage({type:"savedQueries",payload:{queries:r}});break}case"addSavedQuery":{let n=this.getGraphDB(),r=e.payload||{};if(n&&r.expr){let s=r.name||(r.expr.length>50?r.expr.slice(0,47)+"...":r.expr),o=r.id||"q_"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);n.addSavedQuery({id:o,name:s,expr:r.expr,mode:r.mode||"highlight"});let l=n.listSavedQueries().map(u=>({id:u.id,name:u.name,expr:u.expr,mode:u.mode,createdAt:u.createdAt}));this.panel?.webview.postMessage({type:"savedQueries",payload:{queries:l}})}break}case"deleteSavedQuery":{let n=this.getGraphDB(),r=e.payload||{};if(n&&r.id){n.deleteSavedQuery(r.id);let s=n.listSavedQueries().map(o=>({id:o.id,name:o.name,expr:o.expr,mode:o.mode,createdAt:o.createdAt}));this.panel?.webview.postMessage({type:"savedQueries",payload:{queries:s}})}break}case"chatRequest":{let n=e.payload||{};n.id&&n.prompt&&this.handleChatRequest(n.id,n.prompt);break}case"exportRiskReport":{let n=e.payload||{};n.markdown&&this.handleExportRiskReport(n.markdown);break}case"updateSetting":{let n=e.payload||{},r=n.key?_o[n.key]:void 0;n.key&&r&&H.workspace.getConfiguration("auraVisualizer").update(n.key,r(n.value),H.ConfigurationTarget.Workspace).then(void 0,()=>{});break}case"openSettings":H.commands.executeCommand("workbench.action.openSettings","@ext:monticma-aura.aura-visualizer-3D");break;case"saveNote":{let n=e.payload||{};n.path&&this.handleSaveNote(n.path,n.text||"",n.color);break}case"deleteNote":{let n=e.payload||{};n.path&&this.handleDeleteNote(n.path);break}}},null,this.disposables)}handleChatRequest(e,t){let n=(r,s)=>this.panel?.webview.postMessage({type:r,payload:s});as(()=>this.getGraphDB(),t,{onChunk:r=>n("chatChunk",{id:e,text:r}),onDone:r=>n("chatDone",{id:e,fullText:r}),onError:r=>n("chatError",{id:e,message:r}),onToolCall:r=>n("chatTool",{id:e,name:r})},this.getHostData.riskSnapshot)}async handleExportRiskReport(e){let t=H.workspace.workspaceFolders?.[0];if(!t){H.window.showWarningMessage("Aura: No workspace folder open.");return}let n=H.Uri.joinPath(t.uri,".aura"),r=H.Uri.joinPath(n,"risk-report.md");try{await H.workspace.fs.createDirectory(n),await H.workspace.fs.writeFile(r,Buffer.from(e,"utf-8")),await H.window.showInformationMessage("Aura: Risk report exported to .aura/risk-report.md","Open")==="Open"&&H.window.showTextDocument(r,{preview:!0})}catch(s){H.window.showErrorMessage("Aura: Failed to export risk report: "+(s instanceof Error?s.message:String(s)))}}async sendAnnotations(){let e=await this.loadAnnotations();this.panel?.webview.postMessage({type:"annotations",payload:{notes:e}})}annotationsFileUri(){let e=H.workspace.workspaceFolders?.[0];if(e)return H.Uri.joinPath(e.uri,".aura","annotations.json")}async loadAnnotations(){let e=this.annotationsFileUri();if(!e)return{};try{let t=await H.workspace.fs.readFile(e);return ds(Buffer.from(t).toString("utf-8"))}catch{return{}}}async persistAnnotations(e){let t=H.workspace.workspaceFolders?.[0];if(!t)return;let n=H.Uri.joinPath(t.uri,".aura");await H.workspace.fs.createDirectory(n),await H.workspace.fs.writeFile(H.Uri.joinPath(n,"annotations.json"),Buffer.from(us(e),"utf-8"))}async handleSaveNote(e,t,n){try{let r=ps(await this.loadAnnotations(),e,t,n);await this.persistAnnotations(r),await this.sendAnnotations()}catch(r){console.error("[aura] saveNote failed:",r)}}async handleDeleteNote(e){try{let t=zn(await this.loadAnnotations(),e);await this.persistAnnotations(t),await this.sendAnnotations()}catch(t){console.error("[aura] deleteNote failed:",t)}}sendGraphData(e){this.pendingData=e,this.webviewReady&&this.panel?.webview.postMessage({type:"graphData",payload:e})}sendSavedViewState(){let e=this.workspaceState.get(i.VIEW_STATE_KEY);e&&this.panel?.webview.postMessage({type:"restoreViewState",payload:e})}sendGraphDelta(e){this.webviewReady&&this.panel?.webview.postMessage({type:"updateGraph",payload:e})}sendProgress(e,t){this.panel?.webview.postMessage({type:"progress",payload:{phase:e,message:t}})}focusNode(e){this.panel?.webview.postMessage({type:"focusNode",payload:{nodeId:e}})}focusRiskFile(e){this.webviewReady?this.panel?.webview.postMessage({type:"riskFocusFile",payload:{nodeId:e}}):this.pendingFocus=e}sendWorkingTree(e){this.webviewReady&&this.panel?.webview.postMessage({type:"workingTree",payload:{files:e}})}sendBlastRadius(e){this.panel?.webview.postMessage({type:"blastRadius",payload:{nodeId:e}})}sendFilterDirs(e){this.panel?.webview.postMessage({type:"filterDirs",payload:{dirs:e}})}sendRefreshComplete(){this.panel?.webview.postMessage({type:"refreshComplete"})}sendSettings(e){try{let t=H.workspace.getConfiguration("auraVisualizer");this.panel?.webview.postMessage({type:"graphConfig",payload:{linkStyle:t.get("linkStyle","straight"),linkCurvature:t.get("linkCurvature",.25),selectedNodeEffect:t.get("selectedNodeEffect","glow"),bloomStrength:t.get("bloomStrength",1.2),bloomRadius:t.get("bloomRadius",.6),bloomThreshold:t.get("bloomThreshold",0),riskWindow:et(t.get("riskWindow",90)),rotateSpeed:ms(t.get("rotateSpeed",1)),autoRefresh:t.get("autoRefresh",!0)}})}catch{}}sendTheme(e){this.panel?.webview.postMessage({type:"themeChanged",payload:{kind:e}})}sendHistoryIndex(e){this.pendingHistoryIndex=e,this.webviewReady&&this.panel?.webview.postMessage({type:"historyIndex",payload:e})}sendHistoryProgress(e,t){this.webviewReady&&this.panel?.webview.postMessage({type:"historyProgress",payload:{scanned:e,total:t}})}sendHistoryDelta(e){this.webviewReady?this.panel?.webview.postMessage({type:"historyDelta",payload:e}):this.pendingDeltas.push(e)}get isVisible(){return this.panel?.visible??!1}dispose(){this.panel?.dispose()}buildAuraConfig(){try{let e=H.workspace.getConfiguration("auraVisualizer");return JSON.stringify({linkStyle:e.get("linkStyle","straight"),linkCurvature:e.get("linkCurvature",.25),selectedNodeEffect:e.get("selectedNodeEffect","glow"),bloomStrength:e.get("bloomStrength",1.2),bloomRadius:e.get("bloomRadius",.6),bloomThreshold:e.get("bloomThreshold",0),riskWindow:et(e.get("riskWindow",90)),rotateSpeed:ms(e.get("rotateSpeed",1)),autoRefresh:e.get("autoRefresh",!0)})}catch{return"{}"}}getHtmlContent(e){let t=Vn.join("out","webview"),n=Vn.join(this.extensionUri.fsPath,"package.json"),r="1.0.0";try{r=require(n).version||r}catch{}let s=e.asWebviewUri(H.Uri.joinPath(this.extensionUri,t,"css","style.css")),o=e.asWebviewUri(H.Uri.joinPath(this.extensionUri,t,"js","app.js")),l=e.asWebviewUri(H.Uri.joinPath(this.extensionUri,t,"js","graph-config.js")),u=e.asWebviewUri(H.Uri.joinPath(this.extensionUri,t,"js","query.js")),h=e.asWebviewUri(H.Uri.joinPath(this.extensionUri,t,"js","risk-core.js")),m=e.asWebviewUri(H.Uri.joinPath(this.extensionUri,t,"lib","3d-force-graph.min.js")),_=e.asWebviewUri(H.Uri.joinPath(this.extensionUri,t,"lib","three.global.js")),T=go(),x=this.buildAuraConfig();return`<!DOCTYPE html>
+// src/extension.ts
+var extension_exports = {};
+__export(extension_exports, {
+  activate: () => activate,
+  deactivate: () => deactivate
+});
+module.exports = __toCommonJS(extension_exports);
+var vscode5 = __toESM(require("vscode"));
+var path2 = __toESM(require("path"));
+var fs2 = __toESM(require("fs/promises"));
+var import_fs2 = require("fs");
+var import_worker_threads = require("worker_threads");
+
+// src/webview/WebviewProvider.ts
+var vscode2 = __toESM(require("vscode"));
+var path = __toESM(require("path"));
+
+// src/chat.ts
+var vscode = __toESM(require("vscode"));
+
+// src/mcp/context.ts
+var STOPWORDS = /* @__PURE__ */ new Set([
+  "add",
+  "the",
+  "a",
+  "an",
+  "to",
+  "in",
+  "of",
+  "for",
+  "and",
+  "or",
+  "with",
+  "on",
+  "this",
+  "that",
+  "into",
+  "from",
+  "using",
+  "use",
+  "make",
+  "new",
+  "fix",
+  "implement",
+  "create",
+  "change",
+  "update",
+  "remove",
+  "delete",
+  "need",
+  "want",
+  "should",
+  "would",
+  "can",
+  "code",
+  "project",
+  "file",
+  "files",
+  "how",
+  "what",
+  "where",
+  "which",
+  "when",
+  "why",
+  "do",
+  "does",
+  "is",
+  "are",
+  "be",
+  "by",
+  "as",
+  "at",
+  "it",
+  "we",
+  "you",
+  "i",
+  "me"
+]);
+function tokenizeTask(text) {
+  if (!text)
+    return [];
+  const words = text.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2").toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 1 && !STOPWORDS.has(w));
+  return [...new Set(words)];
+}
+function resolveContext(db, task, limit = 10) {
+  const tokens = tokenizeTask(task);
+  if (tokens.length === 0) {
+    return {
+      task,
+      files: [],
+      note: 'Could not extract meaningful keywords from the task. Try a more specific description (e.g. "add oauth login").'
+    };
+  }
+  const allNodes = db.getAllNodes();
+  const totalNodes = Math.max(allNodes.length, 1);
+  const accs = /* @__PURE__ */ new Map();
+  const acc = (fileId) => {
+    let a = accs.get(fileId);
+    if (!a) {
+      a = { score: 0, symbols: /* @__PURE__ */ new Map(), docHits: [] };
+      accs.set(fileId, a);
+    }
+    return a;
+  };
+  const df = /* @__PURE__ */ new Map();
+  for (const token of tokens) {
+    const matched = /* @__PURE__ */ new Set();
+    for (const s of db.searchSymbols(token))
+      matched.add(s.nodeId);
+    for (const n of allNodes) {
+      if (n.name.toLowerCase().includes(token) || n.id.toLowerCase().includes(token))
+        matched.add(n.id);
+    }
+    for (const d of db.searchDocs(token, 50))
+      matched.add(d.fileId);
+    df.set(token, matched.size);
+  }
+  const idf = (token) => {
+    const d = df.get(token) || 0;
+    return 1 + Math.log(totalNodes / (1 + d));
+  };
+  for (const token of tokens) {
+    const w = idf(token);
+    for (const s of db.searchSymbols(token)) {
+      const exact = s.name.toLowerCase() === token;
+      const a = acc(s.nodeId);
+      a.score += (exact ? 10 : 5) * w;
+      if (!a.symbols.has(s.name)) {
+        a.symbols.set(s.name, { symbol: s.name, kind: s.kind, line: s.line, visibility: s.visibility });
+      }
+    }
+  }
+  for (const token of tokens) {
+    const w = idf(token);
+    for (const n of allNodes) {
+      const base = n.name.toLowerCase();
+      const path3 = n.id.toLowerCase();
+      if (base === token)
+        acc(n.id).score += 8 * w;
+      else if (base.includes(token))
+        acc(n.id).score += 6 * w;
+      else if (path3.includes(token))
+        acc(n.id).score += 4 * w;
+    }
+  }
+  for (const token of tokens) {
+    const w = idf(token);
+    for (const d of db.searchDocs(token, 20)) {
+      const a = acc(d.fileId);
+      a.score += 3 * w;
+      if (a.docHits.length < 5) {
+        a.docHits.push({ section: d.section, line: d.lineStart, excerpt: d.content.slice(0, 200) });
+      }
+    }
+  }
+  let maxFanIn = 1;
+  let maxLastModified = 1;
+  for (const n of allNodes) {
+    if (n.fan_in > maxFanIn)
+      maxFanIn = n.fan_in;
+    if (n.last_modified > maxLastModified)
+      maxLastModified = n.last_modified;
+  }
+  const nodeById = new Map(allNodes.map((n) => [n.id, n]));
+  for (const [id, a] of accs) {
+    const n = nodeById.get(id);
+    if (!n)
+      continue;
+    a.score += 5 * (n.fan_in / maxFanIn);
+    a.score += 2 * (n.last_modified / maxLastModified);
+  }
+  const ranked = [...accs.entries()].map(([file, a]) => ({ file, a })).sort((x, y) => y.a.score - x.a.score || x.file.localeCompare(y.file)).slice(0, limit);
+  const files = ranked.map(({ file, a }) => {
+    const detail = db.getNodeDetail(file);
+    return {
+      file,
+      score: Math.round(a.score * 100) / 100,
+      metrics: detail ? {
+        language: detail.language,
+        lines: detail.lines,
+        complexity: detail.complexity,
+        fan_in: detail.fan_in,
+        fan_out: detail.fan_out
+      } : void 0,
+      anchors: [...a.symbols.values()],
+      doc_hits: a.docHits,
+      neighborhood: detail ? {
+        dependencies: detail.dependencies.slice(0, 12),
+        dependents: detail.dependents.slice(0, 12)
+      } : void 0
+    };
+  });
+  return {
+    task,
+    files,
+    note: "Deterministic ranking: symbol matches (\xD710 exact / \xD75 substring), filename (\xD78/\xD76/\xD74), docs (\xD73), weighted by token frequency (IDF), plus fan_in and recency. No LLM involved."
+  };
+}
+
+// src/risk/risk-core.ts
+var RISK_WINDOWS = [30, 90, 365];
+var DEFAULT_RISK_WINDOW = 90;
+var CHURN_CAP = 20;
+function normalizeRiskWindow(value) {
+  return typeof value === "number" && RISK_WINDOWS.indexOf(value) !== -1 ? value : DEFAULT_RISK_WINDOW;
+}
+function percentileLookup(values) {
+  const sorted = values.slice().sort((a, b) => a - b);
+  return (v) => {
+    const n = sorted.length;
+    if (n === 0)
+      return 0;
+    let lo = 0, hi = n;
+    while (lo < hi) {
+      const mid = lo + hi >> 1;
+      if (sorted[mid] < v)
+        lo = mid + 1;
+      else
+        hi = mid;
+    }
+    const less = lo;
+    let lo2 = less, hi2 = n;
+    while (lo2 < hi2) {
+      const mid2 = lo2 + hi2 >> 1;
+      if (sorted[mid2] <= v)
+        lo2 = mid2 + 1;
+      else
+        hi2 = mid2;
+    }
+    const equal = lo2 - less;
+    const denom = n - equal;
+    if (denom <= 0)
+      return 0;
+    return Math.min(1, less / denom);
+  };
+}
+function buildRiskPercentiles(nodes, churnOf) {
+  const complexity = [], fanIn = [], fanOut = [], churn = [];
+  for (const n of nodes) {
+    complexity.push(n.complexity || 0);
+    fanIn.push(n.fanIn || 0);
+    fanOut.push(n.fanOut || 0);
+    churn.push(churnOf(n) || 0);
+  }
+  return {
+    complexity: percentileLookup(complexity),
+    fanIn: percentileLookup(fanIn),
+    fanOut: percentileLookup(fanOut),
+    churn: percentileLookup(churn)
+  };
+}
+function topPercentLabel(p) {
+  const pc = Math.round((1 - p) * 100);
+  if (pc <= 0)
+    return "the highest";
+  if (pc >= 100)
+    return null;
+  return "top " + pc + "%";
+}
+var RISK_HIGH_THRESHOLD = 66;
+var RISK_MEDIUM_THRESHOLD = 33;
+function riskBucket(score) {
+  return score >= RISK_HIGH_THRESHOLD ? "high" : score >= RISK_MEDIUM_THRESHOLD ? "medium" : "low";
+}
+function computeRiskScore(node, pct, churn) {
+  const complexity = node.complexity || 0;
+  const fanIn = node.fanIn || 0;
+  const fanOut = node.fanOut || 0;
+  const complexityP = pct ? pct.complexity(complexity) : Math.min(complexity / 50, 1);
+  const fanInP = pct ? pct.fanIn(fanIn) : Math.min(fanIn / 20, 1);
+  const fanOutP = pct ? pct.fanOut(fanOut) : Math.min(fanOut / 30, 1);
+  const churnP = pct ? pct.churn(churn) : Math.min(churn / CHURN_CAP, 1);
+  const inCycle = node.cycleIds && node.cycleIds.length > 0 ? 1 : 0;
+  const totalSymbols = node.symbols && node.symbols.totalSymbols || 0;
+  const deadCount = node.deadExports && node.deadExports.length || 0;
+  const deadRatio = totalSymbols > 0 ? Math.min(deadCount / totalSymbols, 1) : 0;
+  return 100 * (0.3 * complexityP + 0.2 * fanInP + 0.1 * fanOutP + 0.15 * inCycle + 0.15 * deadRatio + 0.1 * churnP);
+}
+function riskReasons(node, pct, ctx) {
+  const reasons = [];
+  const complexity = node.complexity || 0;
+  const fanIn = node.fanIn || 0;
+  const fanOut = node.fanOut || 0;
+  const churn = ctx.churn || 0;
+  const totalSymbols = node.symbols && node.symbols.totalSymbols || 0;
+  const deadCount = node.deadExports && node.deadExports.length || 0;
+  const authorCount = ctx.authorCount || 0;
+  let lbl;
+  if (complexity > 0) {
+    const pC = pct ? pct.complexity(complexity) : 0;
+    lbl = topPercentLabel(pC);
+    reasons.push({ weight: 0.3 * pC, text: "complexity " + complexity + (lbl ? " (" + lbl + " of the repo)" : "") });
+  }
+  if (fanIn > 0) {
+    const pI = pct ? pct.fanIn(fanIn) : 0;
+    lbl = topPercentLabel(pI);
+    reasons.push({ weight: 0.2 * pI, text: fanIn + (fanIn === 1 ? " file depends on it" : " files depend on it") + (lbl ? " (" + lbl + ")" : "") });
+  }
+  if (churn > 0) {
+    const pCh = pct ? pct.churn(churn) : 0;
+    lbl = topPercentLabel(pCh);
+    reasons.push({ weight: 0.1 * pCh, text: "changed " + churn + " time" + (churn === 1 ? "" : "s") + " in " + ctx.windowDays + " days" + (lbl ? " (" + lbl + ")" : "") });
+  }
+  if (fanOut > 0) {
+    const pO = pct ? pct.fanOut(fanOut) : 0;
+    reasons.push({ weight: 0.1 * pO, text: "depends on " + fanOut + " file" + (fanOut === 1 ? "" : "s") });
+  }
+  if (node.cycleIds && node.cycleIds.length > 0) {
+    reasons.push({ weight: 0.15, text: "in a dependency cycle" });
+  }
+  if (deadCount > 0) {
+    const ratio = totalSymbols > 0 ? deadCount / totalSymbols : 0;
+    reasons.push({ weight: 0.15 * ratio, text: deadCount + " unused symbol" + (deadCount === 1 ? "" : "s") + " of " + totalSymbols });
+  }
+  if (authorCount === 1) {
+    reasons.push({ weight: 0, text: "single author" });
+  } else if (authorCount > 1) {
+    reasons.push({ weight: 0, text: authorCount + " authors" });
+  }
+  reasons.sort((a, b) => b.weight - a.weight);
+  return reasons;
+}
+function buildRenameResolver(commits) {
+  const map = /* @__PURE__ */ new Map();
+  for (const commit of commits) {
+    for (const f of commit.files || []) {
+      if (f.status === "R" && f.oldPath && f.path && f.oldPath !== f.path && !map.has(f.oldPath)) {
+        map.set(f.oldPath, f.path);
+      }
+    }
+  }
+  const cache = /* @__PURE__ */ new Map();
+  return (path3) => {
+    const hit = cache.get(path3);
+    if (hit !== void 0)
+      return hit;
+    let cur = path3;
+    const seen = /* @__PURE__ */ new Set([cur]);
+    while (map.has(cur)) {
+      const next = map.get(cur);
+      if (seen.has(next))
+        break;
+      seen.add(next);
+      cur = next;
+    }
+    cache.set(path3, cur);
+    return cur;
+  };
+}
+
+// src/risk/risk-service.ts
+function buildRiskSnapshot(nodes, commits, windowDays, now = Date.now()) {
+  const dayMs = 24 * 60 * 60 * 1e3;
+  const cutoff = now - windowDays * dayMs;
+  const resolvePath = buildRenameResolver(commits);
+  const churn = /* @__PURE__ */ new Map();
+  for (const commit of commits) {
+    let when = new Date(commit.date).getTime();
+    if (isNaN(when))
+      when = 0;
+    const inWindow = when >= cutoff;
+    const author = commit.author || "unknown";
+    for (const file of commit.files || []) {
+      const raw2 = file.path;
+      if (!raw2)
+        continue;
+      const p = resolvePath(raw2);
+      let entry = churn.get(p);
+      if (!entry) {
+        entry = { commits: 0, authors: /* @__PURE__ */ new Set() };
+        churn.set(p, entry);
+      }
+      if (inWindow)
+        entry.commits++;
+      entry.authors.add(author);
+    }
+  }
+  const churnOf = (node) => {
+    const id = node.id;
+    const path3 = node.path;
+    const a = id ? churn.get(id) : void 0;
+    const b = path3 ? churn.get(path3) : void 0;
+    return (a ? a.commits : 0) || (b ? b.commits : 0);
+  };
+  const statsOf = (node) => (node.id ? churn.get(node.id) : void 0) || (node.path ? churn.get(node.path) : void 0);
+  const pct = buildRiskPercentiles(nodes, churnOf);
+  const raw = [];
+  for (const n of nodes) {
+    raw.push({ node: n, score: computeRiskScore(n, pct, churnOf(n)) });
+  }
+  const scorePct = percentileLookup(raw.map((r) => r.score));
+  const byId = /* @__PURE__ */ new Map();
+  const highIds = /* @__PURE__ */ new Set();
+  let total = 0;
+  for (const r of raw) {
+    total += r.score;
+    const stats = statsOf(r.node);
+    const p = scorePct(r.score);
+    const entry = {
+      id: r.node.id,
+      score: r.score,
+      scorePct: p,
+      topLabel: topPercentLabel(p),
+      bucket: riskBucket(r.score),
+      reasons: riskReasons(r.node, pct, {
+        windowDays,
+        churn: churnOf(r.node),
+        authorCount: stats ? stats.authors.size : 0
+      }),
+      lines: r.node.linesOfCode || 0,
+      complexity: r.node.complexity || 0,
+      fanIn: r.node.fanIn || 0,
+      fanOut: r.node.fanOut || 0
+    };
+    byId.set(r.node.id, entry);
+    if (entry.bucket === "high")
+      highIds.add(r.node.id);
+  }
+  return { windowDays, byId, highIds, avgScore: raw.length ? total / raw.length : 0 };
+}
+function topRiskHotspots(snapshot, limit) {
+  const entries = Array.from(snapshot.byId.values()).sort((a, b) => b.score - a.score).slice(0, Math.max(1, Math.round(limit)));
+  return {
+    sort: "risk",
+    window_days: snapshot.windowDays,
+    total: entries.length,
+    hotspots: entries.map((e) => ({
+      file: e.id,
+      risk_score: Math.round(e.score * 10) / 10,
+      bucket: e.bucket,
+      top: e.topLabel,
+      reasons: e.reasons.map((r) => r.text),
+      lines: e.lines,
+      complexity: e.complexity,
+      fan_in: e.fanIn,
+      fan_out: e.fanOut
+    }))
+  };
+}
+
+// src/chat.ts
+var SYSTEM_PROMPT = "You are Aura, the code architecture assistant of the Aura 3D Visualizer extension. You have access to tools that query the analyzed codebase. ALWAYS call the relevant tool(s) when the question is about the codebase (files, dependencies, orphan files, cycles, dead code, hotspots, symbols, architecture, documentation). Answer ONLY from the tool results \u2014 never guess or invent files. When citing files, use the format `path/to/file.ts:line`. If a tool returns no results, say so honestly instead of guessing.";
+var AURA_TOOLS = [
+  {
+    name: "aura_resolve_context",
+    description: "Given a natural-language task description, return the most relevant files in the codebase, ranked, with path:line anchors and metrics.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        task: { type: "string", description: 'Task description, e.g. "add oauth login"' },
+        limit: { type: "number", description: "Maximum files to return (default 8)" }
+      },
+      required: ["task"]
+    }
+  },
+  {
+    name: "aura_find_orphan_files",
+    description: "Return files that nothing imports (fan_in = 0). These are orphan or entry-point files. Use this to answer questions about orphaned, isolated or unused files.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        limit: { type: "number", description: "Maximum files to return (default 100)" }
+      }
+    }
+  },
+  {
+    name: "aura_find_cycles",
+    description: "Return all circular dependency cycles between files in the codebase.",
+    inputSchema: { type: "object", properties: {} }
+  },
+  {
+    name: "aura_find_dead_code",
+    description: "Return exported symbols that are never imported or called anywhere (dead code).",
+    inputSchema: { type: "object", properties: {} }
+  },
+  {
+    name: "aura_get_hotspots",
+    description: "Return the most at-risk files, ranked by Aura's repository-relative risk score (percentile-based, with written reasons). NOT for line counts \u2014 use aura_get_largest_files for that.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        limit: { type: "number", description: "Maximum files (default 20)" }
+      }
+    }
+  },
+  {
+    name: "aura_get_largest_files",
+    description: "Return the files with the most lines of code, sorted by descending line count, including their complexity. Use this for questions about the largest / biggest files.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        limit: { type: "number", description: "Maximum files (default 20)" }
+      }
+    }
+  },
+  {
+    name: "aura_find_path",
+    description: "Find the shortest dependency path between two files.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        from: { type: "string", description: "Source file path" },
+        to: { type: "string", description: "Target file path" }
+      },
+      required: ["from", "to"]
+    }
+  },
+  {
+    name: "aura_search_symbols",
+    description: "Search for functions, classes, interfaces, methods or other symbols by name.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Search string (substring match)" },
+        kind: { type: "string", description: "Optional filter: function, method, class, struct, enum, macro, export, interface, trait, type_alias" }
+      },
+      required: ["query"]
+    }
+  },
+  {
+    name: "aura_search_docs",
+    description: "Full-text search across project documentation (Markdown, text, reStructuredText).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Natural-language keywords" },
+        limit: { type: "number", description: "Maximum chunks (default 10)" }
+      },
+      required: ["query"]
+    }
+  },
+  {
+    name: "aura_get_architecture",
+    description: "Return the high-level architecture overview: file count, lines of code and average complexity grouped by language.",
+    inputSchema: { type: "object", properties: {} }
+  },
+  {
+    name: "aura_find_unused_functions",
+    description: "Return functions and methods that are never called anywhere in the codebase.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        file: { type: "string", description: "Optional file path to limit the search" }
+      }
+    }
+  },
+  {
+    name: "aura_find_dependents",
+    description: 'Return the files that depend on a given file (blast radius / impact analysis). Use this to answer "what depends on X" or "what would be affected if X changes".',
+    inputSchema: {
+      type: "object",
+      properties: {
+        file: { type: "string", description: "File path relative to the workspace root" },
+        depth: { type: "number", description: "Maximum depth (default 5)" }
+      },
+      required: ["file"]
+    }
+  },
+  {
+    name: "aura_find_dependencies",
+    description: "Return the transitive dependencies of a file (what it imports/requires).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        file: { type: "string", description: "File path relative to the workspace root" },
+        depth: { type: "number", description: "Maximum depth (default 5)" }
+      },
+      required: ["file"]
+    }
+  },
+  {
+    name: "aura_find_heritage",
+    description: "Return inheritance and implementation relationships (extends/implements edges).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        file: { type: "string", description: "Optional file path to filter heritage edges for" }
+      }
+    }
+  },
+  {
+    name: "aura_get_communities",
+    description: "Return architectural communities (modules) detected via the Louvain algorithm \u2014 groups of files by dependency coupling.",
+    inputSchema: { type: "object", properties: {} }
+  }
+];
+function resolveFileArg(db, file) {
+  if (!file)
+    return null;
+  const all = db.getAllNodes();
+  if (all.some((n) => n.id === file))
+    return file;
+  const lower = file.toLowerCase();
+  for (const n of all) {
+    if (n.name.toLowerCase() === lower)
+      return n.id;
+  }
+  for (const n of all) {
+    if (n.id.toLowerCase().endsWith("/" + lower))
+      return n.id;
+  }
+  for (const n of all) {
+    if (n.id.toLowerCase().includes(lower))
+      return n.id;
+  }
+  return null;
+}
+function runAuraTool(db, name, input, getRiskSnapshot) {
+  switch (name) {
+    case "aura_resolve_context":
+      return resolveContext(db, input.task, input.limit || 8);
+    case "aura_find_orphan_files": {
+      const files = db.getOrphanFiles(input.limit || 100);
+      return {
+        files: files.map((f) => ({ file: f.id, language: f.language, lines: f.lines, fan_in: f.fan_in, fan_out: f.fan_out, complexity: f.complexity })),
+        total: files.length
+      };
+    }
+    case "aura_find_cycles": {
+      const cycles = db.getCycles();
+      return { cycles: cycles.map((c) => ({ files: c, length: c.length })), total: cycles.length };
+    }
+    case "aura_find_dead_code": {
+      const dead = db.getDeadCode();
+      return {
+        symbols: dead.map((d) => ({ file: d.nodeId, symbol: d.symbol, kind: d.kind })),
+        total: dead.length
+      };
+    }
+    case "aura_get_hotspots": {
+      const limit = input.limit || 20;
+      const snapshot = getRiskSnapshot?.();
+      if (snapshot) {
+        return topRiskHotspots(snapshot, limit);
+      }
+      const hotspots = db.getHotspots(limit, "impact");
+      return {
+        hotspots: hotspots.map((h) => ({ file: h.id, lines: h.lines, complexity: h.complexity, fan_in: h.fan_in, fan_out: h.fan_out, impact_score: h.impact_score })),
+        total: hotspots.length
+      };
+    }
+    case "aura_get_largest_files": {
+      const files = db.getHotspots(input.limit || 20, "lines");
+      return {
+        files: files.map((f) => ({ file: f.id, lines: f.lines, complexity: f.complexity, fan_in: f.fan_in, fan_out: f.fan_out })),
+        total: files.length
+      };
+    }
+    case "aura_find_path": {
+      const from = resolveFileArg(db, input.from);
+      const to = resolveFileArg(db, input.to);
+      if (!from || !to) {
+        return { error: `Could not resolve ${!from ? input.from : input.to}. Ask the user for the exact path.` };
+      }
+      const path3 = db.findPath(from, to);
+      return path3 ? { from: input.from, resolved_from: from, to: input.to, resolved_to: to, path: path3, length: path3.length - 1 } : { from: input.from, resolved_from: from, to: input.to, resolved_to: to, path: null };
+    }
+    case "aura_search_symbols": {
+      const results = db.searchSymbols(input.query, input.kind);
+      return {
+        results: results.map((r) => ({ file: r.nodeId, symbol: r.name, kind: r.kind, line: r.line, visibility: r.visibility })),
+        total: results.length
+      };
+    }
+    case "aura_search_docs": {
+      const results = db.searchDocs(input.query, input.limit || 10);
+      return {
+        results: results.map((r) => ({ file: r.fileId, section: r.section, line: r.lineStart, excerpt: r.content.slice(0, 300) })),
+        total: results.length
+      };
+    }
+    case "aura_get_architecture": {
+      const overview = db.getArchitectureOverview();
+      const meta = db.getAllMeta();
+      return {
+        project: meta.projectName || "unknown",
+        total_files: Number(meta.totalFiles) || 0,
+        total_links: Number(meta.totalLinks) || 0,
+        languages: overview.map((o) => ({ language: o.language, files: o.count, total_loc: o.total_loc, avg_complexity: o.avg_complexity }))
+      };
+    }
+    case "aura_find_unused_functions": {
+      const unused = db.getUnusedFunctions(input.file, true);
+      return {
+        functions: unused.map((u) => ({ file: u.nodeId, name: u.name, kind: u.kind, line: u.line })),
+        total: unused.length
+      };
+    }
+    case "aura_find_dependents": {
+      const resolved = resolveFileArg(db, input.file);
+      if (!resolved) {
+        return { error: `File not found: ${input.file}. Ask the user for the exact path, or use aura_search_symbols to find it.` };
+      }
+      const blast = db.getBlastRadius(resolved, input.depth || 5);
+      return {
+        file: input.file,
+        resolved_file: resolved,
+        dependents: blast.map((b) => ({ file: b.id, depth: b.depth, risk: b.risk })),
+        total: blast.length
+      };
+    }
+    case "aura_find_dependencies": {
+      const resolved = resolveFileArg(db, input.file);
+      if (!resolved) {
+        return { error: `File not found: ${input.file}. Ask the user for the exact path, or use aura_search_symbols to find it.` };
+      }
+      const deps = db.getDependencies(resolved, input.depth || 5);
+      return {
+        file: input.file,
+        resolved_file: resolved,
+        dependencies: deps.map((d) => ({ file: d.id, depth: d.depth })),
+        total: deps.length
+      };
+    }
+    case "aura_find_heritage": {
+      const resolved = input.file ? resolveFileArg(db, input.file) : void 0;
+      if (input.file && !resolved) {
+        return { error: `File not found: ${input.file}` };
+      }
+      const edges = db.getHeritage(resolved);
+      return {
+        heritage: edges.map((e) => ({ source: e.source, target: e.target, type: e.type, label: e.label })),
+        total: edges.length
+      };
+    }
+    case "aura_get_communities": {
+      const communities = db.getCommunities();
+      const groups = {};
+      for (const c of communities) {
+        (groups[c.community] ??= []).push(c.nodeId);
+      }
+      const modules = Object.entries(groups).filter(([, files]) => files.length >= 2).map(([id, files]) => ({ community: parseInt(id), size: files.length, files })).sort((a, b) => b.size - a.size);
+      return { modules, total: modules.length };
+    }
+    default:
+      return { error: `Unknown tool: ${name}` };
+  }
+}
+async function runChatStream(getDb, prompt, callbacks, getRiskSnapshot) {
+  let model;
+  try {
+    const models = await vscode.lm.selectChatModels({});
+    if (models.length === 0) {
+      callbacks.onError("No language model available. Configure a chat model in VS Code (e.g. GitHub Copilot) and retry.");
+      return;
+    }
+    model = models[0];
+  } catch (err2) {
+    callbacks.onError(err2 instanceof Error ? err2.message : String(err2));
+    return;
+  }
+  const db = getDb();
+  const userMessage = db ? SYSTEM_PROMPT + "\n\nUSER QUESTION: " + prompt : SYSTEM_PROMPT + '\n\n(The workspace has not been analyzed yet \u2014 no codebase tools are available. Tell the user to run "Aura: Visualize Codebase".)\n\nUSER QUESTION: ' + prompt;
+  const messages = [
+    vscode.LanguageModelChatMessage.User(userMessage)
+  ];
+  const tools = AURA_TOOLS.map((t) => ({
+    name: t.name,
+    description: t.description,
+    inputSchema: t.inputSchema
+  }));
+  const MAX_ITERATIONS = 6;
+  try {
+    let fullText = "";
+    for (let i = 0; i < MAX_ITERATIONS; i++) {
+      const options = db ? { tools } : {};
+      const response = await model.sendRequest(messages, options, void 0);
+      const toolCalls = [];
+      for await (const part of response.stream) {
+        if (part instanceof vscode.LanguageModelTextPart) {
+          fullText += part.value;
+          callbacks.onChunk(part.value);
+        } else if (part instanceof vscode.LanguageModelToolCallPart) {
+          toolCalls.push(part);
+        }
+      }
+      if (toolCalls.length === 0 || !db)
+        break;
+      for (const tc of toolCalls) {
+        if (callbacks.onToolCall)
+          callbacks.onToolCall(tc.name);
+        let result;
+        try {
+          result = runAuraTool(db, tc.name, tc.input, getRiskSnapshot);
+        } catch (err2) {
+          result = { error: err2 instanceof Error ? err2.message : String(err2) };
+        }
+        messages.push(vscode.LanguageModelChatMessage.Assistant([tc]));
+        messages.push(vscode.LanguageModelChatMessage.User([
+          new vscode.LanguageModelToolResultPart(
+            tc.callId,
+            [new vscode.LanguageModelTextPart(JSON.stringify(result))]
+          )
+        ]));
+      }
+    }
+    callbacks.onDone(fullText);
+  } catch (err2) {
+    callbacks.onError(err2 instanceof Error ? err2.message : String(err2));
+  }
+}
+
+// src/annotations.ts
+var NOTE_COLORS = {
+  yellow: "#fdd835",
+  red: "#ef5350",
+  blue: "#42a5f5",
+  green: "#66bb6a",
+  purple: "#ab47bc"
+};
+var DEFAULT_NOTE_COLOR = "yellow";
+var MAX_NOTE_LENGTH = 2e3;
+function normalizeNoteColor(value) {
+  return typeof value === "string" && value in NOTE_COLORS ? value : DEFAULT_NOTE_COLOR;
+}
+function cleanText(text) {
+  return typeof text === "string" ? text.trim().slice(0, MAX_NOTE_LENGTH) : "";
+}
+function parseAnnotations(raw) {
+  if (!raw)
+    return {};
+  try {
+    const data = JSON.parse(raw);
+    const notes = data && typeof data === "object" ? data.notes : void 0;
+    if (!notes || typeof notes !== "object")
+      return {};
+    const out2 = {};
+    for (const [key, value] of Object.entries(notes)) {
+      const rec = value;
+      const text = cleanText(rec.text);
+      if (!text)
+        continue;
+      out2[key] = {
+        text,
+        color: normalizeNoteColor(rec.color),
+        updatedAt: typeof rec.updatedAt === "string" ? rec.updatedAt : ""
+      };
+    }
+    return out2;
+  } catch {
+    return {};
+  }
+}
+function serializeAnnotations(map) {
+  return JSON.stringify({ version: 1, notes: map }, null, 2) + "\n";
+}
+function withNote(map, path3, text, color, now = /* @__PURE__ */ new Date()) {
+  const cleaned = cleanText(text);
+  if (!cleaned)
+    return withoutNote(map, path3);
+  return {
+    ...map,
+    [path3]: { text: cleaned, color: normalizeNoteColor(color), updatedAt: now.toISOString() }
+  };
+}
+function withoutNote(map, path3) {
+  if (!(path3 in map))
+    return map;
+  const next = { ...map };
+  delete next[path3];
+  return next;
+}
+
+// src/warps.ts
+var MAX_WARP_NAME = 60;
+var MAX_WARPS = 100;
+var QUICK_SLOT_COUNT = 9;
+var MIN_FOV = 15;
+var MAX_FOV = 120;
+function isFiniteNumber(value) {
+  return typeof value === "number" && Number.isFinite(value);
+}
+function normalizeVec3(value) {
+  if (!value || typeof value !== "object")
+    return null;
+  const rec = value;
+  if (!isFiniteNumber(rec.x) || !isFiniteNumber(rec.y) || !isFiniteNumber(rec.z))
+    return null;
+  return { x: rec.x, y: rec.y, z: rec.z };
+}
+function normalizeQuat(value) {
+  if (!value || typeof value !== "object")
+    return void 0;
+  const rec = value;
+  if (!isFiniteNumber(rec.x) || !isFiniteNumber(rec.y) || !isFiniteNumber(rec.z) || !isFiniteNumber(rec.w)) {
+    return void 0;
+  }
+  const len = Math.hypot(rec.x, rec.y, rec.z, rec.w);
+  if (!(len > 1e-6))
+    return void 0;
+  return { x: rec.x / len, y: rec.y / len, z: rec.z / len, w: rec.w / len };
+}
+function normalizeUnitVec3(value) {
+  const v = normalizeVec3(value);
+  if (!v)
+    return void 0;
+  const len = Math.hypot(v.x, v.y, v.z);
+  if (!(len > 1e-6))
+    return void 0;
+  return { x: v.x / len, y: v.y / len, z: v.z / len };
+}
+function normalizeWarpName(value, fallback = "Warp") {
+  if (typeof value !== "string")
+    return fallback;
+  const cleaned = value.replace(/\s+/g, " ").trim().slice(0, MAX_WARP_NAME);
+  return cleaned || fallback;
+}
+function normalizeQuickSlot(value) {
+  if (!isFiniteNumber(value))
+    return void 0;
+  const slot = Math.round(value);
+  return slot >= 1 && slot <= QUICK_SLOT_COUNT ? slot : void 0;
+}
+function normalizeFov(value) {
+  if (!isFiniteNumber(value) || value <= 0)
+    return void 0;
+  return Math.min(MAX_FOV, Math.max(MIN_FOV, value));
+}
+function generateWarpId(now = Date.now()) {
+  return "w_" + now.toString(36) + Math.random().toString(36).slice(2, 6);
+}
+function makeWarp(value, now = Date.now(), fallbackName = "Warp") {
+  if (!value || typeof value !== "object")
+    return null;
+  const rec = value;
+  const pos = normalizeVec3(rec.pos);
+  const target = normalizeVec3(rec.target);
+  if (!pos || !target)
+    return null;
+  const createdAt = isFiniteNumber(rec.createdAt) ? rec.createdAt : now;
+  return {
+    id: typeof rec.id === "string" && rec.id ? rec.id : generateWarpId(now),
+    name: normalizeWarpName(rec.name, fallbackName),
+    pos,
+    target,
+    quat: normalizeQuat(rec.quat),
+    up: normalizeUnitVec3(rec.up),
+    fov: normalizeFov(rec.fov),
+    quickSlot: normalizeQuickSlot(rec.quickSlot),
+    createdAt,
+    updatedAt: isFiniteNumber(rec.updatedAt) ? rec.updatedAt : now
+  };
+}
+function normalizeWarp(value, index = 0, now = Date.now()) {
+  return makeWarp(value, now, "Warp " + (index + 1));
+}
+function parseWarps(raw) {
+  if (!raw)
+    return [];
+  try {
+    const data = JSON.parse(raw);
+    const entries = Array.isArray(data) ? data : data && typeof data === "object" ? data.warps : void 0;
+    if (!Array.isArray(entries))
+      return [];
+    const out2 = [];
+    const seen = /* @__PURE__ */ new Set();
+    for (let i = 0; i < entries.length && out2.length < MAX_WARPS; i++) {
+      const warp = normalizeWarp(entries[i], i);
+      if (!warp || seen.has(warp.id))
+        continue;
+      seen.add(warp.id);
+      out2.push(warp);
+    }
+    return out2;
+  } catch {
+    return [];
+  }
+}
+function serializeWarps(list) {
+  return JSON.stringify({ version: 1, warps: list }, null, 2) + "\n";
+}
+function releaseQuickSlot(list, slot, keepId) {
+  if (slot === void 0)
+    return list;
+  let changed = false;
+  const next = list.map((warp) => {
+    if (warp.quickSlot === slot && warp.id !== keepId) {
+      changed = true;
+      return { ...warp, quickSlot: void 0 };
+    }
+    return warp;
+  });
+  return changed ? next : list;
+}
+function upsertWarp(list, warp) {
+  let next = releaseQuickSlot(list, warp.quickSlot, warp.id);
+  const index = next.findIndex((w) => w.id === warp.id);
+  if (index >= 0) {
+    next = next.slice();
+    next[index] = warp;
+    return next;
+  }
+  if (next.length >= MAX_WARPS) {
+    let oldest = 0;
+    for (let i = 1; i < next.length; i++) {
+      if (next[i].createdAt < next[oldest].createdAt)
+        oldest = i;
+    }
+    next = next.slice();
+    next.splice(oldest, 1);
+  }
+  return next.concat([warp]);
+}
+function removeWarp(list, id) {
+  const index = list.findIndex((w) => w.id === id);
+  if (index < 0)
+    return list;
+  const next = list.slice();
+  next.splice(index, 1);
+  return next;
+}
+
+// src/webview/WebviewProvider.ts
+var SETTING_NORMALIZERS = {
+  linkStyle: (v) => v === "curved" ? "curved" : "straight",
+  linkCurvature: (v) => clampNumber(v, 0, 1, 0.25),
+  selectedNodeEffect: (v) => v === "bloom" ? "bloom" : "glow",
+  bloomStrength: (v) => clampNumber(v, 0, 5, 1.2),
+  bloomRadius: (v) => clampNumber(v, 0, 2, 0.6),
+  bloomThreshold: (v) => clampNumber(v, 0, 1, 0),
+  riskWindow: (v) => normalizeRiskWindow(v),
+  rotateSpeed: (v) => clampNumber(v, 1, 5, 1),
+  autoRefresh: (v) => v === true
+};
+function clampNumber(value, min, max, fallback) {
+  return typeof value === "number" && isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
+}
+function normalizeRotateSpeed(value) {
+  return typeof value === "number" && isFinite(value) ? Math.min(5, Math.max(1, value)) : 1;
+}
+var WebviewProvider = class _WebviewProvider {
+  static viewType = "auraVisualizer.graphView";
+  panel;
+  extensionUri;
+  workspaceState;
+  disposables = [];
+  onOpenFileEmitter = new vscode2.EventEmitter();
+  onOpenFile = this.onOpenFileEmitter.event;
+  onDisposeEmitter = new vscode2.EventEmitter();
+  onDidDispose = this.onDisposeEmitter.event;
+  pendingData;
+  pendingHistoryIndex;
+  pendingDeltas = [];
+  pendingFocus;
+  webviewReady = false;
+  static VIEW_STATE_KEY = "aura.viewState";
+  getGraphDB;
+  getHostData;
+  constructor(extensionUri, workspaceState, getGraphDB = () => void 0, getHostData = {}) {
+    this.extensionUri = extensionUri;
+    this.workspaceState = workspaceState;
+    this.getGraphDB = getGraphDB;
+    this.getHostData = getHostData;
+  }
+  show() {
+    if (this.panel) {
+      this.panel.reveal(vscode2.ViewColumn.One);
+      return this.panel;
+    }
+    this.panel = vscode2.window.createWebviewPanel(
+      _WebviewProvider.viewType,
+      "Aura \u2014 3D Visualizer",
+      vscode2.ViewColumn.One,
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        localResourceRoots: [
+          vscode2.Uri.joinPath(this.extensionUri, "out", "webview")
+        ]
+      }
+    );
+    this.initPanel();
+    return this.panel;
+  }
+  restore(panel) {
+    this.panel = panel;
+    panel.webview.options = {
+      enableScripts: true,
+      localResourceRoots: [
+        vscode2.Uri.joinPath(this.extensionUri, "out", "webview")
+      ]
+    };
+    this.initPanel();
+  }
+  initPanel() {
+    if (!this.panel)
+      return;
+    this.panel.iconPath = vscode2.Uri.joinPath(this.extensionUri, "resources", "aura-star-icon.png");
+    this.panel.webview.html = this.getHtmlContent(this.panel.webview);
+    this.setupMessageHandler();
+    this.panel.onDidDispose(() => {
+      this.panel = void 0;
+      this.webviewReady = false;
+      this.pendingDeltas = [];
+      this.disposables.forEach((d) => d.dispose());
+      this.disposables = [];
+      this.onDisposeEmitter.fire();
+    });
+  }
+  setupMessageHandler() {
+    if (!this.panel)
+      return;
+    this.panel.webview.onDidReceiveMessage(
+      (message) => {
+        switch (message.type) {
+          case "ready":
+            this.webviewReady = true;
+            this.sendSettings();
+            if (this.pendingData) {
+              this.panel?.webview.postMessage({ type: "graphData", payload: this.pendingData });
+            }
+            if (this.pendingHistoryIndex) {
+              this.panel?.webview.postMessage({ type: "historyIndex", payload: this.pendingHistoryIndex });
+            }
+            for (const delta of this.pendingDeltas) {
+              this.panel?.webview.postMessage({ type: "historyDelta", payload: delta });
+            }
+            if (this.pendingFocus) {
+              this.panel?.webview.postMessage({ type: "riskFocusFile", payload: { nodeId: this.pendingFocus } });
+              this.pendingFocus = void 0;
+            }
+            const workingTree = this.getHostData.workingTree?.();
+            if (workingTree) {
+              this.panel?.webview.postMessage({ type: "workingTree", payload: { files: workingTree } });
+            }
+            void this.sendAnnotations();
+            void this.sendWarps();
+            break;
+          case "openFile":
+            if (message.payload) {
+              this.onOpenFileEmitter.fire({
+                path: message.payload.path,
+                line: message.payload.line
+              });
+            }
+            break;
+          case "requestRefresh":
+            vscode2.commands.executeCommand("auraVisualizer.refresh");
+            break;
+          case "requestExport":
+            vscode2.commands.executeCommand("auraVisualizer.exportGraph");
+            break;
+          case "saveViewState":
+            if (message.payload) {
+              this.workspaceState.update(_WebviewProvider.VIEW_STATE_KEY, message.payload);
+            }
+            break;
+          case "requestViewState":
+            this.sendSavedViewState();
+            break;
+          case "requestSavedQueries": {
+            const db = this.getGraphDB();
+            let queries = [];
+            if (db) {
+              try {
+                queries = db.listSavedQueries().map((q) => ({ id: q.id, name: q.name, expr: q.expr, mode: q.mode, createdAt: q.createdAt }));
+              } catch (err2) {
+                console.error("[aura] listSavedQueries failed:", err2);
+              }
+            }
+            this.panel?.webview.postMessage({ type: "savedQueries", payload: { queries } });
+            break;
+          }
+          case "addSavedQuery": {
+            const db = this.getGraphDB();
+            const p = message.payload || {};
+            if (db && p.expr) {
+              const name = p.name || (p.expr.length > 50 ? p.expr.slice(0, 47) + "..." : p.expr);
+              const id = p.id || "q_" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+              db.addSavedQuery({ id, name, expr: p.expr, mode: p.mode || "highlight" });
+              const queries = db.listSavedQueries().map((q) => ({ id: q.id, name: q.name, expr: q.expr, mode: q.mode, createdAt: q.createdAt }));
+              this.panel?.webview.postMessage({ type: "savedQueries", payload: { queries } });
+            }
+            break;
+          }
+          case "deleteSavedQuery": {
+            const db = this.getGraphDB();
+            const p = message.payload || {};
+            if (db && p.id) {
+              db.deleteSavedQuery(p.id);
+              const queries = db.listSavedQueries().map((q) => ({ id: q.id, name: q.name, expr: q.expr, mode: q.mode, createdAt: q.createdAt }));
+              this.panel?.webview.postMessage({ type: "savedQueries", payload: { queries } });
+            }
+            break;
+          }
+          case "chatRequest": {
+            const p = message.payload || {};
+            if (p.id && p.prompt) {
+              this.handleChatRequest(p.id, p.prompt);
+            }
+            break;
+          }
+          case "exportRiskReport": {
+            const p = message.payload || {};
+            if (p.markdown) {
+              void this.handleExportRiskReport(p.markdown);
+            }
+            break;
+          }
+          case "updateSetting": {
+            const p = message.payload || {};
+            const normalize2 = p.key ? SETTING_NORMALIZERS[p.key] : void 0;
+            if (p.key && normalize2) {
+              const config = vscode2.workspace.getConfiguration("auraVisualizer");
+              void config.update(p.key, normalize2(p.value), vscode2.ConfigurationTarget.Workspace).then(
+                void 0,
+                () => {
+                }
+              );
+            }
+            break;
+          }
+          case "openSettings":
+            void vscode2.commands.executeCommand("workbench.action.openSettings", "@ext:monticma-aura.aura-visualizer-3D");
+            break;
+          case "saveNote": {
+            const p = message.payload || {};
+            if (p.path) {
+              void this.handleSaveNote(p.path, p.text || "", p.color);
+            }
+            break;
+          }
+          case "deleteNote": {
+            const p = message.payload || {};
+            if (p.path) {
+              void this.handleDeleteNote(p.path);
+            }
+            break;
+          }
+          case "saveWarp": {
+            const p = message.payload || {};
+            if (p.warp) {
+              void this.handleSaveWarp(p.warp);
+            }
+            break;
+          }
+          case "deleteWarp": {
+            const p = message.payload || {};
+            if (p.id) {
+              void this.handleDeleteWarp(p.id);
+            }
+            break;
+          }
+        }
+      },
+      null,
+      this.disposables
+    );
+  }
+  handleChatRequest(id, prompt) {
+    const post = (type, payload) => this.panel?.webview.postMessage({ type, payload });
+    void runChatStream(() => this.getGraphDB(), prompt, {
+      onChunk: (text) => post("chatChunk", { id, text }),
+      onDone: (fullText) => post("chatDone", { id, fullText }),
+      onError: (message) => post("chatError", { id, message }),
+      onToolCall: (name) => post("chatTool", { id, name })
+    }, this.getHostData.riskSnapshot);
+  }
+  async handleExportRiskReport(markdown) {
+    const ws = vscode2.workspace.workspaceFolders?.[0];
+    if (!ws) {
+      vscode2.window.showWarningMessage("Aura: No workspace folder open.");
+      return;
+    }
+    const dir = vscode2.Uri.joinPath(ws.uri, ".aura");
+    const file = vscode2.Uri.joinPath(dir, "risk-report.md");
+    try {
+      await vscode2.workspace.fs.createDirectory(dir);
+      await vscode2.workspace.fs.writeFile(file, Buffer.from(markdown, "utf-8"));
+      const choice = await vscode2.window.showInformationMessage(
+        "Aura: Risk report exported to .aura/risk-report.md",
+        "Open"
+      );
+      if (choice === "Open") {
+        vscode2.window.showTextDocument(file, { preview: true });
+      }
+    } catch (err2) {
+      vscode2.window.showErrorMessage(
+        "Aura: Failed to export risk report: " + (err2 instanceof Error ? err2.message : String(err2))
+      );
+    }
+  }
+  // ============================================================
+  // Node notes (annotations) — .aura/annotations.json
+  // ============================================================
+  /** Push the current note map to the webview (safe when not ready yet). */
+  async sendAnnotations() {
+    const notes = await this.loadAnnotations();
+    this.panel?.webview.postMessage({ type: "annotations", payload: { notes } });
+  }
+  annotationsFileUri() {
+    const ws = vscode2.workspace.workspaceFolders?.[0];
+    if (!ws)
+      return void 0;
+    return vscode2.Uri.joinPath(ws.uri, ".aura", "annotations.json");
+  }
+  async loadAnnotations() {
+    const file = this.annotationsFileUri();
+    if (!file)
+      return {};
+    try {
+      const buf = await vscode2.workspace.fs.readFile(file);
+      return parseAnnotations(Buffer.from(buf).toString("utf-8"));
+    } catch {
+      return {};
+    }
+  }
+  async persistAnnotations(map) {
+    const ws = vscode2.workspace.workspaceFolders?.[0];
+    if (!ws)
+      return;
+    const dir = vscode2.Uri.joinPath(ws.uri, ".aura");
+    await vscode2.workspace.fs.createDirectory(dir);
+    await vscode2.workspace.fs.writeFile(
+      vscode2.Uri.joinPath(dir, "annotations.json"),
+      Buffer.from(serializeAnnotations(map), "utf-8")
+    );
+  }
+  async handleSaveNote(path3, text, color) {
+    try {
+      const map = withNote(await this.loadAnnotations(), path3, text, color);
+      await this.persistAnnotations(map);
+      await this.sendAnnotations();
+    } catch (err2) {
+      console.error("[aura] saveNote failed:", err2);
+    }
+  }
+  async handleDeleteNote(path3) {
+    try {
+      const map = withoutNote(await this.loadAnnotations(), path3);
+      await this.persistAnnotations(map);
+      await this.sendAnnotations();
+    } catch (err2) {
+      console.error("[aura] deleteNote failed:", err2);
+    }
+  }
+  // ============================================================
+  // Warp points (camera bookmarks) — .aura/warps.json
+  // ============================================================
+  /** Push the current warp list to the webview (safe when not ready yet). */
+  async sendWarps() {
+    const warps = await this.loadWarps();
+    this.panel?.webview.postMessage({ type: "warps", payload: { warps } });
+  }
+  warpsFileUri() {
+    const ws = vscode2.workspace.workspaceFolders?.[0];
+    if (!ws)
+      return void 0;
+    return vscode2.Uri.joinPath(ws.uri, ".aura", "warps.json");
+  }
+  async loadWarps() {
+    const file = this.warpsFileUri();
+    if (!file)
+      return [];
+    try {
+      const buf = await vscode2.workspace.fs.readFile(file);
+      return parseWarps(Buffer.from(buf).toString("utf-8"));
+    } catch {
+      return [];
+    }
+  }
+  async persistWarps(list) {
+    const ws = vscode2.workspace.workspaceFolders?.[0];
+    if (!ws)
+      return;
+    const dir = vscode2.Uri.joinPath(ws.uri, ".aura");
+    await vscode2.workspace.fs.createDirectory(dir);
+    await vscode2.workspace.fs.writeFile(
+      vscode2.Uri.joinPath(dir, "warps.json"),
+      Buffer.from(serializeWarps(list), "utf-8")
+    );
+  }
+  async handleSaveWarp(payload) {
+    try {
+      const warp = makeWarp(payload);
+      if (!warp)
+        return;
+      const list = upsertWarp(await this.loadWarps(), warp);
+      await this.persistWarps(list);
+      await this.sendWarps();
+    } catch (err2) {
+      console.error("[aura] saveWarp failed:", err2);
+    }
+  }
+  async handleDeleteWarp(id) {
+    try {
+      const list = removeWarp(await this.loadWarps(), id);
+      await this.persistWarps(list);
+      await this.sendWarps();
+    } catch (err2) {
+      console.error("[aura] deleteWarp failed:", err2);
+    }
+  }
+  sendGraphData(data) {
+    this.pendingData = data;
+    if (this.webviewReady) {
+      this.panel?.webview.postMessage({ type: "graphData", payload: data });
+    }
+  }
+  sendSavedViewState() {
+    const state = this.workspaceState.get(_WebviewProvider.VIEW_STATE_KEY);
+    if (state) {
+      this.panel?.webview.postMessage({ type: "restoreViewState", payload: state });
+    }
+  }
+  sendGraphDelta(delta) {
+    if (this.webviewReady) {
+      this.panel?.webview.postMessage({ type: "updateGraph", payload: delta });
+    }
+  }
+  sendProgress(phase, message) {
+    this.panel?.webview.postMessage({ type: "progress", payload: { phase, message } });
+  }
+  focusNode(nodeId) {
+    this.panel?.webview.postMessage({ type: "focusNode", payload: { nodeId } });
+  }
+  /** Reveal a file in the Risk tab (expand its bucket, scroll to the row, flash it). */
+  focusRiskFile(nodeId) {
+    if (this.webviewReady) {
+      this.panel?.webview.postMessage({ type: "riskFocusFile", payload: { nodeId } });
+    } else {
+      this.pendingFocus = nodeId;
+    }
+  }
+  /**
+   * Push fresh working-tree state. No-op when the webview is not ready yet —
+   * the ready handler pulls the current state through the host accessors.
+   */
+  sendWorkingTree(files) {
+    if (this.webviewReady) {
+      this.panel?.webview.postMessage({ type: "workingTree", payload: { files } });
+    }
+  }
+  sendBlastRadius(nodeId) {
+    this.panel?.webview.postMessage({ type: "blastRadius", payload: { nodeId } });
+  }
+  sendFilterDirs(dirs) {
+    this.panel?.webview.postMessage({ type: "filterDirs", payload: { dirs } });
+  }
+  sendRefreshComplete() {
+    this.panel?.webview.postMessage({ type: "refreshComplete" });
+  }
+  sendSettings(_settings) {
+    try {
+      const config = vscode2.workspace.getConfiguration("auraVisualizer");
+      this.panel?.webview.postMessage({
+        type: "graphConfig",
+        payload: {
+          linkStyle: config.get("linkStyle", "straight"),
+          linkCurvature: config.get("linkCurvature", 0.25),
+          selectedNodeEffect: config.get("selectedNodeEffect", "glow"),
+          bloomStrength: config.get("bloomStrength", 1.2),
+          bloomRadius: config.get("bloomRadius", 0.6),
+          bloomThreshold: config.get("bloomThreshold", 0),
+          riskWindow: normalizeRiskWindow(config.get("riskWindow", 90)),
+          rotateSpeed: normalizeRotateSpeed(config.get("rotateSpeed", 1)),
+          autoRefresh: config.get("autoRefresh", true)
+        }
+      });
+    } catch {
+    }
+  }
+  sendTheme(kind) {
+    this.panel?.webview.postMessage({
+      type: "themeChanged",
+      payload: { kind }
+    });
+  }
+  sendHistoryIndex(index) {
+    this.pendingHistoryIndex = index;
+    if (this.webviewReady) {
+      this.panel?.webview.postMessage({ type: "historyIndex", payload: index });
+    }
+  }
+  sendHistoryProgress(scanned, total) {
+    if (this.webviewReady) {
+      this.panel?.webview.postMessage({ type: "historyProgress", payload: { scanned, total } });
+    }
+  }
+  sendHistoryDelta(delta) {
+    if (this.webviewReady) {
+      this.panel?.webview.postMessage({ type: "historyDelta", payload: delta });
+    } else {
+      this.pendingDeltas.push(delta);
+    }
+  }
+  get isVisible() {
+    return this.panel?.visible ?? false;
+  }
+  dispose() {
+    this.panel?.dispose();
+  }
+  buildAuraConfig() {
+    try {
+      const config = vscode2.workspace.getConfiguration("auraVisualizer");
+      return JSON.stringify({
+        linkStyle: config.get("linkStyle", "straight"),
+        linkCurvature: config.get("linkCurvature", 0.25),
+        selectedNodeEffect: config.get("selectedNodeEffect", "glow"),
+        bloomStrength: config.get("bloomStrength", 1.2),
+        bloomRadius: config.get("bloomRadius", 0.6),
+        bloomThreshold: config.get("bloomThreshold", 0),
+        riskWindow: normalizeRiskWindow(config.get("riskWindow", 90)),
+        rotateSpeed: normalizeRotateSpeed(config.get("rotateSpeed", 1)),
+        autoRefresh: config.get("autoRefresh", true)
+      });
+    } catch {
+      return "{}";
+    }
+  }
+  getHtmlContent(webview) {
+    const webviewPath = path.join("out", "webview");
+    const pkgPath = path.join(this.extensionUri.fsPath, "package.json");
+    let version = "1.0.0";
+    try {
+      const pkg = require(pkgPath);
+      version = pkg.version || version;
+    } catch {
+    }
+    const styleUri = webview.asWebviewUri(
+      vscode2.Uri.joinPath(this.extensionUri, webviewPath, "css", "style.css")
+    );
+    const appUri = webview.asWebviewUri(
+      vscode2.Uri.joinPath(this.extensionUri, webviewPath, "js", "app.js")
+    );
+    const configUri = webview.asWebviewUri(
+      vscode2.Uri.joinPath(this.extensionUri, webviewPath, "js", "graph-config.js")
+    );
+    const queryUri = webview.asWebviewUri(
+      vscode2.Uri.joinPath(this.extensionUri, webviewPath, "js", "query.js")
+    );
+    const riskUri = webview.asWebviewUri(
+      vscode2.Uri.joinPath(this.extensionUri, webviewPath, "js", "risk-core.js")
+    );
+    const forceGraphUri = webview.asWebviewUri(
+      vscode2.Uri.joinPath(this.extensionUri, webviewPath, "lib", "3d-force-graph.min.js")
+    );
+    const threeUri = webview.asWebviewUri(
+      vscode2.Uri.joinPath(this.extensionUri, webviewPath, "lib", "three.global.js")
+    );
+    const nonce = getNonce();
+    const auraConfig = this.buildAuraConfig();
+    return `<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${e.cspSource} 'unsafe-inline'; script-src 'nonce-${T}' 'unsafe-eval' ${e.cspSource}; img-src ${e.cspSource} data:; font-src ${e.cspSource};">
-    <link rel="stylesheet" href="${s}">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' 'unsafe-eval' ${webview.cspSource}; img-src ${webview.cspSource} data:; font-src ${webview.cspSource};">
+    <link rel="stylesheet" href="${styleUri}">
     <title>Aura \u2014 3D Visualizer</title>
 </head>
 <body>
@@ -28,7 +5703,7 @@ USER QUESTION: `+e,l=[me.LanguageModelChatMessage.User(o)],u=uo.map(m=>({name:m.
                 <div id="logo">
                     <span class="logo-icon">\u2726</span>
                     <span class="logo-text">AURA</span>
-                    <span class="logo-version">v${r}</span>
+                    <span class="logo-version">v${version}</span>
                 </div>
             </div>
             <div class="top-bar-center">
@@ -524,6 +6199,7 @@ USER QUESTION: `+e,l=[me.LanguageModelChatMessage.User(o)],u=uo.map(m=>({name:m.
             <button class="filter-btn" id="btn-cycles" title="Circular dependencies">\u{1F504} Cycles</button>
             <button class="filter-btn" id="btn-dirty-only" title="Only files with uncommitted changes (git working tree)">\u270F\uFE0F Dirty</button>
             <button class="filter-btn active" id="btn-notes" title="Show note indicators on annotated files">\u{1F4DD} Notes</button>
+            <button class="filter-btn" id="btn-warps-panel" title="Warp points \u2014 named camera bookmarks">\u{1F300} Warps</button>
             <button class="filter-btn" id="btn-group-dirs" title="Group by directory">\u{1F4C1} Groups</button>
             <button class="filter-btn" id="btn-path-mode" title="Find path between 2 nodes">\u{1F517} Path</button>
             <button class="filter-btn" id="btn-labels" title="Show file names">\u{1F3F7}\uFE0F Names</button>
@@ -588,6 +6264,52 @@ USER QUESTION: `+e,l=[me.LanguageModelChatMessage.User(o)],u=uo.map(m=>({name:m.
             </div>
         </div>
         <div id="community-list"></div>
+    </div>
+
+    <!-- Warps Panel (overlay) -->
+    <div id="warps-panel" class="hidden">
+        <div class="warps-panel-header">
+            <span>\u{1F300} Warps</span>
+            <div class="warps-panel-actions">
+                <button id="warps-capture" title="Capture the current view">\u{1F4CC}</button>
+                <button id="warps-panel-close" title="Close">\u2715</button>
+            </div>
+        </div>
+        <div id="warps-list"></div>
+    </div>
+
+    <!-- Warp Modal (name + quick slot) -->
+    <div id="warp-modal" class="hidden">
+        <div class="warp-modal-header">
+            <span id="warp-modal-title">\u{1F4CC} New Warp</span>
+            <button id="warp-modal-close" title="Close">\u2715</button>
+        </div>
+        <div class="warp-modal-body">
+            <label class="warp-field">
+                <span>Name</span>
+                <input id="warp-name-input" type="text" maxlength="60" placeholder="Warp name\u2026" />
+            </label>
+            <label class="warp-field">
+                <span>Quick slot</span>
+                <select id="warp-slot-select">
+                    <option value="">\u2014</option>
+                    <option value="1">Alt+Shift+1</option>
+                    <option value="2">Alt+Shift+2</option>
+                    <option value="3">Alt+Shift+3</option>
+                    <option value="4">Alt+Shift+4</option>
+                    <option value="5">Alt+Shift+5</option>
+                    <option value="6">Alt+Shift+6</option>
+                    <option value="7">Alt+Shift+7</option>
+                    <option value="8">Alt+Shift+8</option>
+                    <option value="9">Alt+Shift+9</option>
+                </select>
+            </label>
+            <p class="warp-hint">The current camera pose (position + view target) is captured \u2014 fly back with a click, or <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>1\u20139</kbd> in orbit mode.</p>
+        </div>
+        <div class="warp-modal-footer">
+            <button id="warp-save" class="qm-btn qm-primary">Save</button>
+            <button id="warp-cancel" class="qm-btn">Cancel</button>
+        </div>
     </div>
 
     <!-- Saved Queries Modal (overlay) -->
@@ -689,7 +6411,7 @@ USER QUESTION: `+e,l=[me.LanguageModelChatMessage.User(o)],u=uo.map(m=>({name:m.
     <div id="help-modal" class="hidden">
         <div class="help-modal-content">
             <div class="help-modal-header">
-                <span>\u2726 Aura Help \u2014 v${r}</span>
+                <span>\u2726 Aura Help \u2014 v${version}</span>
                 <button id="help-modal-close" title="Close">\u2715</button>
             </div>
             <div class="help-modal-body">
@@ -753,11 +6475,15 @@ USER QUESTION: `+e,l=[me.LanguageModelChatMessage.User(o)],u=uo.map(m=>({name:m.
                 <p>Files with uncommitted changes wear a thin <span style="color:#ffb300">\u25CF amber ring</span> in the graph \u2014 read straight from <code>git status</code> (modified, staged, untracked, renamed, conflicts). The detail panel shows the exact state on its <strong>Git</strong> line.</p>
                 <p>The <strong>\u270F\uFE0F Dirty</strong> toolbar button filters the graph down to those files (nodes and links); the <code>dirty</code> flag does the same in queries. The VS Code status bar shows the risk of the file you are editing and switches to <strong>\u26A0 N hotspots in your changes</strong> when your changes touch high-risk files \u2014 click it to reveal them in the Risk tab.</p>
 
-                <h3>\uFFFD Notes</h3>
+                <h3>\u{1F4DD} Notes</h3>
                 <p>Click a file node to annotate it: the detail panel's <strong>\u{1F4DD} Note</strong> section takes free text (up to 2 000 chars) plus one of five colors. Annotated files wear a <strong>pulsing note-colored ring + dot</strong> in the graph \u2014 animated, so they stay visible at any zoom.</p>
                 <p>The <strong>\u{1F4DD} Notes</strong> toolbar button (next to \u270F\uFE0F Dirty) shows / hides the indicators; the <code>hasnote</code> query flag finds annotated files. Notes are stored in <code>.aura/annotations.json</code> \u2014 local to your workspace, never committed.</p>
 
-                <h3>\uFFFD\u{1F4C2} Directory Filtering</h3>
+                <h3>\u{1F300} Warp Points</h3>
+                <p>Save named camera bookmarks of the 3D view: the <strong>\u{1F300} Warps</strong> toolbar button opens the floating panel; its <strong>\u{1F4CC}</strong> button captures the current pose (camera position + view target + orientation). Click a warp to fly there (smooth 800 ms tween), re-capture or rename it, and assign quick slots \u2014 <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>1\u20139</kbd> flies back from anywhere (plain <kbd>Alt</kbd>+<kbd>digit</kbd> is captured by VS Code). The <strong>\u{1F3E0} Home</strong> row returns to the default fit-to-view pose.</p>
+                <p>Warps are stored in <code>.aura/warps.json</code> \u2014 local to your workspace, never committed.</p>
+
+                <h3>\u{1F4C2} Directory Filtering</h3>
                 <p>In the <strong>File Explorer</strong> panel, each directory has a checkbox to show/hide its files in the graph. Use the <strong>All</strong> / <strong>None</strong> buttons for batch selection. Directories are checked by default.</p>
 
                 <h3>\u{1F50D} Query Filter</h3>
@@ -831,22 +6557,6504 @@ USER QUESTION: `+e,l=[me.LanguageModelChatMessage.User(o)],u=uo.map(m=>({name:m.
     </div>
 
     <!-- Libraries: THREE must load before 3d-force-graph (it checks window.THREE) -->
-    <script nonce="${T}">window.AURA_CONFIG = ${x};</script>
-    <script nonce="${T}" src="${_}"></script>
-    <script nonce="${T}" src="${m}"></script>
+    <script nonce="${nonce}">window.AURA_CONFIG = ${auraConfig};</script>
+    <script nonce="${nonce}" src="${threeUri}"></script>
+    <script nonce="${nonce}" src="${forceGraphUri}"></script>
     <!-- App Logic -->
-    <script nonce="${T}" src="${l}"></script>
-    <script nonce="${T}" src="${u}"></script>
-    <script nonce="${T}" src="${h}"></script>
-    <script nonce="${T}" src="${o}"></script>
+    <script nonce="${nonce}" src="${configUri}"></script>
+    <script nonce="${nonce}" src="${queryUri}"></script>
+    <script nonce="${nonce}" src="${riskUri}"></script>
+    <script nonce="${nonce}" src="${appUri}"></script>
 </body>
-</html>`}};function go(){let i=new Uint8Array(16);return require("crypto").randomFillSync(i),Array.from(i,e=>e.toString(16).padStart(2,"0")).join("")}var ae=Ee(require("vscode")),we=class extends ae.TreeItem{constructor(t,n){let r=t.kind==="file"?t.node.name:t.kind==="stat"?`${t.label}: ${t.value}`:t.label;super(r,n);this.entry=t;t.kind==="header"?this.iconPath=new ae.ThemeIcon(t.icon):t.kind==="stat"?this.iconPath=new ae.ThemeIcon(t.icon):t.kind==="file"&&(this.description=t.metric,this.iconPath=new ae.ThemeIcon("file"),this.command={command:"auraVisualizer.openFileFromTree",title:"Open File",arguments:[t.node.path]},this.tooltip=`${t.node.path}
-Complexity: ${t.node.complexity}
-Lines: ${t.node.linesOfCode}
-Fan-in: ${t.node.fanIn} / Fan-out: ${t.node.fanOut}`)}},Xt=class{_onDidChangeTreeData=new ae.EventEmitter;onDidChangeTreeData=this._onDidChangeTreeData.event;data;update(e){this.data=e,this._onDidChangeTreeData.fire(void 0)}getTreeItem(e){return e}getChildren(e){if(!this.data)return[new we({kind:"stat",label:"No data",value:"Open a workspace and run Aura",icon:"info"},ae.TreeItemCollapsibleState.None)];if(!e)return[new we({kind:"header",label:"Stats",icon:"graph"},ae.TreeItemCollapsibleState.Expanded),new we({kind:"header",label:"Most Complex",icon:"flame"},ae.TreeItemCollapsibleState.Collapsed),new we({kind:"header",label:"Largest Files",icon:"file-binary"},ae.TreeItemCollapsibleState.Collapsed),new we({kind:"header",label:"Orphan Files",icon:"warning"},ae.TreeItemCollapsibleState.Collapsed)];if(e.entry.kind!=="header")return[];let t=this.data;switch(e.entry.label){case"Stats":{let n=Object.entries(t.meta.languageStats).map(([r,s])=>`${r}: ${s.count}`).join(", ");return[this.stat("Files",String(t.meta.totalFiles),"file"),this.stat("Links",String(t.meta.totalLinks),"link"),this.stat("Function Calls",String(t.meta.functionCallLinks),"symbol-method"),this.stat("Groups",String(t.meta.groups.length),"folder"),this.stat("Languages",n,"symbol-color")]}case"Most Complex":return[...t.nodes].sort((n,r)=>r.complexity-n.complexity).slice(0,10).map(n=>new we({kind:"file",node:n,metric:`complexity: ${n.complexity}`},ae.TreeItemCollapsibleState.None));case"Largest Files":return[...t.nodes].sort((n,r)=>r.linesOfCode-n.linesOfCode).slice(0,10).map(n=>new we({kind:"file",node:n,metric:`${n.linesOfCode} lines`},ae.TreeItemCollapsibleState.None));case"Orphan Files":return t.nodes.filter(n=>n.fanIn===0&&n.fanOut===0).map(n=>new we({kind:"file",node:n,metric:n.language},ae.TreeItemCollapsibleState.None));default:return[]}}stat(e,t,n){return new we({kind:"stat",label:e,value:t,icon:n},ae.TreeItemCollapsibleState.None)}};var St=require("fs/promises"),xt=require("path"),yo=new Set([".c",".h",".cpp",".cc",".cxx",".hpp",".hxx",".hh",".js",".ts",".py",".css",".html",".htm",".java",".go",".rs",".kt",".kts",".rb",".swift",".cs",".php",".vue",".sh",".bash",".lua",".md",".markdown",".txt",".rst"]);var bo={".c":"c",".h":"c",".cpp":"cpp",".cc":"cpp",".cxx":"cpp",".hpp":"cpp",".hxx":"cpp",".hh":"cpp",".js":"javascript",".ts":"typescript",".py":"python",".css":"css",".html":"html",".htm":"html",".java":"java",".go":"go",".rs":"rust",".kt":"kotlin",".kts":"kotlin",".rb":"ruby",".swift":"swift",".cs":"csharp",".php":"php",".vue":"vue",".sh":"bash",".bash":"bash",".lua":"lua",".md":"documentation",".markdown":"documentation",".txt":"documentation",".rst":"documentation"};async function Zn(i,e){let t=(0,xt.extname)(i).toLowerCase();if(!yo.has(t))return null;try{let n=await(0,St.stat)(i),r=await(0,St.readFile)(i,"utf-8"),s=r.split(`
-`).filter(m=>m.trim().length>0).length,o=(0,xt.relative)(e,i),l=o.split("/"),u=l.length>1?l[0]:"/",h=l[l.length-1];return{id:o,name:h,path:o,fullPath:i,language:bo[t]||"unknown",extension:t,size:n.size,linesOfCode:s,lastModified:Math.floor(n.mtimeMs),group:u,content:r}}catch{return null}}var Ce=require("path");var Z=class{language;constructor(e){this.language=e}get usesTreeSitter(){return!1}parse(e,t){return[]}parseAST(e,t,n){return this.parse(t,n)}extractSymbolsAST(e,t){return{functions:[],externs:[],structs:[],enums:[],macros:[],classes:[],exports:[],interfaces:[],traits:[],typeAliases:[],methods:[]}}extractCallsAST(e,t,n){return[]}extractCallSitesAST(e,t){return[]}extractHeritageRelations(e,t){return[]}extractMatches(e,t,n,r,s){let o=[],l;for(;(l=t.exec(e))!==null;){let u=l[1];u&&o.push({source:r,target:u,type:n,label:s?s(l):`${n}: ${u}`})}return o}};var Yn=new Set(["if","else","for","while","do","switch","case","return","break","continue","goto","sizeof","typeof","typedef","struct","union","enum","static","extern","inline","const","volatile","register","auto","void","int","char","float","double","long","short","unsigned","signed","bool","BOOL","printf","fprintf","sprintf","snprintf","scanf","sscanf","malloc","calloc","realloc","free","memcpy","memset","memmove","strlen","strcpy","strncpy","strcmp","strncmp","strcat","fopen","fclose","fread","fwrite","fseek","ftell","exit","abort","assert","NULL","true","false","defined","offsetof","va_start","va_end","va_arg","__attribute__","__declspec","visibility","__extension__"]),tt=class extends Z{constructor(){super("c")}get usesTreeSitter(){return!0}parseAST(e,t,n={}){let r=[];return this.walkForIncludes(e.rootNode,t.id,r,!!n.includeSystemHeaders),r}walkForIncludes(e,t,n,r){if(e.type==="preproc_include"){let s=e.childForFieldName("path");if(s){let o=s.text;if(s.type==="string_literal"){let l=o.slice(1,-1);n.push({source:t,target:l,type:"include",label:`#include "${l}"`})}else if(s.type==="system_lib_string"){let l=o.slice(1,-1);n.push({source:t,target:l,type:"system-include",label:`#include <${l}>`})}}return}for(let s=0;s<e.childCount;s++)this.walkForIncludes(e.child(s),t,n,r);return n}extractSymbolsAST(e,t){let n={functions:[],externs:[],structs:[],enums:[],macros:[],classes:[],exports:[],interfaces:[],traits:[],typeAliases:[],methods:[]};return this.walkForSymbols(e.rootNode,n),n}walkForSymbols(e,t){switch(e.type){case"function_definition":this.extractFunction(e,t);return;case"declaration":this.extractDeclaration(e,t);return;case"type_definition":this.extractTypedef(e,t);return;case"preproc_def":this.extractMacro(e,t,!1);return;case"preproc_function_def":this.extractMacro(e,t,!0);return;case"struct_specifier":e.parent?.type!=="type_definition"&&e.childForFieldName("body")&&this.extractStruct(e,t,"struct");break;case"enum_specifier":e.parent?.type!=="type_definition"&&e.childForFieldName("body")&&this.extractEnum(e,t);break}for(let n=0;n<e.childCount;n++)this.walkForSymbols(e.child(n),t)}extractFunction(e,t){let n=this.findDescendant(e,"function_declarator");if(!n)return;let s=n.childForFieldName("declarator")?.text;if(!s||Yn.has(s))return;let o=this.getReturnType(e,n),l=this.getParams(n),u=e.startPosition.row+1;t.functions.push({name:s,returnType:o,params:l,line:u,type:"function"})}extractDeclaration(e,t){if(e.text.startsWith("extern")){let r=this.findDescendant(e,"function_declarator");if(r){let o=r.childForFieldName("declarator")?.text;if(o){t.externs.push({name:o,type:"extern"});return}}}}extractTypedef(e,t){let n=this.findDescendant(e,"struct_specifier");if(n){let s=this.findChild(e,"type_identifier");s?t.structs.push({name:s.text,type:"typedef-struct",line:s.startPosition.row+1}):this.extractStruct(n,t,"struct");return}let r=this.findDescendant(e,"enum_specifier");if(r){let s=this.findChild(e,"type_identifier");s?t.enums.push({name:s.text,type:"enum",line:s.startPosition.row+1}):this.extractEnum(r,t)}}extractStruct(e,t,n){let r=e.childForFieldName("name");r&&t.structs.push({name:r.text,type:n,line:e.startPosition.row+1})}extractEnum(e,t){let n=e.childForFieldName("name");n&&t.enums.push({name:n.text,type:"enum",line:e.startPosition.row+1})}extractMacro(e,t,n){let r=e.childForFieldName("name");r&&t.macros.push({name:r.text,type:n?"function-macro":"constant-macro",line:e.startPosition.row+1})}extractCallsAST(e,t,n){let r=new Set,s=new Set;this.collectDefinedFunctions(e.rootNode,r),this.collectCalls(e.rootNode,s,r);let o=[];for(let l of s)n.has(l)&&o.push({source:t.id,target:l,type:"function-call",label:`${l}()`});return o}extractCallsFromAST(e){let t=new Set,n=new Set;return this.collectDefinedFunctions(e.rootNode,t),this.collectCalls(e.rootNode,n,t),[...n]}collectDefinedFunctions(e,t){if(e.type==="function_definition"){let r=this.findDescendant(e,"function_declarator")?.childForFieldName("declarator");r&&t.add(r.text)}for(let n=0;n<e.childCount;n++)this.collectDefinedFunctions(e.child(n),t)}collectCalls(e,t,n){if(e.type==="call_expression"){let r=e.childForFieldName("function");if(r?.type==="identifier"){let s=r.text;!Yn.has(s)&&!/^[A-Z_]+$/.test(s)&&!n.has(s)&&t.add(s)}}for(let r=0;r<e.childCount;r++)this.collectCalls(e.child(r),t,n)}extractCallSitesAST(e,t){let n=new Set;this.collectDefinedFunctions(e.rootNode,n);let r=[];return this.collectCallSites(e.rootNode,r,n,"<module>"),r}collectCallSites(e,t,n,r){if(e.type==="function_definition"){let l=this.findDescendant(e,"function_declarator")?.childForFieldName("declarator")?.text||r;for(let u=0;u<e.childCount;u++)this.collectCallSites(e.child(u),t,n,l);return}if(e.type==="call_expression"){let s=e.childForFieldName("function");if(s?.type==="identifier"){let o=s.text;!Yn.has(o)&&!/^[A-Z_]+$/.test(o)&&t.push({callerName:r,calleeName:o,line:e.startPosition.row+1,isLocal:n.has(o)})}}for(let s=0;s<e.childCount;s++)this.collectCallSites(e.child(s),t,n,r)}getReturnType(e,t){let n=e.childForFieldName("type");return n?e.childForFieldName("declarator")?.type==="pointer_declarator"?n.text+"*":n.text:e.text.substring(0,t.startIndex-e.startIndex).trim()||"int"}getParams(e){let t=e.childForFieldName("parameters");if(!t)return"";let n=t.text;return n.startsWith("(")?n.slice(1,-1).trim():n.trim()}findDescendant(e,t){if(e.type===t)return e;for(let n=0;n<e.childCount;n++){let r=this.findDescendant(e.child(n),t);if(r)return r}return null}findChild(e,t){for(let n=0;n<e.childCount;n++){let r=e.child(n);if(r.type===t)return r}return null}};var Kt=class extends tt{constructor(){super(),this.language="cpp"}};var nt=new Set(["if","else","for","while","do","switch","case","return","break","continue","throw","try","catch","finally","new","delete","typeof","instanceof","void","in","of","this","super","with","yield","await","debugger","constructor","get","set","static","async","true","false","null","undefined","NaN","Infinity","console","window","document","global","process","require","module","exports","import","export","default","from"]),hs=new Set([...nt,"parseInt","parseFloat","isNaN","isFinite","encodeURI","decodeURI","encodeURIComponent","decodeURIComponent","eval","JSON","Math","Object","Array","String","Number","Boolean","Date","RegExp","Error","TypeError","RangeError","SyntaxError","ReferenceError","Map","Set","WeakMap","WeakSet","Promise","Proxy","Reflect","Symbol","BigInt","ArrayBuffer","SharedArrayBuffer","DataView","Float32Array","Float64Array","Int8Array","Int16Array","Int32Array","Uint8Array","Uint16Array","Uint32Array","URL","URLSearchParams","setTimeout","setInterval","clearTimeout","clearInterval","requestAnimationFrame","cancelAnimationFrame","fetch","alert","confirm","prompt","addEventListener","removeEventListener","dispatchEvent","createElement","getElementById","querySelector","querySelectorAll","log","warn","error","info","debug","trace","dir","push","pop","shift","unshift","splice","slice","concat","map","filter","reduce","forEach","find","findIndex","some","every","includes","indexOf","join","sort","reverse","flat","flatMap","keys","values","entries","assign","freeze","seal","defineProperty","getOwnPropertyNames","hasOwnProperty","toString","valueOf","toJSON","then","catch","resolve","reject","all","allSettled","race","any","stringify","parse","replace","match","search","split","trim","startsWith","endsWith","charAt","charCodeAt","substring","repeat","padStart","padEnd","bind","call","apply","next","done","emit","on","once","off"]),rt=class extends Z{constructor(){super("javascript")}get usesTreeSitter(){return!0}parseAST(e,t,n={}){let r=[];return this.walkForImports(e.rootNode,t.id,r),r}walkForImports(e,t,n){switch(e.type){case"import_statement":this.extractImport(e,t,n);return;case"call_expression":{let r=e.childForFieldName("function");r&&(r.type==="identifier"&&r.text==="require"?this.extractCallImport(e,t,n,"require"):r.type==="import"&&this.extractCallImport(e,t,n,"dynamic-import"));break}}for(let r=0;r<e.childCount;r++)this.walkForImports(e.child(r),t,n)}extractImport(e,t,n){let r=e.childForFieldName("source");if(!r)return;let s=this.stripQuotes(r.text);if(!s)return;let o=this.hasDirectChild(e,"type");n.push({source:t,target:s,type:o?"import-type":"import",label:o?`import type from '${s}'`:`import from '${s}'`})}extractCallImport(e,t,n,r){let s=e.childForFieldName("arguments");if(!s)return;let o=s.child(1);if(!o)return;let l;if(o.type==="string"||o.type==="string_fragment")l=this.stripQuotes(o.text);else if(o.type==="template_string")l=o.text.slice(1,-1).split("$")[0].split("?")[0];else return;l&&n.push({source:t,target:l,type:r,label:r==="require"?`require('${l}')`:`import('${l}')`})}extractSymbolsAST(e,t){let n={functions:[],externs:[],structs:[],enums:[],macros:[],classes:[],exports:[],interfaces:[],traits:[],typeAliases:[],methods:[]};return this.walkForSymbols(e.rootNode,n),n}walkForSymbols(e,t){switch(e.type){case"function_declaration":case"generator_function_declaration":this.extractFunctionDecl(e,t);return;case"lexical_declaration":case"variable_declaration":this.extractVariableDecl(e,t);return;case"class_declaration":this.extractClass(e,t);return;case"export_statement":this.extractExport(e,t);return}for(let n=0;n<e.childCount;n++)this.walkForSymbols(e.child(n),t)}extractFunctionDecl(e,t){let r=e.childForFieldName("name")?.text;if(!r||nt.has(r))return;let s=e.startPosition.row+1,o=this.hasDirectChild(e,"async"),l=e.type==="generator_function_declaration",u={name:r,type:l?"generator":"function",line:s};o&&(u.isAsync=!0),t.functions.push(u)}extractVariableDecl(e,t){for(let n=0;n<e.childCount;n++){let r=e.child(n);if(r.type!=="variable_declarator")continue;let s=r.childForFieldName("name"),o=r.childForFieldName("value");if(!s||!o)continue;let l=s.text;if(!nt.has(l)&&o.type==="arrow_function"){let u=e.startPosition.row+1,h=this.hasDirectChild(o,"async"),m={name:l,type:"arrow",line:u};h&&(m.isAsync=!0),t.functions.some(_=>_.name===l)||t.functions.push(m)}}}extractClass(e,t){let r=e.childForFieldName("name")?.text;if(!r)return;let s=e.startPosition.row+1;t.classes.push({name:r,type:"class",line:s});let o=e.childForFieldName("body");o&&this.extractMethods(o,t)}extractMethods(e,t){for(let n=0;n<e.childCount;n++){let r=e.child(n);if(r.type!=="method_definition")continue;let o=r.childForFieldName("name")?.text;if(!o||o==="constructor")continue;let l=this.hasDirectChild(r,"async"),u=this.hasDirectChild(r,"static"),h=this.findChildByText(r,"get")!==null&&r.childForFieldName("parameters")?.text==="()",m=this.findChildByText(r,"set")!==null&&!h,_={name:o,type:h?"getter":m?"setter":"method"};l&&(_.isAsync=!0),u&&(_.isStatic=!0),t.methods.push(_)}}extractExport(e,t){let n=this.hasDirectChild(e,"default"),r=this.hasDirectChild(e,"type"),s=this.findChild(e,"export_clause");if(s){if(r)return;for(let o=0;o<s.childCount;o++){let l=s.child(o);if(l.type==="export_specifier"){let u=l.childForFieldName("name");u&&!nt.has(u.text)&&t.exports.push({name:u.text,type:"export-named",line:u.startPosition.row+1})}}return}for(let o=0;o<e.childCount;o++){let l=e.child(o);switch(l.type){case"function_declaration":case"generator_function_declaration":{let u=l.childForFieldName("name")?.text;u&&(t.exports.push({name:u,line:l.startPosition.row+1,type:n?"export-default":"export-function"}),this.extractFunctionDecl(l,t));break}case"class_declaration":{let u=l.childForFieldName("name")?.text;u&&(t.exports.push({name:u,line:l.startPosition.row+1,type:n?"export-default":"export-class"}),this.extractClass(l,t));break}case"lexical_declaration":case"variable_declaration":{for(let u=0;u<l.childCount;u++){let h=l.child(u);if(h.type==="variable_declarator"){let m=h.childForFieldName("name")?.text;m&&!nt.has(m)&&t.exports.push({name:m,line:h.startPosition.row+1,type:n?"export-default":"export-variable"})}}this.extractVariableDecl(l,t);break}}}if(n&&t.exports.length===0)for(let o=0;o<e.childCount;o++){let l=e.child(o);if(l.type==="identifier"&&!nt.has(l.text)){t.exports.push({name:l.text,type:"export-default",line:l.startPosition.row+1});break}}}extractCallsAST(e,t,n){let r=new Set,s=new Set;this.collectDefinedFunctions(e.rootNode,r),this.collectCalls(e.rootNode,s,r);let o=[];for(let l of s)n.has(l)&&o.push({source:t.id,target:l,type:"function-call",label:`${l}()`});return o}extractCallsFromAST(e){let t=new Set,n=new Set;return this.collectDefinedFunctions(e.rootNode,t),this.collectCalls(e.rootNode,n,t),[...n]}collectDefinedFunctions(e,t){if(e.type==="function_declaration"||e.type==="generator_function_declaration"){let n=e.childForFieldName("name")?.text;n&&t.add(n)}else if(e.type==="variable_declarator"&&e.childForFieldName("value")?.type==="arrow_function"){let r=e.childForFieldName("name")?.text;r&&t.add(r)}for(let n=0;n<e.childCount;n++)this.collectDefinedFunctions(e.child(n),t)}collectCalls(e,t,n){if(e.type==="call_expression"){let r=e.childForFieldName("function");if(r?.type==="identifier"){let s=r.text;!hs.has(s)&&!/^[A-Z_]+$/.test(s)&&!n.has(s)&&t.add(s)}}for(let r=0;r<e.childCount;r++)this.collectCalls(e.child(r),t,n)}extractCallSitesAST(e,t){let n=new Set;this.collectDefinedFunctions(e.rootNode,n);let r=[];return this.collectCallSites(e.rootNode,r,n,"<module>"),r}collectCallSites(e,t,n,r){if(e.type==="function_declaration"||e.type==="generator_function_declaration"){let s=e.childForFieldName("name")?.text||r;for(let o=0;o<e.childCount;o++)this.collectCallSites(e.child(o),t,n,s);return}if(e.type==="variable_declarator"&&e.childForFieldName("value")?.type==="arrow_function"){let o=e.childForFieldName("name")?.text||r;for(let l=0;l<e.childCount;l++)this.collectCallSites(e.child(l),t,n,o);return}if(e.type==="method_definition"){let s=e.childForFieldName("name")?.text||r;for(let o=0;o<e.childCount;o++)this.collectCallSites(e.child(o),t,n,s);return}if(e.type==="call_expression"){let s=e.childForFieldName("function");if(s?.type==="identifier"){let o=s.text;!hs.has(o)&&!/^[A-Z_]+$/.test(o)&&t.push({callerName:r,calleeName:o,line:e.startPosition.row+1,isLocal:n.has(o)})}}for(let s=0;s<e.childCount;s++)this.collectCallSites(e.child(s),t,n,r)}stripQuotes(e){return e.startsWith("'")&&e.endsWith("'")||e.startsWith('"')&&e.endsWith('"')?e.slice(1,-1):e}hasDirectChild(e,t){for(let n=0;n<e.childCount;n++){let r=e.child(n);if(r.type===t||r.text===t)return!0}return!1}findChild(e,t){for(let n=0;n<e.childCount;n++){let r=e.child(n);if(r.type===t)return r}return null}findChildByText(e,t){for(let n=0;n<e.childCount;n++){let r=e.child(n);if(r.text===t&&r.type!=="statement_block"&&r.type!=="formal_parameters")return r}return null}findDescendant(e,t){if(e.type===t)return e;for(let n=0;n<e.childCount;n++){let r=this.findDescendant(e.child(n),t);if(r)return r}return null}};var Qt=class extends rt{constructor(){super(),this.language="typescript"}extractSymbolsAST(e,t){let n=super.extractSymbolsAST(e,t);return this.walkForTSSymbols(e.rootNode,n),n}walkForTSSymbols(e,t){switch(e.type){case"interface_declaration":this.extractInterface(e,t);return;case"type_alias_declaration":this.extractTypeAlias(e,t);return;case"export_statement":this.extractTSExport(e,t);return}for(let n=0;n<e.childCount;n++)this.walkForTSSymbols(e.child(n),t)}extractInterface(e,t){let r=e.childForFieldName("name")?.text;if(!r)return;let s=e.startPosition.row+1;t.interfaces.push({name:r,type:"interface",line:s})}extractTypeAlias(e,t){let r=e.childForFieldName("name")?.text;if(!r)return;let s=e.startPosition.row+1;t.typeAliases.push({name:r,type:"type-alias",line:s})}extractTSExport(e,t){let n=this.hasDirectChild(e,"type");for(let r=0;r<e.childCount;r++){let s=e.child(r);if(s.type==="interface_declaration"){let o=s.childForFieldName("name")?.text;o&&(t.exports.push({name:o,type:"export-interface",line:s.startPosition.row+1}),this.extractInterface(s,t));return}if(s.type==="type_alias_declaration"){let o=s.childForFieldName("name")?.text;o&&(t.exports.push({name:o,type:"export-type-alias",line:s.startPosition.row+1}),this.extractTypeAlias(s,t));return}}if(n){let r=this.findChild(e,"export_clause");if(r)for(let s=0;s<r.childCount;s++){let o=r.child(s);if(o.type==="export_specifier"){let l=o.childForFieldName("name");l&&t.exports.push({name:l.text,type:"export-type",line:l.startPosition.row+1})}}}}extractClass(e,t){super.extractClass(e,t);let n=this.findChild(e,"class_heritage");if(!n)return;let s=e.childForFieldName("name")?.text;if(!s)return;let o=n.text,l=o.match(/extends\s+(\w+)/);if(l){let h=t.classes.find(m=>m.name===s);h&&(h.extends=l[1])}let u=o.match(/implements\s+(.+)/);if(u){let h=u[1].split(",").map(_=>_.trim().split(/\s/)[0]),m=t.classes.find(_=>_.name===s);m&&(m.implements=h)}}extractMethods(e,t){for(let n=0;n<e.childCount;n++){let r=e.child(n);if(r.type!=="method_definition")continue;let o=r.childForFieldName("name")?.text;if(!o||o==="constructor")continue;let l=this.hasDirectChild(r,"async"),u=this.hasDirectChild(r,"static"),h=this.getVisibility(r),m=this.hasDirectChild(r,"override"),_={name:o,type:"method"};l&&(_.isAsync=!0),u&&(_.isStatic=!0),h&&(_.visibility=h),m&&(_.isOverride=!0),t.methods.push(_)}}extractHeritageRelations(e,t){let n=[];return this.walkForHeritage(e.rootNode,t.id,n),n}walkForHeritage(e,t,n){if(e.type==="class_declaration"){let s=e.childForFieldName("name")?.text,o=this.findChild(e,"class_heritage");if(s&&o){let l=o.text,u=l.match(/extends\s+(\w+)/);u&&n.push({source:t,target:u[1],type:"extends",label:`${s} extends ${u[1]}`});let h=l.match(/implements\s+(.+)/);if(h){let _=h[1].replace(/\{[\s\S]*$/,"").split(",").map(T=>T.trim().split(/\s/)[0]).filter(Boolean);for(let T of _)n.push({source:t,target:T,type:"implements",label:`${s} implements ${T}`})}}}for(let r=0;r<e.childCount;r++)this.walkForHeritage(e.child(r),t,n)}getVisibility(e){for(let t=0;t<e.childCount;t++){let n=e.child(t);if(n.type==="accessibility_modifier")return n.text}}};var Xn=new Set(["print","len","range","int","str","float","list","dict","set","tuple","bool","type","isinstance","issubclass","hasattr","getattr","setattr","delattr","callable","super","property","staticmethod","classmethod","abs","all","any","bin","chr","dir","divmod","enumerate","eval","exec","filter","format","frozenset","globals","hash","hex","id","input","iter","locals","map","max","min","next","object","oct","open","ord","pow","repr","reversed","round","slice","sorted","sum","vars","zip","breakpoint","compile","complex","memoryview","bytearray","bytes","__import__","__name__","__file__","__doc__"]),Kn=new Set(["def","class","if","elif","else","for","while","return","yield","lambda","not","and","or","assert","raise","pass","break","continue","try","except","finally","with","as","import","from","global","nonlocal","del","in","is","async","await"]),Jt=class extends Z{constructor(){super("python")}get usesTreeSitter(){return!0}parseAST(e,t,n={}){let r=[],s=e.rootNode;for(let o=0;o<s.childCount;o++){let l=s.child(o);l.type==="import_statement"?this.extractImport(l,t.id,r):l.type==="import_from_statement"&&this.extractFromImport(l,t.id,r)}return r}extractImport(e,t,n){for(let r=0;r<e.childCount;r++){let s=e.child(r);if(s.type==="dotted_name"||s.type==="aliased_import"){let o=s.type==="aliased_import"?s.childForFieldName("name")?.text??s.text:s.text;o&&n.push({source:t,target:o,type:"import",label:`import ${o}`})}}}extractFromImport(e,t,n){let r=e.childForFieldName("module_name"),s;for(let o=0;o<e.childCount;o++){let l=e.child(o);if(l.type==="dotted_name"||l.type==="relative_import"){s=l.text;break}}s&&n.push({source:t,target:s,type:"from-import",label:`from ${s} import`})}extractSymbolsAST(e,t){let n={functions:[],externs:[],structs:[],enums:[],macros:[],classes:[],exports:[],interfaces:[],traits:[],typeAliases:[],methods:[]};return this.walkForSymbols(e.rootNode,n,!1),n}walkForSymbols(e,t,n){switch(e.type){case"function_definition":this.extractFunction(e,t,n,[]);return;case"decorated_definition":this.extractDecorated(e,t,n);return;case"class_definition":this.extractClass(e,t);return;case"expression_statement":this.extractAllExport(e,t);return}for(let r=0;r<e.childCount;r++)this.walkForSymbols(e.child(r),t,n)}extractFunction(e,t,n,r){let o=e.childForFieldName("name")?.text;if(!o)return;let l=e.startPosition.row+1,u=this.hasDirectChild(e,"async"),h=o.startsWith("__")&&o.endsWith("__"),m=r.includes("staticmethod"),_=r.includes("classmethod");if(n){let T={name:o,type:h?"dunder":"method",line:l};u&&(T.isAsync=!0),m&&(T.isStatic=!0),_&&(T.isClassMethod=!0),t.methods.push(T)}else{let T={name:o,type:h?"dunder":"function",line:l};u&&(T.isAsync=!0),t.functions.push(T)}}extractDecorated(e,t,n){let r=[],s=null,o=null;for(let l=0;l<e.childCount;l++){let u=e.child(l);if(u.type==="decorator"){let h=this.getDecoratorName(u);h&&(r.push(h),!Xn.has(h)&&!Kn.has(h)&&(t.macros.some(m=>m.name===h)||t.macros.push({name:h,type:"decorator",line:u.startPosition.row+1})))}else u.type==="function_definition"?s=u:u.type==="class_definition"&&(o=u)}s&&this.extractFunction(s,t,n,r),o&&this.extractClass(o,t)}extractClass(e,t){let r=e.childForFieldName("name")?.text;if(!r)return;let s=e.startPosition.row+1,o={name:r,type:"class",line:s},l=this.extractSuperclasses(e);l.length>0&&(o.extends=l[0],l.length>1&&(o.implements=l.slice(1))),t.classes.push(o);let u=e.childForFieldName("body");u&&this.walkForSymbols(u,t,!0)}extractSuperclasses(e){let t=[],n=this.findChild(e,"argument_list");if(!n)return t;for(let r=0;r<n.childCount;r++){let s=n.child(r);(s.type==="identifier"||s.type==="dotted_name")&&t.push(s.text)}return t}extractAllExport(e,t){let n=this.findChild(e,"assignment");if(!n)return;let r=n.childForFieldName("left");if(!r||r.text!=="__all__")return;let s=n.childForFieldName("right");if(!(!s||s.type!=="list"))for(let o=0;o<s.childCount;o++){let l=s.child(o);if(l.type==="string"){let u=this.stripPyString(l.text);u&&t.exports.push({name:u,type:"export-all",line:l.startPosition.row+1})}}}extractHeritageRelations(e,t){let n=[];return this.walkForHeritage(e.rootNode,t.id,n),n}walkForHeritage(e,t,n){if(e.type==="class_definition"){let s=e.childForFieldName("name")?.text;if(s){let o=this.extractSuperclasses(e);for(let l of o)n.push({source:t,target:l,type:"extends",label:`${s} extends ${l}`})}}for(let r=0;r<e.childCount;r++)this.walkForHeritage(e.child(r),t,n)}extractCallsAST(e,t,n){let r=new Set,s=new Set;this.collectDefinedFunctions(e.rootNode,r),this.collectCalls(e.rootNode,s,r);let o=[];for(let l of s)n.has(l)&&o.push({source:t.id,target:l,type:"function-call",label:`${l}()`});return o}extractCallsFromAST(e){let t=new Set,n=new Set;return this.collectDefinedFunctions(e.rootNode,t),this.collectCalls(e.rootNode,n,t),[...n]}collectDefinedFunctions(e,t){if(e.type==="function_definition"){let n=e.childForFieldName("name")?.text;n&&t.add(n)}else if(e.type==="class_definition"){let n=e.childForFieldName("name")?.text;n&&t.add(n)}else if(e.type==="decorated_definition")for(let n=0;n<e.childCount;n++){let r=e.child(n);if(r.type==="function_definition"||r.type==="class_definition"){let s=r.childForFieldName("name")?.text;s&&t.add(s)}}for(let n=0;n<e.childCount;n++)this.collectDefinedFunctions(e.child(n),t)}collectCalls(e,t,n){if(e.type==="call"){let r=e.childForFieldName("function");if(r?.type==="identifier"){let s=r.text;!Xn.has(s)&&!Kn.has(s)&&!n.has(s)&&!/^[A-Z_]+$/.test(s)&&t.add(s)}}for(let r=0;r<e.childCount;r++)this.collectCalls(e.child(r),t,n)}extractCallSitesAST(e,t){let n=new Set;this.collectDefinedFunctions(e.rootNode,n);let r=[];return this.collectCallSites(e.rootNode,r,n,"<module>"),r}collectCallSites(e,t,n,r){if(e.type==="function_definition"){let s=e.childForFieldName("name")?.text||r;for(let o=0;o<e.childCount;o++)this.collectCallSites(e.child(o),t,n,s);return}if(e.type==="decorated_definition"){for(let s=0;s<e.childCount;s++){let o=e.child(s);if(o.type==="function_definition"){let l=o.childForFieldName("name")?.text||r;this.collectCallSites(o,t,n,l)}else this.collectCallSites(o,t,n,r)}return}if(e.type==="call"){let s=e.childForFieldName("function");if(s?.type==="identifier"){let o=s.text;!Xn.has(o)&&!Kn.has(o)&&!/^[A-Z_]+$/.test(o)&&t.push({callerName:r,calleeName:o,line:e.startPosition.row+1,isLocal:n.has(o)})}}for(let s=0;s<e.childCount;s++)this.collectCallSites(e.child(s),t,n,r)}getDecoratorName(e){for(let t=0;t<e.childCount;t++){let n=e.child(t);if(n.type==="identifier"||n.type==="dotted_name")return n.text;if(n.type==="call")return n.childForFieldName("function")?.text??null}return null}stripPyString(e){return e.startsWith("'")&&e.endsWith("'")||e.startsWith('"')&&e.endsWith('"')?e.slice(1,-1):e}hasDirectChild(e,t){for(let n=0;n<e.childCount;n++){let r=e.child(n);if(r.type===t||r.text===t)return!0}return!1}findChild(e,t){for(let n=0;n<e.childCount;n++){let r=e.child(n);if(r.type===t)return r}return null}};var _s=new Set(["System","String","Integer","Long","Double","Float","Boolean","Object","Class","Math","Arrays","Collections","List","Map","Set","HashMap","ArrayList","HashSet","LinkedList","TreeMap","TreeSet","Optional","Stream","Collectors","Iterator","Iterable","Exception","RuntimeException","IOException","NullPointerException","Thread","Runnable","Comparable","Serializable","Cloneable","StringBuilder","StringBuffer","Throwable","Error","println","printf","print","format","toString","equals","hashCode","clone","getClass","notify","wait","valueOf","parseInt","parseDouble","parseLong","parseFloat","length","size","get","put","add","remove","contains","isEmpty","toArray","iterator","stream","forEach","map","filter","reduce","collect","of","asList","sort","reverse","min","max","close","read","write","flush","append"]),gs=new Set(["if","else","for","while","do","switch","case","return","break","continue","throw","try","catch","finally","new","instanceof","this","super","void","null","true","false","public","private","protected","static","final","abstract","synchronized","volatile","transient","native","strictfp","class","interface","enum","extends","implements","import","package","default","assert","var"]),en=class extends Z{constructor(){super("java")}get usesTreeSitter(){return!0}parseAST(e,t,n={}){let r=[],s=e.rootNode;for(let o=0;o<s.childCount;o++){let l=s.child(o);if(l.type!=="import_declaration")continue;let u=this.findChild(l,"scoped_identifier");if(!u)continue;let h=u.text,m=this.hasDirectChild(l,"static");r.push({source:t.id,target:h,type:m?"static-import":"import",label:m?`import static ${h}`:`import ${h}`})}return r}extractSymbolsAST(e,t){let n={functions:[],externs:[],structs:[],enums:[],macros:[],classes:[],exports:[],interfaces:[],traits:[],typeAliases:[],methods:[]};return this.walkForSymbols(e.rootNode,n,!1),n}walkForSymbols(e,t,n){switch(e.type){case"class_declaration":this.extractClass(e,t);return;case"interface_declaration":this.extractInterface(e,t);return;case"enum_declaration":this.extractEnum(e,t);return;case"method_declaration":n&&this.extractMethod(e,t);return}for(let r=0;r<e.childCount;r++)this.walkForSymbols(e.child(r),t,n)}extractClass(e,t){let r=e.childForFieldName("name")?.text;if(!r)return;let s=e.startPosition.row+1,o=this.getModifiers(e),l={name:r,type:"class",line:s};o.visibility&&(l.visibility=o.visibility),o.isStatic&&(l.isStatic=!0);let u=this.findChild(e,"superclass");if(u){let _=this.findChild(u,"type_identifier");_&&(l.extends=_.text)}let h=this.findChild(e,"super_interfaces");h&&(l.implements=this.extractTypeList(h)),t.classes.push(l);let m=e.childForFieldName("body");if(m)for(let _=0;_<m.childCount;_++)this.walkForSymbols(m.child(_),t,!0)}extractInterface(e,t){let r=e.childForFieldName("name")?.text;if(!r)return;let s=e.startPosition.row+1;t.interfaces.push({name:r,type:"interface",line:s});let o=this.findChild(e,"interface_body");if(o)for(let l=0;l<o.childCount;l++){let u=o.child(l);u.type==="method_declaration"&&this.extractMethod(u,t)}}extractEnum(e,t){let r=e.childForFieldName("name")?.text;if(!r)return;let s=e.startPosition.row+1;t.enums.push({name:r,type:"enum",line:s})}extractMethod(e,t){let r=e.childForFieldName("name")?.text;if(!r)return;let s=this.getModifiers(e),o={name:r,type:"method"};s.visibility&&(o.visibility=s.visibility),s.isStatic&&(o.isStatic=!0),s.isAsync&&(o.isAsync=!0),t.methods.push(o)}extractHeritageRelations(e,t){let n=[];return this.walkForHeritage(e.rootNode,t.id,n),n}walkForHeritage(e,t,n){if(e.type==="class_declaration"){let r=e.childForFieldName("name")?.text;if(r){let s=this.findChild(e,"superclass");if(s){let l=this.findChild(s,"type_identifier")?.text;l&&n.push({source:t,target:l,type:"extends",label:`${r} extends ${l}`})}let o=this.findChild(e,"super_interfaces");if(o)for(let l of this.extractTypeList(o))n.push({source:t,target:l,type:"implements",label:`${r} implements ${l}`})}}for(let r=0;r<e.childCount;r++)this.walkForHeritage(e.child(r),t,n)}extractCallsAST(e,t,n){let r=new Set,s=new Set;this.collectDefinedFunctions(e.rootNode,r),this.collectCalls(e.rootNode,s,r);let o=[];for(let l of s)n.has(l)&&o.push({source:t.id,target:l,type:"function-call",label:`${l}()`});return o}extractCallsFromAST(e){let t=new Set,n=new Set;return this.collectDefinedFunctions(e.rootNode,t),this.collectCalls(e.rootNode,n,t),[...n]}collectDefinedFunctions(e,t){if(e.type==="method_declaration"){let n=e.childForFieldName("name")?.text;n&&t.add(n)}for(let n=0;n<e.childCount;n++)this.collectDefinedFunctions(e.child(n),t)}collectCalls(e,t,n){if(e.type==="method_invocation"&&!e.childForFieldName("object")){let s=e.childForFieldName("name")?.text;s&&!_s.has(s)&&!gs.has(s)&&!n.has(s)&&t.add(s)}for(let r=0;r<e.childCount;r++)this.collectCalls(e.child(r),t,n)}extractCallSitesAST(e,t){let n=new Set;this.collectDefinedFunctions(e.rootNode,n);let r=[];return this.collectCallSites(e.rootNode,r,n,"<module>"),r}collectCallSites(e,t,n,r){if(e.type==="method_declaration"){let s=e.childForFieldName("name")?.text||r;for(let o=0;o<e.childCount;o++)this.collectCallSites(e.child(o),t,n,s);return}if(e.type==="method_invocation"&&!e.childForFieldName("object")){let o=e.childForFieldName("name")?.text;o&&!_s.has(o)&&!gs.has(o)&&t.push({callerName:r,calleeName:o,line:e.startPosition.row+1,isLocal:n.has(o)})}for(let s=0;s<e.childCount;s++)this.collectCallSites(e.child(s),t,n,r)}getModifiers(e){let t=this.findChild(e,"modifiers");if(!t)return{};let n=t.text,r={};return n.includes("public")?r.visibility="public":n.includes("private")?r.visibility="private":n.includes("protected")&&(r.visibility="protected"),n.includes("static")&&(r.isStatic=!0),n.includes("synchronized")&&(r.isAsync=!1),r}extractTypeList(e){let t=[],r=this.findChild(e,"type_list")||e;for(let s=0;s<r.childCount;s++){let o=r.child(s);o.type==="type_identifier"&&t.push(o.text)}return t}hasDirectChild(e,t){for(let n=0;n<e.childCount;n++){let r=e.child(n);if(r.type===t||r.text===t)return!0}return!1}findChild(e,t){for(let n=0;n<e.childCount;n++)if(e.child(n).type===t)return e.child(n);return null}};var ys=new Set(["append","cap","close","complex","copy","delete","imag","len","make","new","panic","print","println","real","recover","error","string","bool","byte","rune","int","int8","int16","int32","int64","uint","uint8","uint16","uint32","uint64","uintptr","float32","float64","complex64","complex128","nil","true","false","iota"]),Qn=new Set(["break","case","chan","const","continue","default","defer","else","fallthrough","for","func","go","goto","if","import","interface","map","package","range","return","select","struct","switch","type","var"]),tn=class extends Z{constructor(){super("go")}get usesTreeSitter(){return!0}parseAST(e,t,n={}){let r=[],s=e.rootNode;for(let o=0;o<s.childCount;o++){let l=s.child(o);if(l.type!=="import_declaration")continue;let u=this.findChild(l,"import_spec");if(u){let m=this.extractImportPath(u);m&&r.push({source:t.id,target:m,type:"import",label:`import "${m}"`})}let h=this.findChild(l,"import_spec_list");if(h)for(let m=0;m<h.childCount;m++){let _=h.child(m);if(_.type==="import_spec"){let T=this.extractImportPath(_);T&&r.push({source:t.id,target:T,type:"import",label:`import "${T}"`})}}}return r}extractSymbolsAST(e,t){let n={functions:[],externs:[],structs:[],enums:[],macros:[],classes:[],exports:[],interfaces:[],traits:[],typeAliases:[],methods:[]},r=e.rootNode;for(let s=0;s<r.childCount;s++){let o=r.child(s);switch(o.type){case"function_declaration":this.extractFunction(o,n);break;case"method_declaration":this.extractMethod(o,n);break;case"type_declaration":this.extractTypeDecl(o,n);break}}return n}extractFunction(e,t){let r=e.childForFieldName("name")?.text;if(!r||Qn.has(r))return;let s=e.startPosition.row+1,o=/^[A-Z]/.test(r),l={name:r,type:"function",line:s};t.functions.push(l),o&&t.exports.push({name:r,type:"export-function",line:s})}extractMethod(e,t){let r=e.childForFieldName("name")?.text;if(!r)return;let s=e.child(1),o;if(s?.type==="parameter_list"){let m=s.text.match(/\*?(\w+)\s*\)/);m&&(o=m[1])}let l=/^[A-Z]/.test(r),u={name:r,type:"method"};o&&(u.receiver=o),t.methods.push(u),l&&t.exports.push({name:r,type:"export-method",line:e.startPosition.row+1})}extractTypeDecl(e,t){let n=this.findChild(e,"type_spec");if(!n)return;let r=n.child(0),s=n.child(1);if(!r||!s)return;let o=r.text,l=e.startPosition.row+1,u=/^[A-Z]/.test(o);s.type==="struct_type"?(t.structs.push({name:o,type:"struct",line:l}),u&&t.exports.push({name:o,type:"export-struct",line:l})):s.type==="interface_type"&&(t.interfaces.push({name:o,type:"interface",line:l}),u&&t.exports.push({name:o,type:"export-interface",line:l}))}extractCallsAST(e,t,n){let r=new Set,s=new Set;this.collectDefinedFunctions(e.rootNode,r),this.collectCalls(e.rootNode,s,r);let o=[];for(let l of s)n.has(l)&&o.push({source:t.id,target:l,type:"function-call",label:`${l}()`});return o}extractCallsFromAST(e){let t=new Set,n=new Set;return this.collectDefinedFunctions(e.rootNode,t),this.collectCalls(e.rootNode,n,t),[...n]}collectDefinedFunctions(e,t){if(e.type==="function_declaration"){let n=e.childForFieldName("name")?.text;n&&t.add(n)}for(let n=0;n<e.childCount;n++)this.collectDefinedFunctions(e.child(n),t)}collectCalls(e,t,n){if(e.type==="call_expression"){let r=e.childForFieldName("function");if(r?.type==="identifier"){let s=r.text;!ys.has(s)&&!Qn.has(s)&&!n.has(s)&&t.add(s)}}for(let r=0;r<e.childCount;r++)this.collectCalls(e.child(r),t,n)}extractCallSitesAST(e,t){let n=new Set;this.collectDefinedFunctions(e.rootNode,n);let r=[];return this.collectCallSites(e.rootNode,r,n,"<module>"),r}collectCallSites(e,t,n,r){if(e.type==="function_declaration"){let s=e.childForFieldName("name")?.text||r;for(let o=0;o<e.childCount;o++)this.collectCallSites(e.child(o),t,n,s);return}if(e.type==="method_declaration"){let s=e.childForFieldName("name")?.text||r;for(let o=0;o<e.childCount;o++)this.collectCallSites(e.child(o),t,n,s);return}if(e.type==="call_expression"){let s=e.childForFieldName("function");if(s?.type==="identifier"){let o=s.text;!ys.has(o)&&!Qn.has(o)&&t.push({callerName:r,calleeName:o,line:e.startPosition.row+1,isLocal:n.has(o)})}}for(let s=0;s<e.childCount;s++)this.collectCallSites(e.child(s),t,n,r)}extractImportPath(e){for(let t=0;t<e.childCount;t++){let n=e.child(t);if(n.type==="interpreted_string_literal")return n.text.slice(1,-1)}return null}findChild(e,t){for(let n=0;n<e.childCount;n++)if(e.child(n).type===t)return e.child(n);return null}};var Jn=new Set(["println","print","eprintln","eprint","format","write","writeln","panic","todo","unimplemented","unreachable","assert","assert_eq","assert_ne","debug_assert","debug_assert_eq","debug_assert_ne","vec","cfg","include","include_str","include_bytes","env","option_env","concat","stringify","line","column","file","Box","Vec","String","Option","Result","Some","None","Ok","Err","HashMap","HashSet","BTreeMap","BTreeSet","VecDeque","LinkedList","Rc","Arc","Mutex","RwLock","Cell","RefCell","Into","From","TryInto","TryFrom","AsRef","AsMut","Default","Clone","Copy","Debug","Display","PartialEq","Eq","PartialOrd","Ord","Hash","Iterator","IntoIterator","Send","Sync","Sized","Unpin","Drop","drop","swap","replace","take","unwrap","expect","map","and_then","or_else","unwrap_or","is_some","is_none","is_ok","is_err","iter","into_iter","collect","filter","fold","for_each","push","pop","len","is_empty","contains","get","insert","remove","clone","to_string","to_owned","as_str","as_ref","as_mut"]),nn=new Set(["as","async","await","break","const","continue","crate","dyn","else","enum","extern","fn","for","if","impl","in","let","loop","match","mod","move","mut","pub","ref","return","self","Self","static","struct","super","trait","type","unsafe","use","where","while","yield","true","false"]),rn=class extends Z{constructor(){super("rust")}get usesTreeSitter(){return!0}parseAST(e,t,n={}){let r=[],s=e.rootNode;for(let o=0;o<s.childCount;o++){let l=s.child(o);l.type==="use_declaration"?this.extractUse(l,t.id,r):l.type==="mod_item"&&this.extractMod(l,t.id,r)}return r}extractUse(e,t,n){for(let r=0;r<e.childCount;r++){let s=e.child(r);if(s.type==="scoped_identifier"||s.type==="identifier"||s.type==="scoped_use_list"||s.type==="use_wildcard"){let o=s.text;n.push({source:t,target:o,type:"use",label:`use ${o}`});return}}}extractMod(e,t,n){let r=e.childForFieldName("name");if(!r||this.findChild(e,"declaration_list"))return;let s=r.text;n.push({source:t,target:s,type:"mod",label:`mod ${s}`})}extractSymbolsAST(e,t){let n={functions:[],externs:[],structs:[],enums:[],macros:[],classes:[],exports:[],interfaces:[],traits:[],typeAliases:[],methods:[]};return this.walkForSymbols(e.rootNode,n),n}walkForSymbols(e,t){switch(e.type){case"function_item":this.extractFunction(e,t);return;case"struct_item":this.extractStruct(e,t);return;case"enum_item":this.extractEnum(e,t);return;case"trait_item":this.extractTrait(e,t);return;case"impl_item":this.extractImpl(e,t);return;case"type_item":this.extractTypeAlias(e,t);return}for(let n=0;n<e.childCount;n++)this.walkForSymbols(e.child(n),t)}extractFunction(e,t){let r=e.childForFieldName("name")?.text;if(!r||nn.has(r))return;let s=e.startPosition.row+1,o=this.hasDirectChild(e,"visibility_modifier"),l=this.hasChildType(e,"function_modifiers"),u={name:r,type:"function",line:s};l&&(u.isAsync=!0),o&&(u.visibility="public"),t.functions.push(u),o&&t.exports.push({name:r,type:"export-function",line:s})}extractStruct(e,t){let r=e.childForFieldName("name")?.text;if(!r)return;let s=e.startPosition.row+1,o=this.hasDirectChild(e,"visibility_modifier");t.structs.push({name:r,type:"struct",line:s}),o&&t.exports.push({name:r,type:"export-struct",line:s})}extractEnum(e,t){let r=e.childForFieldName("name")?.text;if(!r)return;let s=e.startPosition.row+1,o=this.hasDirectChild(e,"visibility_modifier");t.enums.push({name:r,type:"enum",line:s}),o&&t.exports.push({name:r,type:"export-enum",line:s})}extractTrait(e,t){let r=e.childForFieldName("name")?.text;if(!r)return;let s=e.startPosition.row+1,o=this.hasDirectChild(e,"visibility_modifier");t.traits.push({name:r,type:"trait",line:s}),o&&t.exports.push({name:r,type:"export-trait",line:s})}extractImpl(e,t){let n=this.findChild(e,"declaration_list");if(!n)return;let r=this.findAllChildren(e,"type_identifier"),s=this.hasDirectChild(e,"for"),o,l;s&&r.length>=2?(l=r[0].text,o=r[1].text):r.length>=1&&(o=r[0].text);for(let u=0;u<n.childCount;u++){let h=n.child(u);if(h.type==="function_item"){let _=h.childForFieldName("name")?.text;if(!_)continue;let T=this.hasDirectChild(h,"visibility_modifier"),x=this.hasChildType(h,"function_modifiers"),F={name:_,type:"method"};T&&(F.visibility="public"),x&&(F.isAsync=!0),o&&(F.receiver=o),t.methods.push(F)}}}extractTypeAlias(e,t){let r=e.childForFieldName("name")?.text;if(!r)return;let s=e.startPosition.row+1;t.typeAliases.push({name:r,type:"type-alias",line:s})}extractHeritageRelations(e,t){let n=[];return this.walkForHeritage(e.rootNode,t.id,n),n}walkForHeritage(e,t,n){if(e.type==="impl_item"&&this.hasDirectChild(e,"for")){let s=this.findAllChildren(e,"type_identifier");if(s.length>=2){let o=s[0].text,l=s[1].text;n.push({source:t,target:o,type:"implements",label:`${l} implements ${o}`})}}for(let r=0;r<e.childCount;r++)this.walkForHeritage(e.child(r),t,n)}extractCallsAST(e,t,n){let r=new Set,s=new Set;this.collectDefinedFunctions(e.rootNode,r),this.collectCalls(e.rootNode,s,r);let o=[];for(let l of s)n.has(l)&&o.push({source:t.id,target:l,type:"function-call",label:`${l}()`});return o}extractCallsFromAST(e){let t=new Set,n=new Set;return this.collectDefinedFunctions(e.rootNode,t),this.collectCalls(e.rootNode,n,t),[...n]}collectDefinedFunctions(e,t){if(e.type==="function_item"){let n=e.childForFieldName("name")?.text;n&&t.add(n)}for(let n=0;n<e.childCount;n++)this.collectDefinedFunctions(e.child(n),t)}collectCalls(e,t,n){if(e.type==="call_expression"){let r=e.childForFieldName("function");if(r?.type==="identifier"){let s=r.text;!Jn.has(s)&&!nn.has(s)&&!n.has(s)&&!/^[A-Z_]+$/.test(s)&&t.add(s)}}if(e.type==="macro_invocation"){let r=e.child(0);if(r?.type==="identifier"){let s=r.text;!Jn.has(s)&&nn.has(s)}}for(let r=0;r<e.childCount;r++)this.collectCalls(e.child(r),t,n)}extractCallSitesAST(e,t){let n=new Set;this.collectDefinedFunctions(e.rootNode,n);let r=[];return this.collectCallSites(e.rootNode,r,n,"<module>"),r}collectCallSites(e,t,n,r){if(e.type==="function_item"){let s=e.childForFieldName("name")?.text||r;for(let o=0;o<e.childCount;o++)this.collectCallSites(e.child(o),t,n,s);return}if(e.type==="call_expression"){let s=e.childForFieldName("function");if(s?.type==="identifier"){let o=s.text;!Jn.has(o)&&!nn.has(o)&&!/^[A-Z_]+$/.test(o)&&t.push({callerName:r,calleeName:o,line:e.startPosition.row+1,isLocal:n.has(o)})}}for(let s=0;s<e.childCount;s++)this.collectCallSites(e.child(s),t,n,r)}hasDirectChild(e,t){for(let n=0;n<e.childCount;n++)if(e.child(n).type===t)return!0;return!1}hasChildType(e,t){for(let n=0;n<e.childCount;n++)if(e.child(n).type===t)return!0;return!1}findChild(e,t){for(let n=0;n<e.childCount;n++)if(e.child(n).type===t)return e.child(n);return null}findAllChildren(e,t){let n=[];for(let r=0;r<e.childCount;r++)e.child(r).type===t&&n.push(e.child(r));return n}};var bs=new Set(["println","print","readLine","require","requireNotNull","check","checkNotNull","error","TODO","run","let","apply","also","with","use","lazy","arrayOf","listOf","mutableListOf","setOf","mutableSetOf","mapOf","mutableMapOf","emptyList","emptySet","emptyMap","arrayOfNulls","intArrayOf","longArrayOf","doubleArrayOf","floatArrayOf","booleanArrayOf","byteArrayOf","shortArrayOf","charArrayOf","String","Int","Long","Double","Float","Boolean","Char","Byte","Short","Any","Unit","Nothing","List","Set","Map","Array","IntArray","LongArray","maxOf","minOf","compareValues","hashCode","toString"]),ws=new Set(["as","break","class","continue","do","else","false","for","fun","if","in","interface","is","null","object","package","return","super","this","throw","true","try","typealias","val","var","when","while","by","catch","constructor","delegate","dynamic","field","file","finally","get","import","init","param","property","receiver","set","setparam","where","private","public","protected","internal","open","final","abstract","sealed","data","enum","inner","override","lateinit","companion","inline","noinline","crossinline","reified","tailrec","operator","infix","external","suspend"]),sn=class extends Z{constructor(){super("kotlin")}get usesTreeSitter(){return!0}parseAST(e,t,n={}){let r=[];return this.walkImports(e.rootNode,t.id,r),r}walkImports(e,t,n){if(e.type==="import_header"||e.type==="import_directive"){let r=this.findFirstByType(e,"identifier");if(r){let s=r.text;s&&n.push({source:t,target:s,type:"import",label:`import ${s}`})}return}if(e.type==="source_file"||e.type==="file_annotation"||e.type==="package_header"){for(let r=0;r<e.childCount;r++)this.walkImports(e.child(r),t,n);return}for(let r=0;r<Math.min(e.childCount,50);r++){let s=e.child(r);(s.type==="import_list"||s.type==="import_header"||s.type==="import_directive")&&this.walkImports(s,t,n)}}extractSymbolsAST(e,t){let n={functions:[],externs:[],structs:[],enums:[],macros:[],classes:[],exports:[],interfaces:[],traits:[],typeAliases:[],methods:[]};return this.walkSymbols(e.rootNode,n,!1),n}walkSymbols(e,t,n){switch(e.type){case"function_declaration":{let r=this.getDeclName(e);if(r){let s={name:r,type:n?"method":"function",line:e.startPosition.row+1};n?t.methods.push(s):t.functions.push(s)}return}case"class_declaration":{let r=this.getDeclName(e);r&&t.classes.push({name:r,type:"class",line:e.startPosition.row+1});for(let s=0;s<e.childCount;s++)this.walkSymbols(e.child(s),t,!0);return}case"object_declaration":{let r=this.getDeclName(e);r&&t.classes.push({name:r,type:"object",line:e.startPosition.row+1});for(let s=0;s<e.childCount;s++)this.walkSymbols(e.child(s),t,!0);return}case"interface_declaration":{let r=this.getDeclName(e);r&&t.interfaces.push({name:r,type:"interface",line:e.startPosition.row+1});for(let s=0;s<e.childCount;s++)this.walkSymbols(e.child(s),t,!0);return}case"type_alias":{let r=this.getDeclName(e);r&&t.typeAliases.push({name:r,type:"type-alias",line:e.startPosition.row+1});return}}for(let r=0;r<e.childCount;r++)this.walkSymbols(e.child(r),t,n)}getDeclName(e){let t=e.childForFieldName("name");if(t&&t.text)return t.text;for(let n=0;n<e.childCount;n++){let r=e.child(n);if(r.type==="simple_identifier"||r.type==="type_identifier"||r.type==="identifier")return r.text}return null}extractCallsAST(e,t,n){let r=new Set,s=new Set;this.collectDefinedFunctions(e.rootNode,r),this.collectCalls(e.rootNode,s,r);let o=[];for(let l of s)n.has(l)&&o.push({source:t.id,target:l,type:"function-call",label:`${l}()`});return o}collectDefinedFunctions(e,t){if(e.type==="function_declaration"){let n=this.getDeclName(e);n&&t.add(n)}for(let n=0;n<e.childCount;n++)this.collectDefinedFunctions(e.child(n),t)}collectCalls(e,t,n){if(e.type==="call_expression"){let r=e.child(0);if(r&&(r.type==="simple_identifier"||r.type==="identifier")){let s=r.text;s&&!bs.has(s)&&!ws.has(s)&&!n.has(s)&&/^[a-zA-Z_]/.test(s)&&t.add(s)}}for(let r=0;r<e.childCount;r++)this.collectCalls(e.child(r),t,n)}extractCallSitesAST(e,t){let n=new Set;this.collectDefinedFunctions(e.rootNode,n);let r=[];return this.collectCallSites(e.rootNode,r,n,"<module>"),r}collectCallSites(e,t,n,r){if(e.type==="function_declaration"){let s=this.getDeclName(e)||r;for(let o=0;o<e.childCount;o++)this.collectCallSites(e.child(o),t,n,s);return}if(e.type==="call_expression"){let s=e.child(0);if(s&&(s.type==="simple_identifier"||s.type==="identifier")){let o=s.text;o&&!bs.has(o)&&!ws.has(o)&&/^[a-zA-Z_]/.test(o)&&t.push({callerName:r,calleeName:o,line:e.startPosition.row+1,isLocal:n.has(o)})}}for(let s=0;s<e.childCount;s++)this.collectCallSites(e.child(s),t,n,r)}findFirstByType(e,t){if(e.type===t)return e;for(let n=0;n<e.childCount;n++){let r=this.findFirstByType(e.child(n),t);if(r)return r}return null}};var vs=new Set(["puts","print","p","pp","gets","readline","sprintf","format","require","require_relative","load","autoload","include","extend","attr_accessor","attr_reader","attr_writer","private","public","protected","module_function","lambda","proc","raise","fail","catch","throw","loop","sleep","exit","abort","caller","block_given?","yield","binding","String","Integer","Float","Array","Hash","Symbol","Range","Object","Class","Module","NilClass","TrueClass","FalseClass","Numeric","Comparable","Enumerable","Kernel","BasicObject","new","inspect","to_s","to_a","to_h","to_i","to_f","to_sym","is_a?","kind_of?","instance_of?","respond_to?","send","__send__","dup","clone","freeze","frozen?","tap","then","yield_self","each","map","collect","select","filter","reject","reduce","inject","find","detect","any?","all?","none?","one?","count","size","length","empty?","first","last","min","max","sort","sort_by","group_by","zip","flatten","compact","uniq","reverse","include?","push","pop","shift","unshift","concat","join","split","gsub","sub","match","scan","strip","chomp","chop","upcase","downcase","capitalize","reverse","replace","slice"]),Ss=new Set(["BEGIN","END","alias","and","begin","break","case","class","def","defined?","do","else","elsif","end","ensure","false","for","if","in","module","next","nil","not","or","redo","rescue","retry","return","self","super","then","true","undef","unless","until","when","while","yield","__FILE__","__LINE__","__ENCODING__"]),on=class extends Z{constructor(){super("ruby")}get usesTreeSitter(){return!0}parseAST(e,t,n={}){let r=[];return this.walkRequires(e.rootNode,t.id,r),r}walkRequires(e,t,n){if(e.type==="call"||e.type==="method_call"){let s=(e.childForFieldName("method")||e.child(0))?.text;if(s==="require"||s==="require_relative"||s==="load"||s==="autoload"){let o=e.childForFieldName("arguments")||this.findChild(e,"argument_list");if(o){let l=this.findStringInArgs(o);l&&n.push({source:t,target:l,type:"import",label:`${s} '${l}'`})}}}for(let r=0;r<e.childCount;r++)this.walkRequires(e.child(r),t,n)}findStringInArgs(e){for(let t=0;t<e.childCount;t++){let n=e.child(t);if(n.type==="string"){let r=this.findChild(n,"string_content");if(r)return r.text;let s=n.text;if(s.length>=2)return s.slice(1,-1)}else n.type==="string_array"||n.type}return null}extractSymbolsAST(e,t){let n={functions:[],externs:[],structs:[],enums:[],macros:[],classes:[],exports:[],interfaces:[],traits:[],typeAliases:[],methods:[]};return this.walkSymbols(e.rootNode,n,!1),n}walkSymbols(e,t,n){switch(e.type){case"method":{let r=this.getMethodName(e);if(r){let s={name:r,type:n?"method":"function",line:e.startPosition.row+1};n?t.methods.push(s):t.functions.push(s)}return}case"singleton_method":{let r=this.getMethodName(e);r&&t.methods.push({name:r,type:"singleton-method",line:e.startPosition.row+1});return}case"class":{let r=this.getClassName(e);r&&t.classes.push({name:r,type:"class",line:e.startPosition.row+1});for(let s=0;s<e.childCount;s++)this.walkSymbols(e.child(s),t,!0);return}case"module":{let r=this.getClassName(e);r&&t.classes.push({name:r,type:"module",line:e.startPosition.row+1});for(let s=0;s<e.childCount;s++)this.walkSymbols(e.child(s),t,!0);return}}for(let r=0;r<e.childCount;r++)this.walkSymbols(e.child(r),t,n)}getMethodName(e){let t=e.childForFieldName("name");if(t&&t.text)return t.text;for(let n=0;n<e.childCount;n++){let r=e.child(n);if(r.type==="identifier"||r.type==="constant"||r.type==="operator")return r.text}return null}getClassName(e){let t=e.childForFieldName("name");if(t&&t.text)return t.text;for(let n=0;n<e.childCount;n++){let r=e.child(n);if(r.type==="constant"||r.type==="scope_resolution")return r.text}return null}extractCallsAST(e,t,n){let r=new Set,s=new Set;this.collectDefinedMethods(e.rootNode,r),this.collectCalls(e.rootNode,s,r);let o=[];for(let l of s)n.has(l)&&o.push({source:t.id,target:l,type:"function-call",label:`${l}`});return o}collectDefinedMethods(e,t){if(e.type==="method"||e.type==="singleton_method"){let n=this.getMethodName(e);n&&t.add(n)}for(let n=0;n<e.childCount;n++)this.collectDefinedMethods(e.child(n),t)}collectCalls(e,t,n){if(e.type==="call"||e.type==="method_call"){let r=e.childForFieldName("method");if(r&&(r.type==="identifier"||r.type==="constant")){let s=r.text;s&&!vs.has(s)&&!Ss.has(s)&&!n.has(s)&&t.add(s)}}for(let r=0;r<e.childCount;r++)this.collectCalls(e.child(r),t,n)}extractCallSitesAST(e,t){let n=new Set;this.collectDefinedMethods(e.rootNode,n);let r=[];return this.collectCallSites(e.rootNode,r,n,"<module>"),r}collectCallSites(e,t,n,r){if(e.type==="method"||e.type==="singleton_method"){let s=this.getMethodName(e)||r;for(let o=0;o<e.childCount;o++)this.collectCallSites(e.child(o),t,n,s);return}if(e.type==="call"||e.type==="method_call"){let s=e.childForFieldName("method");if(s&&(s.type==="identifier"||s.type==="constant")){let o=s.text;o&&!vs.has(o)&&!Ss.has(o)&&t.push({callerName:r,calleeName:o,line:e.startPosition.row+1,isLocal:n.has(o)})}}for(let s=0;s<e.childCount;s++)this.collectCallSites(e.child(s),t,n,r)}findChild(e,t){for(let n=0;n<e.childCount;n++)if(e.child(n).type===t)return e.child(n);return null}};var xs=new Set(["print","debugPrint","dump","precondition","preconditionFailure","assert","assertionFailure","fatalError","abort","exit","String","Int","Int8","Int16","Int32","Int64","UInt","UInt8","UInt16","UInt32","UInt64","Double","Float","Bool","Character","Array","Dictionary","Set","Optional","Result","Range","ClosedRange","Any","AnyObject","Self","Void","Never","min","max","abs","sqrt","pow","sin","cos","tan","map","filter","reduce","compactMap","flatMap","sorted","forEach","first","last","count","isEmpty","contains","append","insert","remove","removeAll","removeFirst","removeLast","description","debugDescription","hashValue","lazy","mutating","nonmutating","unowned","weak"]),Es=new Set(["associatedtype","class","deinit","enum","extension","fileprivate","func","import","init","inout","internal","let","open","operator","private","protocol","public","rethrows","static","struct","subscript","typealias","var","break","case","continue","default","defer","do","else","fallthrough","for","guard","if","in","repeat","return","switch","where","while","as","Any","catch","false","is","nil","super","self","Self","throw","throws","true","try","async","await","final","override","required","convenience","lazy","optional","weak","unowned"]),an=class extends Z{constructor(){super("swift")}get usesTreeSitter(){return!0}parseAST(e,t,n={}){let r=[],s=e.rootNode;for(let o=0;o<s.childCount;o++){let l=s.child(o);if(l.type==="import_declaration"){let u=this.extractImportTarget(l);u&&r.push({source:t.id,target:u,type:"import",label:`import ${u}`})}}return r}extractImportTarget(e){let t=[];for(let n=0;n<e.childCount;n++){let r=e.child(n);r.type==="identifier"||r.type==="simple_identifier"||r.type==="type_identifier"?t.push(r.text):r.type==="."&&t.push(".")}return t.length===0?e.text.replace(/^import\s+/,"").trim()||null:t.join("")}extractSymbolsAST(e,t){let n={functions:[],externs:[],structs:[],enums:[],macros:[],classes:[],exports:[],interfaces:[],traits:[],typeAliases:[],methods:[]};return this.walkSymbols(e.rootNode,n,!1),n}walkSymbols(e,t,n){switch(e.type){case"function_declaration":case"init_declaration":case"deinit_declaration":{let r=this.getDeclName(e)||(e.type==="init_declaration"?"init":e.type==="deinit_declaration"?"deinit":null);if(r){let s={name:r,type:n?"method":"function",line:e.startPosition.row+1};n?t.methods.push(s):t.functions.push(s)}return}case"class_declaration":{let r=this.getDeclName(e);r&&t.classes.push({name:r,type:"class",line:e.startPosition.row+1});for(let s=0;s<e.childCount;s++)this.walkSymbols(e.child(s),t,!0);return}case"struct_declaration":{let r=this.getDeclName(e);r&&t.structs.push({name:r,type:"struct",line:e.startPosition.row+1});for(let s=0;s<e.childCount;s++)this.walkSymbols(e.child(s),t,!0);return}case"protocol_declaration":{let r=this.getDeclName(e);r&&t.interfaces.push({name:r,type:"protocol",line:e.startPosition.row+1});for(let s=0;s<e.childCount;s++)this.walkSymbols(e.child(s),t,!0);return}case"enum_declaration":{let r=this.getDeclName(e);r&&t.enums.push({name:r,type:"enum",line:e.startPosition.row+1});for(let s=0;s<e.childCount;s++)this.walkSymbols(e.child(s),t,!0);return}case"extension_declaration":{for(let r=0;r<e.childCount;r++)this.walkSymbols(e.child(r),t,!0);return}case"typealias_declaration":{let r=this.getDeclName(e);r&&t.typeAliases.push({name:r,type:"type-alias",line:e.startPosition.row+1});return}}for(let r=0;r<e.childCount;r++)this.walkSymbols(e.child(r),t,n)}getDeclName(e){let t=e.childForFieldName("name");if(t&&t.text)return t.text;for(let n=0;n<e.childCount;n++){let r=e.child(n);if(r.type==="simple_identifier"||r.type==="type_identifier"||r.type==="identifier")return r.text}return null}extractCallsAST(e,t,n){let r=new Set,s=new Set;this.collectDefinedFunctions(e.rootNode,r),this.collectCalls(e.rootNode,s,r);let o=[];for(let l of s)n.has(l)&&o.push({source:t.id,target:l,type:"function-call",label:`${l}()`});return o}collectDefinedFunctions(e,t){if(e.type==="function_declaration"){let n=this.getDeclName(e);n&&t.add(n)}for(let n=0;n<e.childCount;n++)this.collectDefinedFunctions(e.child(n),t)}collectCalls(e,t,n){if(e.type==="call_expression"){let r=e.child(0);if(r&&(r.type==="simple_identifier"||r.type==="identifier"||r.type==="type_identifier")){let s=r.text;s&&!xs.has(s)&&!Es.has(s)&&!n.has(s)&&/^[a-zA-Z_]/.test(s)&&t.add(s)}}for(let r=0;r<e.childCount;r++)this.collectCalls(e.child(r),t,n)}extractCallSitesAST(e,t){let n=new Set;this.collectDefinedFunctions(e.rootNode,n);let r=[];return this.collectCallSites(e.rootNode,r,n,"<module>"),r}collectCallSites(e,t,n,r){if(e.type==="function_declaration"){let s=this.getDeclName(e)||r;for(let o=0;o<e.childCount;o++)this.collectCallSites(e.child(o),t,n,s);return}if(e.type==="call_expression"){let s=e.child(0);if(s&&(s.type==="simple_identifier"||s.type==="identifier"||s.type==="type_identifier")){let o=s.text;o&&!xs.has(o)&&!Es.has(o)&&/^[a-zA-Z_]/.test(o)&&t.push({callerName:r,calleeName:o,line:e.startPosition.row+1,isLocal:n.has(o)})}}for(let s=0;s<e.childCount;s++)this.collectCallSites(e.child(s),t,n,r)}};var Ns=new Set(["Console","WriteLine","Write","ReadLine","ReadAllText","ReadAllLines","WriteAllText","String","Int32","Int64","Double","Boolean","Object","Math","Array","List","Dictionary","HashSet","Enumerable","Linq","Exception","ArgumentException","InvalidOperationException","NotImplementedException","Task","Thread","StringBuilder","Guid","DateTime","TimeSpan","ToString","Equals","GetHashCode","GetType","Add","Remove","Contains","Clear","Count","Length","TryGetValue","TryParse","Parse","Concat","Join","Format","NameOf","TypeOf"]),ks=new Set(["if","else","for","foreach","while","do","switch","case","return","break","continue","throw","try","catch","finally","new","is","as","this","base","null","true","false","void","var","nameof","typeof","sizeof","default","checked","unchecked","when","await","yield","public","private","protected","internal","static","readonly","sealed","abstract","virtual","override","partial","async","class","interface","struct","enum","record","namespace","using","get","set","value","in","out","ref","params","where","select","from","let","orderby"]),ln=class extends Z{constructor(){super("csharp")}get usesTreeSitter(){return!0}parseAST(e,t,n={}){let r=[];return this.walkUsings(e.rootNode,t.id,r),r}walkUsings(e,t,n){if(e.type==="using_directive"||e.type==="global_using_directive"){let r=this.findChild(e,"qualified_name"),s=this.findChild(e,"identifier"),o=r?.text||s?.text;o&&n.push({source:t,target:o,type:"import",label:`using ${o}`})}for(let r=0;r<e.childCount;r++)this.walkUsings(e.child(r),t,n)}extractSymbolsAST(e,t){let n={functions:[],externs:[],structs:[],enums:[],macros:[],classes:[],exports:[],interfaces:[],traits:[],typeAliases:[],methods:[]};return this.walkForSymbols(e.rootNode,n,!1),n}walkForSymbols(e,t,n){switch(e.type){case"class_declaration":case"record_declaration":this.extractClassLike(e,t,"class");return;case"interface_declaration":this.extractClassLike(e,t,"interface");return;case"struct_declaration":this.extractClassLike(e,t,"struct");return;case"enum_declaration":{let r=e.childForFieldName("name")?.text;r&&t.enums.push({name:r,type:"enum",line:e.startPosition.row+1});return}case"method_declaration":case"constructor_declaration":n&&this.extractMethod(e,t);return;case"local_function_statement":return}for(let r=0;r<e.childCount;r++)this.walkForSymbols(e.child(r),t,n)}extractClassLike(e,t,n){let r=e.childForFieldName("name")?.text;if(!r)return;let s=e.startPosition.row+1,o=this.getModifiers(e),l={name:r,type:n,line:s};o.visibility&&(l.visibility=o.visibility),o.isStatic&&(l.isStatic=!0),n==="interface"?t.interfaces.push(l):n==="struct"?t.structs.push(l):t.classes.push(l);let u=e.childForFieldName("body");if(u)for(let h=0;h<u.childCount;h++)this.walkForSymbols(u.child(h),t,!0)}extractMethod(e,t){let n=e.childForFieldName("name")?.text;if(!n)return;let r=this.getModifiers(e),s={name:n,type:"method",line:e.startPosition.row+1};r.visibility&&(s.visibility=r.visibility),r.isStatic&&(s.isStatic=!0),r.isAsync&&(s.isAsync=!0),t.methods.push(s)}extractHeritageRelations(e,t){let n=[];return this.walkForHeritage(e.rootNode,t.id,n),n}walkForHeritage(e,t,n){if(e.type==="class_declaration"||e.type==="record_declaration"||e.type==="struct_declaration"||e.type==="interface_declaration"){let s=e.childForFieldName("name")?.text,o=e.childForFieldName("bases");if(s&&o){let l=this.extractBaseNames(o);if(e.type==="interface_declaration"||e.type==="struct_declaration")for(let u of l)n.push({source:t,target:u,type:"extends",label:`${s} : ${u}`});else l.forEach((u,h)=>{n.push({source:t,target:u,type:h===0?"extends":"implements",label:`${s} : ${u}`})})}}for(let s=0;s<e.childCount;s++)this.walkForHeritage(e.child(s),t,n)}extractBaseNames(e){let t=[];for(let n=0;n<e.childCount;n++){let r=e.child(n);if(r.type==="identifier"||r.type==="generic_name"||r.type==="qualified_name"){let s=r.text.replace(/<[^>]*>/g,"").split(".").pop();s&&t.push(s)}}return t}extractCallsAST(e,t,n){let r=new Set,s=new Set;this.collectDefinedFunctions(e.rootNode,r),this.collectCalls(e.rootNode,s,r);let o=[];for(let l of s)n.has(l)&&o.push({source:t.id,target:l,type:"function-call",label:`${l}()`});return o}extractCallsFromAST(e){let t=new Set,n=new Set;return this.collectDefinedFunctions(e.rootNode,t),this.collectCalls(e.rootNode,n,t),[...n]}collectDefinedFunctions(e,t){if(e.type==="method_declaration"||e.type==="constructor_declaration"||e.type==="local_function_statement"){let n=e.childForFieldName("name")?.text;n&&t.add(n)}for(let n=0;n<e.childCount;n++)this.collectDefinedFunctions(e.child(n),t)}collectCalls(e,t,n){if(e.type==="invocation_expression"){let r=e.childForFieldName("function");if(r&&(r.type==="identifier"||r.type==="generic_name")){let s=r.type==="identifier"?r.text:this.findChild(r,"identifier")?.text;s&&!Ns.has(s)&&!ks.has(s)&&!n.has(s)&&t.add(s)}}for(let r=0;r<e.childCount;r++)this.collectCalls(e.child(r),t,n)}extractCallSitesAST(e,t){let n=new Set;this.collectDefinedFunctions(e.rootNode,n);let r=[];return this.collectCallSites(e.rootNode,r,n,"<module>"),r}collectCallSites(e,t,n,r){if(e.type==="method_declaration"||e.type==="constructor_declaration"||e.type==="local_function_statement"){let s=e.childForFieldName("name")?.text||r;for(let o=0;o<e.childCount;o++)this.collectCallSites(e.child(o),t,n,s);return}if(e.type==="invocation_expression"){let s=e.childForFieldName("function");if(s&&(s.type==="identifier"||s.type==="generic_name")){let o=s.type==="identifier"?s.text:this.findChild(s,"identifier")?.text;o&&!Ns.has(o)&&!ks.has(o)&&t.push({callerName:r,calleeName:o,line:e.startPosition.row+1,isLocal:n.has(o)})}}for(let s=0;s<e.childCount;s++)this.collectCallSites(e.child(s),t,n,r)}getModifiers(e){let t="";for(let r=0;r<e.childCount;r++){let s=e.child(r);s.type==="modifier"&&(t+=" "+s.text)}if(!t)return{};let n={};return t.includes("public")?n.visibility="public":t.includes("private")?n.visibility="private":t.includes("protected")&&(n.visibility="protected"),t.includes("static")&&(n.isStatic=!0),t.includes("async")&&(n.isAsync=!0),n}findChild(e,t){for(let n=0;n<e.childCount;n++)if(e.child(n).type===t)return e.child(n);return null}};var Fs=new Set(["trim","ltrim","rtrim","strlen","str_replace","strpos","strrpos","substr","strtolower","strtoupper","ucfirst","sprintf","printf","print_r","var_dump","count","array_map","array_filter","array_merge","array_keys","array_values","array_push","array_pop","in_array","array_key_exists","implode","explode","json_encode","json_decode","isset","empty","is_array","is_string","is_null","is_numeric","is_object","is_bool","is_int","htmlspecialchars","urlencode","preg_match","preg_match_all","preg_replace","preg_split","method_exists","class_exists","function_exists","file_exists","file_get_contents","file_put_contents","date","time","uniqid","md5","sha1","base64_encode","base64_decode","round","floor","ceil","abs","min","max","intval","floatval","strval","nl2br","number_format","ucwords","str_pad","str_repeat","str_contains","str_starts_with","str_ends_with","mb_strlen","mb_substr"]),Cs=new Set(["if","else","elseif","endif","for","foreach","while","do","switch","case","default","break","continue","return","throw","try","catch","finally","new","instanceof","clone","echo","print","include","include_once","require","require_once","namespace","use","class","interface","trait","enum","extends","implements","public","private","protected","static","abstract","final","function","fn","match","yield","list","array","isset","unset","empty","true","false","null","this","parent","self","as","and","or","xor","global","insteadof"]),cn=class extends Z{constructor(){super("php")}get usesTreeSitter(){return!0}parseAST(e,t,n={}){let r=[];return this.walkImports(e.rootNode,t.id,r),r}walkImports(e,t,n){if(e.type==="namespace_use_declaration"&&this.collectUseClauses(e,t,n),e.type==="require_expression"||e.type==="require_once_expression"||e.type==="include_expression"||e.type==="include_once_expression"){let r=this.extractStringTarget(e);if(r){let s=e.type.startsWith("require");n.push({source:t,target:r,type:s?"require":"include",label:`${e.type.replace("_expression","").replace("_"," ")} ${r}`})}}for(let r=0;r<e.childCount;r++)this.walkImports(e.child(r),t,n)}collectUseClauses(e,t,n){let r=s=>{if(s.type==="namespace_use_clause"){let o=this.findChild(s,"qualified_name")||this.findChild(s,"name");if(o){let l=o.text.replace(/^\\/,"");n.push({source:t,target:l,type:"import",label:`use ${l}`})}return}for(let o=0;o<s.childCount;o++)r(s.child(o))};for(let s=0;s<e.childCount;s++)r(e.child(s))}extractStringTarget(e){let t=this.findChild(e,"string");if(!t)return null;let n=this.findChild(t,"string_content"),r=n?n.text:t.text.replace(/^['"]|['"]$/g,"");return r.length>0?r:null}extractSymbolsAST(e,t){let n={functions:[],externs:[],structs:[],enums:[],macros:[],classes:[],exports:[],interfaces:[],traits:[],typeAliases:[],methods:[]};return this.walkForSymbols(e.rootNode,n,!1),n}walkForSymbols(e,t,n){switch(e.type){case"class_declaration":{let r=e.childForFieldName("name")?.text;r&&t.classes.push(this.buildTypeSymbol(e,r,"class")),this.walkBody(e,t);return}case"interface_declaration":{let r=e.childForFieldName("name")?.text;r&&t.interfaces.push(this.buildTypeSymbol(e,r,"interface")),this.walkBody(e,t);return}case"trait_declaration":{let r=e.childForFieldName("name")?.text;r&&t.traits.push(this.buildTypeSymbol(e,r,"trait")),this.walkBody(e,t);return}case"enum_declaration":{let r=e.childForFieldName("name")?.text;r&&t.enums.push({name:r,type:"enum",line:e.startPosition.row+1});return}case"function_definition":{if(!n){let r=e.childForFieldName("name")?.text;r&&t.functions.push({name:r,type:"function",line:e.startPosition.row+1})}return}case"method_declaration":{if(n){let r=e.childForFieldName("name")?.text;if(r){let s={name:r,type:"method",line:e.startPosition.row+1},o=this.findChild(e,"visibility_modifier")?.text;(o==="public"||o==="private"||o==="protected")&&(s.visibility=o),t.methods.push(s)}}return}}for(let r=0;r<e.childCount;r++)this.walkForSymbols(e.child(r),t,n)}buildTypeSymbol(e,t,n){return{name:t,type:n,line:e.startPosition.row+1}}walkBody(e,t){let n=e.childForFieldName("body");if(n)for(let r=0;r<n.childCount;r++)this.walkForSymbols(n.child(r),t,!0)}extractHeritageRelations(e,t){let n=[];return this.walkForHeritage(e.rootNode,t.id,n),n}walkForHeritage(e,t,n){if(e.type==="class_declaration"||e.type==="interface_declaration"){let r=e.childForFieldName("name")?.text;if(r){let s=this.findChild(e,"base_clause");if(s)for(let l of this.extractClauseNames(s))n.push({source:t,target:l,type:"extends",label:`${r} extends ${l}`});let o=this.findChild(e,"class_interface_clause");if(o)for(let l of this.extractClauseNames(o))n.push({source:t,target:l,type:"implements",label:`${r} implements ${l}`})}}for(let r=0;r<e.childCount;r++)this.walkForHeritage(e.child(r),t,n)}extractClauseNames(e){let t=[];for(let n=0;n<e.childCount;n++){let r=e.child(n);if(r.type==="name"||r.type==="qualified_name"){let s=r.text.replace(/^\\/,"").split("\\").pop();s&&t.push(s)}}return t}extractCallsAST(e,t,n){let r=new Set,s=new Set;this.collectDefinedFunctions(e.rootNode,r),this.collectCalls(e.rootNode,s,r);let o=[];for(let l of s)n.has(l)&&o.push({source:t.id,target:l,type:"function-call",label:`${l}()`});return o}extractCallsFromAST(e){let t=new Set,n=new Set;return this.collectDefinedFunctions(e.rootNode,t),this.collectCalls(e.rootNode,n,t),[...n]}collectDefinedFunctions(e,t){if(e.type==="function_definition"||e.type==="method_declaration"){let n=e.childForFieldName("name")?.text;n&&t.add(n)}for(let n=0;n<e.childCount;n++)this.collectDefinedFunctions(e.child(n),t)}collectCalls(e,t,n){if(e.type==="function_call_expression"){let r=e.childForFieldName("function");if(r&&(r.type==="name"||r.type==="qualified_name")){let o=r.text.replace(/^\\/,"").split("\\").pop();!Fs.has(o)&&!Cs.has(o)&&!n.has(o)&&t.add(o)}}for(let r=0;r<e.childCount;r++)this.collectCalls(e.child(r),t,n)}extractCallSitesAST(e,t){let n=new Set;this.collectDefinedFunctions(e.rootNode,n);let r=[];return this.collectCallSites(e.rootNode,r,n,"<module>"),r}collectCallSites(e,t,n,r){if(e.type==="function_definition"||e.type==="method_declaration"){let s=e.childForFieldName("name")?.text||r;for(let o=0;o<e.childCount;o++)this.collectCallSites(e.child(o),t,n,s);return}if(e.type==="function_call_expression"){let s=e.childForFieldName("function");if(s&&(s.type==="name"||s.type==="qualified_name")){let l=s.text.replace(/^\\/,"").split("\\").pop();!Fs.has(l)&&!Cs.has(l)&&t.push({callerName:r,calleeName:l,line:e.startPosition.row+1,isLocal:n.has(l)})}}for(let s=0;s<e.childCount;s++)this.collectCallSites(e.child(s),t,n,r)}findChild(e,t){for(let n=0;n<e.childCount;n++)if(e.child(n).type===t)return e.child(n);return null}};var wo=new Set(["source","."]),vo=new Set(["bash","sh","zsh","dash"]),Ts=/\.(sh|bash)$/i,dn=class extends Z{constructor(){super("bash")}get usesTreeSitter(){return!0}parseAST(e,t,n={}){let r=[];return this.walkCommands(e.rootNode,t.id,r),r}walkCommands(e,t,n){if(e.type==="command"){let s=e.childForFieldName("name")?.text??"";if(wo.has(s)){let o=this.extractArgumentTarget(e);o&&n.push({source:t,target:o,type:"source",label:`source ${o}`})}else if(vo.has(s)){let o=this.extractArgumentTarget(e);o&&Ts.test(o)&&n.push({source:t,target:o,type:"script",label:`${s} ${o}`})}else Ts.test(s)&&(s.includes("/")||s.startsWith("."))&&n.push({source:t,target:s,type:"script",label:`run ${s}`})}for(let r=0;r<e.childCount;r++)this.walkCommands(e.child(r),t,n)}extractArgumentTarget(e){let t=e.childForFieldName("argument");if(!t)return null;if(t.type==="string"||t.type==="raw_string"||t.type==="concatenation"){let n=t.text.replace(/^['"]|['"]$/g,"");return n.length>0&&!n.includes("$")?n:null}if(t.type==="word"||t.type==="number"){let n=t.text;return n.length>0&&!n.includes("$")?n:null}return null}extractSymbolsAST(e,t){let n={functions:[],externs:[],structs:[],enums:[],macros:[],classes:[],exports:[],interfaces:[],traits:[],typeAliases:[],methods:[]};return this.walkForFunctions(e.rootNode,n),n}walkForFunctions(e,t){if(e.type==="function_definition"){let n=e.childForFieldName("name")?.text;n&&t.functions.push({name:n,type:"function",line:e.startPosition.row+1});return}for(let n=0;n<e.childCount;n++)this.walkForFunctions(e.child(n),t)}extractCallsFromAST(e){return[]}};var Rs=new Set(["print","pairs","ipairs","tostring","tonumber","type","next","select","setmetatable","getmetatable","rawget","rawset","rawequal","rawlen","pcall","xpcall","error","assert","collectgarbage","unpack","require","dofile","load","loadfile"]),Is=new Set(["if","then","else","elseif","end","for","while","repeat","until","do","return","break","goto","in","local","function","and","or","not","nil","true","false"]),Ms=/\b(require|dofile)\s*\(?\s*['"]([^'"]+)['"]/g,un=class extends Z{constructor(){super("lua")}get usesTreeSitter(){return!0}parseAST(e,t,n={}){let r=[],s=new Set,o=h=>{s.has(h)||(s.add(h),r.push({source:t.id,target:h,type:"require",label:`require('${h}')`}))};this.walkCalls(e.rootNode,o);let l=t.content||"",u;for(Ms.lastIndex=0;(u=Ms.exec(l))!==null;)o(u[2]);return r}walkCalls(e,t){if(e.type==="call"){let n=e.childForFieldName("function");if(n&&n.type==="variable"){let s=n.childForFieldName("name")?.text;if(s==="require"||s==="dofile"){let o=e.childForFieldName("arguments"),l=o?this.findStringArg(o):null;l&&t(l)}}}for(let n=0;n<e.childCount;n++)this.walkCalls(e.child(n),t)}findStringArg(e){if(e.type==="string"){let t=this.findChild(e,"string_content"),n=t?t.text:e.text.replace(/^['"]|['"]$/g,"");return n.length>0?n:null}for(let t=0;t<e.childCount;t++){let n=this.findStringArg(e.child(t));if(n)return n}return null}extractSymbolsAST(e,t){let n={functions:[],externs:[],structs:[],enums:[],macros:[],classes:[],exports:[],interfaces:[],traits:[],typeAliases:[],methods:[]};return this.walkForFunctions(e.rootNode,n,!1),n}walkForFunctions(e,t,n){if(e.type==="function_definition_statement"||e.type==="local_function_definition_statement"){if(!n){let r=e.childForFieldName("name")?.text;r&&t.functions.push({name:r,type:"function",line:e.startPosition.row+1})}for(let r=0;r<e.childCount;r++)this.walkForFunctions(e.child(r),t,!0);return}for(let r=0;r<e.childCount;r++)this.walkForFunctions(e.child(r),t,n)}extractCallsAST(e,t,n){let r=new Set,s=new Set;this.collectDefinedFunctions(e.rootNode,r),this.collectCalls(e.rootNode,s,r);let o=[];for(let l of s)n.has(l)&&o.push({source:t.id,target:l,type:"function-call",label:`${l}()`});return o}extractCallsFromAST(e){let t=new Set,n=new Set;return this.collectDefinedFunctions(e.rootNode,t),this.collectCalls(e.rootNode,n,t),[...n]}collectDefinedFunctions(e,t){if(e.type==="function_definition_statement"||e.type==="local_function_definition_statement"){let n=e.childForFieldName("name")?.text;if(n){t.add(n);let r=n.split(".").pop();r&&t.add(r)}}for(let n=0;n<e.childCount;n++)this.collectDefinedFunctions(e.child(n),t)}collectCalls(e,t,n){if(e.type==="call"){let r=e.childForFieldName("function");if(r&&r.type==="variable"&&!r.childForFieldName("table")){let s=r.childForFieldName("name")?.text;s&&!Rs.has(s)&&!Is.has(s)&&!n.has(s)&&t.add(s)}}for(let r=0;r<e.childCount;r++)this.collectCalls(e.child(r),t,n)}extractCallSitesAST(e,t){let n=new Set;this.collectDefinedFunctions(e.rootNode,n);let r=[];return this.collectCallSites(e.rootNode,r,n,"<module>"),r}collectCallSites(e,t,n,r){if(e.type==="function_definition_statement"||e.type==="local_function_definition_statement"){let s=e.childForFieldName("name")?.text||r;for(let o=0;o<e.childCount;o++)this.collectCallSites(e.child(o),t,n,s);return}if(e.type==="call"){let s=e.childForFieldName("function");if(s&&s.type==="variable"&&!s.childForFieldName("table")){let o=s.childForFieldName("name")?.text;o&&!Rs.has(o)&&!Is.has(o)&&t.push({callerName:r,calleeName:o,line:e.startPosition.row+1,isLocal:n.has(o)})}}for(let s=0;s<e.childCount;s++)this.collectCallSites(e.child(s),t,n,r)}findChild(e,t){for(let n=0;n<e.childCount;n++)if(e.child(n).type===t)return e.child(n);return null}};var So=/<script[^>]+src\s*=\s*['"]([^'"]+)['"]/gi,xo=/<style[^>]+src\s*=\s*['"]([^'"]+)['"]/gi,Eo=/<script\b[^>]*>([\s\S]*?)<\/script>/gi,No=/<style\b[^>]*>([\s\S]*?)<\/style>/gi,ko=/\bimport\s+[^'"]*?from\s*['"]([^'"]+)['"]/g,Fo=/\bimport\s*['"]([^'"]+)['"]/g,Co=/\brequire\s*\(\s*['"]([^'"]+)['"]\s*\)/g,To=/@import\s+(?:url\()?\s*['"]([^'"]+)['"]/g,pn=class extends Z{constructor(){super("vue")}parse(e,t={}){let{content:n,id:r}=e,s=[],o=new Set,l=(u,h,m)=>{let _=h+"|"+u;o.has(_)||(o.add(_),s.push({source:r,target:u,type:h,label:m}))};for(let u of n.matchAll(new RegExp(So.source,"gi")))l(u[1],"script",`<script src="${u[1]}">`);for(let u of n.matchAll(new RegExp(xo.source,"gi")))l(u[1],"stylesheet",`<style src="${u[1]}">`);for(let u of n.matchAll(new RegExp(Eo.source,"gi"))){let h=u[1];for(let m of h.matchAll(new RegExp(ko.source,"g")))l(m[1],"import",`import ${m[1]}`);for(let m of h.matchAll(new RegExp(Fo.source,"g")))l(m[1],"import",`import ${m[1]}`);for(let m of h.matchAll(new RegExp(Co.source,"g")))l(m[1],"require",`require('${m[1]}')`)}for(let u of n.matchAll(new RegExp(No.source,"gi")))for(let h of u[1].matchAll(new RegExp(To.source,"g")))l(h[1],"css-import",`@import '${h[1]}'`);return s}};var Ro=/<script[^>]+src\s*=\s*['"]([^'"]+)['"]/gi,Io=/<link[^>]+href\s*=\s*['"]([^'"]+)['"]/gi,Mo=/<img[^>]+src\s*=\s*['"]([^'"]+)['"]/gi,mn=class extends Z{constructor(){super("html")}parse(e,t={}){let{content:n,id:r}=e,s=[];return s.push(...this.extractMatches(n,new RegExp(Ro.source,"gi"),"script",r,o=>`<script src="${o[1]}">`)),s.push(...this.extractMatches(n,new RegExp(Io.source,"gi"),"stylesheet",r,o=>`<link href="${o[1]}">`)),t.includeAssets&&s.push(...this.extractMatches(n,new RegExp(Mo.source,"gi"),"asset",r,o=>`<img src="${o[1]}">`)),s}};var Ao=/@import\s+(?:url\s*\(\s*)?['"]([^'"]+)['"]\s*\)?/g,Po=/url\s*\(\s*['"]?([^'")]+)['"]?\s*\)/g,fn=class extends Z{constructor(){super("css")}parse(e,t={}){let{content:n,id:r}=e,s=[];if(s.push(...this.extractMatches(n,new RegExp(Ao.source,"g"),"css-import",r,o=>`@import "${o[1]}"`)),t.includeUrls){let o=this.extractMatches(n,new RegExp(Po.source,"g"),"css-url",r,l=>`url("${l[1]}")`);s.push(...o.filter(l=>!l.target.startsWith("data:")&&!l.target.startsWith("http:")&&!l.target.startsWith("https:")&&!l.target.startsWith("#")))}return s}};var Oo=/\b(if|else\s+if|for|while|do|switch|case|catch)\b/g,Do=/(\|\||&&)/g,it=/[^?]\?[^?:]/g,Lo=/[^{}]+(?=\s*\{)/g,Uo=/@media\b/g;function As(i){let{content:e,language:t}=i;switch(t){case"c":case"cpp":case"javascript":case"typescript":return Ps(e);case"css":return Bo(e);case"html":case"vue":return qo(e);default:{let n=Wo[t];return n?Go(e,n.keywords,n.operators,n.ternary,n.strip):{complexity:1,details:{}}}}}function Ps(i){let e=i.replace(/\/\/.*$/gm,"").replace(/\/\*[\s\S]*?\*\//g,"").replace(/"(?:[^"\\]|\\.)*"/g,'""').replace(/'(?:[^'\\]|\\.)*'/g,"''"),t=1,n={},r={},s=new RegExp(Oo.source,"g"),o;for(;(o=s.exec(e))!==null;){let _=o[1].replace(/\s+/g," ");r[_]=(r[_]||0)+1,t++}n.keywords=r;let l=new RegExp(Do.source,"g"),u=0;for(;(o=l.exec(e))!==null;)u++,t++;n.logicalOperators=u;let h=new RegExp(it.source,"g"),m=0;for(;(o=h.exec(e))!==null;)m++,t++;return n.ternaryOperators=m,{complexity:t,details:n}}function Bo(i){let e=i.replace(/\/\*[\s\S]*?\*\//g,""),t=0,n=new RegExp(Lo.source,"g"),r;for(;(r=n.exec(e))!==null;){let u=r[0].split(",").filter(h=>h.trim().length>0);t+=u.length}let s=0,o=new RegExp(Uo.source,"g");for(;(r=o.exec(e))!==null;)s++;return{complexity:Math.max(1,Math.round(1+t/10+s)),details:{selectors:t,mediaQueries:s}}}function qo(i){let e=/\bon\w+\s*=/gi,t=0,n;for(;(n=e.exec(i))!==null;)t++;let r=/<script\b[^>]*>[\s\S]*?<\/script>/gi,s=0,o=0;for(;(n=r.exec(i))!==null;){s++;let u=Ps(n[0]);o+=u.complexity-1}return{complexity:Math.max(1,1+t+o),details:{eventHandlers:t,scriptBlocks:s,inlineJSComplexity:o}}}function st(i){return i.replace(/\/\/.*$/gm,"").replace(/\/\*[\s\S]*?\*\//g,"").replace(/"(?:[^"\\]|\\.)*"/g,'""').replace(/'(?:[^'\\]|\\.)*'/g,"''").replace(/`(?:[^`\\]|\\.)*`/g,"``")}function er(i){return i.replace(/"""[\s\S]*?"""/g,'""').replace(/'''[\s\S]*?'''/g,"''").replace(/"(?:[^"\\]|\\.)*"/g,'""').replace(/'(?:[^'\\]|\\.)*'/g,"''").replace(/#.*$/gm,"")}function $o(i){return i.replace(/\/\*[\s\S]*?\*\//g,"").replace(/\/\/.*$/gm,"").replace(/#.*$/gm,"").replace(/"(?:[^"\\]|\\.)*"/g,'""').replace(/'(?:[^'\\]|\\.)*'/g,"''")}function Ho(i){return i.replace(/--\[\[[\s\S]*?\]\]/g,"").replace(/--[^\[].*$/gm,"").replace(/--$/gm,"").replace(/"(?:[^"\\]|\\.)*"/g,'""').replace(/'(?:[^'\\]|\\.)*'/g,"''").replace(/\[\[[\s\S]*?\]\]/g,'""')}function tr(i){return i.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}function Go(i,e,t,n,r){let s=r(i),o=1,l={},u={};for(let _ of e){let T=new RegExp(`\\b${tr(_)}\\b`,"g"),x=0,F;for(;(F=T.exec(s))!==null;)x++;x>0&&(u[_]=x,o+=x)}l.keywords=u;let h=0;for(let _ of t){let T=/^[A-Za-z]+$/.test(_),x=new RegExp(T?`\\b${tr(_)}\\b`:tr(_),"g"),F;for(;(F=x.exec(s))!==null;)h++,o++}l.logicalOperators=h;let m=0;if(n){let _=new RegExp(n.source,"g"),T;for(;(T=_.exec(s))!==null;)m++,o++}return l.ternaryOperators=m,{complexity:o,details:l}}var Wo={python:{keywords:["if","elif","for","while","except","finally","with","assert"],operators:["and","or"],ternary:null,strip:er},java:{keywords:["if","for","while","do","switch","case","catch"],operators:["&&","||"],ternary:it,strip:st},go:{keywords:["if","for","switch","case","select"],operators:["&&","||"],ternary:null,strip:st},rust:{keywords:["if","for","while","loop","match"],operators:["&&","||"],ternary:null,strip:st},kotlin:{keywords:["if","for","while","do","when","catch"],operators:["&&","||","?:"],ternary:null,strip:st},ruby:{keywords:["if","elsif","unless","while","until","for","case","when","rescue"],operators:["&&","||","and","or"],ternary:it,strip:er},swift:{keywords:["if","guard","for","while","repeat","switch","case","catch"],operators:["&&","||","??"],ternary:it,strip:st},csharp:{keywords:["if","for","foreach","while","do","switch","case","catch","when"],operators:["&&","||","??"],ternary:it,strip:st},php:{keywords:["if","elseif","for","foreach","while","do","switch","case","catch"],operators:["&&","||","and","or"],ternary:it,strip:$o},bash:{keywords:["if","elif","for","while","until","case","select"],operators:["&&","||"],ternary:null,strip:er},lua:{keywords:["if","elseif","for","while","repeat","until"],operators:["and","or"],ternary:null,strip:Ho}};var ot=require("path"),nr=Os(),Us={c:"tree-sitter-c.wasm",cpp:"tree-sitter-cpp.wasm",javascript:"tree-sitter-javascript.wasm",typescript:"tree-sitter-typescript.wasm",tsx:"tree-sitter-tsx.wasm",python:"tree-sitter-python.wasm",java:"tree-sitter-java.wasm",go:"tree-sitter-go.wasm",rust:"tree-sitter-rust.wasm",csharp:"tree-sitter-c_sharp.wasm",php:"tree-sitter-php.wasm",bash:"tree-sitter-bash.wasm",lua:"tree-sitter-lua.wasm",css:"tree-sitter-css.wasm",html:"tree-sitter-html.wasm",kotlin:"tree-sitter-kotlin.wasm",ruby:"tree-sitter-ruby.wasm",swift:"tree-sitter-swift.wasm"},Ds=!1,Ls=new Map,hn=new Map;function jo(){let i=require("fs"),{resolve:e}=require("path"),t=[(0,ot.join)(__dirname,"tree-sitter-wasms"),(0,ot.join)(__dirname,"..","node_modules","tree-sitter-wasms","out"),e("node_modules","tree-sitter-wasms","out")];return t.find(n=>i.existsSync(n))||t[0]}async function zo(){if(Ds)return;let i=require("fs"),{resolve:e}=require("path"),t=[(0,ot.join)(__dirname,"tree-sitter-wasms","tree-sitter.wasm"),(0,ot.join)(__dirname,"..","node_modules","web-tree-sitter","tree-sitter.wasm"),e("node_modules","web-tree-sitter","tree-sitter.wasm")],n=t.find(r=>i.existsSync(r));if(!n)throw new Error(`web-tree-sitter.wasm not found. Searched:
-`+t.join(`
-`));await nr.init({locateFile:()=>n}),Ds=!0}async function Vo(i){let e=Ls.get(i);if(e)return e;let t=Us[i];if(!t)throw new Error(`No Tree-sitter grammar available for language: ${i}`);let n=jo(),r=(0,ot.join)(n,t),s=await nr.Language.load(r);return Ls.set(i,s),s}async function Zo(i){await zo();let e=await Vo(i),t=new nr;return t.setLanguage(e),t}async function Yo(i){let e=hn.get(i);e||(e=[],hn.set(i,e));let t=e.pop();return t||(t=await Zo(i)),t}function Xo(i,e){let t=hn.get(i);t||(t=[],hn.set(i,t)),t.push(e)}async function Bs(i,e){let t=await Yo(i);try{let n=t.parse(e);if(!n)throw new Error(`Tree-sitter failed to parse source for language: ${i}`);return n}finally{Xo(i,t)}}function qs(i){return i in Us}var Ko={c:new tt,cpp:new Kt,javascript:new rt,typescript:new Qt,python:new Jt,java:new en,go:new tn,rust:new rn,kotlin:new sn,ruby:new on,swift:new an,csharp:new ln,php:new cn,vue:new pn,bash:new dn,lua:new un,html:new mn,css:new fn},Et={c:"c",cpp:"c",javascript:"js",typescript:"js",python:"py",java:"java",go:"go",rust:"rust",kotlin:"kotlin",ruby:"ruby",swift:"swift",csharp:"csharp",php:"php",bash:"bash",lua:"lua"},_n=new Set(["c","cpp","javascript","typescript","python","java","go","rust","kotlin","ruby","swift","csharp","php","bash","lua"]),rr=new Set([".h",".hpp",".hxx",".hh",".d.ts"]);function Qo(i){return Ko[i]}async function sr(i){let e=new Map;for(let t of i)if(qs(t.language))try{let n=await Bs(t.language,t.content);e.set(t.id,n)}catch{}return e}function $s(i,e,t){if(t.has(i))return i;let n=(0,Ce.dirname)(e),r=(0,Ce.normalize)((0,Ce.join)(n,i));if(t.has(r))return r;let s=[".js",".ts",".py",".c",".h",".css",".html",".cs",".php",".sh",".lua"];for(let u of s){if(t.has(r+u))return r+u;if(t.has(i+u))return i+u}let o=(0,Ce.join)(r,"index.js");if(t.has(o))return o;if(i.includes("/")){let u="/"+i.replace(/\\/g,"/");for(let[h]of t)if(h.endsWith(u))return h}let l=(0,Ce.basename)(i);for(let[u,h]of t)if(h.name===l)return u;for(let u of s){let h=l+u;for(let[m,_]of t)if(_.name===h)return m}return null}function gn(i,e){let t=new Map;for(let o of i)t.set(o.id,o);let n=new Map,r=new Map;for(let o of e.nodes){if(!_n.has(o.language)||!o.symbols)continue;let l=o.symbols,u={functions:l.functions.map(m=>({name:m.name,type:m.type,returnType:m.returnType,params:m.params,line:m.line,visibility:m.visibility,isStatic:m.isStatic,isAsync:m.isAsync})),methods:(l.methods||[]).map(m=>({name:m.name,type:m.type,returnType:m.returnType,params:m.params,line:m.line,visibility:m.visibility,isStatic:m.isStatic,isAsync:m.isAsync})),structs:l.structs.map(m=>({name:m.name,type:m.type,line:m.line})),enums:l.enums.map(m=>({name:m.name,type:m.type,line:m.line})),macros:(l.macros||[]).map(m=>({name:m.name,type:m.type,line:m.line})),classes:l.classes.map(m=>({name:m.name,type:m.type,line:m.line})),exports:l.exports.map(m=>({name:m.name,type:m.type,line:m.line})),interfaces:(l.interfaces||[]).map(m=>({name:m.name,type:m.type})),traits:(l.traits||[]).map(m=>({name:m.name,type:m.type})),typeAliases:(l.typeAliases||[]).map(m=>({name:m.name,type:m.type})),externs:[]};r.set(o.id,u);let h=Et[o.language]||o.language;for(let m of u.functions){let _=`${h}:${m.name}`;n.has(_)||n.set(_,[]),n.get(_).push(o.id)}}let s=new Map;for(let o of e.links)(o.type==="include"||o.type==="system-include")&&(s.has(o.source)||s.set(o.source,new Set),s.get(o.source).add(o.target));return{fileMap:t,globalFunctionIndex:n,fileSymbols:r,importGraph:s}}function ir(i,e,t,n={}){let{fileMap:r,globalFunctionIndex:s,fileSymbols:o}=e;r.set(i.id,i);let l=o.get(i.id);if(l){let N=Et[i.language]||i.language;for(let B of l.functions){let A=`${N}:${B.name}`,V=s.get(A);if(V){let q=V.filter($=>$!==i.id);q.length>0?s.set(A,q):s.delete(A)}}}let u=Qo(i.language),h=[];if(u){let N=t&&u.usesTreeSitter?u.parseAST(t,i,n):u.parse(i,n);h.push(...N)}let m;if(_n.has(i.language)&&u&&(m=t&&u.usesTreeSitter?u.extractSymbolsAST(t,i):u.extractSymbols?.(i)),m){o.set(i.id,m);let N=Et[i.language]||i.language;for(let B of m.functions){let A=`${N}:${B.name}`;s.has(A)||s.set(A,[]),s.get(A).push(i.id)}}else o.delete(i.id);let _=new Set;for(let N of h){let B=$s(N.target,N.source,r);B&&B!==N.source&&_.add(B)}e.importGraph.set(i.id,_);function T(N){if(_.has(N))return!0;let B=e.importGraph.get(N);for(let A of _){let V=r.get(A);if(!V||!rr.has(V.extension))continue;if(B?.has(A))return!0;let q=A.replace(/\.[^.]+$/,"");if(N.startsWith(q+"."))return!0}return!1}let x=[];if(_n.has(i.language)&&!rr.has(i.extension)&&u){let N;t&&u.usesTreeSitter?N=u.extractCallsFromAST?.(t)||[]:N=u.extractCalls?.(i)||[];let B=new Set(m?m.functions.map(q=>q.name):[]),A=Et[i.language]||i.language,V=i.language==="c"||i.language==="cpp";for(let q of N){if(B.has(q))continue;let $=`${A}:${q}`,re=s.get($);if(re)for(let R of re)R!==i.id&&(V&&!T(R)||x.push({source:i.id,target:R,type:"function-call",label:`${q}()`}))}}let F=[];if(_n.has(i.language)&&!rr.has(i.extension)&&u&&t&&u.usesTreeSitter){let N=u.extractCallSitesAST(t,i),B=Et[i.language]||i.language;for(let A of N)if(A.isLocal)F.push({callerFile:i.id,callerName:A.callerName,calleeFile:i.id,calleeName:A.calleeName,callLine:A.line});else{let V=`${B}:${A.calleeName}`,q=s.get(V);if(q)for(let $ of q)$!==i.id&&F.push({callerFile:i.id,callerName:A.callerName,calleeFile:$,calleeName:A.calleeName,callLine:A.line})}}let v=[];if(t&&u){let N=new Map;for(let[A,V]of o){for(let q of V.classes)N.set(q.name,A);for(let q of V.interfaces||[])N.set(q.name,A);for(let q of V.traits||[])N.set(q.name,A);for(let q of V.structs)N.set(q.name,A)}let B=u.extractHeritageRelations(t,i);for(let A of B){let V=N.get(A.target);V&&V!==i.id&&v.push({source:i.id,target:V,type:A.type,label:A.label})}}let b=As(i),y=[];for(let N of h){let B=$s(N.target,N.source,r);if(B&&B!==N.source){let A=N.type==="system-include"&&!n.includeSystemHeaders?"include":N.type;y.push({source:N.source,target:B,type:A,label:N.label})}}y.push(...x),y.push(...v);let S=new Set,L=y.filter(N=>{let B=`${N.source}|${N.target}|${N.type}`;return S.has(B)?!1:(S.add(B),!0)}),ee={id:i.id,name:i.name,path:i.path,language:i.language,extension:i.extension,size:i.size,linesOfCode:i.linesOfCode,lastModified:i.lastModified||0,group:i.group,fanOut:L.length,fanIn:0,complexity:b.complexity,complexityDetails:b.details};return m&&(ee.symbols={functions:m.functions.map(N=>({name:N.name,returnType:N.returnType||"",params:N.params||"",line:N.line||0,type:N.type,visibility:N.visibility,isStatic:N.isStatic,isAsync:N.isAsync})),structs:m.structs.map(N=>({name:N.name,type:N.type,line:N.line||0})),enums:m.enums.map(N=>({name:N.name,type:N.type,line:N.line||0})),macros:m.macros.slice(0,30).map(N=>({name:N.name,type:N.type,line:N.line||0})),classes:m.classes.map(N=>({name:N.name,type:N.type,line:N.line||0})),exports:m.exports.map(N=>({name:N.name,type:N.type,line:N.line||0})),interfaces:(m.interfaces||[]).map(N=>({name:N.name,type:N.type})),traits:(m.traits||[]).map(N=>({name:N.name,type:N.type})),typeAliases:(m.typeAliases||[]).map(N=>({name:N.name,type:N.type})),methods:(m.methods||[]).map(N=>({name:N.name,returnType:N.returnType||"",params:N.params||"",line:N.line||0,type:N.type,visibility:N.visibility,isStatic:N.isStatic,isAsync:N.isAsync})),totalSymbols:m.functions.length+m.structs.length+m.enums.length+m.macros.length+m.classes.length+m.exports.length+(m.interfaces||[]).length+(m.traits||[]).length+(m.typeAliases||[]).length+(m.methods||[]).length}),{node:ee,outEdges:L,callSites:F}}var Hs=require("child_process"),Gs=require("util"),or=(0,Gs.promisify)(Hs.execFile),Jo=50*1024*1024;async function ar(i){try{return await or("git",["rev-parse","--is-inside-work-tree"],{cwd:i}),!0}catch{return!1}}async function Ws(i){let{stdout:e}=await or("git",["rev-parse","--show-toplevel"],{cwd:i});return e.trim()}async function js(i){let e=new Map;try{let{stdout:t}=await or("git",["--no-optional-locks","status","--porcelain=v1","-z","--untracked-files=all"],{cwd:i,maxBuffer:Jo}),n=t.split("\0");for(let r=0;r<n.length;r++){let s=n[r];if(!s||s.length<4)continue;let o=s.slice(0,2),l=s.slice(3);if(!l)continue;if(o==="??"){e.set(l,"untracked");continue}if(o==="!!")continue;if(o[0]==="U"||o[1]==="U"||o==="AA"||o==="DD"){e.set(l,"conflicted");continue}let u="modified";o[0]==="A"||o[1]==="A"?u="added":o[0]==="D"||o[1]==="D"?u="deleted":(o[0]==="R"||o[1]==="R"||o[0]==="C"||o[1]==="C")&&(u="renamed",r++),e.set(l,u)}}catch{}return e}var Ys=Ee(zs()),Te=require("fs"),Nt=require("path"),Vs=`
+</html>`;
+  }
+};
+function getNonce() {
+  const array = new Uint8Array(16);
+  require("crypto").randomFillSync(array);
+  return Array.from(array, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// src/AuraTreeProvider.ts
+var vscode3 = __toESM(require("vscode"));
+var AuraTreeItem = class extends vscode3.TreeItem {
+  constructor(entry, collapsible) {
+    const label = entry.kind === "file" ? entry.node.name : entry.kind === "stat" ? `${entry.label}: ${entry.value}` : entry.label;
+    super(label, collapsible);
+    this.entry = entry;
+    if (entry.kind === "header") {
+      this.iconPath = new vscode3.ThemeIcon(entry.icon);
+    } else if (entry.kind === "stat") {
+      this.iconPath = new vscode3.ThemeIcon(entry.icon);
+    } else if (entry.kind === "file") {
+      this.description = entry.metric;
+      this.iconPath = new vscode3.ThemeIcon("file");
+      this.command = {
+        command: "auraVisualizer.openFileFromTree",
+        title: "Open File",
+        arguments: [entry.node.path]
+      };
+      this.tooltip = `${entry.node.path}
+Complexity: ${entry.node.complexity}
+Lines: ${entry.node.linesOfCode}
+Fan-in: ${entry.node.fanIn} / Fan-out: ${entry.node.fanOut}`;
+    }
+  }
+};
+var AuraTreeProvider = class {
+  _onDidChangeTreeData = new vscode3.EventEmitter();
+  onDidChangeTreeData = this._onDidChangeTreeData.event;
+  data;
+  update(data) {
+    this.data = data;
+    this._onDidChangeTreeData.fire(void 0);
+  }
+  getTreeItem(element) {
+    return element;
+  }
+  getChildren(element) {
+    if (!this.data) {
+      return [new AuraTreeItem(
+        { kind: "stat", label: "No data", value: "Open a workspace and run Aura", icon: "info" },
+        vscode3.TreeItemCollapsibleState.None
+      )];
+    }
+    if (!element) {
+      return [
+        new AuraTreeItem({ kind: "header", label: "Stats", icon: "graph" }, vscode3.TreeItemCollapsibleState.Expanded),
+        new AuraTreeItem({ kind: "header", label: "Most Complex", icon: "flame" }, vscode3.TreeItemCollapsibleState.Collapsed),
+        new AuraTreeItem({ kind: "header", label: "Largest Files", icon: "file-binary" }, vscode3.TreeItemCollapsibleState.Collapsed),
+        new AuraTreeItem({ kind: "header", label: "Orphan Files", icon: "warning" }, vscode3.TreeItemCollapsibleState.Collapsed)
+      ];
+    }
+    if (element.entry.kind !== "header")
+      return [];
+    const d = this.data;
+    switch (element.entry.label) {
+      case "Stats": {
+        const langs = Object.entries(d.meta.languageStats).map(([lang, s]) => `${lang}: ${s.count}`).join(", ");
+        return [
+          this.stat("Files", String(d.meta.totalFiles), "file"),
+          this.stat("Links", String(d.meta.totalLinks), "link"),
+          this.stat("Function Calls", String(d.meta.functionCallLinks), "symbol-method"),
+          this.stat("Groups", String(d.meta.groups.length), "folder"),
+          this.stat("Languages", langs, "symbol-color")
+        ];
+      }
+      case "Most Complex": {
+        return [...d.nodes].sort((a, b) => b.complexity - a.complexity).slice(0, 10).map((n) => new AuraTreeItem(
+          { kind: "file", node: n, metric: `complexity: ${n.complexity}` },
+          vscode3.TreeItemCollapsibleState.None
+        ));
+      }
+      case "Largest Files": {
+        return [...d.nodes].sort((a, b) => b.linesOfCode - a.linesOfCode).slice(0, 10).map((n) => new AuraTreeItem(
+          { kind: "file", node: n, metric: `${n.linesOfCode} lines` },
+          vscode3.TreeItemCollapsibleState.None
+        ));
+      }
+      case "Orphan Files": {
+        return d.nodes.filter((n) => n.fanIn === 0 && n.fanOut === 0).map((n) => new AuraTreeItem(
+          { kind: "file", node: n, metric: n.language },
+          vscode3.TreeItemCollapsibleState.None
+        ));
+      }
+      default:
+        return [];
+    }
+  }
+  stat(label, value, icon) {
+    return new AuraTreeItem(
+      { kind: "stat", label, value, icon },
+      vscode3.TreeItemCollapsibleState.None
+    );
+  }
+};
+
+// src/analyzer/scanner.ts
+var import_promises = require("fs/promises");
+var import_path = require("path");
+var SUPPORTED_EXTENSIONS = /* @__PURE__ */ new Set([".c", ".h", ".cpp", ".cc", ".cxx", ".hpp", ".hxx", ".hh", ".js", ".ts", ".py", ".css", ".html", ".htm", ".java", ".go", ".rs", ".kt", ".kts", ".rb", ".swift", ".cs", ".php", ".vue", ".sh", ".bash", ".lua", ".md", ".markdown", ".txt", ".rst"]);
+var LANGUAGE_MAP = {
+  ".c": "c",
+  ".h": "c",
+  ".cpp": "cpp",
+  ".cc": "cpp",
+  ".cxx": "cpp",
+  ".hpp": "cpp",
+  ".hxx": "cpp",
+  ".hh": "cpp",
+  ".js": "javascript",
+  ".ts": "typescript",
+  ".py": "python",
+  ".css": "css",
+  ".html": "html",
+  ".htm": "html",
+  ".java": "java",
+  ".go": "go",
+  ".rs": "rust",
+  ".kt": "kotlin",
+  ".kts": "kotlin",
+  ".rb": "ruby",
+  ".swift": "swift",
+  ".cs": "csharp",
+  ".php": "php",
+  ".vue": "vue",
+  ".sh": "bash",
+  ".bash": "bash",
+  ".lua": "lua",
+  ".md": "documentation",
+  ".markdown": "documentation",
+  ".txt": "documentation",
+  ".rst": "documentation"
+};
+async function scanSingleFile(fullPath, rootDir) {
+  const ext = (0, import_path.extname)(fullPath).toLowerCase();
+  if (!SUPPORTED_EXTENSIONS.has(ext))
+    return null;
+  try {
+    const fileStat = await (0, import_promises.stat)(fullPath);
+    const content = await (0, import_promises.readFile)(fullPath, "utf-8");
+    const linesOfCode = content.split("\n").filter((l) => l.trim().length > 0).length;
+    const relativePath = (0, import_path.relative)(rootDir, fullPath);
+    const parts = relativePath.split("/");
+    const group = parts.length > 1 ? parts[0] : "/";
+    const name = parts[parts.length - 1];
+    return {
+      id: relativePath,
+      name,
+      path: relativePath,
+      fullPath,
+      language: LANGUAGE_MAP[ext] || "unknown",
+      extension: ext,
+      size: fileStat.size,
+      linesOfCode,
+      lastModified: Math.floor(fileStat.mtimeMs),
+      group,
+      content
+    };
+  } catch {
+    return null;
+  }
+}
+
+// src/analyzer/graph-builder.ts
+var import_path3 = require("path");
+
+// src/analyzer/parsers/base-parser.ts
+var BaseParser = class {
+  language;
+  constructor(language) {
+    this.language = language;
+  }
+  /** Whether this parser uses Tree-sitter AST (override in subclass). */
+  get usesTreeSitter() {
+    return false;
+  }
+  parse(_fileInfo, _options) {
+    return [];
+  }
+  /** Parse using a Tree-sitter syntax tree (override in TS-based parsers). */
+  parseAST(_tree, _fileInfo, _options) {
+    return this.parse(_fileInfo, _options);
+  }
+  /** Extract symbols using a Tree-sitter syntax tree (override in TS-based parsers). */
+  extractSymbolsAST(_tree, _fileInfo) {
+    return { functions: [], externs: [], structs: [], enums: [], macros: [], classes: [], exports: [], interfaces: [], traits: [], typeAliases: [], methods: [] };
+  }
+  /** Extract cross-file function calls using AST (override in TS-based parsers). */
+  extractCallsAST(_tree, _fileInfo, _globalFunctions) {
+    return [];
+  }
+  /** Extract function-level call sites from AST (override in TS-based parsers). */
+  extractCallSitesAST(_tree, _fileInfo) {
+    return [];
+  }
+  /** Extract heritage relations (extends/implements) from AST. */
+  extractHeritageRelations(_tree, _fileInfo) {
+    return [];
+  }
+  extractMatches(content, regex, type, sourceId, labelFn) {
+    const relations = [];
+    let match;
+    while ((match = regex.exec(content)) !== null) {
+      const target = match[1];
+      if (target) {
+        relations.push({
+          source: sourceId,
+          target,
+          type,
+          label: labelFn ? labelFn(match) : `${type}: ${target}`
+        });
+      }
+    }
+    return relations;
+  }
+};
+
+// src/analyzer/parsers/ts-c-parser.ts
+var C_BUILTINS = /* @__PURE__ */ new Set([
+  "if",
+  "else",
+  "for",
+  "while",
+  "do",
+  "switch",
+  "case",
+  "return",
+  "break",
+  "continue",
+  "goto",
+  "sizeof",
+  "typeof",
+  "typedef",
+  "struct",
+  "union",
+  "enum",
+  "static",
+  "extern",
+  "inline",
+  "const",
+  "volatile",
+  "register",
+  "auto",
+  "void",
+  "int",
+  "char",
+  "float",
+  "double",
+  "long",
+  "short",
+  "unsigned",
+  "signed",
+  "bool",
+  "BOOL",
+  "printf",
+  "fprintf",
+  "sprintf",
+  "snprintf",
+  "scanf",
+  "sscanf",
+  "malloc",
+  "calloc",
+  "realloc",
+  "free",
+  "memcpy",
+  "memset",
+  "memmove",
+  "strlen",
+  "strcpy",
+  "strncpy",
+  "strcmp",
+  "strncmp",
+  "strcat",
+  "fopen",
+  "fclose",
+  "fread",
+  "fwrite",
+  "fseek",
+  "ftell",
+  "exit",
+  "abort",
+  "assert",
+  "NULL",
+  "true",
+  "false",
+  "defined",
+  "offsetof",
+  "va_start",
+  "va_end",
+  "va_arg",
+  "__attribute__",
+  "__declspec",
+  "visibility",
+  "__extension__"
+]);
+var TreeSitterCParser = class extends BaseParser {
+  constructor() {
+    super("c");
+  }
+  get usesTreeSitter() {
+    return true;
+  }
+  // ── AST-based parse: extract #include relations ────────────
+  parseAST(tree, fileInfo, options = {}) {
+    const relations = [];
+    this.walkForIncludes(tree.rootNode, fileInfo.id, relations, !!options.includeSystemHeaders);
+    return relations;
+  }
+  walkForIncludes(node, sourceId, relations, includeSystem) {
+    if (node.type === "preproc_include") {
+      const pathNode = node.childForFieldName("path");
+      if (pathNode) {
+        const raw = pathNode.text;
+        if (pathNode.type === "string_literal") {
+          const target = raw.slice(1, -1);
+          relations.push({
+            source: sourceId,
+            target,
+            type: "include",
+            label: `#include "${target}"`
+          });
+        } else if (pathNode.type === "system_lib_string") {
+          const target = raw.slice(1, -1);
+          relations.push({
+            source: sourceId,
+            target,
+            type: "system-include",
+            label: `#include <${target}>`
+          });
+        }
+      }
+      return;
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForIncludes(node.child(i), sourceId, relations, includeSystem);
+    }
+    return relations;
+  }
+  // ── AST-based symbol extraction ────────────────────────────
+  extractSymbolsAST(tree, _fileInfo) {
+    const symbols = {
+      functions: [],
+      externs: [],
+      structs: [],
+      enums: [],
+      macros: [],
+      classes: [],
+      exports: [],
+      interfaces: [],
+      traits: [],
+      typeAliases: [],
+      methods: []
+    };
+    this.walkForSymbols(tree.rootNode, symbols);
+    return symbols;
+  }
+  walkForSymbols(node, symbols) {
+    switch (node.type) {
+      case "function_definition":
+        this.extractFunction(node, symbols);
+        return;
+      case "declaration":
+        this.extractDeclaration(node, symbols);
+        return;
+      case "type_definition":
+        this.extractTypedef(node, symbols);
+        return;
+      case "preproc_def":
+        this.extractMacro(node, symbols, false);
+        return;
+      case "preproc_function_def":
+        this.extractMacro(node, symbols, true);
+        return;
+      case "struct_specifier":
+        if (node.parent?.type !== "type_definition" && node.childForFieldName("body")) {
+          this.extractStruct(node, symbols, "struct");
+        }
+        break;
+      case "enum_specifier":
+        if (node.parent?.type !== "type_definition" && node.childForFieldName("body")) {
+          this.extractEnum(node, symbols);
+        }
+        break;
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForSymbols(node.child(i), symbols);
+    }
+  }
+  extractFunction(node, symbols) {
+    const declarator = this.findDescendant(node, "function_declarator");
+    if (!declarator) {
+      return;
+    }
+    const nameNode = declarator.childForFieldName("declarator");
+    const name = nameNode?.text;
+    if (!name || C_BUILTINS.has(name)) {
+      return;
+    }
+    const returnType = this.getReturnType(node, declarator);
+    const params = this.getParams(declarator);
+    const line = node.startPosition.row + 1;
+    symbols.functions.push({ name, returnType, params, line, type: "function" });
+  }
+  extractDeclaration(node, symbols) {
+    const text = node.text;
+    if (text.startsWith("extern")) {
+      const declarator = this.findDescendant(node, "function_declarator");
+      if (declarator) {
+        const nameNode = declarator.childForFieldName("declarator");
+        const name = nameNode?.text;
+        if (name) {
+          symbols.externs.push({ name, type: "extern" });
+          return;
+        }
+      }
+    }
+  }
+  extractTypedef(node, symbols) {
+    const structSpec = this.findDescendant(node, "struct_specifier");
+    if (structSpec) {
+      const typeId = this.findChild(node, "type_identifier");
+      if (typeId) {
+        symbols.structs.push({ name: typeId.text, type: "typedef-struct", line: typeId.startPosition.row + 1 });
+      } else {
+        this.extractStruct(structSpec, symbols, "struct");
+      }
+      return;
+    }
+    const enumSpec = this.findDescendant(node, "enum_specifier");
+    if (enumSpec) {
+      const typeId = this.findChild(node, "type_identifier");
+      if (typeId) {
+        symbols.enums.push({ name: typeId.text, type: "enum", line: typeId.startPosition.row + 1 });
+      } else {
+        this.extractEnum(enumSpec, symbols);
+      }
+    }
+  }
+  extractStruct(node, symbols, kind) {
+    const nameNode = node.childForFieldName("name");
+    if (nameNode) {
+      symbols.structs.push({ name: nameNode.text, type: kind, line: node.startPosition.row + 1 });
+    }
+  }
+  extractEnum(node, symbols) {
+    const nameNode = node.childForFieldName("name");
+    if (nameNode) {
+      symbols.enums.push({ name: nameNode.text, type: "enum", line: node.startPosition.row + 1 });
+    }
+  }
+  extractMacro(node, symbols, isFunctionLike) {
+    const nameNode = node.childForFieldName("name");
+    if (nameNode) {
+      symbols.macros.push({
+        name: nameNode.text,
+        type: isFunctionLike ? "function-macro" : "constant-macro",
+        line: node.startPosition.row + 1
+      });
+    }
+  }
+  // ── AST-based call extraction ──────────────────────────────
+  extractCallsAST(tree, _fileInfo, globalFunctions) {
+    const definedHere = /* @__PURE__ */ new Set();
+    const calls = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    this.collectCalls(tree.rootNode, calls, definedHere);
+    const relations = [];
+    for (const name of calls) {
+      if (globalFunctions.has(name)) {
+        relations.push({
+          source: _fileInfo.id,
+          target: name,
+          type: "function-call",
+          label: `${name}()`
+        });
+      }
+    }
+    return relations;
+  }
+  /** Get raw list of external calls (for backward compat with extractCalls). */
+  extractCallsFromAST(tree) {
+    const definedHere = /* @__PURE__ */ new Set();
+    const calls = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    this.collectCalls(tree.rootNode, calls, definedHere);
+    return [...calls];
+  }
+  collectDefinedFunctions(node, defined) {
+    if (node.type === "function_definition") {
+      const declarator = this.findDescendant(node, "function_declarator");
+      const nameNode = declarator?.childForFieldName("declarator");
+      if (nameNode) {
+        defined.add(nameNode.text);
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectDefinedFunctions(node.child(i), defined);
+    }
+  }
+  collectCalls(node, calls, definedHere) {
+    if (node.type === "call_expression") {
+      const funcNode = node.childForFieldName("function");
+      if (funcNode?.type === "identifier") {
+        const name = funcNode.text;
+        if (!C_BUILTINS.has(name) && !/^[A-Z_]+$/.test(name) && !definedHere.has(name)) {
+          calls.add(name);
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectCalls(node.child(i), calls, definedHere);
+    }
+  }
+  // ── AST-based call site extraction (function-level) ────────
+  extractCallSitesAST(tree, _fileInfo) {
+    const definedHere = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    const sites = [];
+    this.collectCallSites(tree.rootNode, sites, definedHere, "<module>");
+    return sites;
+  }
+  collectCallSites(node, sites, definedHere, currentFunc) {
+    if (node.type === "function_definition") {
+      const declarator = this.findDescendant(node, "function_declarator");
+      const nameNode = declarator?.childForFieldName("declarator");
+      const name = nameNode?.text || currentFunc;
+      for (let i = 0; i < node.childCount; i++) {
+        this.collectCallSites(node.child(i), sites, definedHere, name);
+      }
+      return;
+    }
+    if (node.type === "call_expression") {
+      const funcNode = node.childForFieldName("function");
+      if (funcNode?.type === "identifier") {
+        const name = funcNode.text;
+        if (!C_BUILTINS.has(name) && !/^[A-Z_]+$/.test(name)) {
+          sites.push({
+            callerName: currentFunc,
+            calleeName: name,
+            line: node.startPosition.row + 1,
+            isLocal: definedHere.has(name)
+          });
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectCallSites(node.child(i), sites, definedHere, currentFunc);
+    }
+  }
+  // ── AST utilities ──────────────────────────────────────────
+  getReturnType(funcDef, declarator) {
+    const typeNode = funcDef.childForFieldName("type");
+    if (typeNode) {
+      const directDecl = funcDef.childForFieldName("declarator");
+      if (directDecl?.type === "pointer_declarator") {
+        return typeNode.text + "*";
+      }
+      return typeNode.text;
+    }
+    const before = funcDef.text.substring(0, declarator.startIndex - funcDef.startIndex).trim();
+    return before || "int";
+  }
+  getParams(declarator) {
+    const paramList = declarator.childForFieldName("parameters");
+    if (!paramList) {
+      return "";
+    }
+    const text = paramList.text;
+    return text.startsWith("(") ? text.slice(1, -1).trim() : text.trim();
+  }
+  findDescendant(node, type) {
+    if (node.type === type) {
+      return node;
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      const result = this.findDescendant(node.child(i), type);
+      if (result) {
+        return result;
+      }
+    }
+    return null;
+  }
+  findChild(node, type) {
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (child.type === type) {
+        return child;
+      }
+    }
+    return null;
+  }
+};
+
+// src/analyzer/parsers/ts-cpp-parser.ts
+var TreeSitterCppParser = class extends TreeSitterCParser {
+  constructor() {
+    super();
+    this.language = "cpp";
+  }
+};
+
+// src/analyzer/parsers/ts-js-parser.ts
+var JS_KEYWORDS = /* @__PURE__ */ new Set([
+  "if",
+  "else",
+  "for",
+  "while",
+  "do",
+  "switch",
+  "case",
+  "return",
+  "break",
+  "continue",
+  "throw",
+  "try",
+  "catch",
+  "finally",
+  "new",
+  "delete",
+  "typeof",
+  "instanceof",
+  "void",
+  "in",
+  "of",
+  "this",
+  "super",
+  "with",
+  "yield",
+  "await",
+  "debugger",
+  "constructor",
+  "get",
+  "set",
+  "static",
+  "async",
+  "true",
+  "false",
+  "null",
+  "undefined",
+  "NaN",
+  "Infinity",
+  "console",
+  "window",
+  "document",
+  "global",
+  "process",
+  "require",
+  "module",
+  "exports",
+  "import",
+  "export",
+  "default",
+  "from"
+]);
+var JS_BUILTINS = /* @__PURE__ */ new Set([
+  ...JS_KEYWORDS,
+  "parseInt",
+  "parseFloat",
+  "isNaN",
+  "isFinite",
+  "encodeURI",
+  "decodeURI",
+  "encodeURIComponent",
+  "decodeURIComponent",
+  "eval",
+  "JSON",
+  "Math",
+  "Object",
+  "Array",
+  "String",
+  "Number",
+  "Boolean",
+  "Date",
+  "RegExp",
+  "Error",
+  "TypeError",
+  "RangeError",
+  "SyntaxError",
+  "ReferenceError",
+  "Map",
+  "Set",
+  "WeakMap",
+  "WeakSet",
+  "Promise",
+  "Proxy",
+  "Reflect",
+  "Symbol",
+  "BigInt",
+  "ArrayBuffer",
+  "SharedArrayBuffer",
+  "DataView",
+  "Float32Array",
+  "Float64Array",
+  "Int8Array",
+  "Int16Array",
+  "Int32Array",
+  "Uint8Array",
+  "Uint16Array",
+  "Uint32Array",
+  "URL",
+  "URLSearchParams",
+  "setTimeout",
+  "setInterval",
+  "clearTimeout",
+  "clearInterval",
+  "requestAnimationFrame",
+  "cancelAnimationFrame",
+  "fetch",
+  "alert",
+  "confirm",
+  "prompt",
+  "addEventListener",
+  "removeEventListener",
+  "dispatchEvent",
+  "createElement",
+  "getElementById",
+  "querySelector",
+  "querySelectorAll",
+  "log",
+  "warn",
+  "error",
+  "info",
+  "debug",
+  "trace",
+  "dir",
+  "push",
+  "pop",
+  "shift",
+  "unshift",
+  "splice",
+  "slice",
+  "concat",
+  "map",
+  "filter",
+  "reduce",
+  "forEach",
+  "find",
+  "findIndex",
+  "some",
+  "every",
+  "includes",
+  "indexOf",
+  "join",
+  "sort",
+  "reverse",
+  "flat",
+  "flatMap",
+  "keys",
+  "values",
+  "entries",
+  "assign",
+  "freeze",
+  "seal",
+  "defineProperty",
+  "getOwnPropertyNames",
+  "hasOwnProperty",
+  "toString",
+  "valueOf",
+  "toJSON",
+  "then",
+  "catch",
+  "resolve",
+  "reject",
+  "all",
+  "allSettled",
+  "race",
+  "any",
+  "stringify",
+  "parse",
+  "replace",
+  "match",
+  "search",
+  "split",
+  "trim",
+  "startsWith",
+  "endsWith",
+  "charAt",
+  "charCodeAt",
+  "substring",
+  "repeat",
+  "padStart",
+  "padEnd",
+  "bind",
+  "call",
+  "apply",
+  "next",
+  "done",
+  "emit",
+  "on",
+  "once",
+  "off"
+]);
+var TreeSitterJSParser = class extends BaseParser {
+  constructor() {
+    super("javascript");
+  }
+  get usesTreeSitter() {
+    return true;
+  }
+  // ── AST-based parse: extract import/require relations ──────
+  parseAST(tree, fileInfo, _options = {}) {
+    const relations = [];
+    this.walkForImports(tree.rootNode, fileInfo.id, relations);
+    return relations;
+  }
+  walkForImports(node, sourceId, relations) {
+    switch (node.type) {
+      case "import_statement":
+        this.extractImport(node, sourceId, relations);
+        return;
+      case "call_expression": {
+        const funcNode = node.childForFieldName("function");
+        if (funcNode) {
+          if (funcNode.type === "identifier" && funcNode.text === "require") {
+            this.extractCallImport(node, sourceId, relations, "require");
+          } else if (funcNode.type === "import") {
+            this.extractCallImport(node, sourceId, relations, "dynamic-import");
+          }
+        }
+        break;
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForImports(node.child(i), sourceId, relations);
+    }
+  }
+  extractImport(node, sourceId, relations) {
+    const source = node.childForFieldName("source");
+    if (!source) {
+      return;
+    }
+    const target = this.stripQuotes(source.text);
+    if (!target) {
+      return;
+    }
+    const isTypeImport = this.hasDirectChild(node, "type");
+    relations.push({
+      source: sourceId,
+      target,
+      type: isTypeImport ? "import-type" : "import",
+      label: isTypeImport ? `import type from '${target}'` : `import from '${target}'`
+    });
+  }
+  extractCallImport(node, sourceId, relations, type) {
+    const args2 = node.childForFieldName("arguments");
+    if (!args2) {
+      return;
+    }
+    const firstArg = args2.child(1);
+    if (!firstArg) {
+      return;
+    }
+    let target;
+    if (firstArg.type === "string" || firstArg.type === "string_fragment") {
+      target = this.stripQuotes(firstArg.text);
+    } else if (firstArg.type === "template_string") {
+      const raw = firstArg.text.slice(1, -1);
+      target = raw.split("$")[0].split("?")[0];
+    } else {
+      return;
+    }
+    if (!target) {
+      return;
+    }
+    relations.push({
+      source: sourceId,
+      target,
+      type,
+      label: type === "require" ? `require('${target}')` : `import('${target}')`
+    });
+  }
+  // ── AST-based symbol extraction ────────────────────────────
+  extractSymbolsAST(tree, _fileInfo) {
+    const symbols = {
+      functions: [],
+      externs: [],
+      structs: [],
+      enums: [],
+      macros: [],
+      classes: [],
+      exports: [],
+      interfaces: [],
+      traits: [],
+      typeAliases: [],
+      methods: []
+    };
+    this.walkForSymbols(tree.rootNode, symbols);
+    return symbols;
+  }
+  walkForSymbols(node, symbols) {
+    switch (node.type) {
+      case "function_declaration":
+      case "generator_function_declaration":
+        this.extractFunctionDecl(node, symbols);
+        return;
+      case "lexical_declaration":
+      case "variable_declaration":
+        this.extractVariableDecl(node, symbols);
+        return;
+      case "class_declaration":
+        this.extractClass(node, symbols);
+        return;
+      case "export_statement":
+        this.extractExport(node, symbols);
+        return;
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForSymbols(node.child(i), symbols);
+    }
+  }
+  extractFunctionDecl(node, symbols) {
+    const nameNode = node.childForFieldName("name");
+    const name = nameNode?.text;
+    if (!name || JS_KEYWORDS.has(name)) {
+      return;
+    }
+    const line = node.startPosition.row + 1;
+    const isAsync = this.hasDirectChild(node, "async");
+    const isGenerator = node.type === "generator_function_declaration";
+    const sym = {
+      name,
+      type: isGenerator ? "generator" : "function",
+      line
+    };
+    if (isAsync) {
+      sym.isAsync = true;
+    }
+    symbols.functions.push(sym);
+  }
+  extractVariableDecl(node, symbols) {
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (child.type !== "variable_declarator") {
+        continue;
+      }
+      const nameNode = child.childForFieldName("name");
+      const valueNode = child.childForFieldName("value");
+      if (!nameNode || !valueNode) {
+        continue;
+      }
+      const name = nameNode.text;
+      if (JS_KEYWORDS.has(name)) {
+        continue;
+      }
+      if (valueNode.type === "arrow_function") {
+        const line = node.startPosition.row + 1;
+        const isAsync = this.hasDirectChild(valueNode, "async");
+        const sym = { name, type: "arrow", line };
+        if (isAsync) {
+          sym.isAsync = true;
+        }
+        if (!symbols.functions.some((f) => f.name === name)) {
+          symbols.functions.push(sym);
+        }
+      }
+    }
+  }
+  extractClass(node, symbols) {
+    const nameNode = node.childForFieldName("name");
+    const name = nameNode?.text;
+    if (!name) {
+      return;
+    }
+    const line = node.startPosition.row + 1;
+    symbols.classes.push({ name, type: "class", line });
+    const body2 = node.childForFieldName("body");
+    if (body2) {
+      this.extractMethods(body2, symbols);
+    }
+  }
+  extractMethods(classBody, symbols) {
+    for (let i = 0; i < classBody.childCount; i++) {
+      const member = classBody.child(i);
+      if (member.type !== "method_definition") {
+        continue;
+      }
+      const nameNode = member.childForFieldName("name");
+      const name = nameNode?.text;
+      if (!name || name === "constructor") {
+        continue;
+      }
+      const isAsync = this.hasDirectChild(member, "async");
+      const isStatic = this.hasDirectChild(member, "static");
+      const isGetter = this.findChildByText(member, "get") !== null && member.childForFieldName("parameters")?.text === "()";
+      const isSetter = this.findChildByText(member, "set") !== null && !isGetter;
+      const sym = {
+        name,
+        type: isGetter ? "getter" : isSetter ? "setter" : "method"
+      };
+      if (isAsync) {
+        sym.isAsync = true;
+      }
+      if (isStatic) {
+        sym.isStatic = true;
+      }
+      symbols.methods.push(sym);
+    }
+  }
+  extractExport(node, symbols) {
+    const isDefault = this.hasDirectChild(node, "default");
+    const isTypeExport = this.hasDirectChild(node, "type");
+    const exportClause = this.findChild(node, "export_clause");
+    if (exportClause) {
+      if (isTypeExport) {
+        return;
+      }
+      for (let i = 0; i < exportClause.childCount; i++) {
+        const spec = exportClause.child(i);
+        if (spec.type === "export_specifier") {
+          const nameNode = spec.childForFieldName("name");
+          if (nameNode && !JS_KEYWORDS.has(nameNode.text)) {
+            symbols.exports.push({ name: nameNode.text, type: "export-named", line: nameNode.startPosition.row + 1 });
+          }
+        }
+      }
+      return;
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      switch (child.type) {
+        case "function_declaration":
+        case "generator_function_declaration": {
+          const name = child.childForFieldName("name")?.text;
+          if (name) {
+            symbols.exports.push({
+              name,
+              line: child.startPosition.row + 1,
+              type: isDefault ? "export-default" : "export-function"
+            });
+            this.extractFunctionDecl(child, symbols);
+          }
+          break;
+        }
+        case "class_declaration": {
+          const name = child.childForFieldName("name")?.text;
+          if (name) {
+            symbols.exports.push({
+              name,
+              line: child.startPosition.row + 1,
+              type: isDefault ? "export-default" : "export-class"
+            });
+            this.extractClass(child, symbols);
+          }
+          break;
+        }
+        case "lexical_declaration":
+        case "variable_declaration": {
+          for (let j = 0; j < child.childCount; j++) {
+            const decl = child.child(j);
+            if (decl.type === "variable_declarator") {
+              const name = decl.childForFieldName("name")?.text;
+              if (name && !JS_KEYWORDS.has(name)) {
+                symbols.exports.push({
+                  name,
+                  line: decl.startPosition.row + 1,
+                  type: isDefault ? "export-default" : "export-variable"
+                });
+              }
+            }
+          }
+          this.extractVariableDecl(child, symbols);
+          break;
+        }
+      }
+    }
+    if (isDefault && symbols.exports.length === 0) {
+      for (let i = 0; i < node.childCount; i++) {
+        const child = node.child(i);
+        if (child.type === "identifier" && !JS_KEYWORDS.has(child.text)) {
+          symbols.exports.push({ name: child.text, type: "export-default", line: child.startPosition.row + 1 });
+          break;
+        }
+      }
+    }
+  }
+  // ── AST-based call extraction ──────────────────────────────
+  extractCallsAST(tree, fileInfo, globalFunctions) {
+    const definedHere = /* @__PURE__ */ new Set();
+    const calls = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    this.collectCalls(tree.rootNode, calls, definedHere);
+    const relations = [];
+    for (const name of calls) {
+      if (globalFunctions.has(name)) {
+        relations.push({
+          source: fileInfo.id,
+          target: name,
+          type: "function-call",
+          label: `${name}()`
+        });
+      }
+    }
+    return relations;
+  }
+  extractCallsFromAST(tree) {
+    const definedHere = /* @__PURE__ */ new Set();
+    const calls = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    this.collectCalls(tree.rootNode, calls, definedHere);
+    return [...calls];
+  }
+  collectDefinedFunctions(node, defined) {
+    if (node.type === "function_declaration" || node.type === "generator_function_declaration") {
+      const name = node.childForFieldName("name")?.text;
+      if (name) {
+        defined.add(name);
+      }
+    } else if (node.type === "variable_declarator") {
+      const value = node.childForFieldName("value");
+      if (value?.type === "arrow_function") {
+        const name = node.childForFieldName("name")?.text;
+        if (name) {
+          defined.add(name);
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectDefinedFunctions(node.child(i), defined);
+    }
+  }
+  collectCalls(node, calls, definedHere) {
+    if (node.type === "call_expression") {
+      const funcNode = node.childForFieldName("function");
+      if (funcNode?.type === "identifier") {
+        const name = funcNode.text;
+        if (!JS_BUILTINS.has(name) && !/^[A-Z_]+$/.test(name) && !definedHere.has(name)) {
+          calls.add(name);
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectCalls(node.child(i), calls, definedHere);
+    }
+  }
+  // ── AST-based call site extraction (function-level) ────────
+  extractCallSitesAST(tree, _fileInfo) {
+    const definedHere = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    const sites = [];
+    this.collectCallSites(tree.rootNode, sites, definedHere, "<module>");
+    return sites;
+  }
+  collectCallSites(node, sites, definedHere, currentFunc) {
+    if (node.type === "function_declaration" || node.type === "generator_function_declaration") {
+      const name = node.childForFieldName("name")?.text || currentFunc;
+      for (let i = 0; i < node.childCount; i++) {
+        this.collectCallSites(node.child(i), sites, definedHere, name);
+      }
+      return;
+    }
+    if (node.type === "variable_declarator") {
+      const value = node.childForFieldName("value");
+      if (value?.type === "arrow_function") {
+        const name = node.childForFieldName("name")?.text || currentFunc;
+        for (let i = 0; i < node.childCount; i++) {
+          this.collectCallSites(node.child(i), sites, definedHere, name);
+        }
+        return;
+      }
+    }
+    if (node.type === "method_definition") {
+      const name = node.childForFieldName("name")?.text || currentFunc;
+      for (let i = 0; i < node.childCount; i++) {
+        this.collectCallSites(node.child(i), sites, definedHere, name);
+      }
+      return;
+    }
+    if (node.type === "call_expression") {
+      const funcNode = node.childForFieldName("function");
+      if (funcNode?.type === "identifier") {
+        const name = funcNode.text;
+        if (!JS_BUILTINS.has(name) && !/^[A-Z_]+$/.test(name)) {
+          sites.push({
+            callerName: currentFunc,
+            calleeName: name,
+            line: node.startPosition.row + 1,
+            isLocal: definedHere.has(name)
+          });
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectCallSites(node.child(i), sites, definedHere, currentFunc);
+    }
+  }
+  // ── AST utilities ──────────────────────────────────────────
+  stripQuotes(text) {
+    if (text.startsWith("'") && text.endsWith("'") || text.startsWith('"') && text.endsWith('"')) {
+      return text.slice(1, -1);
+    }
+    return text;
+  }
+  hasDirectChild(node, typeOrText) {
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (child.type === typeOrText || child.text === typeOrText) {
+        return true;
+      }
+    }
+    return false;
+  }
+  findChild(node, type) {
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (child.type === type) {
+        return child;
+      }
+    }
+    return null;
+  }
+  findChildByText(node, text) {
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (child.text === text && child.type !== "statement_block" && child.type !== "formal_parameters") {
+        return child;
+      }
+    }
+    return null;
+  }
+  findDescendant(node, type) {
+    if (node.type === type) {
+      return node;
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      const result = this.findDescendant(node.child(i), type);
+      if (result) {
+        return result;
+      }
+    }
+    return null;
+  }
+};
+
+// src/analyzer/parsers/ts-ts-parser.ts
+var TreeSitterTSParser = class extends TreeSitterJSParser {
+  constructor() {
+    super();
+    this.language = "typescript";
+  }
+  // ── Override symbol extraction to add TS-specific nodes ────
+  extractSymbolsAST(tree, fileInfo) {
+    const symbols = super.extractSymbolsAST(tree, fileInfo);
+    this.walkForTSSymbols(tree.rootNode, symbols);
+    return symbols;
+  }
+  walkForTSSymbols(node, symbols) {
+    switch (node.type) {
+      case "interface_declaration":
+        this.extractInterface(node, symbols);
+        return;
+      case "type_alias_declaration":
+        this.extractTypeAlias(node, symbols);
+        return;
+      case "export_statement":
+        this.extractTSExport(node, symbols);
+        return;
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForTSSymbols(node.child(i), symbols);
+    }
+  }
+  extractInterface(node, symbols) {
+    const nameNode = node.childForFieldName("name");
+    const name = nameNode?.text;
+    if (!name) {
+      return;
+    }
+    const line = node.startPosition.row + 1;
+    symbols.interfaces.push({ name, type: "interface", line });
+  }
+  extractTypeAlias(node, symbols) {
+    const nameNode = node.childForFieldName("name");
+    const name = nameNode?.text;
+    if (!name) {
+      return;
+    }
+    const line = node.startPosition.row + 1;
+    symbols.typeAliases.push({ name, type: "type-alias", line });
+  }
+  extractTSExport(node, symbols) {
+    const isTypeExport = this.hasDirectChild(node, "type");
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (child.type === "interface_declaration") {
+        const name = child.childForFieldName("name")?.text;
+        if (name) {
+          symbols.exports.push({ name, type: "export-interface", line: child.startPosition.row + 1 });
+          this.extractInterface(child, symbols);
+        }
+        return;
+      }
+      if (child.type === "type_alias_declaration") {
+        const name = child.childForFieldName("name")?.text;
+        if (name) {
+          symbols.exports.push({ name, type: "export-type-alias", line: child.startPosition.row + 1 });
+          this.extractTypeAlias(child, symbols);
+        }
+        return;
+      }
+    }
+    if (isTypeExport) {
+      const exportClause = this.findChild(node, "export_clause");
+      if (exportClause) {
+        for (let i = 0; i < exportClause.childCount; i++) {
+          const spec = exportClause.child(i);
+          if (spec.type === "export_specifier") {
+            const nameNode = spec.childForFieldName("name");
+            if (nameNode) {
+              symbols.exports.push({ name: nameNode.text, type: "export-type", line: nameNode.startPosition.row + 1 });
+            }
+          }
+        }
+      }
+    }
+  }
+  // ── Class heritage: extends/implements ─────────────────────
+  extractClass(node, symbols) {
+    super.extractClass(node, symbols);
+    const heritage = this.findChild(node, "class_heritage");
+    if (!heritage) {
+      return;
+    }
+    const nameNode = node.childForFieldName("name");
+    const className = nameNode?.text;
+    if (!className) {
+      return;
+    }
+    const text = heritage.text;
+    const extendsMatch = text.match(/extends\s+(\w+)/);
+    if (extendsMatch) {
+      const classSym = symbols.classes.find((c) => c.name === className);
+      if (classSym) {
+        classSym.extends = extendsMatch[1];
+      }
+    }
+    const implementsMatch = text.match(/implements\s+(.+)/);
+    if (implementsMatch) {
+      const interfaces = implementsMatch[1].split(",").map((s) => s.trim().split(/\s/)[0]);
+      const classSym = symbols.classes.find((c) => c.name === className);
+      if (classSym) {
+        classSym.implements = interfaces;
+      }
+    }
+  }
+  // ── Override methods to capture visibility/static/async ────
+  extractMethods(classBody, symbols) {
+    for (let i = 0; i < classBody.childCount; i++) {
+      const member = classBody.child(i);
+      if (member.type !== "method_definition") {
+        continue;
+      }
+      const nameNode = member.childForFieldName("name");
+      const name = nameNode?.text;
+      if (!name || name === "constructor") {
+        continue;
+      }
+      const isAsync = this.hasDirectChild(member, "async");
+      const isStatic = this.hasDirectChild(member, "static");
+      const visibility = this.getVisibility(member);
+      const isOverride = this.hasDirectChild(member, "override");
+      const sym = { name, type: "method" };
+      if (isAsync) {
+        sym.isAsync = true;
+      }
+      if (isStatic) {
+        sym.isStatic = true;
+      }
+      if (visibility) {
+        sym.visibility = visibility;
+      }
+      if (isOverride) {
+        sym.isOverride = true;
+      }
+      symbols.methods.push(sym);
+    }
+  }
+  /** Extract heritage relations (extends/implements) as Relation edges. */
+  extractHeritageRelations(tree, fileInfo) {
+    const relations = [];
+    this.walkForHeritage(tree.rootNode, fileInfo.id, relations);
+    return relations;
+  }
+  walkForHeritage(node, sourceId, relations) {
+    if (node.type === "class_declaration") {
+      const nameNode = node.childForFieldName("name");
+      const className = nameNode?.text;
+      const heritage = this.findChild(node, "class_heritage");
+      if (className && heritage) {
+        const text = heritage.text;
+        const extendsMatch = text.match(/extends\s+(\w+)/);
+        if (extendsMatch) {
+          relations.push({
+            source: sourceId,
+            target: extendsMatch[1],
+            type: "extends",
+            label: `${className} extends ${extendsMatch[1]}`
+          });
+        }
+        const implementsMatch = text.match(/implements\s+(.+)/);
+        if (implementsMatch) {
+          const raw = implementsMatch[1].replace(/\{[\s\S]*$/, "");
+          const interfaces = raw.split(",").map((s) => s.trim().split(/\s/)[0]).filter(Boolean);
+          for (const iface of interfaces) {
+            relations.push({
+              source: sourceId,
+              target: iface,
+              type: "implements",
+              label: `${className} implements ${iface}`
+            });
+          }
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForHeritage(node.child(i), sourceId, relations);
+    }
+  }
+  getVisibility(node) {
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (child.type === "accessibility_modifier") {
+        const text = child.text;
+        return text;
+      }
+    }
+    return void 0;
+  }
+};
+
+// src/analyzer/parsers/ts-py-parser.ts
+var PY_BUILTINS = /* @__PURE__ */ new Set([
+  "print",
+  "len",
+  "range",
+  "int",
+  "str",
+  "float",
+  "list",
+  "dict",
+  "set",
+  "tuple",
+  "bool",
+  "type",
+  "isinstance",
+  "issubclass",
+  "hasattr",
+  "getattr",
+  "setattr",
+  "delattr",
+  "callable",
+  "super",
+  "property",
+  "staticmethod",
+  "classmethod",
+  "abs",
+  "all",
+  "any",
+  "bin",
+  "chr",
+  "dir",
+  "divmod",
+  "enumerate",
+  "eval",
+  "exec",
+  "filter",
+  "format",
+  "frozenset",
+  "globals",
+  "hash",
+  "hex",
+  "id",
+  "input",
+  "iter",
+  "locals",
+  "map",
+  "max",
+  "min",
+  "next",
+  "object",
+  "oct",
+  "open",
+  "ord",
+  "pow",
+  "repr",
+  "reversed",
+  "round",
+  "slice",
+  "sorted",
+  "sum",
+  "vars",
+  "zip",
+  "breakpoint",
+  "compile",
+  "complex",
+  "memoryview",
+  "bytearray",
+  "bytes",
+  "__import__",
+  "__name__",
+  "__file__",
+  "__doc__"
+]);
+var PY_KEYWORDS = /* @__PURE__ */ new Set([
+  "def",
+  "class",
+  "if",
+  "elif",
+  "else",
+  "for",
+  "while",
+  "return",
+  "yield",
+  "lambda",
+  "not",
+  "and",
+  "or",
+  "assert",
+  "raise",
+  "pass",
+  "break",
+  "continue",
+  "try",
+  "except",
+  "finally",
+  "with",
+  "as",
+  "import",
+  "from",
+  "global",
+  "nonlocal",
+  "del",
+  "in",
+  "is",
+  "async",
+  "await"
+]);
+var TreeSitterPyParser = class extends BaseParser {
+  constructor() {
+    super("python");
+  }
+  get usesTreeSitter() {
+    return true;
+  }
+  // ── AST-based parse: extract import relations ──────────────
+  parseAST(tree, fileInfo, _options = {}) {
+    const relations = [];
+    const root = tree.rootNode;
+    for (let i = 0; i < root.childCount; i++) {
+      const node = root.child(i);
+      if (node.type === "import_statement") {
+        this.extractImport(node, fileInfo.id, relations);
+      } else if (node.type === "import_from_statement") {
+        this.extractFromImport(node, fileInfo.id, relations);
+      }
+    }
+    return relations;
+  }
+  extractImport(node, sourceId, relations) {
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (child.type === "dotted_name" || child.type === "aliased_import") {
+        const name = child.type === "aliased_import" ? child.childForFieldName("name")?.text ?? child.text : child.text;
+        if (name) {
+          relations.push({
+            source: sourceId,
+            target: name,
+            type: "import",
+            label: `import ${name}`
+          });
+        }
+      }
+    }
+  }
+  extractFromImport(node, sourceId, relations) {
+    const moduleNode = node.childForFieldName("module_name");
+    let moduleName;
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (child.type === "dotted_name" || child.type === "relative_import") {
+        moduleName = child.text;
+        break;
+      }
+    }
+    if (!moduleName) {
+      return;
+    }
+    relations.push({
+      source: sourceId,
+      target: moduleName,
+      type: "from-import",
+      label: `from ${moduleName} import`
+    });
+  }
+  // ── AST-based symbol extraction ────────────────────────────
+  extractSymbolsAST(tree, _fileInfo) {
+    const symbols = {
+      functions: [],
+      externs: [],
+      structs: [],
+      enums: [],
+      macros: [],
+      classes: [],
+      exports: [],
+      interfaces: [],
+      traits: [],
+      typeAliases: [],
+      methods: []
+    };
+    this.walkForSymbols(tree.rootNode, symbols, false);
+    return symbols;
+  }
+  walkForSymbols(node, symbols, insideClass) {
+    switch (node.type) {
+      case "function_definition":
+        this.extractFunction(node, symbols, insideClass, []);
+        return;
+      case "decorated_definition":
+        this.extractDecorated(node, symbols, insideClass);
+        return;
+      case "class_definition":
+        this.extractClass(node, symbols);
+        return;
+      case "expression_statement":
+        this.extractAllExport(node, symbols);
+        return;
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForSymbols(node.child(i), symbols, insideClass);
+    }
+  }
+  extractFunction(node, symbols, insideClass, decorators) {
+    const nameNode = node.childForFieldName("name");
+    const name = nameNode?.text;
+    if (!name) {
+      return;
+    }
+    const line = node.startPosition.row + 1;
+    const isAsync = this.hasDirectChild(node, "async");
+    const isDunder = name.startsWith("__") && name.endsWith("__");
+    const isStaticMethod = decorators.includes("staticmethod");
+    const isClassMethod = decorators.includes("classmethod");
+    if (insideClass) {
+      const sym = {
+        name,
+        type: isDunder ? "dunder" : "method",
+        line
+      };
+      if (isAsync) {
+        sym.isAsync = true;
+      }
+      if (isStaticMethod) {
+        sym.isStatic = true;
+      }
+      if (isClassMethod) {
+        sym.isClassMethod = true;
+      }
+      symbols.methods.push(sym);
+    } else {
+      const sym = {
+        name,
+        type: isDunder ? "dunder" : "function",
+        line
+      };
+      if (isAsync) {
+        sym.isAsync = true;
+      }
+      symbols.functions.push(sym);
+    }
+  }
+  extractDecorated(node, symbols, insideClass) {
+    const decorators = [];
+    let funcDef = null;
+    let classDef = null;
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (child.type === "decorator") {
+        const decoName = this.getDecoratorName(child);
+        if (decoName) {
+          decorators.push(decoName);
+          if (!PY_BUILTINS.has(decoName) && !PY_KEYWORDS.has(decoName)) {
+            if (!symbols.macros.some((m) => m.name === decoName)) {
+              symbols.macros.push({
+                name: decoName,
+                type: "decorator",
+                line: child.startPosition.row + 1
+              });
+            }
+          }
+        }
+      } else if (child.type === "function_definition") {
+        funcDef = child;
+      } else if (child.type === "class_definition") {
+        classDef = child;
+      }
+    }
+    if (funcDef) {
+      this.extractFunction(funcDef, symbols, insideClass, decorators);
+    }
+    if (classDef) {
+      this.extractClass(classDef, symbols);
+    }
+  }
+  extractClass(node, symbols) {
+    const nameNode = node.childForFieldName("name");
+    const name = nameNode?.text;
+    if (!name) {
+      return;
+    }
+    const line = node.startPosition.row + 1;
+    const classSym = {
+      name,
+      type: "class",
+      line
+    };
+    const superclasses = this.extractSuperclasses(node);
+    if (superclasses.length > 0) {
+      classSym.extends = superclasses[0];
+      if (superclasses.length > 1) {
+        classSym.implements = superclasses.slice(1);
+      }
+    }
+    symbols.classes.push(classSym);
+    const body2 = node.childForFieldName("body");
+    if (body2) {
+      this.walkForSymbols(body2, symbols, true);
+    }
+  }
+  extractSuperclasses(classNode) {
+    const superclasses = [];
+    const argList = this.findChild(classNode, "argument_list");
+    if (!argList) {
+      return superclasses;
+    }
+    for (let i = 0; i < argList.childCount; i++) {
+      const child = argList.child(i);
+      if (child.type === "identifier" || child.type === "dotted_name") {
+        superclasses.push(child.text);
+      }
+    }
+    return superclasses;
+  }
+  extractAllExport(node, symbols) {
+    const assign = this.findChild(node, "assignment");
+    if (!assign) {
+      return;
+    }
+    const left = assign.childForFieldName("left");
+    if (!left || left.text !== "__all__") {
+      return;
+    }
+    const right = assign.childForFieldName("right");
+    if (!right || right.type !== "list") {
+      return;
+    }
+    for (let i = 0; i < right.childCount; i++) {
+      const child = right.child(i);
+      if (child.type === "string") {
+        const name = this.stripPyString(child.text);
+        if (name) {
+          symbols.exports.push({ name, type: "export-all", line: child.startPosition.row + 1 });
+        }
+      }
+    }
+  }
+  // ── Heritage relations as edges ────────────────────────────
+  extractHeritageRelations(tree, fileInfo) {
+    const relations = [];
+    this.walkForHeritage(tree.rootNode, fileInfo.id, relations);
+    return relations;
+  }
+  walkForHeritage(node, sourceId, relations) {
+    if (node.type === "class_definition") {
+      const nameNode = node.childForFieldName("name");
+      const className = nameNode?.text;
+      if (className) {
+        const superclasses = this.extractSuperclasses(node);
+        for (const base of superclasses) {
+          relations.push({
+            source: sourceId,
+            target: base,
+            type: "extends",
+            label: `${className} extends ${base}`
+          });
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForHeritage(node.child(i), sourceId, relations);
+    }
+  }
+  // ── AST-based call extraction ──────────────────────────────
+  extractCallsAST(tree, fileInfo, globalFunctions) {
+    const definedHere = /* @__PURE__ */ new Set();
+    const calls = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    this.collectCalls(tree.rootNode, calls, definedHere);
+    const relations = [];
+    for (const name of calls) {
+      if (globalFunctions.has(name)) {
+        relations.push({
+          source: fileInfo.id,
+          target: name,
+          type: "function-call",
+          label: `${name}()`
+        });
+      }
+    }
+    return relations;
+  }
+  extractCallsFromAST(tree) {
+    const definedHere = /* @__PURE__ */ new Set();
+    const calls = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    this.collectCalls(tree.rootNode, calls, definedHere);
+    return [...calls];
+  }
+  collectDefinedFunctions(node, defined) {
+    if (node.type === "function_definition") {
+      const name = node.childForFieldName("name")?.text;
+      if (name) {
+        defined.add(name);
+      }
+    } else if (node.type === "class_definition") {
+      const name = node.childForFieldName("name")?.text;
+      if (name) {
+        defined.add(name);
+      }
+    } else if (node.type === "decorated_definition") {
+      for (let i = 0; i < node.childCount; i++) {
+        const child = node.child(i);
+        if (child.type === "function_definition" || child.type === "class_definition") {
+          const name = child.childForFieldName("name")?.text;
+          if (name) {
+            defined.add(name);
+          }
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectDefinedFunctions(node.child(i), defined);
+    }
+  }
+  collectCalls(node, calls, definedHere) {
+    if (node.type === "call") {
+      const funcNode = node.childForFieldName("function");
+      if (funcNode?.type === "identifier") {
+        const name = funcNode.text;
+        if (!PY_BUILTINS.has(name) && !PY_KEYWORDS.has(name) && !definedHere.has(name) && !/^[A-Z_]+$/.test(name)) {
+          calls.add(name);
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectCalls(node.child(i), calls, definedHere);
+    }
+  }
+  // ── AST-based call site extraction (function-level) ────────
+  extractCallSitesAST(tree, _fileInfo) {
+    const definedHere = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    const sites = [];
+    this.collectCallSites(tree.rootNode, sites, definedHere, "<module>");
+    return sites;
+  }
+  collectCallSites(node, sites, definedHere, currentFunc) {
+    if (node.type === "function_definition") {
+      const name = node.childForFieldName("name")?.text || currentFunc;
+      for (let i = 0; i < node.childCount; i++) {
+        this.collectCallSites(node.child(i), sites, definedHere, name);
+      }
+      return;
+    }
+    if (node.type === "decorated_definition") {
+      for (let i = 0; i < node.childCount; i++) {
+        const child = node.child(i);
+        if (child.type === "function_definition") {
+          const name = child.childForFieldName("name")?.text || currentFunc;
+          this.collectCallSites(child, sites, definedHere, name);
+        } else {
+          this.collectCallSites(child, sites, definedHere, currentFunc);
+        }
+      }
+      return;
+    }
+    if (node.type === "call") {
+      const funcNode = node.childForFieldName("function");
+      if (funcNode?.type === "identifier") {
+        const name = funcNode.text;
+        if (!PY_BUILTINS.has(name) && !PY_KEYWORDS.has(name) && !/^[A-Z_]+$/.test(name)) {
+          sites.push({
+            callerName: currentFunc,
+            calleeName: name,
+            line: node.startPosition.row + 1,
+            isLocal: definedHere.has(name)
+          });
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectCallSites(node.child(i), sites, definedHere, currentFunc);
+    }
+  }
+  // ── Utilities ──────────────────────────────────────────────
+  getDecoratorName(decorator) {
+    for (let i = 0; i < decorator.childCount; i++) {
+      const child = decorator.child(i);
+      if (child.type === "identifier") {
+        return child.text;
+      }
+      if (child.type === "dotted_name") {
+        return child.text;
+      }
+      if (child.type === "call") {
+        const func2 = child.childForFieldName("function");
+        return func2?.text ?? null;
+      }
+    }
+    return null;
+  }
+  stripPyString(text) {
+    if (text.startsWith("'") && text.endsWith("'") || text.startsWith('"') && text.endsWith('"')) {
+      return text.slice(1, -1);
+    }
+    return text;
+  }
+  hasDirectChild(node, typeOrText) {
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (child.type === typeOrText || child.text === typeOrText) {
+        return true;
+      }
+    }
+    return false;
+  }
+  findChild(node, type) {
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (child.type === type) {
+        return child;
+      }
+    }
+    return null;
+  }
+};
+
+// src/analyzer/parsers/ts-java-parser.ts
+var JAVA_BUILTINS = /* @__PURE__ */ new Set([
+  "System",
+  "String",
+  "Integer",
+  "Long",
+  "Double",
+  "Float",
+  "Boolean",
+  "Object",
+  "Class",
+  "Math",
+  "Arrays",
+  "Collections",
+  "List",
+  "Map",
+  "Set",
+  "HashMap",
+  "ArrayList",
+  "HashSet",
+  "LinkedList",
+  "TreeMap",
+  "TreeSet",
+  "Optional",
+  "Stream",
+  "Collectors",
+  "Iterator",
+  "Iterable",
+  "Exception",
+  "RuntimeException",
+  "IOException",
+  "NullPointerException",
+  "Thread",
+  "Runnable",
+  "Comparable",
+  "Serializable",
+  "Cloneable",
+  "StringBuilder",
+  "StringBuffer",
+  "Throwable",
+  "Error",
+  "println",
+  "printf",
+  "print",
+  "format",
+  "toString",
+  "equals",
+  "hashCode",
+  "clone",
+  "getClass",
+  "notify",
+  "wait",
+  "valueOf",
+  "parseInt",
+  "parseDouble",
+  "parseLong",
+  "parseFloat",
+  "length",
+  "size",
+  "get",
+  "put",
+  "add",
+  "remove",
+  "contains",
+  "isEmpty",
+  "toArray",
+  "iterator",
+  "stream",
+  "forEach",
+  "map",
+  "filter",
+  "reduce",
+  "collect",
+  "of",
+  "asList",
+  "sort",
+  "reverse",
+  "min",
+  "max",
+  "close",
+  "read",
+  "write",
+  "flush",
+  "append"
+]);
+var JAVA_KEYWORDS = /* @__PURE__ */ new Set([
+  "if",
+  "else",
+  "for",
+  "while",
+  "do",
+  "switch",
+  "case",
+  "return",
+  "break",
+  "continue",
+  "throw",
+  "try",
+  "catch",
+  "finally",
+  "new",
+  "instanceof",
+  "this",
+  "super",
+  "void",
+  "null",
+  "true",
+  "false",
+  "public",
+  "private",
+  "protected",
+  "static",
+  "final",
+  "abstract",
+  "synchronized",
+  "volatile",
+  "transient",
+  "native",
+  "strictfp",
+  "class",
+  "interface",
+  "enum",
+  "extends",
+  "implements",
+  "import",
+  "package",
+  "default",
+  "assert",
+  "var"
+]);
+var TreeSitterJavaParser = class extends BaseParser {
+  constructor() {
+    super("java");
+  }
+  get usesTreeSitter() {
+    return true;
+  }
+  // ── Imports ────────────────────────────────────────────────
+  parseAST(tree, fileInfo, _options = {}) {
+    const relations = [];
+    const root = tree.rootNode;
+    for (let i = 0; i < root.childCount; i++) {
+      const node = root.child(i);
+      if (node.type !== "import_declaration") {
+        continue;
+      }
+      const pathNode = this.findChild(node, "scoped_identifier");
+      if (!pathNode) {
+        continue;
+      }
+      const target = pathNode.text;
+      const isStatic = this.hasDirectChild(node, "static");
+      relations.push({
+        source: fileInfo.id,
+        target,
+        type: isStatic ? "static-import" : "import",
+        label: isStatic ? `import static ${target}` : `import ${target}`
+      });
+    }
+    return relations;
+  }
+  // ── Symbols ────────────────────────────────────────────────
+  extractSymbolsAST(tree, _fileInfo) {
+    const symbols = {
+      functions: [],
+      externs: [],
+      structs: [],
+      enums: [],
+      macros: [],
+      classes: [],
+      exports: [],
+      interfaces: [],
+      traits: [],
+      typeAliases: [],
+      methods: []
+    };
+    this.walkForSymbols(tree.rootNode, symbols, false);
+    return symbols;
+  }
+  walkForSymbols(node, symbols, insideClass) {
+    switch (node.type) {
+      case "class_declaration":
+        this.extractClass(node, symbols);
+        return;
+      case "interface_declaration":
+        this.extractInterface(node, symbols);
+        return;
+      case "enum_declaration":
+        this.extractEnum(node, symbols);
+        return;
+      case "method_declaration":
+        if (insideClass) {
+          this.extractMethod(node, symbols);
+        }
+        return;
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForSymbols(node.child(i), symbols, insideClass);
+    }
+  }
+  extractClass(node, symbols) {
+    const nameNode = node.childForFieldName("name");
+    const name = nameNode?.text;
+    if (!name) {
+      return;
+    }
+    const line = node.startPosition.row + 1;
+    const mods = this.getModifiers(node);
+    const classSym = {
+      name,
+      type: "class",
+      line
+    };
+    if (mods.visibility) {
+      classSym.visibility = mods.visibility;
+    }
+    if (mods.isStatic) {
+      classSym.isStatic = true;
+    }
+    const superclass = this.findChild(node, "superclass");
+    if (superclass) {
+      const superName = this.findChild(superclass, "type_identifier");
+      if (superName) {
+        classSym.extends = superName.text;
+      }
+    }
+    const superInterfaces = this.findChild(node, "super_interfaces");
+    if (superInterfaces) {
+      classSym.implements = this.extractTypeList(superInterfaces);
+    }
+    symbols.classes.push(classSym);
+    const body2 = node.childForFieldName("body");
+    if (body2) {
+      for (let i = 0; i < body2.childCount; i++) {
+        this.walkForSymbols(body2.child(i), symbols, true);
+      }
+    }
+  }
+  extractInterface(node, symbols) {
+    const nameNode = node.childForFieldName("name");
+    const name = nameNode?.text;
+    if (!name) {
+      return;
+    }
+    const line = node.startPosition.row + 1;
+    symbols.interfaces.push({ name, type: "interface", line });
+    const body2 = this.findChild(node, "interface_body");
+    if (body2) {
+      for (let i = 0; i < body2.childCount; i++) {
+        const child = body2.child(i);
+        if (child.type === "method_declaration") {
+          this.extractMethod(child, symbols);
+        }
+      }
+    }
+  }
+  extractEnum(node, symbols) {
+    const nameNode = node.childForFieldName("name");
+    const name = nameNode?.text;
+    if (!name) {
+      return;
+    }
+    const line = node.startPosition.row + 1;
+    symbols.enums.push({ name, type: "enum", line });
+  }
+  extractMethod(node, symbols) {
+    const nameNode = node.childForFieldName("name");
+    const name = nameNode?.text;
+    if (!name) {
+      return;
+    }
+    const mods = this.getModifiers(node);
+    const sym = { name, type: "method" };
+    if (mods.visibility) {
+      sym.visibility = mods.visibility;
+    }
+    if (mods.isStatic) {
+      sym.isStatic = true;
+    }
+    if (mods.isAsync) {
+      sym.isAsync = true;
+    }
+    symbols.methods.push(sym);
+  }
+  // ── Heritage relations ─────────────────────────────────────
+  extractHeritageRelations(tree, fileInfo) {
+    const relations = [];
+    this.walkForHeritage(tree.rootNode, fileInfo.id, relations);
+    return relations;
+  }
+  walkForHeritage(node, sourceId, relations) {
+    if (node.type === "class_declaration") {
+      const className = node.childForFieldName("name")?.text;
+      if (className) {
+        const superclass = this.findChild(node, "superclass");
+        if (superclass) {
+          const name = this.findChild(superclass, "type_identifier")?.text;
+          if (name) {
+            relations.push({
+              source: sourceId,
+              target: name,
+              type: "extends",
+              label: `${className} extends ${name}`
+            });
+          }
+        }
+        const superIfaces = this.findChild(node, "super_interfaces");
+        if (superIfaces) {
+          for (const iface of this.extractTypeList(superIfaces)) {
+            relations.push({
+              source: sourceId,
+              target: iface,
+              type: "implements",
+              label: `${className} implements ${iface}`
+            });
+          }
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForHeritage(node.child(i), sourceId, relations);
+    }
+  }
+  // ── Calls ──────────────────────────────────────────────────
+  extractCallsAST(tree, fileInfo, globalFunctions) {
+    const definedHere = /* @__PURE__ */ new Set();
+    const calls = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    this.collectCalls(tree.rootNode, calls, definedHere);
+    const relations = [];
+    for (const name of calls) {
+      if (globalFunctions.has(name)) {
+        relations.push({
+          source: fileInfo.id,
+          target: name,
+          type: "function-call",
+          label: `${name}()`
+        });
+      }
+    }
+    return relations;
+  }
+  extractCallsFromAST(tree) {
+    const definedHere = /* @__PURE__ */ new Set();
+    const calls = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    this.collectCalls(tree.rootNode, calls, definedHere);
+    return [...calls];
+  }
+  collectDefinedFunctions(node, defined) {
+    if (node.type === "method_declaration") {
+      const name = node.childForFieldName("name")?.text;
+      if (name) {
+        defined.add(name);
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectDefinedFunctions(node.child(i), defined);
+    }
+  }
+  collectCalls(node, calls, definedHere) {
+    if (node.type === "method_invocation") {
+      const obj = node.childForFieldName("object");
+      if (!obj) {
+        const name = node.childForFieldName("name")?.text;
+        if (name && !JAVA_BUILTINS.has(name) && !JAVA_KEYWORDS.has(name) && !definedHere.has(name)) {
+          calls.add(name);
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectCalls(node.child(i), calls, definedHere);
+    }
+  }
+  // ── AST-based call site extraction (function-level) ────────
+  extractCallSitesAST(tree, _fileInfo) {
+    const definedHere = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    const sites = [];
+    this.collectCallSites(tree.rootNode, sites, definedHere, "<module>");
+    return sites;
+  }
+  collectCallSites(node, sites, definedHere, currentFunc) {
+    if (node.type === "method_declaration") {
+      const name = node.childForFieldName("name")?.text || currentFunc;
+      for (let i = 0; i < node.childCount; i++) {
+        this.collectCallSites(node.child(i), sites, definedHere, name);
+      }
+      return;
+    }
+    if (node.type === "method_invocation") {
+      const obj = node.childForFieldName("object");
+      if (!obj) {
+        const name = node.childForFieldName("name")?.text;
+        if (name && !JAVA_BUILTINS.has(name) && !JAVA_KEYWORDS.has(name)) {
+          sites.push({
+            callerName: currentFunc,
+            calleeName: name,
+            line: node.startPosition.row + 1,
+            isLocal: definedHere.has(name)
+          });
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectCallSites(node.child(i), sites, definedHere, currentFunc);
+    }
+  }
+  // ── Utilities ──────────────────────────────────────────────
+  getModifiers(node) {
+    const mods = this.findChild(node, "modifiers");
+    if (!mods) {
+      return {};
+    }
+    const text = mods.text;
+    const result = {};
+    if (text.includes("public")) {
+      result.visibility = "public";
+    } else if (text.includes("private")) {
+      result.visibility = "private";
+    } else if (text.includes("protected")) {
+      result.visibility = "protected";
+    }
+    if (text.includes("static")) {
+      result.isStatic = true;
+    }
+    if (text.includes("synchronized")) {
+      result.isAsync = false;
+    }
+    return result;
+  }
+  extractTypeList(node) {
+    const types = [];
+    const typeList = this.findChild(node, "type_list");
+    const target = typeList || node;
+    for (let i = 0; i < target.childCount; i++) {
+      const child = target.child(i);
+      if (child.type === "type_identifier") {
+        types.push(child.text);
+      }
+    }
+    return types;
+  }
+  hasDirectChild(node, typeOrText) {
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (child.type === typeOrText || child.text === typeOrText) {
+        return true;
+      }
+    }
+    return false;
+  }
+  findChild(node, type) {
+    for (let i = 0; i < node.childCount; i++) {
+      if (node.child(i).type === type) {
+        return node.child(i);
+      }
+    }
+    return null;
+  }
+};
+
+// src/analyzer/parsers/ts-go-parser.ts
+var GO_BUILTINS = /* @__PURE__ */ new Set([
+  "append",
+  "cap",
+  "close",
+  "complex",
+  "copy",
+  "delete",
+  "imag",
+  "len",
+  "make",
+  "new",
+  "panic",
+  "print",
+  "println",
+  "real",
+  "recover",
+  "error",
+  "string",
+  "bool",
+  "byte",
+  "rune",
+  "int",
+  "int8",
+  "int16",
+  "int32",
+  "int64",
+  "uint",
+  "uint8",
+  "uint16",
+  "uint32",
+  "uint64",
+  "uintptr",
+  "float32",
+  "float64",
+  "complex64",
+  "complex128",
+  "nil",
+  "true",
+  "false",
+  "iota"
+]);
+var GO_KEYWORDS = /* @__PURE__ */ new Set([
+  "break",
+  "case",
+  "chan",
+  "const",
+  "continue",
+  "default",
+  "defer",
+  "else",
+  "fallthrough",
+  "for",
+  "func",
+  "go",
+  "goto",
+  "if",
+  "import",
+  "interface",
+  "map",
+  "package",
+  "range",
+  "return",
+  "select",
+  "struct",
+  "switch",
+  "type",
+  "var"
+]);
+var TreeSitterGoParser = class extends BaseParser {
+  constructor() {
+    super("go");
+  }
+  get usesTreeSitter() {
+    return true;
+  }
+  // ── Imports ────────────────────────────────────────────────
+  parseAST(tree, fileInfo, _options = {}) {
+    const relations = [];
+    const root = tree.rootNode;
+    for (let i = 0; i < root.childCount; i++) {
+      const node = root.child(i);
+      if (node.type !== "import_declaration") {
+        continue;
+      }
+      const singleSpec = this.findChild(node, "import_spec");
+      if (singleSpec) {
+        const target = this.extractImportPath(singleSpec);
+        if (target) {
+          relations.push({
+            source: fileInfo.id,
+            target,
+            type: "import",
+            label: `import "${target}"`
+          });
+        }
+      }
+      const specList = this.findChild(node, "import_spec_list");
+      if (specList) {
+        for (let j = 0; j < specList.childCount; j++) {
+          const spec = specList.child(j);
+          if (spec.type === "import_spec") {
+            const target = this.extractImportPath(spec);
+            if (target) {
+              relations.push({
+                source: fileInfo.id,
+                target,
+                type: "import",
+                label: `import "${target}"`
+              });
+            }
+          }
+        }
+      }
+    }
+    return relations;
+  }
+  // ── Symbols ────────────────────────────────────────────────
+  extractSymbolsAST(tree, _fileInfo) {
+    const symbols = {
+      functions: [],
+      externs: [],
+      structs: [],
+      enums: [],
+      macros: [],
+      classes: [],
+      exports: [],
+      interfaces: [],
+      traits: [],
+      typeAliases: [],
+      methods: []
+    };
+    const root = tree.rootNode;
+    for (let i = 0; i < root.childCount; i++) {
+      const node = root.child(i);
+      switch (node.type) {
+        case "function_declaration":
+          this.extractFunction(node, symbols);
+          break;
+        case "method_declaration":
+          this.extractMethod(node, symbols);
+          break;
+        case "type_declaration":
+          this.extractTypeDecl(node, symbols);
+          break;
+      }
+    }
+    return symbols;
+  }
+  extractFunction(node, symbols) {
+    const nameNode = node.childForFieldName("name");
+    const name = nameNode?.text;
+    if (!name || GO_KEYWORDS.has(name)) {
+      return;
+    }
+    const line = node.startPosition.row + 1;
+    const isExported = /^[A-Z]/.test(name);
+    const sym = { name, type: "function", line };
+    symbols.functions.push(sym);
+    if (isExported) {
+      symbols.exports.push({ name, type: "export-function", line });
+    }
+  }
+  extractMethod(node, symbols) {
+    const nameNode = node.childForFieldName("name");
+    const name = nameNode?.text;
+    if (!name) {
+      return;
+    }
+    const receiverList = node.child(1);
+    let receiverType;
+    if (receiverList?.type === "parameter_list") {
+      const text = receiverList.text;
+      const match = text.match(/\*?(\w+)\s*\)/);
+      if (match) {
+        receiverType = match[1];
+      }
+    }
+    const isExported = /^[A-Z]/.test(name);
+    const sym = { name, type: "method" };
+    if (receiverType) {
+      sym.receiver = receiverType;
+    }
+    symbols.methods.push(sym);
+    if (isExported) {
+      symbols.exports.push({ name, type: "export-method", line: node.startPosition.row + 1 });
+    }
+  }
+  extractTypeDecl(node, symbols) {
+    const typeSpec = this.findChild(node, "type_spec");
+    if (!typeSpec) {
+      return;
+    }
+    const nameNode = typeSpec.child(0);
+    const defNode = typeSpec.child(1);
+    if (!nameNode || !defNode) {
+      return;
+    }
+    const name = nameNode.text;
+    const line = node.startPosition.row + 1;
+    const isExported = /^[A-Z]/.test(name);
+    if (defNode.type === "struct_type") {
+      symbols.structs.push({ name, type: "struct", line });
+      if (isExported) {
+        symbols.exports.push({ name, type: "export-struct", line });
+      }
+    } else if (defNode.type === "interface_type") {
+      symbols.interfaces.push({ name, type: "interface", line });
+      if (isExported) {
+        symbols.exports.push({ name, type: "export-interface", line });
+      }
+    }
+  }
+  // ── Calls ──────────────────────────────────────────────────
+  extractCallsAST(tree, fileInfo, globalFunctions) {
+    const definedHere = /* @__PURE__ */ new Set();
+    const calls = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    this.collectCalls(tree.rootNode, calls, definedHere);
+    const relations = [];
+    for (const name of calls) {
+      if (globalFunctions.has(name)) {
+        relations.push({
+          source: fileInfo.id,
+          target: name,
+          type: "function-call",
+          label: `${name}()`
+        });
+      }
+    }
+    return relations;
+  }
+  extractCallsFromAST(tree) {
+    const definedHere = /* @__PURE__ */ new Set();
+    const calls = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    this.collectCalls(tree.rootNode, calls, definedHere);
+    return [...calls];
+  }
+  collectDefinedFunctions(node, defined) {
+    if (node.type === "function_declaration") {
+      const name = node.childForFieldName("name")?.text;
+      if (name) {
+        defined.add(name);
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectDefinedFunctions(node.child(i), defined);
+    }
+  }
+  collectCalls(node, calls, definedHere) {
+    if (node.type === "call_expression") {
+      const funcNode = node.childForFieldName("function");
+      if (funcNode?.type === "identifier") {
+        const name = funcNode.text;
+        if (!GO_BUILTINS.has(name) && !GO_KEYWORDS.has(name) && !definedHere.has(name)) {
+          calls.add(name);
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectCalls(node.child(i), calls, definedHere);
+    }
+  }
+  // ── AST-based call site extraction (function-level) ────────
+  extractCallSitesAST(tree, _fileInfo) {
+    const definedHere = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    const sites = [];
+    this.collectCallSites(tree.rootNode, sites, definedHere, "<module>");
+    return sites;
+  }
+  collectCallSites(node, sites, definedHere, currentFunc) {
+    if (node.type === "function_declaration") {
+      const name = node.childForFieldName("name")?.text || currentFunc;
+      for (let i = 0; i < node.childCount; i++) {
+        this.collectCallSites(node.child(i), sites, definedHere, name);
+      }
+      return;
+    }
+    if (node.type === "method_declaration") {
+      const name = node.childForFieldName("name")?.text || currentFunc;
+      for (let i = 0; i < node.childCount; i++) {
+        this.collectCallSites(node.child(i), sites, definedHere, name);
+      }
+      return;
+    }
+    if (node.type === "call_expression") {
+      const funcNode = node.childForFieldName("function");
+      if (funcNode?.type === "identifier") {
+        const name = funcNode.text;
+        if (!GO_BUILTINS.has(name) && !GO_KEYWORDS.has(name)) {
+          sites.push({
+            callerName: currentFunc,
+            calleeName: name,
+            line: node.startPosition.row + 1,
+            isLocal: definedHere.has(name)
+          });
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectCallSites(node.child(i), sites, definedHere, currentFunc);
+    }
+  }
+  // ── Utilities ──────────────────────────────────────────────
+  extractImportPath(spec) {
+    for (let i = 0; i < spec.childCount; i++) {
+      const child = spec.child(i);
+      if (child.type === "interpreted_string_literal") {
+        return child.text.slice(1, -1);
+      }
+    }
+    return null;
+  }
+  findChild(node, type) {
+    for (let i = 0; i < node.childCount; i++) {
+      if (node.child(i).type === type) {
+        return node.child(i);
+      }
+    }
+    return null;
+  }
+};
+
+// src/analyzer/parsers/ts-rust-parser.ts
+var RUST_BUILTINS = /* @__PURE__ */ new Set([
+  "println",
+  "print",
+  "eprintln",
+  "eprint",
+  "format",
+  "write",
+  "writeln",
+  "panic",
+  "todo",
+  "unimplemented",
+  "unreachable",
+  "assert",
+  "assert_eq",
+  "assert_ne",
+  "debug_assert",
+  "debug_assert_eq",
+  "debug_assert_ne",
+  "vec",
+  "cfg",
+  "include",
+  "include_str",
+  "include_bytes",
+  "env",
+  "option_env",
+  "concat",
+  "stringify",
+  "line",
+  "column",
+  "file",
+  "Box",
+  "Vec",
+  "String",
+  "Option",
+  "Result",
+  "Some",
+  "None",
+  "Ok",
+  "Err",
+  "HashMap",
+  "HashSet",
+  "BTreeMap",
+  "BTreeSet",
+  "VecDeque",
+  "LinkedList",
+  "Rc",
+  "Arc",
+  "Mutex",
+  "RwLock",
+  "Cell",
+  "RefCell",
+  "Into",
+  "From",
+  "TryInto",
+  "TryFrom",
+  "AsRef",
+  "AsMut",
+  "Default",
+  "Clone",
+  "Copy",
+  "Debug",
+  "Display",
+  "PartialEq",
+  "Eq",
+  "PartialOrd",
+  "Ord",
+  "Hash",
+  "Iterator",
+  "IntoIterator",
+  "Send",
+  "Sync",
+  "Sized",
+  "Unpin",
+  "Drop",
+  "drop",
+  "swap",
+  "replace",
+  "take",
+  "unwrap",
+  "expect",
+  "map",
+  "and_then",
+  "or_else",
+  "unwrap_or",
+  "is_some",
+  "is_none",
+  "is_ok",
+  "is_err",
+  "iter",
+  "into_iter",
+  "collect",
+  "filter",
+  "fold",
+  "for_each",
+  "push",
+  "pop",
+  "len",
+  "is_empty",
+  "contains",
+  "get",
+  "insert",
+  "remove",
+  "clone",
+  "to_string",
+  "to_owned",
+  "as_str",
+  "as_ref",
+  "as_mut"
+]);
+var RUST_KEYWORDS = /* @__PURE__ */ new Set([
+  "as",
+  "async",
+  "await",
+  "break",
+  "const",
+  "continue",
+  "crate",
+  "dyn",
+  "else",
+  "enum",
+  "extern",
+  "fn",
+  "for",
+  "if",
+  "impl",
+  "in",
+  "let",
+  "loop",
+  "match",
+  "mod",
+  "move",
+  "mut",
+  "pub",
+  "ref",
+  "return",
+  "self",
+  "Self",
+  "static",
+  "struct",
+  "super",
+  "trait",
+  "type",
+  "unsafe",
+  "use",
+  "where",
+  "while",
+  "yield",
+  "true",
+  "false"
+]);
+var TreeSitterRustParser = class extends BaseParser {
+  constructor() {
+    super("rust");
+  }
+  get usesTreeSitter() {
+    return true;
+  }
+  // ── Imports (use/mod) ──────────────────────────────────────
+  parseAST(tree, fileInfo, _options = {}) {
+    const relations = [];
+    const root = tree.rootNode;
+    for (let i = 0; i < root.childCount; i++) {
+      const node = root.child(i);
+      if (node.type === "use_declaration") {
+        this.extractUse(node, fileInfo.id, relations);
+      } else if (node.type === "mod_item") {
+        this.extractMod(node, fileInfo.id, relations);
+      }
+    }
+    return relations;
+  }
+  extractUse(node, sourceId, relations) {
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (child.type === "scoped_identifier" || child.type === "identifier" || child.type === "scoped_use_list" || child.type === "use_wildcard") {
+        const target = child.text;
+        relations.push({
+          source: sourceId,
+          target,
+          type: "use",
+          label: `use ${target}`
+        });
+        return;
+      }
+    }
+  }
+  extractMod(node, sourceId, relations) {
+    const nameNode = node.childForFieldName("name");
+    if (!nameNode) {
+      return;
+    }
+    if (this.findChild(node, "declaration_list")) {
+      return;
+    }
+    const target = nameNode.text;
+    relations.push({
+      source: sourceId,
+      target,
+      type: "mod",
+      label: `mod ${target}`
+    });
+  }
+  // ── Symbols ────────────────────────────────────────────────
+  extractSymbolsAST(tree, _fileInfo) {
+    const symbols = {
+      functions: [],
+      externs: [],
+      structs: [],
+      enums: [],
+      macros: [],
+      classes: [],
+      exports: [],
+      interfaces: [],
+      traits: [],
+      typeAliases: [],
+      methods: []
+    };
+    this.walkForSymbols(tree.rootNode, symbols);
+    return symbols;
+  }
+  walkForSymbols(node, symbols) {
+    switch (node.type) {
+      case "function_item":
+        this.extractFunction(node, symbols);
+        return;
+      case "struct_item":
+        this.extractStruct(node, symbols);
+        return;
+      case "enum_item":
+        this.extractEnum(node, symbols);
+        return;
+      case "trait_item":
+        this.extractTrait(node, symbols);
+        return;
+      case "impl_item":
+        this.extractImpl(node, symbols);
+        return;
+      case "type_item":
+        this.extractTypeAlias(node, symbols);
+        return;
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForSymbols(node.child(i), symbols);
+    }
+  }
+  extractFunction(node, symbols) {
+    const nameNode = node.childForFieldName("name");
+    const name = nameNode?.text;
+    if (!name || RUST_KEYWORDS.has(name)) {
+      return;
+    }
+    const line = node.startPosition.row + 1;
+    const isPub = this.hasDirectChild(node, "visibility_modifier");
+    const isAsync = this.hasChildType(node, "function_modifiers");
+    const sym = { name, type: "function", line };
+    if (isAsync) {
+      sym.isAsync = true;
+    }
+    if (isPub) {
+      sym.visibility = "public";
+    }
+    symbols.functions.push(sym);
+    if (isPub) {
+      symbols.exports.push({ name, type: "export-function", line });
+    }
+  }
+  extractStruct(node, symbols) {
+    const nameNode = node.childForFieldName("name");
+    const name = nameNode?.text;
+    if (!name) {
+      return;
+    }
+    const line = node.startPosition.row + 1;
+    const isPub = this.hasDirectChild(node, "visibility_modifier");
+    symbols.structs.push({ name, type: "struct", line });
+    if (isPub) {
+      symbols.exports.push({ name, type: "export-struct", line });
+    }
+  }
+  extractEnum(node, symbols) {
+    const nameNode = node.childForFieldName("name");
+    const name = nameNode?.text;
+    if (!name) {
+      return;
+    }
+    const line = node.startPosition.row + 1;
+    const isPub = this.hasDirectChild(node, "visibility_modifier");
+    symbols.enums.push({ name, type: "enum", line });
+    if (isPub) {
+      symbols.exports.push({ name, type: "export-enum", line });
+    }
+  }
+  extractTrait(node, symbols) {
+    const nameNode = node.childForFieldName("name");
+    const name = nameNode?.text;
+    if (!name) {
+      return;
+    }
+    const line = node.startPosition.row + 1;
+    const isPub = this.hasDirectChild(node, "visibility_modifier");
+    symbols.traits.push({ name, type: "trait", line });
+    if (isPub) {
+      symbols.exports.push({ name, type: "export-trait", line });
+    }
+  }
+  extractImpl(node, symbols) {
+    const body2 = this.findChild(node, "declaration_list");
+    if (!body2) {
+      return;
+    }
+    const typeIds = this.findAllChildren(node, "type_identifier");
+    const hasTrait = this.hasDirectChild(node, "for");
+    let structName;
+    let traitName;
+    if (hasTrait && typeIds.length >= 2) {
+      traitName = typeIds[0].text;
+      structName = typeIds[1].text;
+    } else if (typeIds.length >= 1) {
+      structName = typeIds[0].text;
+    }
+    for (let i = 0; i < body2.childCount; i++) {
+      const child = body2.child(i);
+      if (child.type === "function_item") {
+        const nameNode = child.childForFieldName("name");
+        const name = nameNode?.text;
+        if (!name) {
+          continue;
+        }
+        const isPub = this.hasDirectChild(child, "visibility_modifier");
+        const isAsync = this.hasChildType(child, "function_modifiers");
+        const sym = { name, type: "method" };
+        if (isPub) {
+          sym.visibility = "public";
+        }
+        if (isAsync) {
+          sym.isAsync = true;
+        }
+        if (structName) {
+          sym.receiver = structName;
+        }
+        symbols.methods.push(sym);
+      }
+    }
+  }
+  extractTypeAlias(node, symbols) {
+    const nameNode = node.childForFieldName("name");
+    const name = nameNode?.text;
+    if (!name) {
+      return;
+    }
+    const line = node.startPosition.row + 1;
+    symbols.typeAliases.push({ name, type: "type-alias", line });
+  }
+  // ── Heritage (impl Trait for Struct) ───────────────────────
+  extractHeritageRelations(tree, fileInfo) {
+    const relations = [];
+    this.walkForHeritage(tree.rootNode, fileInfo.id, relations);
+    return relations;
+  }
+  walkForHeritage(node, sourceId, relations) {
+    if (node.type === "impl_item") {
+      const hasTrait = this.hasDirectChild(node, "for");
+      if (hasTrait) {
+        const typeIds = this.findAllChildren(node, "type_identifier");
+        if (typeIds.length >= 2) {
+          const traitName = typeIds[0].text;
+          const structName = typeIds[1].text;
+          relations.push({
+            source: sourceId,
+            target: traitName,
+            type: "implements",
+            label: `${structName} implements ${traitName}`
+          });
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForHeritage(node.child(i), sourceId, relations);
+    }
+  }
+  // ── Calls ──────────────────────────────────────────────────
+  extractCallsAST(tree, fileInfo, globalFunctions) {
+    const definedHere = /* @__PURE__ */ new Set();
+    const calls = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    this.collectCalls(tree.rootNode, calls, definedHere);
+    const relations = [];
+    for (const name of calls) {
+      if (globalFunctions.has(name)) {
+        relations.push({
+          source: fileInfo.id,
+          target: name,
+          type: "function-call",
+          label: `${name}()`
+        });
+      }
+    }
+    return relations;
+  }
+  extractCallsFromAST(tree) {
+    const definedHere = /* @__PURE__ */ new Set();
+    const calls = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    this.collectCalls(tree.rootNode, calls, definedHere);
+    return [...calls];
+  }
+  collectDefinedFunctions(node, defined) {
+    if (node.type === "function_item") {
+      const name = node.childForFieldName("name")?.text;
+      if (name) {
+        defined.add(name);
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectDefinedFunctions(node.child(i), defined);
+    }
+  }
+  collectCalls(node, calls, definedHere) {
+    if (node.type === "call_expression") {
+      const funcNode = node.childForFieldName("function");
+      if (funcNode?.type === "identifier") {
+        const name = funcNode.text;
+        if (!RUST_BUILTINS.has(name) && !RUST_KEYWORDS.has(name) && !definedHere.has(name) && !/^[A-Z_]+$/.test(name)) {
+          calls.add(name);
+        }
+      }
+    }
+    if (node.type === "macro_invocation") {
+      const macroNode = node.child(0);
+      if (macroNode?.type === "identifier") {
+        const name = macroNode.text;
+        if (!RUST_BUILTINS.has(name) && !RUST_KEYWORDS.has(name)) {
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectCalls(node.child(i), calls, definedHere);
+    }
+  }
+  // ── AST-based call site extraction (function-level) ────────
+  extractCallSitesAST(tree, _fileInfo) {
+    const definedHere = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    const sites = [];
+    this.collectCallSites(tree.rootNode, sites, definedHere, "<module>");
+    return sites;
+  }
+  collectCallSites(node, sites, definedHere, currentFunc) {
+    if (node.type === "function_item") {
+      const name = node.childForFieldName("name")?.text || currentFunc;
+      for (let i = 0; i < node.childCount; i++) {
+        this.collectCallSites(node.child(i), sites, definedHere, name);
+      }
+      return;
+    }
+    if (node.type === "call_expression") {
+      const funcNode = node.childForFieldName("function");
+      if (funcNode?.type === "identifier") {
+        const name = funcNode.text;
+        if (!RUST_BUILTINS.has(name) && !RUST_KEYWORDS.has(name) && !/^[A-Z_]+$/.test(name)) {
+          sites.push({
+            callerName: currentFunc,
+            calleeName: name,
+            line: node.startPosition.row + 1,
+            isLocal: definedHere.has(name)
+          });
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectCallSites(node.child(i), sites, definedHere, currentFunc);
+    }
+  }
+  // ── Utilities ──────────────────────────────────────────────
+  hasDirectChild(node, type) {
+    for (let i = 0; i < node.childCount; i++) {
+      if (node.child(i).type === type) {
+        return true;
+      }
+    }
+    return false;
+  }
+  hasChildType(node, type) {
+    for (let i = 0; i < node.childCount; i++) {
+      if (node.child(i).type === type) {
+        return true;
+      }
+    }
+    return false;
+  }
+  findChild(node, type) {
+    for (let i = 0; i < node.childCount; i++) {
+      if (node.child(i).type === type) {
+        return node.child(i);
+      }
+    }
+    return null;
+  }
+  findAllChildren(node, type) {
+    const results = [];
+    for (let i = 0; i < node.childCount; i++) {
+      if (node.child(i).type === type) {
+        results.push(node.child(i));
+      }
+    }
+    return results;
+  }
+};
+
+// src/analyzer/parsers/ts-kotlin-parser.ts
+var KOTLIN_BUILTINS = /* @__PURE__ */ new Set([
+  "println",
+  "print",
+  "readLine",
+  "require",
+  "requireNotNull",
+  "check",
+  "checkNotNull",
+  "error",
+  "TODO",
+  "run",
+  "let",
+  "apply",
+  "also",
+  "with",
+  "use",
+  "lazy",
+  "arrayOf",
+  "listOf",
+  "mutableListOf",
+  "setOf",
+  "mutableSetOf",
+  "mapOf",
+  "mutableMapOf",
+  "emptyList",
+  "emptySet",
+  "emptyMap",
+  "arrayOfNulls",
+  "intArrayOf",
+  "longArrayOf",
+  "doubleArrayOf",
+  "floatArrayOf",
+  "booleanArrayOf",
+  "byteArrayOf",
+  "shortArrayOf",
+  "charArrayOf",
+  "String",
+  "Int",
+  "Long",
+  "Double",
+  "Float",
+  "Boolean",
+  "Char",
+  "Byte",
+  "Short",
+  "Any",
+  "Unit",
+  "Nothing",
+  "List",
+  "Set",
+  "Map",
+  "Array",
+  "IntArray",
+  "LongArray",
+  "maxOf",
+  "minOf",
+  "compareValues",
+  "hashCode",
+  "toString"
+]);
+var KOTLIN_KEYWORDS = /* @__PURE__ */ new Set([
+  "as",
+  "break",
+  "class",
+  "continue",
+  "do",
+  "else",
+  "false",
+  "for",
+  "fun",
+  "if",
+  "in",
+  "interface",
+  "is",
+  "null",
+  "object",
+  "package",
+  "return",
+  "super",
+  "this",
+  "throw",
+  "true",
+  "try",
+  "typealias",
+  "val",
+  "var",
+  "when",
+  "while",
+  "by",
+  "catch",
+  "constructor",
+  "delegate",
+  "dynamic",
+  "field",
+  "file",
+  "finally",
+  "get",
+  "import",
+  "init",
+  "param",
+  "property",
+  "receiver",
+  "set",
+  "setparam",
+  "where",
+  "private",
+  "public",
+  "protected",
+  "internal",
+  "open",
+  "final",
+  "abstract",
+  "sealed",
+  "data",
+  "enum",
+  "inner",
+  "override",
+  "lateinit",
+  "companion",
+  "inline",
+  "noinline",
+  "crossinline",
+  "reified",
+  "tailrec",
+  "operator",
+  "infix",
+  "external",
+  "suspend"
+]);
+var TreeSitterKotlinParser = class extends BaseParser {
+  constructor() {
+    super("kotlin");
+  }
+  get usesTreeSitter() {
+    return true;
+  }
+  // ── Imports ────────────────────────────────────────────────
+  parseAST(tree, fileInfo, _options = {}) {
+    const relations = [];
+    this.walkImports(tree.rootNode, fileInfo.id, relations);
+    return relations;
+  }
+  walkImports(node, sourceId, relations) {
+    if (node.type === "import_header" || node.type === "import_directive") {
+      const id = this.findFirstByType(node, "identifier");
+      if (id) {
+        const target = id.text;
+        if (target) {
+          relations.push({
+            source: sourceId,
+            target,
+            type: "import",
+            label: `import ${target}`
+          });
+        }
+      }
+      return;
+    }
+    if (node.type === "source_file" || node.type === "file_annotation" || node.type === "package_header") {
+      for (let i = 0; i < node.childCount; i++) {
+        this.walkImports(node.child(i), sourceId, relations);
+      }
+      return;
+    }
+    for (let i = 0; i < Math.min(node.childCount, 50); i++) {
+      const c = node.child(i);
+      if (c.type === "import_list" || c.type === "import_header" || c.type === "import_directive") {
+        this.walkImports(c, sourceId, relations);
+      }
+    }
+  }
+  // ── Symbols ────────────────────────────────────────────────
+  extractSymbolsAST(tree, _fileInfo) {
+    const symbols = {
+      functions: [],
+      externs: [],
+      structs: [],
+      enums: [],
+      macros: [],
+      classes: [],
+      exports: [],
+      interfaces: [],
+      traits: [],
+      typeAliases: [],
+      methods: []
+    };
+    this.walkSymbols(tree.rootNode, symbols, false);
+    return symbols;
+  }
+  walkSymbols(node, symbols, insideClass) {
+    switch (node.type) {
+      case "function_declaration": {
+        const name = this.getDeclName(node);
+        if (name) {
+          const sym = {
+            name,
+            type: insideClass ? "method" : "function",
+            line: node.startPosition.row + 1
+          };
+          if (insideClass)
+            symbols.methods.push(sym);
+          else
+            symbols.functions.push(sym);
+        }
+        return;
+      }
+      case "class_declaration": {
+        const name = this.getDeclName(node);
+        if (name) {
+          symbols.classes.push({ name, type: "class", line: node.startPosition.row + 1 });
+        }
+        for (let i = 0; i < node.childCount; i++) {
+          this.walkSymbols(node.child(i), symbols, true);
+        }
+        return;
+      }
+      case "object_declaration": {
+        const name = this.getDeclName(node);
+        if (name) {
+          symbols.classes.push({ name, type: "object", line: node.startPosition.row + 1 });
+        }
+        for (let i = 0; i < node.childCount; i++) {
+          this.walkSymbols(node.child(i), symbols, true);
+        }
+        return;
+      }
+      case "interface_declaration": {
+        const name = this.getDeclName(node);
+        if (name) {
+          symbols.interfaces.push({ name, type: "interface", line: node.startPosition.row + 1 });
+        }
+        for (let i = 0; i < node.childCount; i++) {
+          this.walkSymbols(node.child(i), symbols, true);
+        }
+        return;
+      }
+      case "type_alias": {
+        const name = this.getDeclName(node);
+        if (name) {
+          symbols.typeAliases.push({ name, type: "type-alias", line: node.startPosition.row + 1 });
+        }
+        return;
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkSymbols(node.child(i), symbols, insideClass);
+    }
+  }
+  getDeclName(node) {
+    const named = node.childForFieldName("name");
+    if (named && named.text)
+      return named.text;
+    for (let i = 0; i < node.childCount; i++) {
+      const c = node.child(i);
+      if (c.type === "simple_identifier" || c.type === "type_identifier" || c.type === "identifier") {
+        return c.text;
+      }
+    }
+    return null;
+  }
+  // ── Calls ──────────────────────────────────────────────────
+  extractCallsAST(tree, fileInfo, globalFunctions) {
+    const definedHere = /* @__PURE__ */ new Set();
+    const calls = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    this.collectCalls(tree.rootNode, calls, definedHere);
+    const relations = [];
+    for (const name of calls) {
+      if (globalFunctions.has(name)) {
+        relations.push({
+          source: fileInfo.id,
+          target: name,
+          type: "function-call",
+          label: `${name}()`
+        });
+      }
+    }
+    return relations;
+  }
+  collectDefinedFunctions(node, defined) {
+    if (node.type === "function_declaration") {
+      const name = this.getDeclName(node);
+      if (name)
+        defined.add(name);
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectDefinedFunctions(node.child(i), defined);
+    }
+  }
+  collectCalls(node, calls, definedHere) {
+    if (node.type === "call_expression") {
+      const first = node.child(0);
+      if (first && (first.type === "simple_identifier" || first.type === "identifier")) {
+        const name = first.text;
+        if (name && !KOTLIN_BUILTINS.has(name) && !KOTLIN_KEYWORDS.has(name) && !definedHere.has(name) && /^[a-zA-Z_]/.test(name)) {
+          calls.add(name);
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectCalls(node.child(i), calls, definedHere);
+    }
+  }
+  // ── Call sites (function-level) ────────────────────────────
+  extractCallSitesAST(tree, _fileInfo) {
+    const definedHere = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    const sites = [];
+    this.collectCallSites(tree.rootNode, sites, definedHere, "<module>");
+    return sites;
+  }
+  collectCallSites(node, sites, definedHere, currentFunc) {
+    if (node.type === "function_declaration") {
+      const name = this.getDeclName(node) || currentFunc;
+      for (let i = 0; i < node.childCount; i++) {
+        this.collectCallSites(node.child(i), sites, definedHere, name);
+      }
+      return;
+    }
+    if (node.type === "call_expression") {
+      const first = node.child(0);
+      if (first && (first.type === "simple_identifier" || first.type === "identifier")) {
+        const name = first.text;
+        if (name && !KOTLIN_BUILTINS.has(name) && !KOTLIN_KEYWORDS.has(name) && /^[a-zA-Z_]/.test(name)) {
+          sites.push({
+            callerName: currentFunc,
+            calleeName: name,
+            line: node.startPosition.row + 1,
+            isLocal: definedHere.has(name)
+          });
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectCallSites(node.child(i), sites, definedHere, currentFunc);
+    }
+  }
+  findFirstByType(node, type) {
+    if (node.type === type)
+      return node;
+    for (let i = 0; i < node.childCount; i++) {
+      const found = this.findFirstByType(node.child(i), type);
+      if (found)
+        return found;
+    }
+    return null;
+  }
+};
+
+// src/analyzer/parsers/ts-ruby-parser.ts
+var RUBY_BUILTINS = /* @__PURE__ */ new Set([
+  "puts",
+  "print",
+  "p",
+  "pp",
+  "gets",
+  "readline",
+  "sprintf",
+  "format",
+  "require",
+  "require_relative",
+  "load",
+  "autoload",
+  "include",
+  "extend",
+  "attr_accessor",
+  "attr_reader",
+  "attr_writer",
+  "private",
+  "public",
+  "protected",
+  "module_function",
+  "lambda",
+  "proc",
+  "raise",
+  "fail",
+  "catch",
+  "throw",
+  "loop",
+  "sleep",
+  "exit",
+  "abort",
+  "caller",
+  "block_given?",
+  "yield",
+  "binding",
+  "String",
+  "Integer",
+  "Float",
+  "Array",
+  "Hash",
+  "Symbol",
+  "Range",
+  "Object",
+  "Class",
+  "Module",
+  "NilClass",
+  "TrueClass",
+  "FalseClass",
+  "Numeric",
+  "Comparable",
+  "Enumerable",
+  "Kernel",
+  "BasicObject",
+  "new",
+  "inspect",
+  "to_s",
+  "to_a",
+  "to_h",
+  "to_i",
+  "to_f",
+  "to_sym",
+  "is_a?",
+  "kind_of?",
+  "instance_of?",
+  "respond_to?",
+  "send",
+  "__send__",
+  "dup",
+  "clone",
+  "freeze",
+  "frozen?",
+  "tap",
+  "then",
+  "yield_self",
+  "each",
+  "map",
+  "collect",
+  "select",
+  "filter",
+  "reject",
+  "reduce",
+  "inject",
+  "find",
+  "detect",
+  "any?",
+  "all?",
+  "none?",
+  "one?",
+  "count",
+  "size",
+  "length",
+  "empty?",
+  "first",
+  "last",
+  "min",
+  "max",
+  "sort",
+  "sort_by",
+  "group_by",
+  "zip",
+  "flatten",
+  "compact",
+  "uniq",
+  "reverse",
+  "include?",
+  "push",
+  "pop",
+  "shift",
+  "unshift",
+  "concat",
+  "join",
+  "split",
+  "gsub",
+  "sub",
+  "match",
+  "scan",
+  "strip",
+  "chomp",
+  "chop",
+  "upcase",
+  "downcase",
+  "capitalize",
+  "reverse",
+  "replace",
+  "slice"
+]);
+var RUBY_KEYWORDS = /* @__PURE__ */ new Set([
+  "BEGIN",
+  "END",
+  "alias",
+  "and",
+  "begin",
+  "break",
+  "case",
+  "class",
+  "def",
+  "defined?",
+  "do",
+  "else",
+  "elsif",
+  "end",
+  "ensure",
+  "false",
+  "for",
+  "if",
+  "in",
+  "module",
+  "next",
+  "nil",
+  "not",
+  "or",
+  "redo",
+  "rescue",
+  "retry",
+  "return",
+  "self",
+  "super",
+  "then",
+  "true",
+  "undef",
+  "unless",
+  "until",
+  "when",
+  "while",
+  "yield",
+  "__FILE__",
+  "__LINE__",
+  "__ENCODING__"
+]);
+var TreeSitterRubyParser = class extends BaseParser {
+  constructor() {
+    super("ruby");
+  }
+  get usesTreeSitter() {
+    return true;
+  }
+  // ── Imports (require / require_relative / load) ────────────
+  parseAST(tree, fileInfo, _options = {}) {
+    const relations = [];
+    this.walkRequires(tree.rootNode, fileInfo.id, relations);
+    return relations;
+  }
+  walkRequires(node, sourceId, relations) {
+    if (node.type === "call" || node.type === "method_call") {
+      const method = node.childForFieldName("method") || node.child(0);
+      const methodText = method?.text;
+      if (methodText === "require" || methodText === "require_relative" || methodText === "load" || methodText === "autoload") {
+        const args2 = node.childForFieldName("arguments") || this.findChild(node, "argument_list");
+        if (args2) {
+          const str = this.findStringInArgs(args2);
+          if (str) {
+            relations.push({
+              source: sourceId,
+              target: str,
+              type: "import",
+              label: `${methodText} '${str}'`
+            });
+          }
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkRequires(node.child(i), sourceId, relations);
+    }
+  }
+  findStringInArgs(args2) {
+    for (let i = 0; i < args2.childCount; i++) {
+      const c = args2.child(i);
+      if (c.type === "string") {
+        const content = this.findChild(c, "string_content");
+        if (content)
+          return content.text;
+        const t = c.text;
+        if (t.length >= 2)
+          return t.slice(1, -1);
+      } else if (c.type === "string_array" || c.type === "simple_symbol") {
+      }
+    }
+    return null;
+  }
+  // ── Symbols ────────────────────────────────────────────────
+  extractSymbolsAST(tree, _fileInfo) {
+    const symbols = {
+      functions: [],
+      externs: [],
+      structs: [],
+      enums: [],
+      macros: [],
+      classes: [],
+      exports: [],
+      interfaces: [],
+      traits: [],
+      typeAliases: [],
+      methods: []
+    };
+    this.walkSymbols(tree.rootNode, symbols, false);
+    return symbols;
+  }
+  walkSymbols(node, symbols, insideClass) {
+    switch (node.type) {
+      case "method": {
+        const name = this.getMethodName(node);
+        if (name) {
+          const sym = {
+            name,
+            type: insideClass ? "method" : "function",
+            line: node.startPosition.row + 1
+          };
+          if (insideClass)
+            symbols.methods.push(sym);
+          else
+            symbols.functions.push(sym);
+        }
+        return;
+      }
+      case "singleton_method": {
+        const name = this.getMethodName(node);
+        if (name) {
+          symbols.methods.push({
+            name,
+            type: "singleton-method",
+            line: node.startPosition.row + 1
+          });
+        }
+        return;
+      }
+      case "class": {
+        const name = this.getClassName(node);
+        if (name) {
+          symbols.classes.push({
+            name,
+            type: "class",
+            line: node.startPosition.row + 1
+          });
+        }
+        for (let i = 0; i < node.childCount; i++) {
+          this.walkSymbols(node.child(i), symbols, true);
+        }
+        return;
+      }
+      case "module": {
+        const name = this.getClassName(node);
+        if (name) {
+          symbols.classes.push({
+            name,
+            type: "module",
+            line: node.startPosition.row + 1
+          });
+        }
+        for (let i = 0; i < node.childCount; i++) {
+          this.walkSymbols(node.child(i), symbols, true);
+        }
+        return;
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkSymbols(node.child(i), symbols, insideClass);
+    }
+  }
+  getMethodName(node) {
+    const named = node.childForFieldName("name");
+    if (named && named.text)
+      return named.text;
+    for (let i = 0; i < node.childCount; i++) {
+      const c = node.child(i);
+      if (c.type === "identifier" || c.type === "constant" || c.type === "operator") {
+        return c.text;
+      }
+    }
+    return null;
+  }
+  getClassName(node) {
+    const named = node.childForFieldName("name");
+    if (named && named.text)
+      return named.text;
+    for (let i = 0; i < node.childCount; i++) {
+      const c = node.child(i);
+      if (c.type === "constant" || c.type === "scope_resolution") {
+        return c.text;
+      }
+    }
+    return null;
+  }
+  // ── Calls ──────────────────────────────────────────────────
+  extractCallsAST(tree, fileInfo, globalFunctions) {
+    const definedHere = /* @__PURE__ */ new Set();
+    const calls = /* @__PURE__ */ new Set();
+    this.collectDefinedMethods(tree.rootNode, definedHere);
+    this.collectCalls(tree.rootNode, calls, definedHere);
+    const relations = [];
+    for (const name of calls) {
+      if (globalFunctions.has(name)) {
+        relations.push({
+          source: fileInfo.id,
+          target: name,
+          type: "function-call",
+          label: `${name}`
+        });
+      }
+    }
+    return relations;
+  }
+  collectDefinedMethods(node, defined) {
+    if (node.type === "method" || node.type === "singleton_method") {
+      const name = this.getMethodName(node);
+      if (name)
+        defined.add(name);
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectDefinedMethods(node.child(i), defined);
+    }
+  }
+  collectCalls(node, calls, definedHere) {
+    if (node.type === "call" || node.type === "method_call") {
+      const method = node.childForFieldName("method");
+      if (method && (method.type === "identifier" || method.type === "constant")) {
+        const name = method.text;
+        if (name && !RUBY_BUILTINS.has(name) && !RUBY_KEYWORDS.has(name) && !definedHere.has(name)) {
+          calls.add(name);
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectCalls(node.child(i), calls, definedHere);
+    }
+  }
+  // ── Call sites (function-level) ────────────────────────────
+  extractCallSitesAST(tree, _fileInfo) {
+    const definedHere = /* @__PURE__ */ new Set();
+    this.collectDefinedMethods(tree.rootNode, definedHere);
+    const sites = [];
+    this.collectCallSites(tree.rootNode, sites, definedHere, "<module>");
+    return sites;
+  }
+  collectCallSites(node, sites, definedHere, currentFunc) {
+    if (node.type === "method" || node.type === "singleton_method") {
+      const name = this.getMethodName(node) || currentFunc;
+      for (let i = 0; i < node.childCount; i++) {
+        this.collectCallSites(node.child(i), sites, definedHere, name);
+      }
+      return;
+    }
+    if (node.type === "call" || node.type === "method_call") {
+      const method = node.childForFieldName("method");
+      if (method && (method.type === "identifier" || method.type === "constant")) {
+        const name = method.text;
+        if (name && !RUBY_BUILTINS.has(name) && !RUBY_KEYWORDS.has(name)) {
+          sites.push({
+            callerName: currentFunc,
+            calleeName: name,
+            line: node.startPosition.row + 1,
+            isLocal: definedHere.has(name)
+          });
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectCallSites(node.child(i), sites, definedHere, currentFunc);
+    }
+  }
+  findChild(node, type) {
+    for (let i = 0; i < node.childCount; i++) {
+      if (node.child(i).type === type)
+        return node.child(i);
+    }
+    return null;
+  }
+};
+
+// src/analyzer/parsers/ts-swift-parser.ts
+var SWIFT_BUILTINS = /* @__PURE__ */ new Set([
+  "print",
+  "debugPrint",
+  "dump",
+  "precondition",
+  "preconditionFailure",
+  "assert",
+  "assertionFailure",
+  "fatalError",
+  "abort",
+  "exit",
+  "String",
+  "Int",
+  "Int8",
+  "Int16",
+  "Int32",
+  "Int64",
+  "UInt",
+  "UInt8",
+  "UInt16",
+  "UInt32",
+  "UInt64",
+  "Double",
+  "Float",
+  "Bool",
+  "Character",
+  "Array",
+  "Dictionary",
+  "Set",
+  "Optional",
+  "Result",
+  "Range",
+  "ClosedRange",
+  "Any",
+  "AnyObject",
+  "Self",
+  "Void",
+  "Never",
+  "min",
+  "max",
+  "abs",
+  "sqrt",
+  "pow",
+  "sin",
+  "cos",
+  "tan",
+  "map",
+  "filter",
+  "reduce",
+  "compactMap",
+  "flatMap",
+  "sorted",
+  "forEach",
+  "first",
+  "last",
+  "count",
+  "isEmpty",
+  "contains",
+  "append",
+  "insert",
+  "remove",
+  "removeAll",
+  "removeFirst",
+  "removeLast",
+  "description",
+  "debugDescription",
+  "hashValue",
+  "lazy",
+  "mutating",
+  "nonmutating",
+  "unowned",
+  "weak"
+]);
+var SWIFT_KEYWORDS = /* @__PURE__ */ new Set([
+  "associatedtype",
+  "class",
+  "deinit",
+  "enum",
+  "extension",
+  "fileprivate",
+  "func",
+  "import",
+  "init",
+  "inout",
+  "internal",
+  "let",
+  "open",
+  "operator",
+  "private",
+  "protocol",
+  "public",
+  "rethrows",
+  "static",
+  "struct",
+  "subscript",
+  "typealias",
+  "var",
+  "break",
+  "case",
+  "continue",
+  "default",
+  "defer",
+  "do",
+  "else",
+  "fallthrough",
+  "for",
+  "guard",
+  "if",
+  "in",
+  "repeat",
+  "return",
+  "switch",
+  "where",
+  "while",
+  "as",
+  "Any",
+  "catch",
+  "false",
+  "is",
+  "nil",
+  "super",
+  "self",
+  "Self",
+  "throw",
+  "throws",
+  "true",
+  "try",
+  "async",
+  "await",
+  "final",
+  "override",
+  "required",
+  "convenience",
+  "lazy",
+  "optional",
+  "weak",
+  "unowned"
+]);
+var TreeSitterSwiftParser = class extends BaseParser {
+  constructor() {
+    super("swift");
+  }
+  get usesTreeSitter() {
+    return true;
+  }
+  // ── Imports ────────────────────────────────────────────────
+  parseAST(tree, fileInfo, _options = {}) {
+    const relations = [];
+    const root = tree.rootNode;
+    for (let i = 0; i < root.childCount; i++) {
+      const node = root.child(i);
+      if (node.type === "import_declaration") {
+        const target = this.extractImportTarget(node);
+        if (target) {
+          relations.push({
+            source: fileInfo.id,
+            target,
+            type: "import",
+            label: `import ${target}`
+          });
+        }
+      }
+    }
+    return relations;
+  }
+  extractImportTarget(node) {
+    const parts = [];
+    for (let i = 0; i < node.childCount; i++) {
+      const c = node.child(i);
+      if (c.type === "identifier" || c.type === "simple_identifier" || c.type === "type_identifier") {
+        parts.push(c.text);
+      } else if (c.type === ".") {
+        parts.push(".");
+      }
+    }
+    if (parts.length === 0) {
+      const t = node.text.replace(/^import\s+/, "").trim();
+      return t || null;
+    }
+    return parts.join("");
+  }
+  // ── Symbols ────────────────────────────────────────────────
+  extractSymbolsAST(tree, _fileInfo) {
+    const symbols = {
+      functions: [],
+      externs: [],
+      structs: [],
+      enums: [],
+      macros: [],
+      classes: [],
+      exports: [],
+      interfaces: [],
+      traits: [],
+      typeAliases: [],
+      methods: []
+    };
+    this.walkSymbols(tree.rootNode, symbols, false);
+    return symbols;
+  }
+  walkSymbols(node, symbols, insideType) {
+    switch (node.type) {
+      case "function_declaration":
+      case "init_declaration":
+      case "deinit_declaration": {
+        const name = this.getDeclName(node) || (node.type === "init_declaration" ? "init" : node.type === "deinit_declaration" ? "deinit" : null);
+        if (name) {
+          const sym = {
+            name,
+            type: insideType ? "method" : "function",
+            line: node.startPosition.row + 1
+          };
+          if (insideType)
+            symbols.methods.push(sym);
+          else
+            symbols.functions.push(sym);
+        }
+        return;
+      }
+      case "class_declaration": {
+        const name = this.getDeclName(node);
+        if (name) {
+          symbols.classes.push({ name, type: "class", line: node.startPosition.row + 1 });
+        }
+        for (let i = 0; i < node.childCount; i++) {
+          this.walkSymbols(node.child(i), symbols, true);
+        }
+        return;
+      }
+      case "struct_declaration": {
+        const name = this.getDeclName(node);
+        if (name) {
+          symbols.structs.push({ name, type: "struct", line: node.startPosition.row + 1 });
+        }
+        for (let i = 0; i < node.childCount; i++) {
+          this.walkSymbols(node.child(i), symbols, true);
+        }
+        return;
+      }
+      case "protocol_declaration": {
+        const name = this.getDeclName(node);
+        if (name) {
+          symbols.interfaces.push({ name, type: "protocol", line: node.startPosition.row + 1 });
+        }
+        for (let i = 0; i < node.childCount; i++) {
+          this.walkSymbols(node.child(i), symbols, true);
+        }
+        return;
+      }
+      case "enum_declaration": {
+        const name = this.getDeclName(node);
+        if (name) {
+          symbols.enums.push({ name, type: "enum", line: node.startPosition.row + 1 });
+        }
+        for (let i = 0; i < node.childCount; i++) {
+          this.walkSymbols(node.child(i), symbols, true);
+        }
+        return;
+      }
+      case "extension_declaration": {
+        for (let i = 0; i < node.childCount; i++) {
+          this.walkSymbols(node.child(i), symbols, true);
+        }
+        return;
+      }
+      case "typealias_declaration": {
+        const name = this.getDeclName(node);
+        if (name) {
+          symbols.typeAliases.push({ name, type: "type-alias", line: node.startPosition.row + 1 });
+        }
+        return;
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkSymbols(node.child(i), symbols, insideType);
+    }
+  }
+  getDeclName(node) {
+    const named = node.childForFieldName("name");
+    if (named && named.text)
+      return named.text;
+    for (let i = 0; i < node.childCount; i++) {
+      const c = node.child(i);
+      if (c.type === "simple_identifier" || c.type === "type_identifier" || c.type === "identifier") {
+        return c.text;
+      }
+    }
+    return null;
+  }
+  // ── Calls ──────────────────────────────────────────────────
+  extractCallsAST(tree, fileInfo, globalFunctions) {
+    const definedHere = /* @__PURE__ */ new Set();
+    const calls = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    this.collectCalls(tree.rootNode, calls, definedHere);
+    const relations = [];
+    for (const name of calls) {
+      if (globalFunctions.has(name)) {
+        relations.push({
+          source: fileInfo.id,
+          target: name,
+          type: "function-call",
+          label: `${name}()`
+        });
+      }
+    }
+    return relations;
+  }
+  collectDefinedFunctions(node, defined) {
+    if (node.type === "function_declaration") {
+      const name = this.getDeclName(node);
+      if (name)
+        defined.add(name);
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectDefinedFunctions(node.child(i), defined);
+    }
+  }
+  collectCalls(node, calls, definedHere) {
+    if (node.type === "call_expression") {
+      const first = node.child(0);
+      if (first && (first.type === "simple_identifier" || first.type === "identifier" || first.type === "type_identifier")) {
+        const name = first.text;
+        if (name && !SWIFT_BUILTINS.has(name) && !SWIFT_KEYWORDS.has(name) && !definedHere.has(name) && /^[a-zA-Z_]/.test(name)) {
+          calls.add(name);
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectCalls(node.child(i), calls, definedHere);
+    }
+  }
+  // ── Call sites (function-level) ────────────────────────────
+  extractCallSitesAST(tree, _fileInfo) {
+    const definedHere = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    const sites = [];
+    this.collectCallSites(tree.rootNode, sites, definedHere, "<module>");
+    return sites;
+  }
+  collectCallSites(node, sites, definedHere, currentFunc) {
+    if (node.type === "function_declaration") {
+      const name = this.getDeclName(node) || currentFunc;
+      for (let i = 0; i < node.childCount; i++) {
+        this.collectCallSites(node.child(i), sites, definedHere, name);
+      }
+      return;
+    }
+    if (node.type === "call_expression") {
+      const first = node.child(0);
+      if (first && (first.type === "simple_identifier" || first.type === "identifier" || first.type === "type_identifier")) {
+        const name = first.text;
+        if (name && !SWIFT_BUILTINS.has(name) && !SWIFT_KEYWORDS.has(name) && /^[a-zA-Z_]/.test(name)) {
+          sites.push({
+            callerName: currentFunc,
+            calleeName: name,
+            line: node.startPosition.row + 1,
+            isLocal: definedHere.has(name)
+          });
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectCallSites(node.child(i), sites, definedHere, currentFunc);
+    }
+  }
+};
+
+// src/analyzer/parsers/ts-csharp-parser.ts
+var CSHARP_BUILTINS = /* @__PURE__ */ new Set([
+  "Console",
+  "WriteLine",
+  "Write",
+  "ReadLine",
+  "ReadAllText",
+  "ReadAllLines",
+  "WriteAllText",
+  "String",
+  "Int32",
+  "Int64",
+  "Double",
+  "Boolean",
+  "Object",
+  "Math",
+  "Array",
+  "List",
+  "Dictionary",
+  "HashSet",
+  "Enumerable",
+  "Linq",
+  "Exception",
+  "ArgumentException",
+  "InvalidOperationException",
+  "NotImplementedException",
+  "Task",
+  "Thread",
+  "StringBuilder",
+  "Guid",
+  "DateTime",
+  "TimeSpan",
+  "ToString",
+  "Equals",
+  "GetHashCode",
+  "GetType",
+  "Add",
+  "Remove",
+  "Contains",
+  "Clear",
+  "Count",
+  "Length",
+  "TryGetValue",
+  "TryParse",
+  "Parse",
+  "Concat",
+  "Join",
+  "Format",
+  "NameOf",
+  "TypeOf"
+]);
+var CSHARP_KEYWORDS = /* @__PURE__ */ new Set([
+  "if",
+  "else",
+  "for",
+  "foreach",
+  "while",
+  "do",
+  "switch",
+  "case",
+  "return",
+  "break",
+  "continue",
+  "throw",
+  "try",
+  "catch",
+  "finally",
+  "new",
+  "is",
+  "as",
+  "this",
+  "base",
+  "null",
+  "true",
+  "false",
+  "void",
+  "var",
+  "nameof",
+  "typeof",
+  "sizeof",
+  "default",
+  "checked",
+  "unchecked",
+  "when",
+  "await",
+  "yield",
+  "public",
+  "private",
+  "protected",
+  "internal",
+  "static",
+  "readonly",
+  "sealed",
+  "abstract",
+  "virtual",
+  "override",
+  "partial",
+  "async",
+  "class",
+  "interface",
+  "struct",
+  "enum",
+  "record",
+  "namespace",
+  "using",
+  "get",
+  "set",
+  "value",
+  "in",
+  "out",
+  "ref",
+  "params",
+  "where",
+  "select",
+  "from",
+  "let",
+  "orderby"
+]);
+var TreeSitterCSharpParser = class extends BaseParser {
+  constructor() {
+    super("csharp");
+  }
+  get usesTreeSitter() {
+    return true;
+  }
+  // ── Imports (using directives) ─────────────────────────────
+  parseAST(tree, fileInfo, _options = {}) {
+    const relations = [];
+    this.walkUsings(tree.rootNode, fileInfo.id, relations);
+    return relations;
+  }
+  walkUsings(node, sourceId, relations) {
+    if (node.type === "using_directive" || node.type === "global_using_directive") {
+      const qualified = this.findChild(node, "qualified_name");
+      const simple = this.findChild(node, "identifier");
+      const target = qualified?.text || simple?.text;
+      if (target) {
+        relations.push({
+          source: sourceId,
+          target,
+          type: "import",
+          label: `using ${target}`
+        });
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkUsings(node.child(i), sourceId, relations);
+    }
+  }
+  // ── Symbols ────────────────────────────────────────────────
+  extractSymbolsAST(tree, _fileInfo) {
+    const symbols = {
+      functions: [],
+      externs: [],
+      structs: [],
+      enums: [],
+      macros: [],
+      classes: [],
+      exports: [],
+      interfaces: [],
+      traits: [],
+      typeAliases: [],
+      methods: []
+    };
+    this.walkForSymbols(tree.rootNode, symbols, false);
+    return symbols;
+  }
+  walkForSymbols(node, symbols, insideType) {
+    switch (node.type) {
+      case "class_declaration":
+      case "record_declaration":
+        this.extractClassLike(node, symbols, "class");
+        return;
+      case "interface_declaration":
+        this.extractClassLike(node, symbols, "interface");
+        return;
+      case "struct_declaration":
+        this.extractClassLike(node, symbols, "struct");
+        return;
+      case "enum_declaration": {
+        const name = node.childForFieldName("name")?.text;
+        if (name) {
+          symbols.enums.push({ name, type: "enum", line: node.startPosition.row + 1 });
+        }
+        return;
+      }
+      case "method_declaration":
+      case "constructor_declaration":
+        if (insideType) {
+          this.extractMethod(node, symbols);
+        }
+        return;
+      case "local_function_statement":
+        return;
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForSymbols(node.child(i), symbols, insideType);
+    }
+  }
+  extractClassLike(node, symbols, kind) {
+    const name = node.childForFieldName("name")?.text;
+    if (!name) {
+      return;
+    }
+    const line = node.startPosition.row + 1;
+    const mods = this.getModifiers(node);
+    const sym = { name, type: kind, line };
+    if (mods.visibility) {
+      sym.visibility = mods.visibility;
+    }
+    if (mods.isStatic) {
+      sym.isStatic = true;
+    }
+    if (kind === "interface") {
+      symbols.interfaces.push(sym);
+    } else if (kind === "struct") {
+      symbols.structs.push(sym);
+    } else {
+      symbols.classes.push(sym);
+    }
+    const body2 = node.childForFieldName("body");
+    if (body2) {
+      for (let i = 0; i < body2.childCount; i++) {
+        this.walkForSymbols(body2.child(i), symbols, true);
+      }
+    }
+  }
+  extractMethod(node, symbols) {
+    const name = node.childForFieldName("name")?.text;
+    if (!name) {
+      return;
+    }
+    const mods = this.getModifiers(node);
+    const sym = { name, type: "method", line: node.startPosition.row + 1 };
+    if (mods.visibility) {
+      sym.visibility = mods.visibility;
+    }
+    if (mods.isStatic) {
+      sym.isStatic = true;
+    }
+    if (mods.isAsync) {
+      sym.isAsync = true;
+    }
+    symbols.methods.push(sym);
+  }
+  // ── Heritage relations ─────────────────────────────────────
+  extractHeritageRelations(tree, fileInfo) {
+    const relations = [];
+    this.walkForHeritage(tree.rootNode, fileInfo.id, relations);
+    return relations;
+  }
+  walkForHeritage(node, sourceId, relations) {
+    const typed = node.type === "class_declaration" || node.type === "record_declaration" || node.type === "struct_declaration" || node.type === "interface_declaration";
+    if (typed) {
+      const typeName = node.childForFieldName("name")?.text;
+      const bases = node.childForFieldName("bases");
+      if (typeName && bases) {
+        const baseNames = this.extractBaseNames(bases);
+        if (node.type === "interface_declaration" || node.type === "struct_declaration") {
+          for (const base of baseNames) {
+            relations.push({
+              source: sourceId,
+              target: base,
+              type: "extends",
+              label: `${typeName} : ${base}`
+            });
+          }
+        } else {
+          baseNames.forEach((base, idx) => {
+            relations.push({
+              source: sourceId,
+              target: base,
+              type: idx === 0 ? "extends" : "implements",
+              label: `${typeName} : ${base}`
+            });
+          });
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForHeritage(node.child(i), sourceId, relations);
+    }
+  }
+  extractBaseNames(baseList) {
+    const names = [];
+    for (let i = 0; i < baseList.childCount; i++) {
+      const child = baseList.child(i);
+      if (child.type === "identifier" || child.type === "generic_name" || child.type === "qualified_name") {
+        const plain = child.text.replace(/<[^>]*>/g, "").split(".").pop();
+        if (plain) {
+          names.push(plain);
+        }
+      }
+    }
+    return names;
+  }
+  // ── Calls ──────────────────────────────────────────────────
+  extractCallsAST(tree, fileInfo, globalFunctions) {
+    const definedHere = /* @__PURE__ */ new Set();
+    const calls = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    this.collectCalls(tree.rootNode, calls, definedHere);
+    const relations = [];
+    for (const name of calls) {
+      if (globalFunctions.has(name)) {
+        relations.push({
+          source: fileInfo.id,
+          target: name,
+          type: "function-call",
+          label: `${name}()`
+        });
+      }
+    }
+    return relations;
+  }
+  extractCallsFromAST(tree) {
+    const definedHere = /* @__PURE__ */ new Set();
+    const calls = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    this.collectCalls(tree.rootNode, calls, definedHere);
+    return [...calls];
+  }
+  collectDefinedFunctions(node, defined) {
+    if (node.type === "method_declaration" || node.type === "constructor_declaration" || node.type === "local_function_statement") {
+      const name = node.childForFieldName("name")?.text;
+      if (name) {
+        defined.add(name);
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectDefinedFunctions(node.child(i), defined);
+    }
+  }
+  collectCalls(node, calls, definedHere) {
+    if (node.type === "invocation_expression") {
+      const fn = node.childForFieldName("function");
+      if (fn && (fn.type === "identifier" || fn.type === "generic_name")) {
+        const name = fn.type === "identifier" ? fn.text : this.findChild(fn, "identifier")?.text;
+        if (name && !CSHARP_BUILTINS.has(name) && !CSHARP_KEYWORDS.has(name) && !definedHere.has(name)) {
+          calls.add(name);
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectCalls(node.child(i), calls, definedHere);
+    }
+  }
+  // ── AST-based call site extraction (function-level) ────────
+  extractCallSitesAST(tree, _fileInfo) {
+    const definedHere = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    const sites = [];
+    this.collectCallSites(tree.rootNode, sites, definedHere, "<module>");
+    return sites;
+  }
+  collectCallSites(node, sites, definedHere, currentFunc) {
+    if (node.type === "method_declaration" || node.type === "constructor_declaration" || node.type === "local_function_statement") {
+      const name = node.childForFieldName("name")?.text || currentFunc;
+      for (let i = 0; i < node.childCount; i++) {
+        this.collectCallSites(node.child(i), sites, definedHere, name);
+      }
+      return;
+    }
+    if (node.type === "invocation_expression") {
+      const fn = node.childForFieldName("function");
+      if (fn && (fn.type === "identifier" || fn.type === "generic_name")) {
+        const name = fn.type === "identifier" ? fn.text : this.findChild(fn, "identifier")?.text;
+        if (name && !CSHARP_BUILTINS.has(name) && !CSHARP_KEYWORDS.has(name)) {
+          sites.push({
+            callerName: currentFunc,
+            calleeName: name,
+            line: node.startPosition.row + 1,
+            isLocal: definedHere.has(name)
+          });
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectCallSites(node.child(i), sites, definedHere, currentFunc);
+    }
+  }
+  // ── Utilities ──────────────────────────────────────────────
+  getModifiers(node) {
+    let text = "";
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (child.type === "modifier") {
+        text += " " + child.text;
+      }
+    }
+    if (!text) {
+      return {};
+    }
+    const result = {};
+    if (text.includes("public")) {
+      result.visibility = "public";
+    } else if (text.includes("private")) {
+      result.visibility = "private";
+    } else if (text.includes("protected")) {
+      result.visibility = "protected";
+    }
+    if (text.includes("static")) {
+      result.isStatic = true;
+    }
+    if (text.includes("async")) {
+      result.isAsync = true;
+    }
+    return result;
+  }
+  findChild(node, type) {
+    for (let i = 0; i < node.childCount; i++) {
+      if (node.child(i).type === type) {
+        return node.child(i);
+      }
+    }
+    return null;
+  }
+};
+
+// src/analyzer/parsers/ts-php-parser.ts
+var PHP_BUILTINS = /* @__PURE__ */ new Set([
+  "trim",
+  "ltrim",
+  "rtrim",
+  "strlen",
+  "str_replace",
+  "strpos",
+  "strrpos",
+  "substr",
+  "strtolower",
+  "strtoupper",
+  "ucfirst",
+  "sprintf",
+  "printf",
+  "print_r",
+  "var_dump",
+  "count",
+  "array_map",
+  "array_filter",
+  "array_merge",
+  "array_keys",
+  "array_values",
+  "array_push",
+  "array_pop",
+  "in_array",
+  "array_key_exists",
+  "implode",
+  "explode",
+  "json_encode",
+  "json_decode",
+  "isset",
+  "empty",
+  "is_array",
+  "is_string",
+  "is_null",
+  "is_numeric",
+  "is_object",
+  "is_bool",
+  "is_int",
+  "htmlspecialchars",
+  "urlencode",
+  "preg_match",
+  "preg_match_all",
+  "preg_replace",
+  "preg_split",
+  "method_exists",
+  "class_exists",
+  "function_exists",
+  "file_exists",
+  "file_get_contents",
+  "file_put_contents",
+  "date",
+  "time",
+  "uniqid",
+  "md5",
+  "sha1",
+  "base64_encode",
+  "base64_decode",
+  "round",
+  "floor",
+  "ceil",
+  "abs",
+  "min",
+  "max",
+  "intval",
+  "floatval",
+  "strval",
+  "nl2br",
+  "number_format",
+  "ucwords",
+  "str_pad",
+  "str_repeat",
+  "str_contains",
+  "str_starts_with",
+  "str_ends_with",
+  "mb_strlen",
+  "mb_substr"
+]);
+var PHP_KEYWORDS = /* @__PURE__ */ new Set([
+  "if",
+  "else",
+  "elseif",
+  "endif",
+  "for",
+  "foreach",
+  "while",
+  "do",
+  "switch",
+  "case",
+  "default",
+  "break",
+  "continue",
+  "return",
+  "throw",
+  "try",
+  "catch",
+  "finally",
+  "new",
+  "instanceof",
+  "clone",
+  "echo",
+  "print",
+  "include",
+  "include_once",
+  "require",
+  "require_once",
+  "namespace",
+  "use",
+  "class",
+  "interface",
+  "trait",
+  "enum",
+  "extends",
+  "implements",
+  "public",
+  "private",
+  "protected",
+  "static",
+  "abstract",
+  "final",
+  "function",
+  "fn",
+  "match",
+  "yield",
+  "list",
+  "array",
+  "isset",
+  "unset",
+  "empty",
+  "true",
+  "false",
+  "null",
+  "this",
+  "parent",
+  "self",
+  "as",
+  "and",
+  "or",
+  "xor",
+  "global",
+  "insteadof"
+]);
+var TreeSitterPhpParser = class extends BaseParser {
+  constructor() {
+    super("php");
+  }
+  get usesTreeSitter() {
+    return true;
+  }
+  // ── Imports (use / require / include) ──────────────────────
+  parseAST(tree, fileInfo, _options = {}) {
+    const relations = [];
+    this.walkImports(tree.rootNode, fileInfo.id, relations);
+    return relations;
+  }
+  walkImports(node, sourceId, relations) {
+    if (node.type === "namespace_use_declaration") {
+      this.collectUseClauses(node, sourceId, relations);
+    }
+    if (node.type === "require_expression" || node.type === "require_once_expression" || node.type === "include_expression" || node.type === "include_once_expression") {
+      const target = this.extractStringTarget(node);
+      if (target) {
+        const isRequire = node.type.startsWith("require");
+        relations.push({
+          source: sourceId,
+          target,
+          type: isRequire ? "require" : "include",
+          label: `${node.type.replace("_expression", "").replace("_", " ")} ${target}`
+        });
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkImports(node.child(i), sourceId, relations);
+    }
+  }
+  collectUseClauses(node, sourceId, relations) {
+    const walk = (n) => {
+      if (n.type === "namespace_use_clause") {
+        const qualified = this.findChild(n, "qualified_name") || this.findChild(n, "name");
+        if (qualified) {
+          const target = qualified.text.replace(/^\\/, "");
+          relations.push({
+            source: sourceId,
+            target,
+            type: "import",
+            label: `use ${target}`
+          });
+        }
+        return;
+      }
+      for (let i = 0; i < n.childCount; i++) {
+        walk(n.child(i));
+      }
+    };
+    for (let i = 0; i < node.childCount; i++) {
+      walk(node.child(i));
+    }
+  }
+  extractStringTarget(node) {
+    const str = this.findChild(node, "string");
+    if (!str) {
+      return null;
+    }
+    const content = this.findChild(str, "string_content");
+    const raw = content ? content.text : str.text.replace(/^['"]|['"]$/g, "");
+    return raw.length > 0 ? raw : null;
+  }
+  // ── Symbols ────────────────────────────────────────────────
+  extractSymbolsAST(tree, _fileInfo) {
+    const symbols = {
+      functions: [],
+      externs: [],
+      structs: [],
+      enums: [],
+      macros: [],
+      classes: [],
+      exports: [],
+      interfaces: [],
+      traits: [],
+      typeAliases: [],
+      methods: []
+    };
+    this.walkForSymbols(tree.rootNode, symbols, false);
+    return symbols;
+  }
+  walkForSymbols(node, symbols, insideType) {
+    switch (node.type) {
+      case "class_declaration": {
+        const name = node.childForFieldName("name")?.text;
+        if (name) {
+          symbols.classes.push(this.buildTypeSymbol(node, name, "class"));
+        }
+        this.walkBody(node, symbols);
+        return;
+      }
+      case "interface_declaration": {
+        const name = node.childForFieldName("name")?.text;
+        if (name) {
+          symbols.interfaces.push(this.buildTypeSymbol(node, name, "interface"));
+        }
+        this.walkBody(node, symbols);
+        return;
+      }
+      case "trait_declaration": {
+        const name = node.childForFieldName("name")?.text;
+        if (name) {
+          symbols.traits.push(this.buildTypeSymbol(node, name, "trait"));
+        }
+        this.walkBody(node, symbols);
+        return;
+      }
+      case "enum_declaration": {
+        const name = node.childForFieldName("name")?.text;
+        if (name) {
+          symbols.enums.push({ name, type: "enum", line: node.startPosition.row + 1 });
+        }
+        return;
+      }
+      case "function_definition": {
+        if (!insideType) {
+          const name = node.childForFieldName("name")?.text;
+          if (name) {
+            symbols.functions.push({ name, type: "function", line: node.startPosition.row + 1 });
+          }
+        }
+        return;
+      }
+      case "method_declaration": {
+        if (insideType) {
+          const name = node.childForFieldName("name")?.text;
+          if (name) {
+            const sym = { name, type: "method", line: node.startPosition.row + 1 };
+            const vis = this.findChild(node, "visibility_modifier")?.text;
+            if (vis === "public" || vis === "private" || vis === "protected") {
+              sym.visibility = vis;
+            }
+            symbols.methods.push(sym);
+          }
+        }
+        return;
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForSymbols(node.child(i), symbols, insideType);
+    }
+  }
+  buildTypeSymbol(node, name, type) {
+    return { name, type, line: node.startPosition.row + 1 };
+  }
+  walkBody(node, symbols) {
+    const body2 = node.childForFieldName("body");
+    if (!body2) {
+      return;
+    }
+    for (let i = 0; i < body2.childCount; i++) {
+      this.walkForSymbols(body2.child(i), symbols, true);
+    }
+  }
+  // ── Heritage relations ─────────────────────────────────────
+  extractHeritageRelations(tree, fileInfo) {
+    const relations = [];
+    this.walkForHeritage(tree.rootNode, fileInfo.id, relations);
+    return relations;
+  }
+  walkForHeritage(node, sourceId, relations) {
+    if (node.type === "class_declaration" || node.type === "interface_declaration") {
+      const typeName = node.childForFieldName("name")?.text;
+      if (typeName) {
+        const baseClause = this.findChild(node, "base_clause");
+        if (baseClause) {
+          for (const base of this.extractClauseNames(baseClause)) {
+            relations.push({
+              source: sourceId,
+              target: base,
+              type: "extends",
+              label: `${typeName} extends ${base}`
+            });
+          }
+        }
+        const ifaceClause = this.findChild(node, "class_interface_clause");
+        if (ifaceClause) {
+          for (const iface of this.extractClauseNames(ifaceClause)) {
+            relations.push({
+              source: sourceId,
+              target: iface,
+              type: "implements",
+              label: `${typeName} implements ${iface}`
+            });
+          }
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForHeritage(node.child(i), sourceId, relations);
+    }
+  }
+  extractClauseNames(clause) {
+    const names = [];
+    for (let i = 0; i < clause.childCount; i++) {
+      const child = clause.child(i);
+      if (child.type === "name" || child.type === "qualified_name") {
+        const plain = child.text.replace(/^\\/, "").split("\\").pop();
+        if (plain) {
+          names.push(plain);
+        }
+      }
+    }
+    return names;
+  }
+  // ── Calls ──────────────────────────────────────────────────
+  extractCallsAST(tree, fileInfo, globalFunctions) {
+    const definedHere = /* @__PURE__ */ new Set();
+    const calls = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    this.collectCalls(tree.rootNode, calls, definedHere);
+    const relations = [];
+    for (const name of calls) {
+      if (globalFunctions.has(name)) {
+        relations.push({
+          source: fileInfo.id,
+          target: name,
+          type: "function-call",
+          label: `${name}()`
+        });
+      }
+    }
+    return relations;
+  }
+  extractCallsFromAST(tree) {
+    const definedHere = /* @__PURE__ */ new Set();
+    const calls = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    this.collectCalls(tree.rootNode, calls, definedHere);
+    return [...calls];
+  }
+  collectDefinedFunctions(node, defined) {
+    if (node.type === "function_definition" || node.type === "method_declaration") {
+      const name = node.childForFieldName("name")?.text;
+      if (name) {
+        defined.add(name);
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectDefinedFunctions(node.child(i), defined);
+    }
+  }
+  collectCalls(node, calls, definedHere) {
+    if (node.type === "function_call_expression") {
+      const fn = node.childForFieldName("function");
+      if (fn && (fn.type === "name" || fn.type === "qualified_name")) {
+        const raw = fn.text.replace(/^\\/, "");
+        const name = raw.split("\\").pop();
+        if (!PHP_BUILTINS.has(name) && !PHP_KEYWORDS.has(name) && !definedHere.has(name)) {
+          calls.add(name);
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectCalls(node.child(i), calls, definedHere);
+    }
+  }
+  // ── AST-based call site extraction (function-level) ────────
+  extractCallSitesAST(tree, _fileInfo) {
+    const definedHere = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    const sites = [];
+    this.collectCallSites(tree.rootNode, sites, definedHere, "<module>");
+    return sites;
+  }
+  collectCallSites(node, sites, definedHere, currentFunc) {
+    if (node.type === "function_definition" || node.type === "method_declaration") {
+      const name = node.childForFieldName("name")?.text || currentFunc;
+      for (let i = 0; i < node.childCount; i++) {
+        this.collectCallSites(node.child(i), sites, definedHere, name);
+      }
+      return;
+    }
+    if (node.type === "function_call_expression") {
+      const fn = node.childForFieldName("function");
+      if (fn && (fn.type === "name" || fn.type === "qualified_name")) {
+        const raw = fn.text.replace(/^\\/, "");
+        const name = raw.split("\\").pop();
+        if (!PHP_BUILTINS.has(name) && !PHP_KEYWORDS.has(name)) {
+          sites.push({
+            callerName: currentFunc,
+            calleeName: name,
+            line: node.startPosition.row + 1,
+            isLocal: definedHere.has(name)
+          });
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectCallSites(node.child(i), sites, definedHere, currentFunc);
+    }
+  }
+  // ── Utilities ──────────────────────────────────────────────
+  findChild(node, type) {
+    for (let i = 0; i < node.childCount; i++) {
+      if (node.child(i).type === type) {
+        return node.child(i);
+      }
+    }
+    return null;
+  }
+};
+
+// src/analyzer/parsers/ts-bash-parser.ts
+var SOURCE_COMMANDS = /* @__PURE__ */ new Set(["source", "."]);
+var SCRIPT_RUNNERS = /* @__PURE__ */ new Set(["bash", "sh", "zsh", "dash"]);
+var SCRIPT_EXT_RE = /\.(sh|bash)$/i;
+var TreeSitterBashParser = class extends BaseParser {
+  constructor() {
+    super("bash");
+  }
+  get usesTreeSitter() {
+    return true;
+  }
+  // ── Imports (source / script execution) ────────────────────
+  parseAST(tree, fileInfo, _options = {}) {
+    const relations = [];
+    this.walkCommands(tree.rootNode, fileInfo.id, relations);
+    return relations;
+  }
+  walkCommands(node, sourceId, relations) {
+    if (node.type === "command") {
+      const nameNode = node.childForFieldName("name");
+      const name = nameNode?.text ?? "";
+      if (SOURCE_COMMANDS.has(name)) {
+        const target = this.extractArgumentTarget(node);
+        if (target) {
+          relations.push({
+            source: sourceId,
+            target,
+            type: "source",
+            label: `source ${target}`
+          });
+        }
+      } else if (SCRIPT_RUNNERS.has(name)) {
+        const target = this.extractArgumentTarget(node);
+        if (target && SCRIPT_EXT_RE.test(target)) {
+          relations.push({
+            source: sourceId,
+            target,
+            type: "script",
+            label: `${name} ${target}`
+          });
+        }
+      } else if (SCRIPT_EXT_RE.test(name) && (name.includes("/") || name.startsWith("."))) {
+        relations.push({
+          source: sourceId,
+          target: name,
+          type: "script",
+          label: `run ${name}`
+        });
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkCommands(node.child(i), sourceId, relations);
+    }
+  }
+  extractArgumentTarget(command) {
+    const arg = command.childForFieldName("argument");
+    if (!arg) {
+      return null;
+    }
+    if (arg.type === "string" || arg.type === "raw_string" || arg.type === "concatenation") {
+      const text = arg.text.replace(/^['"]|['"]$/g, "");
+      return text.length > 0 && !text.includes("$") ? text : null;
+    }
+    if (arg.type === "word" || arg.type === "number") {
+      const text = arg.text;
+      return text.length > 0 && !text.includes("$") ? text : null;
+    }
+    return null;
+  }
+  // ── Symbols (functions) ────────────────────────────────────
+  extractSymbolsAST(tree, _fileInfo) {
+    const symbols = {
+      functions: [],
+      externs: [],
+      structs: [],
+      enums: [],
+      macros: [],
+      classes: [],
+      exports: [],
+      interfaces: [],
+      traits: [],
+      typeAliases: [],
+      methods: []
+    };
+    this.walkForFunctions(tree.rootNode, symbols);
+    return symbols;
+  }
+  walkForFunctions(node, symbols) {
+    if (node.type === "function_definition") {
+      const name = node.childForFieldName("name")?.text;
+      if (name) {
+        symbols.functions.push({ name, type: "function", line: node.startPosition.row + 1 });
+      }
+      return;
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForFunctions(node.child(i), symbols);
+    }
+  }
+  // Shell scripts have no cross-file function calls — sourcing is the only
+  // cross-file dependency (see parseAST).
+  extractCallsFromAST(_tree) {
+    return [];
+  }
+};
+
+// src/analyzer/parsers/ts-lua-parser.ts
+var LUA_BUILTINS = /* @__PURE__ */ new Set([
+  "print",
+  "pairs",
+  "ipairs",
+  "tostring",
+  "tonumber",
+  "type",
+  "next",
+  "select",
+  "setmetatable",
+  "getmetatable",
+  "rawget",
+  "rawset",
+  "rawequal",
+  "rawlen",
+  "pcall",
+  "xpcall",
+  "error",
+  "assert",
+  "collectgarbage",
+  "unpack",
+  "require",
+  "dofile",
+  "load",
+  "loadfile"
+]);
+var LUA_KEYWORDS = /* @__PURE__ */ new Set([
+  "if",
+  "then",
+  "else",
+  "elseif",
+  "end",
+  "for",
+  "while",
+  "repeat",
+  "until",
+  "do",
+  "return",
+  "break",
+  "goto",
+  "in",
+  "local",
+  "function",
+  "and",
+  "or",
+  "not",
+  "nil",
+  "true",
+  "false"
+]);
+var REQUIRE_RE = /\b(require|dofile)\s*\(?\s*['"]([^'"]+)['"]/g;
+var TreeSitterLuaParser = class extends BaseParser {
+  constructor() {
+    super("lua");
+  }
+  get usesTreeSitter() {
+    return true;
+  }
+  // ── Imports (require / dofile) ─────────────────────────────
+  parseAST(tree, fileInfo, _options = {}) {
+    const relations = [];
+    const seen = /* @__PURE__ */ new Set();
+    const push = (target) => {
+      if (seen.has(target)) {
+        return;
+      }
+      seen.add(target);
+      relations.push({
+        source: fileInfo.id,
+        target,
+        type: "require",
+        label: `require('${target}')`
+      });
+    };
+    this.walkCalls(tree.rootNode, push);
+    const content = fileInfo.content || "";
+    let m;
+    REQUIRE_RE.lastIndex = 0;
+    while ((m = REQUIRE_RE.exec(content)) !== null) {
+      push(m[2]);
+    }
+    return relations;
+  }
+  walkCalls(node, push) {
+    if (node.type === "call") {
+      const fn = node.childForFieldName("function");
+      if (fn && fn.type === "variable") {
+        const nameNode = fn.childForFieldName("name");
+        const name = nameNode?.text;
+        if (name === "require" || name === "dofile") {
+          const args2 = node.childForFieldName("arguments");
+          const str = args2 ? this.findStringArg(args2) : null;
+          if (str) {
+            push(str);
+          }
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkCalls(node.child(i), push);
+    }
+  }
+  findStringArg(node) {
+    if (node.type === "string") {
+      const content = this.findChild(node, "string_content");
+      const raw = content ? content.text : node.text.replace(/^['"]|['"]$/g, "");
+      return raw.length > 0 ? raw : null;
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      const found = this.findStringArg(node.child(i));
+      if (found) {
+        return found;
+      }
+    }
+    return null;
+  }
+  // ── Symbols (functions) ────────────────────────────────────
+  extractSymbolsAST(tree, _fileInfo) {
+    const symbols = {
+      functions: [],
+      externs: [],
+      structs: [],
+      enums: [],
+      macros: [],
+      classes: [],
+      exports: [],
+      interfaces: [],
+      traits: [],
+      typeAliases: [],
+      methods: []
+    };
+    this.walkForFunctions(tree.rootNode, symbols, false);
+    return symbols;
+  }
+  walkForFunctions(node, symbols, insideFunc) {
+    if (node.type === "function_definition_statement" || node.type === "local_function_definition_statement") {
+      if (!insideFunc) {
+        const name = node.childForFieldName("name")?.text;
+        if (name) {
+          symbols.functions.push({ name, type: "function", line: node.startPosition.row + 1 });
+        }
+      }
+      for (let i = 0; i < node.childCount; i++) {
+        this.walkForFunctions(node.child(i), symbols, true);
+      }
+      return;
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.walkForFunctions(node.child(i), symbols, insideFunc);
+    }
+  }
+  // ── Calls ──────────────────────────────────────────────────
+  extractCallsAST(tree, fileInfo, globalFunctions) {
+    const definedHere = /* @__PURE__ */ new Set();
+    const calls = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    this.collectCalls(tree.rootNode, calls, definedHere);
+    const relations = [];
+    for (const name of calls) {
+      if (globalFunctions.has(name)) {
+        relations.push({
+          source: fileInfo.id,
+          target: name,
+          type: "function-call",
+          label: `${name}()`
+        });
+      }
+    }
+    return relations;
+  }
+  extractCallsFromAST(tree) {
+    const definedHere = /* @__PURE__ */ new Set();
+    const calls = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    this.collectCalls(tree.rootNode, calls, definedHere);
+    return [...calls];
+  }
+  collectDefinedFunctions(node, defined) {
+    if (node.type === "function_definition_statement" || node.type === "local_function_definition_statement") {
+      const name = node.childForFieldName("name")?.text;
+      if (name) {
+        defined.add(name);
+        const short = name.split(".").pop();
+        if (short) {
+          defined.add(short);
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectDefinedFunctions(node.child(i), defined);
+    }
+  }
+  collectCalls(node, calls, definedHere) {
+    if (node.type === "call") {
+      const fn = node.childForFieldName("function");
+      if (fn && fn.type === "variable" && !fn.childForFieldName("table")) {
+        const name = fn.childForFieldName("name")?.text;
+        if (name && !LUA_BUILTINS.has(name) && !LUA_KEYWORDS.has(name) && !definedHere.has(name)) {
+          calls.add(name);
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectCalls(node.child(i), calls, definedHere);
+    }
+  }
+  // ── AST-based call site extraction (function-level) ────────
+  extractCallSitesAST(tree, _fileInfo) {
+    const definedHere = /* @__PURE__ */ new Set();
+    this.collectDefinedFunctions(tree.rootNode, definedHere);
+    const sites = [];
+    this.collectCallSites(tree.rootNode, sites, definedHere, "<module>");
+    return sites;
+  }
+  collectCallSites(node, sites, definedHere, currentFunc) {
+    if (node.type === "function_definition_statement" || node.type === "local_function_definition_statement") {
+      const name = node.childForFieldName("name")?.text || currentFunc;
+      for (let i = 0; i < node.childCount; i++) {
+        this.collectCallSites(node.child(i), sites, definedHere, name);
+      }
+      return;
+    }
+    if (node.type === "call") {
+      const fn = node.childForFieldName("function");
+      if (fn && fn.type === "variable" && !fn.childForFieldName("table")) {
+        const name = fn.childForFieldName("name")?.text;
+        if (name && !LUA_BUILTINS.has(name) && !LUA_KEYWORDS.has(name)) {
+          sites.push({
+            callerName: currentFunc,
+            calleeName: name,
+            line: node.startPosition.row + 1,
+            isLocal: definedHere.has(name)
+          });
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      this.collectCallSites(node.child(i), sites, definedHere, currentFunc);
+    }
+  }
+  // ── Utilities ──────────────────────────────────────────────
+  findChild(node, type) {
+    for (let i = 0; i < node.childCount; i++) {
+      if (node.child(i).type === type) {
+        return node.child(i);
+      }
+    }
+    return null;
+  }
+};
+
+// src/analyzer/parsers/vue-parser.ts
+var SCRIPT_SRC_RE = /<script[^>]+src\s*=\s*['"]([^'"]+)['"]/gi;
+var STYLE_SRC_RE = /<style[^>]+src\s*=\s*['"]([^'"]+)['"]/gi;
+var SCRIPT_BLOCK_RE = /<script\b[^>]*>([\s\S]*?)<\/script>/gi;
+var STYLE_BLOCK_RE = /<style\b[^>]*>([\s\S]*?)<\/style>/gi;
+var IMPORT_FROM_RE = /\bimport\s+[^'"]*?from\s*['"]([^'"]+)['"]/g;
+var IMPORT_BARE_RE = /\bimport\s*['"]([^'"]+)['"]/g;
+var REQUIRE_RE2 = /\brequire\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
+var CSS_IMPORT_RE = /@import\s+(?:url\()?\s*['"]([^'"]+)['"]/g;
+var VueParser = class extends BaseParser {
+  constructor() {
+    super("vue");
+  }
+  parse(fileInfo, _options = {}) {
+    const { content, id } = fileInfo;
+    const relations = [];
+    const seen = /* @__PURE__ */ new Set();
+    const push = (target, type, label) => {
+      const key = type + "|" + target;
+      if (seen.has(key)) {
+        return;
+      }
+      seen.add(key);
+      relations.push({ source: id, target, type, label });
+    };
+    for (const m of content.matchAll(new RegExp(SCRIPT_SRC_RE.source, "gi"))) {
+      push(m[1], "script", `<script src="${m[1]}">`);
+    }
+    for (const m of content.matchAll(new RegExp(STYLE_SRC_RE.source, "gi"))) {
+      push(m[1], "stylesheet", `<style src="${m[1]}">`);
+    }
+    for (const block of content.matchAll(new RegExp(SCRIPT_BLOCK_RE.source, "gi"))) {
+      const script = block[1];
+      for (const m of script.matchAll(new RegExp(IMPORT_FROM_RE.source, "g"))) {
+        push(m[1], "import", `import ${m[1]}`);
+      }
+      for (const m of script.matchAll(new RegExp(IMPORT_BARE_RE.source, "g"))) {
+        push(m[1], "import", `import ${m[1]}`);
+      }
+      for (const m of script.matchAll(new RegExp(REQUIRE_RE2.source, "g"))) {
+        push(m[1], "require", `require('${m[1]}')`);
+      }
+    }
+    for (const block of content.matchAll(new RegExp(STYLE_BLOCK_RE.source, "gi"))) {
+      for (const m of block[1].matchAll(new RegExp(CSS_IMPORT_RE.source, "g"))) {
+        push(m[1], "css-import", `@import '${m[1]}'`);
+      }
+    }
+    return relations;
+  }
+};
+
+// src/analyzer/parsers/html-parser.ts
+var SCRIPT_SRC_RE2 = /<script[^>]+src\s*=\s*['"]([^'"]+)['"]/gi;
+var LINK_HREF_RE = /<link[^>]+href\s*=\s*['"]([^'"]+)['"]/gi;
+var IMG_SRC_RE = /<img[^>]+src\s*=\s*['"]([^'"]+)['"]/gi;
+var HTMLParser = class extends BaseParser {
+  constructor() {
+    super("html");
+  }
+  parse(fileInfo, options = {}) {
+    const { content, id } = fileInfo;
+    const relations = [];
+    relations.push(...this.extractMatches(
+      content,
+      new RegExp(SCRIPT_SRC_RE2.source, "gi"),
+      "script",
+      id,
+      (m) => `<script src="${m[1]}">`
+    ));
+    relations.push(...this.extractMatches(
+      content,
+      new RegExp(LINK_HREF_RE.source, "gi"),
+      "stylesheet",
+      id,
+      (m) => `<link href="${m[1]}">`
+    ));
+    if (options.includeAssets) {
+      relations.push(...this.extractMatches(
+        content,
+        new RegExp(IMG_SRC_RE.source, "gi"),
+        "asset",
+        id,
+        (m) => `<img src="${m[1]}">`
+      ));
+    }
+    return relations;
+  }
+};
+
+// src/analyzer/parsers/css-parser.ts
+var CSS_IMPORT_RE2 = /@import\s+(?:url\s*\(\s*)?['"]([^'"]+)['"]\s*\)?/g;
+var CSS_URL_RE = /url\s*\(\s*['"]?([^'")]+)['"]?\s*\)/g;
+var CSSParser = class extends BaseParser {
+  constructor() {
+    super("css");
+  }
+  parse(fileInfo, options = {}) {
+    const { content, id } = fileInfo;
+    const relations = [];
+    relations.push(...this.extractMatches(
+      content,
+      new RegExp(CSS_IMPORT_RE2.source, "g"),
+      "css-import",
+      id,
+      (m) => `@import "${m[1]}"`
+    ));
+    if (options.includeUrls) {
+      const urlMatches = this.extractMatches(
+        content,
+        new RegExp(CSS_URL_RE.source, "g"),
+        "css-url",
+        id,
+        (m) => `url("${m[1]}")`
+      );
+      relations.push(...urlMatches.filter(
+        (r) => !r.target.startsWith("data:") && !r.target.startsWith("http:") && !r.target.startsWith("https:") && !r.target.startsWith("#")
+      ));
+    }
+    return relations;
+  }
+};
+
+// src/analyzer/complexity.ts
+var C_JS_DECISION_RE = /\b(if|else\s+if|for|while|do|switch|case|catch)\b/g;
+var LOGICAL_OPERATORS_RE = /(\|\||&&)/g;
+var TERNARY_RE = /[^?]\?[^?:]/g;
+var CSS_SELECTOR_RE = /[^{}]+(?=\s*\{)/g;
+var CSS_MEDIA_RE = /@media\b/g;
+function computeComplexity(fileInfo) {
+  const { content, language } = fileInfo;
+  switch (language) {
+    case "c":
+    case "cpp":
+    case "javascript":
+    case "typescript":
+      return computeCJSComplexity(content);
+    case "css":
+      return computeCSSComplexity(content);
+    case "html":
+    case "vue":
+      return computeHTMLComplexity(content);
+    default: {
+      const cfg = GENERIC_LANGUAGE_CONFIGS[language];
+      if (cfg) {
+        return computeDecisionComplexity(content, cfg.keywords, cfg.operators, cfg.ternary, cfg.strip);
+      }
+      return { complexity: 1, details: {} };
+    }
+  }
+}
+function computeCJSComplexity(content) {
+  const stripped = content.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/"(?:[^"\\]|\\.)*"/g, '""').replace(/'(?:[^'\\]|\\.)*'/g, "''");
+  let complexity = 1;
+  const details = {};
+  const keywords = {};
+  const decisionRe = new RegExp(C_JS_DECISION_RE.source, "g");
+  let match;
+  while ((match = decisionRe.exec(stripped)) !== null) {
+    const kw = match[1].replace(/\s+/g, " ");
+    keywords[kw] = (keywords[kw] || 0) + 1;
+    complexity++;
+  }
+  details.keywords = keywords;
+  const logicalRe = new RegExp(LOGICAL_OPERATORS_RE.source, "g");
+  let logicalCount = 0;
+  while ((match = logicalRe.exec(stripped)) !== null) {
+    logicalCount++;
+    complexity++;
+  }
+  details.logicalOperators = logicalCount;
+  const ternaryRe = new RegExp(TERNARY_RE.source, "g");
+  let ternaryCount = 0;
+  while ((match = ternaryRe.exec(stripped)) !== null) {
+    ternaryCount++;
+    complexity++;
+  }
+  details.ternaryOperators = ternaryCount;
+  return { complexity, details };
+}
+function computeCSSComplexity(content) {
+  const stripped = content.replace(/\/\*[\s\S]*?\*\//g, "");
+  let selectorCount = 0;
+  const selectorRe = new RegExp(CSS_SELECTOR_RE.source, "g");
+  let match;
+  while ((match = selectorRe.exec(stripped)) !== null) {
+    const selectors = match[0].split(",").filter((s) => s.trim().length > 0);
+    selectorCount += selectors.length;
+  }
+  let mediaCount = 0;
+  const mediaRe = new RegExp(CSS_MEDIA_RE.source, "g");
+  while ((match = mediaRe.exec(stripped)) !== null) {
+    mediaCount++;
+  }
+  const complexity = Math.max(1, Math.round(1 + selectorCount / 10 + mediaCount));
+  return {
+    complexity,
+    details: { selectors: selectorCount, mediaQueries: mediaCount }
+  };
+}
+function computeHTMLComplexity(content) {
+  const eventHandlerRe = /\bon\w+\s*=/gi;
+  let eventCount = 0;
+  let match;
+  while ((match = eventHandlerRe.exec(content)) !== null) {
+    eventCount++;
+  }
+  const scriptRe = /<script\b[^>]*>[\s\S]*?<\/script>/gi;
+  let scriptCount = 0;
+  let inlineJSComplexity = 0;
+  while ((match = scriptRe.exec(content)) !== null) {
+    scriptCount++;
+    const jsResult = computeCJSComplexity(match[0]);
+    inlineJSComplexity += jsResult.complexity - 1;
+  }
+  const complexity = Math.max(1, 1 + eventCount + inlineJSComplexity);
+  return {
+    complexity,
+    details: { eventHandlers: eventCount, scriptBlocks: scriptCount, inlineJSComplexity }
+  };
+}
+function stripCLikeComments(content) {
+  return content.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "").replace(/"(?:[^"\\]|\\.)*"/g, '""').replace(/'(?:[^'\\]|\\.)*'/g, "''").replace(/`(?:[^`\\]|\\.)*`/g, "``");
+}
+function stripHashComments(content) {
+  return content.replace(/"""[\s\S]*?"""/g, '""').replace(/'''[\s\S]*?'''/g, "''").replace(/"(?:[^"\\]|\\.)*"/g, '""').replace(/'(?:[^'\\]|\\.)*'/g, "''").replace(/#.*$/gm, "");
+}
+function stripPhpComments(content) {
+  return content.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "").replace(/#.*$/gm, "").replace(/"(?:[^"\\]|\\.)*"/g, '""').replace(/'(?:[^'\\]|\\.)*'/g, "''");
+}
+function stripLuaComments(content) {
+  return content.replace(/--\[\[[\s\S]*?\]\]/g, "").replace(/--[^\[].*$/gm, "").replace(/--$/gm, "").replace(/"(?:[^"\\]|\\.)*"/g, '""').replace(/'(?:[^'\\]|\\.)*'/g, "''").replace(/\[\[[\s\S]*?\]\]/g, '""');
+}
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+function computeDecisionComplexity(content, keywords, operators, ternary, strip) {
+  const stripped = strip(content);
+  let complexity = 1;
+  const details = {};
+  const keywordCounts = {};
+  for (const kw of keywords) {
+    const re = new RegExp(`\\b${escapeRegex(kw)}\\b`, "g");
+    let count = 0;
+    let m;
+    while ((m = re.exec(stripped)) !== null) {
+      count++;
+    }
+    if (count > 0) {
+      keywordCounts[kw] = count;
+      complexity += count;
+    }
+  }
+  details.keywords = keywordCounts;
+  let logicalCount = 0;
+  for (const op of operators) {
+    const isWord = /^[A-Za-z]+$/.test(op);
+    const re = new RegExp(isWord ? `\\b${escapeRegex(op)}\\b` : escapeRegex(op), "g");
+    let m;
+    while ((m = re.exec(stripped)) !== null) {
+      logicalCount++;
+      complexity++;
+    }
+  }
+  details.logicalOperators = logicalCount;
+  let ternaryCount = 0;
+  if (ternary) {
+    const re = new RegExp(ternary.source, "g");
+    let m;
+    while ((m = re.exec(stripped)) !== null) {
+      ternaryCount++;
+      complexity++;
+    }
+  }
+  details.ternaryOperators = ternaryCount;
+  return { complexity, details };
+}
+var GENERIC_LANGUAGE_CONFIGS = {
+  python: {
+    keywords: ["if", "elif", "for", "while", "except", "finally", "with", "assert"],
+    operators: ["and", "or"],
+    ternary: null,
+    // `x if c else y` — the `if` is already counted as a keyword
+    strip: stripHashComments
+  },
+  java: {
+    keywords: ["if", "for", "while", "do", "switch", "case", "catch"],
+    operators: ["&&", "||"],
+    ternary: TERNARY_RE,
+    strip: stripCLikeComments
+  },
+  go: {
+    keywords: ["if", "for", "switch", "case", "select"],
+    operators: ["&&", "||"],
+    ternary: null,
+    // Go has no ternary operator
+    strip: stripCLikeComments
+  },
+  rust: {
+    keywords: ["if", "for", "while", "loop", "match"],
+    operators: ["&&", "||"],
+    ternary: null,
+    // Rust has no ternary operator
+    strip: stripCLikeComments
+  },
+  kotlin: {
+    keywords: ["if", "for", "while", "do", "when", "catch"],
+    operators: ["&&", "||", "?:"],
+    // Elvis operator counts as a branch
+    ternary: null,
+    // Kotlin has no ternary; `if` is an expression (counted as keyword)
+    strip: stripCLikeComments
+  },
+  ruby: {
+    keywords: ["if", "elsif", "unless", "while", "until", "for", "case", "when", "rescue"],
+    operators: ["&&", "||", "and", "or"],
+    ternary: TERNARY_RE,
+    strip: stripHashComments
+  },
+  swift: {
+    keywords: ["if", "guard", "for", "while", "repeat", "switch", "case", "catch"],
+    operators: ["&&", "||", "??"],
+    // nil-coalescing counts as a branch
+    ternary: TERNARY_RE,
+    strip: stripCLikeComments
+  },
+  csharp: {
+    keywords: ["if", "for", "foreach", "while", "do", "switch", "case", "catch", "when"],
+    operators: ["&&", "||", "??"],
+    // null-coalescing counts as a branch
+    ternary: TERNARY_RE,
+    strip: stripCLikeComments
+  },
+  php: {
+    keywords: ["if", "elseif", "for", "foreach", "while", "do", "switch", "case", "catch"],
+    operators: ["&&", "||", "and", "or"],
+    ternary: TERNARY_RE,
+    strip: stripPhpComments
+  },
+  bash: {
+    keywords: ["if", "elif", "for", "while", "until", "case", "select"],
+    operators: ["&&", "||"],
+    ternary: null,
+    // Shell has no ternary operator
+    strip: stripHashComments
+  },
+  lua: {
+    keywords: ["if", "elseif", "for", "while", "repeat", "until"],
+    operators: ["and", "or"],
+    ternary: null,
+    // Lua has no ternary operator
+    strip: stripLuaComments
+  }
+};
+
+// src/analyzer/tree-sitter-loader.ts
+var import_path2 = require("path");
+var TSParser = require_tree_sitter();
+var GRAMMAR_FILES = {
+  "c": "tree-sitter-c.wasm",
+  "cpp": "tree-sitter-cpp.wasm",
+  "javascript": "tree-sitter-javascript.wasm",
+  "typescript": "tree-sitter-typescript.wasm",
+  "tsx": "tree-sitter-tsx.wasm",
+  "python": "tree-sitter-python.wasm",
+  "java": "tree-sitter-java.wasm",
+  "go": "tree-sitter-go.wasm",
+  "rust": "tree-sitter-rust.wasm",
+  "csharp": "tree-sitter-c_sharp.wasm",
+  "php": "tree-sitter-php.wasm",
+  "bash": "tree-sitter-bash.wasm",
+  "lua": "tree-sitter-lua.wasm",
+  "css": "tree-sitter-css.wasm",
+  "html": "tree-sitter-html.wasm",
+  "kotlin": "tree-sitter-kotlin.wasm",
+  "ruby": "tree-sitter-ruby.wasm",
+  "swift": "tree-sitter-swift.wasm"
+};
+var initialized = false;
+var loadedLanguages = /* @__PURE__ */ new Map();
+var parserPool = /* @__PURE__ */ new Map();
+function getWasmDir() {
+  const fs3 = require("fs");
+  const { resolve } = require("path");
+  const candidates = [
+    (0, import_path2.join)(__dirname, "tree-sitter-wasms"),
+    // bundled (.vsix)
+    (0, import_path2.join)(__dirname, "..", "node_modules", "tree-sitter-wasms", "out"),
+    // dev from out/
+    resolve("node_modules", "tree-sitter-wasms", "out")
+    // dev from project root (vitest)
+  ];
+  return candidates.find((p) => fs3.existsSync(p)) || candidates[0];
+}
+async function initTreeSitter() {
+  if (initialized) {
+    return;
+  }
+  const fs3 = require("fs");
+  const { resolve } = require("path");
+  const candidates = [
+    (0, import_path2.join)(__dirname, "tree-sitter-wasms", "tree-sitter.wasm"),
+    // bundled (.vsix)
+    (0, import_path2.join)(__dirname, "..", "node_modules", "web-tree-sitter", "tree-sitter.wasm"),
+    // dev from out/
+    resolve("node_modules", "web-tree-sitter", "tree-sitter.wasm")
+    // dev from project root (vitest)
+  ];
+  const wasmFile = candidates.find((p) => fs3.existsSync(p));
+  if (!wasmFile) {
+    throw new Error("web-tree-sitter.wasm not found. Searched:\n" + candidates.join("\n"));
+  }
+  await TSParser.init({
+    locateFile: () => wasmFile
+  });
+  initialized = true;
+}
+async function loadLanguage(languageId) {
+  const cached = loadedLanguages.get(languageId);
+  if (cached) {
+    return cached;
+  }
+  const file = GRAMMAR_FILES[languageId];
+  if (!file) {
+    throw new Error(`No Tree-sitter grammar available for language: ${languageId}`);
+  }
+  const wasmDir = getWasmDir();
+  const wasmPath = (0, import_path2.join)(wasmDir, file);
+  const language = await TSParser.Language.load(wasmPath);
+  loadedLanguages.set(languageId, language);
+  return language;
+}
+async function createParser(languageId) {
+  await initTreeSitter();
+  const language = await loadLanguage(languageId);
+  const parser = new TSParser();
+  parser.setLanguage(language);
+  return parser;
+}
+async function getCachedParser(languageId) {
+  let pool = parserPool.get(languageId);
+  if (!pool) {
+    pool = [];
+    parserPool.set(languageId, pool);
+  }
+  let parser = pool.pop();
+  if (!parser) {
+    parser = await createParser(languageId);
+  }
+  return parser;
+}
+function releaseParser(languageId, parser) {
+  let pool = parserPool.get(languageId);
+  if (!pool) {
+    pool = [];
+    parserPool.set(languageId, pool);
+  }
+  pool.push(parser);
+}
+async function parseSource(languageId, source) {
+  const parser = await getCachedParser(languageId);
+  try {
+    const tree = parser.parse(source);
+    if (!tree) {
+      throw new Error(`Tree-sitter failed to parse source for language: ${languageId}`);
+    }
+    return tree;
+  } finally {
+    releaseParser(languageId, parser);
+  }
+}
+function hasGrammar(languageId) {
+  return languageId in GRAMMAR_FILES;
+}
+
+// src/analyzer/graph-builder.ts
+var PARSERS = {
+  "c": new TreeSitterCParser(),
+  "cpp": new TreeSitterCppParser(),
+  "javascript": new TreeSitterJSParser(),
+  "typescript": new TreeSitterTSParser(),
+  "python": new TreeSitterPyParser(),
+  "java": new TreeSitterJavaParser(),
+  "go": new TreeSitterGoParser(),
+  "rust": new TreeSitterRustParser(),
+  "kotlin": new TreeSitterKotlinParser(),
+  "ruby": new TreeSitterRubyParser(),
+  "swift": new TreeSitterSwiftParser(),
+  "csharp": new TreeSitterCSharpParser(),
+  "php": new TreeSitterPhpParser(),
+  "vue": new VueParser(),
+  "bash": new TreeSitterBashParser(),
+  "lua": new TreeSitterLuaParser(),
+  "html": new HTMLParser(),
+  "css": new CSSParser()
+};
+var LANG_FAMILY = {
+  "c": "c",
+  "cpp": "c",
+  "javascript": "js",
+  "typescript": "js",
+  "python": "py",
+  "java": "java",
+  "go": "go",
+  "rust": "rust",
+  "kotlin": "kotlin",
+  "ruby": "ruby",
+  "swift": "swift",
+  "csharp": "csharp",
+  "php": "php",
+  "bash": "bash",
+  "lua": "lua"
+};
+var SYMBOL_LANGUAGES = /* @__PURE__ */ new Set(["c", "cpp", "javascript", "typescript", "python", "java", "go", "rust", "kotlin", "ruby", "swift", "csharp", "php", "bash", "lua"]);
+var HEADER_EXTS = /* @__PURE__ */ new Set([".h", ".hpp", ".hxx", ".hh", ".d.ts"]);
+function getParser(language) {
+  return PARSERS[language];
+}
+async function preParseFiles(files) {
+  const trees = /* @__PURE__ */ new Map();
+  for (const file of files) {
+    if (hasGrammar(file.language)) {
+      try {
+        const tree = await parseSource(file.language, file.content);
+        trees.set(file.id, tree);
+      } catch {
+      }
+    }
+  }
+  return trees;
+}
+function resolveTarget(target, sourceId, fileMap) {
+  if (fileMap.has(target))
+    return target;
+  const sourceDir = (0, import_path3.dirname)(sourceId);
+  const relativePath = (0, import_path3.normalize)((0, import_path3.join)(sourceDir, target));
+  if (fileMap.has(relativePath))
+    return relativePath;
+  const extensions = [".js", ".ts", ".py", ".c", ".h", ".css", ".html", ".cs", ".php", ".sh", ".lua"];
+  for (const ext of extensions) {
+    if (fileMap.has(relativePath + ext))
+      return relativePath + ext;
+    if (fileMap.has(target + ext))
+      return target + ext;
+  }
+  const indexPath = (0, import_path3.join)(relativePath, "index.js");
+  if (fileMap.has(indexPath))
+    return indexPath;
+  if (target.includes("/")) {
+    const suffix = "/" + target.replace(/\\/g, "/");
+    for (const [id] of fileMap) {
+      if (id.endsWith(suffix))
+        return id;
+    }
+  }
+  const targetBasename = (0, import_path3.basename)(target);
+  for (const [id, file] of fileMap) {
+    if (file.name === targetBasename)
+      return id;
+  }
+  for (const ext of extensions) {
+    const nameWithExt = targetBasename + ext;
+    for (const [id, file] of fileMap) {
+      if (file.name === nameWithExt)
+        return id;
+    }
+  }
+  return null;
+}
+function restoreIncrementalContext(files, graphData) {
+  const fileMap = /* @__PURE__ */ new Map();
+  for (const file of files)
+    fileMap.set(file.id, file);
+  const globalFunctionIndex = /* @__PURE__ */ new Map();
+  const fileSymbols = /* @__PURE__ */ new Map();
+  for (const node of graphData.nodes) {
+    if (!SYMBOL_LANGUAGES.has(node.language))
+      continue;
+    if (!node.symbols)
+      continue;
+    const ns = node.symbols;
+    const symbols = {
+      functions: ns.functions.map((f) => ({ name: f.name, type: f.type, returnType: f.returnType, params: f.params, line: f.line, visibility: f.visibility, isStatic: f.isStatic, isAsync: f.isAsync })),
+      methods: (ns.methods || []).map((m) => ({ name: m.name, type: m.type, returnType: m.returnType, params: m.params, line: m.line, visibility: m.visibility, isStatic: m.isStatic, isAsync: m.isAsync })),
+      structs: ns.structs.map((s) => ({ name: s.name, type: s.type, line: s.line })),
+      enums: ns.enums.map((e) => ({ name: e.name, type: e.type, line: e.line })),
+      macros: (ns.macros || []).map((m) => ({ name: m.name, type: m.type, line: m.line })),
+      classes: ns.classes.map((c) => ({ name: c.name, type: c.type, line: c.line })),
+      exports: ns.exports.map((e) => ({ name: e.name, type: e.type, line: e.line })),
+      interfaces: (ns.interfaces || []).map((i) => ({ name: i.name, type: i.type })),
+      traits: (ns.traits || []).map((t) => ({ name: t.name, type: t.type })),
+      typeAliases: (ns.typeAliases || []).map((ta) => ({ name: ta.name, type: ta.type })),
+      externs: []
+    };
+    fileSymbols.set(node.id, symbols);
+    const family = LANG_FAMILY[node.language] || node.language;
+    for (const func2 of symbols.functions) {
+      const key = `${family}:${func2.name}`;
+      if (!globalFunctionIndex.has(key))
+        globalFunctionIndex.set(key, []);
+      globalFunctionIndex.get(key).push(node.id);
+    }
+  }
+  const importGraph = /* @__PURE__ */ new Map();
+  for (const link of graphData.links) {
+    if (link.type === "include" || link.type === "system-include") {
+      if (!importGraph.has(link.source))
+        importGraph.set(link.source, /* @__PURE__ */ new Set());
+      importGraph.get(link.source).add(link.target);
+    }
+  }
+  return { fileMap, globalFunctionIndex, fileSymbols, importGraph };
+}
+function rebuildSingleFile(file, ctx, astTree, options = {}) {
+  const { fileMap, globalFunctionIndex, fileSymbols: allFileSymbols } = ctx;
+  fileMap.set(file.id, file);
+  const oldSymbols = allFileSymbols.get(file.id);
+  if (oldSymbols) {
+    const family = LANG_FAMILY[file.language] || file.language;
+    for (const func2 of oldSymbols.functions) {
+      const key = `${family}:${func2.name}`;
+      const arr = globalFunctionIndex.get(key);
+      if (arr) {
+        const filtered = arr.filter((id) => id !== file.id);
+        if (filtered.length > 0)
+          globalFunctionIndex.set(key, filtered);
+        else
+          globalFunctionIndex.delete(key);
+      }
+    }
+  }
+  const parser = getParser(file.language);
+  const relations = [];
+  if (parser) {
+    const rels = astTree && parser.usesTreeSitter ? parser.parseAST(astTree, file, options) : parser.parse(file, options);
+    relations.push(...rels);
+  }
+  let symbols;
+  if (SYMBOL_LANGUAGES.has(file.language) && parser) {
+    symbols = astTree && parser.usesTreeSitter ? parser.extractSymbolsAST(astTree, file) : parser.extractSymbols?.(file);
+  }
+  if (symbols) {
+    allFileSymbols.set(file.id, symbols);
+    const family = LANG_FAMILY[file.language] || file.language;
+    for (const func2 of symbols.functions) {
+      const key = `${family}:${func2.name}`;
+      if (!globalFunctionIndex.has(key))
+        globalFunctionIndex.set(key, []);
+      globalFunctionIndex.get(key).push(file.id);
+    }
+  } else {
+    allFileSymbols.delete(file.id);
+  }
+  const localImportTargets = /* @__PURE__ */ new Set();
+  for (const rel of relations) {
+    const resolved = resolveTarget(rel.target, rel.source, fileMap);
+    if (resolved && resolved !== rel.source)
+      localImportTargets.add(resolved);
+  }
+  ctx.importGraph.set(file.id, localImportTargets);
+  function isReachableFromFile(target) {
+    if (localImportTargets.has(target))
+      return true;
+    const targetImports = ctx.importGraph.get(target);
+    for (const imported of localImportTargets) {
+      const imp = fileMap.get(imported);
+      if (!imp || !HEADER_EXTS.has(imp.extension))
+        continue;
+      if (targetImports?.has(imported))
+        return true;
+      const baseName = imported.replace(/\.[^.]+$/, "");
+      if (target.startsWith(baseName + "."))
+        return true;
+    }
+    return false;
+  }
+  const functionCallLinks = [];
+  if (SYMBOL_LANGUAGES.has(file.language) && !HEADER_EXTS.has(file.extension) && parser) {
+    let calls;
+    if (astTree && parser.usesTreeSitter) {
+      const tsParser = parser;
+      calls = tsParser.extractCallsFromAST?.(astTree) || [];
+    } else {
+      const regexParser = parser;
+      calls = regexParser.extractCalls?.(file) || [];
+    }
+    const ownFunctions = new Set(symbols ? symbols.functions.map((f) => f.name) : []);
+    const family = LANG_FAMILY[file.language] || file.language;
+    const hasHeaders = file.language === "c" || file.language === "cpp";
+    for (const callName of calls) {
+      if (ownFunctions.has(callName))
+        continue;
+      const key = `${family}:${callName}`;
+      const definedIn = globalFunctionIndex.get(key);
+      if (definedIn) {
+        for (const defFileId of definedIn) {
+          if (defFileId === file.id)
+            continue;
+          if (hasHeaders && !isReachableFromFile(defFileId))
+            continue;
+          functionCallLinks.push({ source: file.id, target: defFileId, type: "function-call", label: `${callName}()` });
+        }
+      }
+    }
+  }
+  const callSites = [];
+  if (SYMBOL_LANGUAGES.has(file.language) && !HEADER_EXTS.has(file.extension) && parser && astTree && parser.usesTreeSitter) {
+    const sites = parser.extractCallSitesAST(astTree, file);
+    const family = LANG_FAMILY[file.language] || file.language;
+    for (const site of sites) {
+      if (site.isLocal) {
+        callSites.push({ callerFile: file.id, callerName: site.callerName, calleeFile: file.id, calleeName: site.calleeName, callLine: site.line });
+      } else {
+        const key = `${family}:${site.calleeName}`;
+        const definedIn = globalFunctionIndex.get(key);
+        if (definedIn) {
+          for (const defFileId of definedIn) {
+            if (defFileId !== file.id) {
+              callSites.push({ callerFile: file.id, callerName: site.callerName, calleeFile: defFileId, calleeName: site.calleeName, callLine: site.line });
+            }
+          }
+        }
+      }
+    }
+  }
+  const heritageLinks = [];
+  if (astTree && parser) {
+    const symbolFileIndex = /* @__PURE__ */ new Map();
+    for (const [fid, syms] of allFileSymbols) {
+      for (const cls of syms.classes)
+        symbolFileIndex.set(cls.name, fid);
+      for (const iface of syms.interfaces || [])
+        symbolFileIndex.set(iface.name, fid);
+      for (const trait of syms.traits || [])
+        symbolFileIndex.set(trait.name, fid);
+      for (const struct of syms.structs)
+        symbolFileIndex.set(struct.name, fid);
+    }
+    const heritageRels = parser.extractHeritageRelations(astTree, file);
+    for (const rel of heritageRels) {
+      const targetFileId = symbolFileIndex.get(rel.target);
+      if (targetFileId && targetFileId !== file.id) {
+        heritageLinks.push({ source: file.id, target: targetFileId, type: rel.type, label: rel.label });
+      }
+    }
+  }
+  const cmplx = computeComplexity(file);
+  const outEdges = [];
+  for (const rel of relations) {
+    const resolved = resolveTarget(rel.target, rel.source, fileMap);
+    if (resolved && resolved !== rel.source) {
+      const linkType = rel.type === "system-include" && !options.includeSystemHeaders ? "include" : rel.type;
+      outEdges.push({ source: rel.source, target: resolved, type: linkType, label: rel.label });
+    }
+  }
+  outEdges.push(...functionCallLinks);
+  outEdges.push(...heritageLinks);
+  const linkSet = /* @__PURE__ */ new Set();
+  const uniqueEdges = outEdges.filter((e) => {
+    const key = `${e.source}|${e.target}|${e.type}`;
+    if (linkSet.has(key))
+      return false;
+    linkSet.add(key);
+    return true;
+  });
+  const node = {
+    id: file.id,
+    name: file.name,
+    path: file.path,
+    language: file.language,
+    extension: file.extension,
+    size: file.size,
+    linesOfCode: file.linesOfCode,
+    lastModified: file.lastModified || 0,
+    group: file.group,
+    fanOut: uniqueEdges.length,
+    fanIn: 0,
+    // Will be recomputed by graphDb.updateFanCounts()
+    complexity: cmplx.complexity,
+    complexityDetails: cmplx.details
+  };
+  if (symbols) {
+    node.symbols = {
+      functions: symbols.functions.map((fn) => ({
+        name: fn.name,
+        returnType: fn.returnType || "",
+        params: fn.params || "",
+        line: fn.line || 0,
+        type: fn.type,
+        visibility: fn.visibility,
+        isStatic: fn.isStatic,
+        isAsync: fn.isAsync
+      })),
+      structs: symbols.structs.map((s) => ({ name: s.name, type: s.type, line: s.line || 0 })),
+      enums: symbols.enums.map((e) => ({ name: e.name, type: e.type, line: e.line || 0 })),
+      macros: symbols.macros.slice(0, 30).map((m) => ({ name: m.name, type: m.type, line: m.line || 0 })),
+      classes: symbols.classes.map((c) => ({ name: c.name, type: c.type, line: c.line || 0 })),
+      exports: symbols.exports.map((e) => ({ name: e.name, type: e.type, line: e.line || 0 })),
+      interfaces: (symbols.interfaces || []).map((i) => ({ name: i.name, type: i.type })),
+      traits: (symbols.traits || []).map((t) => ({ name: t.name, type: t.type })),
+      typeAliases: (symbols.typeAliases || []).map((ta) => ({ name: ta.name, type: ta.type })),
+      methods: (symbols.methods || []).map((m) => ({
+        name: m.name,
+        returnType: m.returnType || "",
+        params: m.params || "",
+        line: m.line || 0,
+        type: m.type,
+        visibility: m.visibility,
+        isStatic: m.isStatic,
+        isAsync: m.isAsync
+      })),
+      totalSymbols: symbols.functions.length + symbols.structs.length + symbols.enums.length + symbols.macros.length + symbols.classes.length + symbols.exports.length + (symbols.interfaces || []).length + (symbols.traits || []).length + (symbols.typeAliases || []).length + (symbols.methods || []).length
+    };
+  }
+  return { node, outEdges: uniqueEdges, callSites };
+}
+
+// src/analyzer/git-history.ts
+var import_child_process = require("child_process");
+var import_util = require("util");
+var execFileAsync = (0, import_util.promisify)(import_child_process.execFile);
+var MAX_BUFFER = 50 * 1024 * 1024;
+async function isGitRepo(cwd) {
+  try {
+    await execFileAsync("git", ["rev-parse", "--is-inside-work-tree"], { cwd });
+    return true;
+  } catch {
+    return false;
+  }
+}
+async function getGitRoot(cwd) {
+  const { stdout } = await execFileAsync("git", ["rev-parse", "--show-toplevel"], { cwd });
+  return stdout.trim();
+}
+async function getWorkingTreeFiles(cwd) {
+  const result = /* @__PURE__ */ new Map();
+  try {
+    const { stdout } = await execFileAsync("git", [
+      "--no-optional-locks",
+      "status",
+      "--porcelain=v1",
+      "-z",
+      "--untracked-files=all"
+    ], { cwd, maxBuffer: MAX_BUFFER });
+    const parts = stdout.split("\0");
+    for (let i = 0; i < parts.length; i++) {
+      const entry = parts[i];
+      if (!entry || entry.length < 4)
+        continue;
+      const xy = entry.slice(0, 2);
+      const filePath = entry.slice(3);
+      if (!filePath)
+        continue;
+      if (xy === "??") {
+        result.set(filePath, "untracked");
+        continue;
+      }
+      if (xy === "!!")
+        continue;
+      if (xy[0] === "U" || xy[1] === "U" || xy === "AA" || xy === "DD") {
+        result.set(filePath, "conflicted");
+        continue;
+      }
+      let state = "modified";
+      if (xy[0] === "A" || xy[1] === "A")
+        state = "added";
+      else if (xy[0] === "D" || xy[1] === "D")
+        state = "deleted";
+      else if (xy[0] === "R" || xy[1] === "R" || xy[0] === "C" || xy[1] === "C") {
+        state = "renamed";
+        i++;
+      }
+      result.set(filePath, state);
+    }
+  } catch {
+  }
+  return result;
+}
+
+// src/graph-db.ts
+var import_sql = __toESM(require_sql_wasm());
+var import_fs = require("fs");
+var import_path4 = require("path");
+var SCHEMA = `
 CREATE TABLE IF NOT EXISTS nodes (
     id            TEXT PRIMARY KEY,
     name          TEXT NOT NULL,
@@ -924,13 +13132,454 @@ CREATE INDEX IF NOT EXISTS idx_fcalls_callee ON function_calls(callee_file, call
 CREATE VIRTUAL TABLE IF NOT EXISTS doc_chunks USING fts4(
     file_id, section, content, line_start, tokenize=porter
 );
-`;function Q(i,e,t=[]){let n=i.prepare(e);n.bind(t);let r=[];for(;n.step();)r.push(n.getAsObject());return n.free(),r}function vn(i,e,t=[]){let n=i.prepare(e);n.bind(t);let r;return n.step()&&(r=n.getAsObject()),n.free(),r}function ea(i){if(!i)return[];let e=i.replace(/["()\:\*\^\-\+]/g," ").trim();return e?e.split(/\s+/).filter(t=>t.length>1):[]}function Zs(i,e){if(!e)return 0;let t=0,n=0;for(;(n=i.indexOf(e,n))!==-1;)t++,n+=e.length;return t}var kt=class{db=null;dbPath="";async open(e){let t=(0,Nt.join)(__dirname,"sql-wasm.wasm");(0,Te.existsSync)(t)||(t=(0,Nt.join)((0,Nt.dirname)(require.resolve("sql.js")),"sql-wasm.wasm"));let n=await(0,Ys.default)({locateFile:()=>t});if(this.dbPath=e,(0,Te.existsSync)(e)){let r=(0,Te.readFileSync)(e);this.db=new n.Database(r)}else this.db=new n.Database;this.db.run(Vs),this.migrateSchema()}openSync(e,t){if(this.dbPath=t,(0,Te.existsSync)(t)){let n=(0,Te.readFileSync)(t);this.db=new e.Database(n)}else this.db=new e.Database;this.db.run(Vs),this.migrateSchema()}close(){this.db?.close(),this.db=null}get isOpen(){return this.db!==null}save(){if(!this.db||!this.dbPath)return;let e=this.db.export();(0,Te.writeFileSync)(this.dbPath,Buffer.from(e))}listSavedQueries(){let e=this.ensureDb();return Q(e,"SELECT id, name, expr, mode, created_at FROM saved_queries ORDER BY created_at DESC").map(t=>({id:t.id,name:t.name,expr:t.expr,mode:t.mode,createdAt:t.created_at}))}addSavedQuery(e){this.ensureDb().run("INSERT OR REPLACE INTO saved_queries (id, name, expr, mode, created_at) VALUES (?, ?, ?, ?, ?)",[e.id,e.name,e.expr,e.mode||"highlight",Date.now()]),this.save()}deleteSavedQuery(e){this.ensureDb().run("DELETE FROM saved_queries WHERE id = ?",[e]),this.save()}importGraphData(e){let t=this.ensureDb();t.run("BEGIN TRANSACTION");try{t.run("DELETE FROM symbols"),t.run("DELETE FROM edges"),t.run("DELETE FROM cycles"),t.run("DELETE FROM nodes"),t.run("DELETE FROM meta"),t.run("DELETE FROM function_calls");for(let s of e.nodes)t.run("INSERT INTO nodes (id, name, language, extension, group_name, size, lines, complexity, fan_in, fan_out, last_modified) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",[s.id,s.name,s.language,s.extension,s.group,s.size,s.linesOfCode,s.complexity,s.fanIn,s.fanOut,s.lastModified]);for(let s of e.links){let o=typeof s.source=="object"?s.source.id:s.source,l=typeof s.target=="object"?s.target.id:s.target;t.run("INSERT OR IGNORE INTO edges (source, target, type, label) VALUES (?, ?, ?, ?)",[o,l,s.type,s.label||""])}let n="INSERT OR IGNORE INTO symbols (node_id, name, kind, return_type, params, line, is_dead, visibility, is_static, is_async) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";for(let s of e.nodes){if(!s.symbols)continue;let o=new Set(s.deadExports||[]);for(let l of s.symbols.functions)t.run(n,[s.id,l.name,l.type||"function",l.returnType||"",l.params||"",l.line||0,o.has(l.name)?1:0,l.visibility||"public",l.isStatic?1:0,l.isAsync?1:0]);for(let l of s.symbols.methods||[])t.run(n,[s.id,l.name,l.type||"method",l.returnType||"",l.params||"",l.line||0,o.has(l.name)?1:0,l.visibility||"public",l.isStatic?1:0,l.isAsync?1:0]);for(let l of s.symbols.structs)t.run(n,[s.id,l.name,l.type||"struct","","",l.line||0,0,"public",0,0]);for(let l of s.symbols.enums)t.run(n,[s.id,l.name,l.type||"enum","","",l.line||0,0,"public",0,0]);for(let l of s.symbols.macros)t.run(n,[s.id,l.name,l.type||"macro","","",l.line||0,0,"public",0,0]);for(let l of s.symbols.classes)t.run(n,[s.id,l.name,l.type||"class","","",l.line||0,o.has(l.name)?1:0,"public",0,0]);for(let l of s.symbols.exports)t.run(n,[s.id,l.name,l.type||"export","","",l.line||0,o.has(l.name)?1:0,"public",0,0]);for(let l of s.symbols.interfaces||[])t.run(n,[s.id,l.name,l.type||"interface","","",l.line||0,0,l.visibility||"public",0,0]);for(let l of s.symbols.traits||[])t.run(n,[s.id,l.name,l.type||"trait","","",l.line||0,0,l.visibility||"public",0,0]);for(let l of s.symbols.typeAliases||[])t.run(n,[s.id,l.name,l.type||"type_alias","","",l.line||0,0,l.visibility||"public",0,0])}if(e.meta.cycles)for(let s=0;s<e.meta.cycles.length;s++){let o=e.meta.cycles[s];for(let l=0;l<o.length;l++)t.run("INSERT INTO cycles (cycle_id, node_id, position) VALUES (?, ?, ?)",[s,o[l],l])}let r=[["projectName",e.meta.projectName],["analyzedAt",e.meta.analyzedAt],["totalFiles",String(e.meta.totalFiles)],["totalLinks",String(e.meta.totalLinks)],["totalRelationsFound",String(e.meta.totalRelationsFound)],["functionCallLinks",String(e.meta.functionCallLinks)],["unresolvedReferences",String(e.meta.unresolvedReferences)],["deadCodeFiles",String(e.meta.deadCodeFiles)],["deadExportsTotal",String(e.meta.deadExportsTotal)],["languageStats",JSON.stringify(e.meta.languageStats)],["groups",JSON.stringify(e.meta.groups)]];for(let[s,o]of r)t.run("INSERT INTO meta (key, value) VALUES (?, ?)",[s,o]);if(e.functionCalls){let s="INSERT OR IGNORE INTO function_calls (caller_file, caller_name, callee_file, callee_name, call_line) VALUES (?, ?, ?, ?, ?)";for(let o of e.functionCalls)t.run(s,[o.callerFile,o.callerName,o.calleeFile,o.calleeName,o.callLine])}t.run("COMMIT")}catch(n){throw t.run("ROLLBACK"),n}this.save()}upsertNode(e){this.ensureDb().run(`INSERT OR REPLACE INTO nodes (id, name, language, extension, group_name, size, lines, complexity, fan_in, fan_out, last_modified)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,[e.id,e.name,e.language,e.extension,e.group,e.size,e.linesOfCode,e.complexity,e.fanIn,e.fanOut,e.lastModified])}deleteNode(e){let t=this.ensureDb();t.run("BEGIN TRANSACTION");try{t.run("DELETE FROM edges WHERE source = ? OR target = ?",[e,e]),t.run("DELETE FROM symbols WHERE node_id = ?",[e]),t.run("DELETE FROM function_calls WHERE caller_file = ? OR callee_file = ?",[e,e]),t.run("DELETE FROM doc_chunks WHERE file_id = ?",[e]),t.run("DELETE FROM nodes WHERE id = ?",[e]),t.run("COMMIT")}catch(n){throw t.run("ROLLBACK"),n}}replaceFileData(e,t,n,r){let s=this.ensureDb();s.run("BEGIN TRANSACTION");try{s.run(`INSERT OR REPLACE INTO nodes (id, name, language, extension, group_name, size, lines, complexity, fan_in, fan_out, last_modified)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,[t.id,t.name,t.language,t.extension,t.group,t.size,t.linesOfCode,t.complexity,t.fanIn,t.fanOut,t.lastModified]),s.run("DELETE FROM edges WHERE source = ?",[e]);for(let o of n)s.run("INSERT OR IGNORE INTO edges (source, target, type, label) VALUES (?, ?, ?, ?)",[o.source,o.target,o.type,o.label||""]);if(s.run("DELETE FROM symbols WHERE node_id = ?",[e]),t.symbols){let o=new Set(t.deadExports||[]),l="INSERT OR IGNORE INTO symbols (node_id, name, kind, return_type, params, line, is_dead, visibility, is_static, is_async) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";for(let u of t.symbols.functions)s.run(l,[e,u.name,u.type||"function",u.returnType||"",u.params||"",u.line||0,o.has(u.name)?1:0,u.visibility||"public",u.isStatic?1:0,u.isAsync?1:0]);for(let u of t.symbols.methods||[])s.run(l,[e,u.name,u.type||"method",u.returnType||"",u.params||"",u.line||0,o.has(u.name)?1:0,u.visibility||"public",u.isStatic?1:0,u.isAsync?1:0]);for(let u of t.symbols.structs)s.run(l,[e,u.name,u.type||"struct","","",u.line||0,0,"public",0,0]);for(let u of t.symbols.enums)s.run(l,[e,u.name,u.type||"enum","","",u.line||0,0,"public",0,0]);for(let u of t.symbols.macros)s.run(l,[e,u.name,u.type||"macro","","",u.line||0,0,"public",0,0]);for(let u of t.symbols.classes)s.run(l,[e,u.name,u.type||"class","","",u.line||0,o.has(u.name)?1:0,"public",0,0]);for(let u of t.symbols.exports)s.run(l,[e,u.name,u.type||"export","","",u.line||0,o.has(u.name)?1:0,"public",0,0]);for(let u of t.symbols.interfaces||[])s.run(l,[e,u.name,u.type||"interface","","",u.line||0,0,u.visibility||"public",0,0]);for(let u of t.symbols.traits||[])s.run(l,[e,u.name,u.type||"trait","","",u.line||0,0,u.visibility||"public",0,0]);for(let u of t.symbols.typeAliases||[])s.run(l,[e,u.name,u.type||"type_alias","","",u.line||0,0,u.visibility||"public",0,0])}s.run("DELETE FROM function_calls WHERE caller_file = ?",[e]);for(let o of r)s.run("INSERT OR IGNORE INTO function_calls (caller_file, caller_name, callee_file, callee_name, call_line) VALUES (?, ?, ?, ?, ?)",[o.callerFile,o.callerName,o.calleeFile,o.calleeName,o.callLine]);s.run("COMMIT")}catch(o){throw s.run("ROLLBACK"),o}}updateFanCounts(e){let t=this.ensureDb();if(e&&e.length>0)for(let n of e){let r=vn(t,"SELECT COUNT(*) AS c FROM edges WHERE source = ?",[n]),s=vn(t,"SELECT COUNT(*) AS c FROM edges WHERE target = ?",[n]);t.run("UPDATE nodes SET fan_in = ?, fan_out = ? WHERE id = ?",[s?.c??0,r?.c??0,n])}else t.run(`
+`;
+function queryAll(db, sql, params = []) {
+  const stmt = db.prepare(sql);
+  stmt.bind(params);
+  const rows = [];
+  while (stmt.step()) {
+    rows.push(stmt.getAsObject());
+  }
+  stmt.free();
+  return rows;
+}
+function queryOne(db, sql, params = []) {
+  const stmt = db.prepare(sql);
+  stmt.bind(params);
+  let result;
+  if (stmt.step()) {
+    result = stmt.getAsObject();
+  }
+  stmt.free();
+  return result;
+}
+function extractDocTokens(input) {
+  if (!input)
+    return [];
+  const cleaned = input.replace(/["()\:\*\^\-\+]/g, " ").trim();
+  if (!cleaned)
+    return [];
+  return cleaned.split(/\s+/).filter((t) => t.length > 1);
+}
+function countOccurrences(haystack, needle) {
+  if (!needle)
+    return 0;
+  let count = 0;
+  let i = 0;
+  while ((i = haystack.indexOf(needle, i)) !== -1) {
+    count++;
+    i += needle.length;
+  }
+  return count;
+}
+var GraphDB = class {
+  db = null;
+  dbPath = "";
+  // ── Lifecycle ──────────────────────────────────────────────
+  async open(dbPath) {
+    let wasmPath = (0, import_path4.join)(__dirname, "sql-wasm.wasm");
+    if (!(0, import_fs.existsSync)(wasmPath)) {
+      wasmPath = (0, import_path4.join)((0, import_path4.dirname)(require.resolve("sql.js")), "sql-wasm.wasm");
+    }
+    const SQL = await (0, import_sql.default)({
+      locateFile: () => wasmPath
+    });
+    this.dbPath = dbPath;
+    if ((0, import_fs.existsSync)(dbPath)) {
+      const fileBuffer = (0, import_fs.readFileSync)(dbPath);
+      this.db = new SQL.Database(fileBuffer);
+    } else {
+      this.db = new SQL.Database();
+    }
+    this.db.run(SCHEMA);
+    this.migrateSchema();
+  }
+  /** Open synchronously from an already-initialized SQL module. For MCP server use. */
+  openSync(SQL, dbPath) {
+    this.dbPath = dbPath;
+    if ((0, import_fs.existsSync)(dbPath)) {
+      const fileBuffer = (0, import_fs.readFileSync)(dbPath);
+      this.db = new SQL.Database(fileBuffer);
+    } else {
+      this.db = new SQL.Database();
+    }
+    this.db.run(SCHEMA);
+    this.migrateSchema();
+  }
+  close() {
+    this.db?.close();
+    this.db = null;
+  }
+  get isOpen() {
+    return this.db !== null;
+  }
+  /** Write current DB state to disk. */
+  save() {
+    if (!this.db || !this.dbPath)
+      return;
+    const data = this.db.export();
+    (0, import_fs.writeFileSync)(this.dbPath, Buffer.from(data));
+  }
+  // ── Saved queries (Aura Query Language favorites) ──────────
+  listSavedQueries() {
+    const db = this.ensureDb();
+    return queryAll(
+      db,
+      "SELECT id, name, expr, mode, created_at FROM saved_queries ORDER BY created_at DESC"
+    ).map((r) => ({ id: r.id, name: r.name, expr: r.expr, mode: r.mode, createdAt: r.created_at }));
+  }
+  addSavedQuery(q) {
+    const db = this.ensureDb();
+    db.run(
+      "INSERT OR REPLACE INTO saved_queries (id, name, expr, mode, created_at) VALUES (?, ?, ?, ?, ?)",
+      [q.id, q.name, q.expr, q.mode || "highlight", Date.now()]
+    );
+    this.save();
+  }
+  deleteSavedQuery(id) {
+    const db = this.ensureDb();
+    db.run("DELETE FROM saved_queries WHERE id = ?", [id]);
+    this.save();
+  }
+  // ── Import (full replace after each analysis) ──────────────
+  importGraphData(data) {
+    const db = this.ensureDb();
+    db.run("BEGIN TRANSACTION");
+    try {
+      db.run("DELETE FROM symbols");
+      db.run("DELETE FROM edges");
+      db.run("DELETE FROM cycles");
+      db.run("DELETE FROM nodes");
+      db.run("DELETE FROM meta");
+      db.run("DELETE FROM function_calls");
+      for (const n of data.nodes) {
+        db.run(
+          "INSERT INTO nodes (id, name, language, extension, group_name, size, lines, complexity, fan_in, fan_out, last_modified) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          [n.id, n.name, n.language, n.extension, n.group, n.size, n.linesOfCode, n.complexity, n.fanIn, n.fanOut, n.lastModified]
+        );
+      }
+      for (const e of data.links) {
+        const src = typeof e.source === "object" ? e.source.id : e.source;
+        const tgt = typeof e.target === "object" ? e.target.id : e.target;
+        db.run(
+          "INSERT OR IGNORE INTO edges (source, target, type, label) VALUES (?, ?, ?, ?)",
+          [src, tgt, e.type, e.label || ""]
+        );
+      }
+      const insertSymbol = "INSERT OR IGNORE INTO symbols (node_id, name, kind, return_type, params, line, is_dead, visibility, is_static, is_async) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+      for (const n of data.nodes) {
+        if (!n.symbols)
+          continue;
+        const deadSet = new Set(n.deadExports || []);
+        for (const fn of n.symbols.functions) {
+          db.run(
+            insertSymbol,
+            [n.id, fn.name, fn.type || "function", fn.returnType || "", fn.params || "", fn.line || 0, deadSet.has(fn.name) ? 1 : 0, fn.visibility || "public", fn.isStatic ? 1 : 0, fn.isAsync ? 1 : 0]
+          );
+        }
+        for (const m of n.symbols.methods || []) {
+          db.run(
+            insertSymbol,
+            [n.id, m.name, m.type || "method", m.returnType || "", m.params || "", m.line || 0, deadSet.has(m.name) ? 1 : 0, m.visibility || "public", m.isStatic ? 1 : 0, m.isAsync ? 1 : 0]
+          );
+        }
+        for (const s of n.symbols.structs)
+          db.run(insertSymbol, [n.id, s.name, s.type || "struct", "", "", s.line || 0, 0, "public", 0, 0]);
+        for (const e of n.symbols.enums)
+          db.run(insertSymbol, [n.id, e.name, e.type || "enum", "", "", e.line || 0, 0, "public", 0, 0]);
+        for (const m of n.symbols.macros)
+          db.run(insertSymbol, [n.id, m.name, m.type || "macro", "", "", m.line || 0, 0, "public", 0, 0]);
+        for (const c of n.symbols.classes)
+          db.run(insertSymbol, [n.id, c.name, c.type || "class", "", "", c.line || 0, deadSet.has(c.name) ? 1 : 0, "public", 0, 0]);
+        for (const ex of n.symbols.exports)
+          db.run(insertSymbol, [n.id, ex.name, ex.type || "export", "", "", ex.line || 0, deadSet.has(ex.name) ? 1 : 0, "public", 0, 0]);
+        for (const i of n.symbols.interfaces || [])
+          db.run(insertSymbol, [n.id, i.name, i.type || "interface", "", "", i.line || 0, 0, i.visibility || "public", 0, 0]);
+        for (const t of n.symbols.traits || [])
+          db.run(insertSymbol, [n.id, t.name, t.type || "trait", "", "", t.line || 0, 0, t.visibility || "public", 0, 0]);
+        for (const ta of n.symbols.typeAliases || [])
+          db.run(insertSymbol, [n.id, ta.name, ta.type || "type_alias", "", "", ta.line || 0, 0, ta.visibility || "public", 0, 0]);
+      }
+      if (data.meta.cycles) {
+        for (let ci = 0; ci < data.meta.cycles.length; ci++) {
+          const cycle = data.meta.cycles[ci];
+          for (let pos = 0; pos < cycle.length; pos++) {
+            db.run("INSERT INTO cycles (cycle_id, node_id, position) VALUES (?, ?, ?)", [ci, cycle[pos], pos]);
+          }
+        }
+      }
+      const metaEntries = [
+        ["projectName", data.meta.projectName],
+        ["analyzedAt", data.meta.analyzedAt],
+        ["totalFiles", String(data.meta.totalFiles)],
+        ["totalLinks", String(data.meta.totalLinks)],
+        ["totalRelationsFound", String(data.meta.totalRelationsFound)],
+        ["functionCallLinks", String(data.meta.functionCallLinks)],
+        ["unresolvedReferences", String(data.meta.unresolvedReferences)],
+        ["deadCodeFiles", String(data.meta.deadCodeFiles)],
+        ["deadExportsTotal", String(data.meta.deadExportsTotal)],
+        ["languageStats", JSON.stringify(data.meta.languageStats)],
+        ["groups", JSON.stringify(data.meta.groups)]
+      ];
+      for (const [key, value] of metaEntries) {
+        db.run("INSERT INTO meta (key, value) VALUES (?, ?)", [key, value]);
+      }
+      if (data.functionCalls) {
+        const insertCall = "INSERT OR IGNORE INTO function_calls (caller_file, caller_name, callee_file, callee_name, call_line) VALUES (?, ?, ?, ?, ?)";
+        for (const fc of data.functionCalls) {
+          db.run(insertCall, [fc.callerFile, fc.callerName, fc.calleeFile, fc.calleeName, fc.callLine]);
+        }
+      }
+      db.run("COMMIT");
+    } catch (err2) {
+      db.run("ROLLBACK");
+      throw err2;
+    }
+    this.save();
+  }
+  // ── Granular updates (incremental parsing) ─────────────────
+  /** Upsert a single node (INSERT OR REPLACE). */
+  upsertNode(node) {
+    const db = this.ensureDb();
+    db.run(
+      `INSERT OR REPLACE INTO nodes (id, name, language, extension, group_name, size, lines, complexity, fan_in, fan_out, last_modified)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [node.id, node.name, node.language, node.extension, node.group, node.size, node.linesOfCode, node.complexity, node.fanIn, node.fanOut, node.lastModified]
+    );
+  }
+  /** Delete a node and ALL associated data (edges from/to, symbols, function_calls). */
+  deleteNode(nodeId) {
+    const db = this.ensureDb();
+    db.run("BEGIN TRANSACTION");
+    try {
+      db.run("DELETE FROM edges WHERE source = ? OR target = ?", [nodeId, nodeId]);
+      db.run("DELETE FROM symbols WHERE node_id = ?", [nodeId]);
+      db.run("DELETE FROM function_calls WHERE caller_file = ? OR callee_file = ?", [nodeId, nodeId]);
+      db.run("DELETE FROM doc_chunks WHERE file_id = ?", [nodeId]);
+      db.run("DELETE FROM nodes WHERE id = ?", [nodeId]);
+      db.run("COMMIT");
+    } catch (err2) {
+      db.run("ROLLBACK");
+      throw err2;
+    }
+  }
+  /**
+   * Replace all outgoing edges, symbols, and call sites for a single file.
+   * Also upserts the node itself. Does NOT call save() — caller decides when to persist.
+   */
+  replaceFileData(fileId, node, outEdges, callSites) {
+    const db = this.ensureDb();
+    db.run("BEGIN TRANSACTION");
+    try {
+      db.run(
+        `INSERT OR REPLACE INTO nodes (id, name, language, extension, group_name, size, lines, complexity, fan_in, fan_out, last_modified)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [node.id, node.name, node.language, node.extension, node.group, node.size, node.linesOfCode, node.complexity, node.fanIn, node.fanOut, node.lastModified]
+      );
+      db.run("DELETE FROM edges WHERE source = ?", [fileId]);
+      for (const e of outEdges) {
+        db.run(
+          "INSERT OR IGNORE INTO edges (source, target, type, label) VALUES (?, ?, ?, ?)",
+          [e.source, e.target, e.type, e.label || ""]
+        );
+      }
+      db.run("DELETE FROM symbols WHERE node_id = ?", [fileId]);
+      if (node.symbols) {
+        const deadSet = new Set(node.deadExports || []);
+        const ins = "INSERT OR IGNORE INTO symbols (node_id, name, kind, return_type, params, line, is_dead, visibility, is_static, is_async) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        for (const fn of node.symbols.functions) {
+          db.run(ins, [fileId, fn.name, fn.type || "function", fn.returnType || "", fn.params || "", fn.line || 0, deadSet.has(fn.name) ? 1 : 0, fn.visibility || "public", fn.isStatic ? 1 : 0, fn.isAsync ? 1 : 0]);
+        }
+        for (const m of node.symbols.methods || []) {
+          db.run(ins, [fileId, m.name, m.type || "method", m.returnType || "", m.params || "", m.line || 0, deadSet.has(m.name) ? 1 : 0, m.visibility || "public", m.isStatic ? 1 : 0, m.isAsync ? 1 : 0]);
+        }
+        for (const s of node.symbols.structs)
+          db.run(ins, [fileId, s.name, s.type || "struct", "", "", s.line || 0, 0, "public", 0, 0]);
+        for (const e of node.symbols.enums)
+          db.run(ins, [fileId, e.name, e.type || "enum", "", "", e.line || 0, 0, "public", 0, 0]);
+        for (const m of node.symbols.macros)
+          db.run(ins, [fileId, m.name, m.type || "macro", "", "", m.line || 0, 0, "public", 0, 0]);
+        for (const c of node.symbols.classes)
+          db.run(ins, [fileId, c.name, c.type || "class", "", "", c.line || 0, deadSet.has(c.name) ? 1 : 0, "public", 0, 0]);
+        for (const ex of node.symbols.exports)
+          db.run(ins, [fileId, ex.name, ex.type || "export", "", "", ex.line || 0, deadSet.has(ex.name) ? 1 : 0, "public", 0, 0]);
+        for (const i of node.symbols.interfaces || [])
+          db.run(ins, [fileId, i.name, i.type || "interface", "", "", i.line || 0, 0, i.visibility || "public", 0, 0]);
+        for (const t of node.symbols.traits || [])
+          db.run(ins, [fileId, t.name, t.type || "trait", "", "", t.line || 0, 0, t.visibility || "public", 0, 0]);
+        for (const ta of node.symbols.typeAliases || [])
+          db.run(ins, [fileId, ta.name, ta.type || "type_alias", "", "", ta.line || 0, 0, ta.visibility || "public", 0, 0]);
+      }
+      db.run("DELETE FROM function_calls WHERE caller_file = ?", [fileId]);
+      for (const fc of callSites) {
+        db.run(
+          "INSERT OR IGNORE INTO function_calls (caller_file, caller_name, callee_file, callee_name, call_line) VALUES (?, ?, ?, ?, ?)",
+          [fc.callerFile, fc.callerName, fc.calleeFile, fc.calleeName, fc.callLine]
+        );
+      }
+      db.run("COMMIT");
+    } catch (err2) {
+      db.run("ROLLBACK");
+      throw err2;
+    }
+  }
+  /** Recompute fan_in / fan_out from the edges table for given node IDs (or all nodes). */
+  updateFanCounts(nodeIds) {
+    const db = this.ensureDb();
+    if (nodeIds && nodeIds.length > 0) {
+      for (const id of nodeIds) {
+        const fanOut = queryOne(db, "SELECT COUNT(*) AS c FROM edges WHERE source = ?", [id]);
+        const fanIn = queryOne(db, "SELECT COUNT(*) AS c FROM edges WHERE target = ?", [id]);
+        db.run("UPDATE nodes SET fan_in = ?, fan_out = ? WHERE id = ?", [fanIn?.c ?? 0, fanOut?.c ?? 0, id]);
+      }
+    } else {
+      db.run(`
                 UPDATE nodes SET
                     fan_out = (SELECT COUNT(*) FROM edges WHERE edges.source = nodes.id),
                     fan_in  = (SELECT COUNT(*) FROM edges WHERE edges.target = nodes.id)
-            `)}exportGraphData(){let e=this.ensureDb(),t=Q(e,"SELECT * FROM nodes ORDER BY id");if(t.length===0)return null;let n=Q(e,"SELECT * FROM edges ORDER BY source, target"),r=Q(e,"SELECT * FROM symbols ORDER BY node_id"),s=this.getAllMeta(),o=this.getCycles(),l=Q(e,"SELECT * FROM function_calls ORDER BY caller_file, call_line"),u=new Map;for(let F of r){let v=u.get(F.node_id);v||(v=[],u.set(F.node_id,v)),v.push(F)}let h=t.map(F=>{let v=u.get(F.id)||[],b=v.filter(R=>R.is_dead).map(R=>R.name),y=v.filter(R=>R.kind==="function").map(R=>({name:R.name,returnType:R.return_type,params:R.params,line:R.line,type:R.kind,visibility:R.visibility,isStatic:!!R.is_static,isAsync:!!R.is_async})),S=v.filter(R=>R.kind==="method").map(R=>({name:R.name,returnType:R.return_type,params:R.params,line:R.line,type:R.kind,visibility:R.visibility,isStatic:!!R.is_static,isAsync:!!R.is_async})),L=v.filter(R=>R.kind==="struct").map(R=>({name:R.name,type:R.kind,line:R.line})),ee=v.filter(R=>R.kind==="enum").map(R=>({name:R.name,type:R.kind,line:R.line})),N=v.filter(R=>R.kind==="macro").map(R=>({name:R.name,type:R.kind,line:R.line})),B=v.filter(R=>R.kind==="class").map(R=>({name:R.name,type:R.kind,line:R.line})),A=v.filter(R=>R.kind==="export").map(R=>({name:R.name,type:R.kind,line:R.line})),V=v.filter(R=>R.kind==="interface").map(R=>({name:R.name,type:R.kind})),q=v.filter(R=>R.kind==="trait").map(R=>({name:R.name,type:R.kind})),$=v.filter(R=>R.kind==="type_alias").map(R=>({name:R.name,type:R.kind})),re={id:F.id,name:F.name,path:F.id,language:F.language,extension:F.extension,size:F.size,linesOfCode:F.lines,lastModified:F.last_modified,group:F.group_name,fanOut:F.fan_out,fanIn:F.fan_in,complexity:F.complexity,complexityDetails:{}};return v.length>0&&(re.symbols={functions:y,methods:S,structs:L,enums:ee,macros:N,classes:B,exports:A,interfaces:V,traits:q,typeAliases:$,totalSymbols:v.length}),b.length>0&&(re.deadExports=b),re}),m=new Map(h.map(F=>[F.id,F]));for(let F=0;F<o.length;F++)for(let v of o[F]){let b=m.get(v);b&&(b.cycleIds||(b.cycleIds=[]),b.cycleIds.push(F))}let _=n.map(F=>({source:F.source,target:F.target,type:F.type,label:F.label})),T=s.languageStats?JSON.parse(s.languageStats):{},x=s.groups?JSON.parse(s.groups):[];return{meta:{projectName:s.projectName||"",analyzedAt:s.analyzedAt||"",totalFiles:parseInt(s.totalFiles||"0"),totalLinks:parseInt(s.totalLinks||"0"),totalRelationsFound:parseInt(s.totalRelationsFound||"0"),functionCallLinks:parseInt(s.functionCallLinks||"0"),heritageLinks:parseInt(s.heritageLinks||"0"),unresolvedReferences:parseInt(s.unresolvedReferences||"0"),unresolvedSamples:[],deadCodeFiles:parseInt(s.deadCodeFiles||"0"),deadExportsTotal:parseInt(s.deadExportsTotal||"0"),cycles:o,languageStats:T,groups:x},nodes:h,links:_,functionCalls:l.map(F=>({callerFile:F.caller_file,callerName:F.caller_name,calleeFile:F.callee_file,calleeName:F.callee_name,callLine:F.call_line}))}}getDependencies(e,t=5){return Q(this.ensureDb(),`
+            `);
+    }
+  }
+  // ── Export (reconstruct GraphData from DB) ─────────────────
+  /** Reconstruct a full GraphData object from the DB. Returns null if DB is empty. */
+  exportGraphData() {
+    const db = this.ensureDb();
+    const nodes = queryAll(db, "SELECT * FROM nodes ORDER BY id");
+    if (nodes.length === 0)
+      return null;
+    const edges = queryAll(db, "SELECT * FROM edges ORDER BY source, target");
+    const allSymbols = queryAll(db, "SELECT * FROM symbols ORDER BY node_id");
+    const meta = this.getAllMeta();
+    const cycles = this.getCycles();
+    const fcalls = queryAll(
+      db,
+      "SELECT * FROM function_calls ORDER BY caller_file, call_line"
+    );
+    const symbolsByNode = /* @__PURE__ */ new Map();
+    for (const s of allSymbols) {
+      let arr = symbolsByNode.get(s.node_id);
+      if (!arr) {
+        arr = [];
+        symbolsByNode.set(s.node_id, arr);
+      }
+      arr.push(s);
+    }
+    const graphNodes = nodes.map((n) => {
+      const syms = symbolsByNode.get(n.id) || [];
+      const deadSymbols = syms.filter((s) => s.is_dead).map((s) => s.name);
+      const functions = syms.filter((s) => s.kind === "function").map((s) => ({
+        name: s.name,
+        returnType: s.return_type,
+        params: s.params,
+        line: s.line,
+        type: s.kind,
+        visibility: s.visibility,
+        isStatic: !!s.is_static,
+        isAsync: !!s.is_async
+      }));
+      const methods = syms.filter((s) => s.kind === "method").map((s) => ({
+        name: s.name,
+        returnType: s.return_type,
+        params: s.params,
+        line: s.line,
+        type: s.kind,
+        visibility: s.visibility,
+        isStatic: !!s.is_static,
+        isAsync: !!s.is_async
+      }));
+      const structs = syms.filter((s) => s.kind === "struct").map((s) => ({ name: s.name, type: s.kind, line: s.line }));
+      const enums = syms.filter((s) => s.kind === "enum").map((s) => ({ name: s.name, type: s.kind, line: s.line }));
+      const macros = syms.filter((s) => s.kind === "macro").map((s) => ({ name: s.name, type: s.kind, line: s.line }));
+      const classes = syms.filter((s) => s.kind === "class").map((s) => ({ name: s.name, type: s.kind, line: s.line }));
+      const exports2 = syms.filter((s) => s.kind === "export").map((s) => ({ name: s.name, type: s.kind, line: s.line }));
+      const interfaces = syms.filter((s) => s.kind === "interface").map((s) => ({ name: s.name, type: s.kind }));
+      const traits = syms.filter((s) => s.kind === "trait").map((s) => ({ name: s.name, type: s.kind }));
+      const typeAliases = syms.filter((s) => s.kind === "type_alias").map((s) => ({ name: s.name, type: s.kind }));
+      const node = {
+        id: n.id,
+        name: n.name,
+        path: n.id,
+        language: n.language,
+        extension: n.extension,
+        size: n.size,
+        linesOfCode: n.lines,
+        lastModified: n.last_modified,
+        group: n.group_name,
+        fanOut: n.fan_out,
+        fanIn: n.fan_in,
+        complexity: n.complexity,
+        complexityDetails: {}
+      };
+      if (syms.length > 0) {
+        node.symbols = {
+          functions,
+          methods,
+          structs,
+          enums,
+          macros,
+          classes,
+          exports: exports2,
+          interfaces,
+          traits,
+          typeAliases,
+          totalSymbols: syms.length
+        };
+      }
+      if (deadSymbols.length > 0)
+        node.deadExports = deadSymbols;
+      return node;
+    });
+    const nodeMap = new Map(graphNodes.map((n) => [n.id, n]));
+    for (let i = 0; i < cycles.length; i++) {
+      for (const nodeId of cycles[i]) {
+        const node = nodeMap.get(nodeId);
+        if (node) {
+          if (!node.cycleIds)
+            node.cycleIds = [];
+          node.cycleIds.push(i);
+        }
+      }
+    }
+    const links = edges.map((e) => ({
+      source: e.source,
+      target: e.target,
+      type: e.type,
+      label: e.label
+    }));
+    const langStats = meta["languageStats"] ? JSON.parse(meta["languageStats"]) : {};
+    const groups = meta["groups"] ? JSON.parse(meta["groups"]) : [];
+    return {
+      meta: {
+        projectName: meta["projectName"] || "",
+        analyzedAt: meta["analyzedAt"] || "",
+        totalFiles: parseInt(meta["totalFiles"] || "0"),
+        totalLinks: parseInt(meta["totalLinks"] || "0"),
+        totalRelationsFound: parseInt(meta["totalRelationsFound"] || "0"),
+        functionCallLinks: parseInt(meta["functionCallLinks"] || "0"),
+        heritageLinks: parseInt(meta["heritageLinks"] || "0"),
+        unresolvedReferences: parseInt(meta["unresolvedReferences"] || "0"),
+        unresolvedSamples: [],
+        deadCodeFiles: parseInt(meta["deadCodeFiles"] || "0"),
+        deadExportsTotal: parseInt(meta["deadExportsTotal"] || "0"),
+        cycles,
+        languageStats: langStats,
+        groups
+      },
+      nodes: graphNodes,
+      links,
+      functionCalls: fcalls.map((fc) => ({
+        callerFile: fc.caller_file,
+        callerName: fc.caller_name,
+        calleeFile: fc.callee_file,
+        calleeName: fc.callee_name,
+        callLine: fc.call_line
+      }))
+    };
+  }
+  // ── Queries ────────────────────────────────────────────────
+  /** Transitive dependencies of a file (what it depends on). */
+  getDependencies(fileId, maxDepth = 5) {
+    return queryAll(this.ensureDb(), `
             WITH RECURSIVE deps(id, depth) AS (
                 SELECT target, 1 FROM edges WHERE source = ?
                 UNION
@@ -939,7 +13588,11 @@ CREATE VIRTUAL TABLE IF NOT EXISTS doc_chunks USING fts4(
                 WHERE d.depth < ?
             )
             SELECT id, MIN(depth) AS depth FROM deps GROUP BY id ORDER BY depth
-        `,[e,t])}getDependents(e,t=5){return Q(this.ensureDb(),`
+        `, [fileId, maxDepth]);
+  }
+  /** Transitive dependents of a file (what depends on it — impact analysis). */
+  getDependents(fileId, maxDepth = 5) {
+    return queryAll(this.ensureDb(), `
             WITH RECURSIVE deps(id, depth) AS (
                 SELECT source, 1 FROM edges WHERE target = ?
                 UNION
@@ -948,7 +13601,19 @@ CREATE VIRTUAL TABLE IF NOT EXISTS doc_chunks USING fts4(
                 WHERE d.depth < ?
             )
             SELECT id, MIN(depth) AS depth FROM deps GROUP BY id ORDER BY depth
-        `,[e,t])}getBlastRadius(e,t=5){return this.getDependents(e,t).map(r=>({...r,risk:r.depth===1?"high":r.depth===2?"medium":"low"}))}findPath(e,t,n=20){let r=Q(this.ensureDb(),`
+        `, [fileId, maxDepth]);
+  }
+  /** Blast radius — directional dependents with risk level. */
+  getBlastRadius(fileId, maxDepth = 5) {
+    const deps = this.getDependents(fileId, maxDepth);
+    return deps.map((d) => ({
+      ...d,
+      risk: d.depth === 1 ? "high" : d.depth === 2 ? "medium" : "low"
+    }));
+  }
+  /** Shortest path between two files. Returns null if no path exists. */
+  findPath(from, to, maxDepth = 20) {
+    const rows = queryAll(this.ensureDb(), `
             WITH RECURSIVE path(id, route, depth) AS (
                 SELECT ?, ?, 0
                 UNION
@@ -957,45 +13622,1565 @@ CREATE VIRTUAL TABLE IF NOT EXISTS doc_chunks USING fts4(
                 WHERE p.depth < ? AND INSTR(p.route, e.target) = 0
             )
             SELECT route FROM path WHERE id = ? ORDER BY depth LIMIT 1
-        `,[e,e,n,t]);return r.length===0?null:r[0].route.split("|")}getHotspots(e=20,t="impact"){let n=t==="complexity"?"complexity DESC":t==="fan_in"?"fan_in DESC":t==="lines"?"lines DESC":"(complexity * (fan_in + 1)) DESC";return Q(this.ensureDb(),`SELECT *, (complexity * (fan_in + 1)) AS impact_score FROM nodes ORDER BY ${n} LIMIT ?`,[e])}getDeadCode(){return Q(this.ensureDb(),"SELECT node_id AS nodeId, name AS symbol, kind FROM symbols WHERE is_dead = 1 ORDER BY node_id")}getOrphanFiles(e=100){return Q(this.ensureDb(),"SELECT * FROM nodes WHERE fan_in = 0 ORDER BY fan_out, name LIMIT ?",[e])}getCycles(){let e=Q(this.ensureDb(),"SELECT cycle_id, node_id FROM cycles ORDER BY cycle_id, position"),t=[],n=[],r=-1;for(let s of e)s.cycle_id!==r&&(n.length>0&&t.push(n),n=[],r=s.cycle_id),n.push(s.node_id);return n.length>0&&t.push(n),t}getNodeDetail(e){let t=this.ensureDb(),n=vn(t,"SELECT * FROM nodes WHERE id = ?",[e]);if(!n)return null;let r=Q(t,"SELECT * FROM symbols WHERE node_id = ?",[e]),s=Q(t,"SELECT target FROM edges WHERE source = ?",[e]),o=Q(t,"SELECT source FROM edges WHERE target = ?",[e]);return{...n,symbols:r,dependencies:s.map(l=>l.target),dependents:o.map(l=>l.source)}}getArchitectureOverview(){return Q(this.ensureDb(),`
+        `, [from, from, maxDepth, to]);
+    if (rows.length === 0)
+      return null;
+    return rows[0].route.split("|");
+  }
+  /** Top N hotspots sorted by impact score (complexity × fan_in). */
+  getHotspots(limit = 20, sortBy = "impact") {
+    const orderClause = sortBy === "complexity" ? "complexity DESC" : sortBy === "fan_in" ? "fan_in DESC" : sortBy === "lines" ? "lines DESC" : "(complexity * (fan_in + 1)) DESC";
+    return queryAll(
+      this.ensureDb(),
+      `SELECT *, (complexity * (fan_in + 1)) AS impact_score FROM nodes ORDER BY ${orderClause} LIMIT ?`,
+      [limit]
+    );
+  }
+  /** All dead code (uncalled exports). */
+  getDeadCode() {
+    return queryAll(
+      this.ensureDb(),
+      "SELECT node_id AS nodeId, name AS symbol, kind FROM symbols WHERE is_dead = 1 ORDER BY node_id"
+    );
+  }
+  /** Files that nothing imports (fan_in = 0) — orphan / entry-point files. */
+  getOrphanFiles(limit = 100) {
+    return queryAll(
+      this.ensureDb(),
+      "SELECT * FROM nodes WHERE fan_in = 0 ORDER BY fan_out, name LIMIT ?",
+      [limit]
+    );
+  }
+  /** All cycles. */
+  getCycles() {
+    const rows = queryAll(
+      this.ensureDb(),
+      "SELECT cycle_id, node_id FROM cycles ORDER BY cycle_id, position"
+    );
+    const cycles = [];
+    let current = [];
+    let currentId = -1;
+    for (const row of rows) {
+      if (row.cycle_id !== currentId) {
+        if (current.length > 0)
+          cycles.push(current);
+        current = [];
+        currentId = row.cycle_id;
+      }
+      current.push(row.node_id);
+    }
+    if (current.length > 0)
+      cycles.push(current);
+    return cycles;
+  }
+  /** Full detail for a single node. */
+  getNodeDetail(fileId) {
+    const db = this.ensureDb();
+    const node = queryOne(db, "SELECT * FROM nodes WHERE id = ?", [fileId]);
+    if (!node)
+      return null;
+    const symbols = queryAll(db, "SELECT * FROM symbols WHERE node_id = ?", [fileId]);
+    const deps = queryAll(db, "SELECT target FROM edges WHERE source = ?", [fileId]);
+    const revDeps = queryAll(db, "SELECT source FROM edges WHERE target = ?", [fileId]);
+    return {
+      ...node,
+      symbols,
+      dependencies: deps.map((d) => d.target),
+      dependents: revDeps.map((d) => d.source)
+    };
+  }
+  /** Architecture overview by language. */
+  getArchitectureOverview() {
+    return queryAll(this.ensureDb(), `
             SELECT language,
                    COUNT(*) AS count,
                    SUM(lines) AS total_loc,
                    ROUND(AVG(complexity), 1) AS avg_complexity
             FROM nodes GROUP BY language ORDER BY count DESC
-        `)}searchSymbols(e,t){let n=this.ensureDb(),r="SELECT node_id AS nodeId, name, kind, line, visibility, is_static AS isStatic, is_async AS isAsync FROM symbols WHERE name LIKE ?"+(t?" AND kind = ?":"")+" ORDER BY name LIMIT 100",s=t?[`%${e}%`,t]:[`%${e}%`];return Q(n,r,s).map(l=>({...l,isStatic:!!l.isStatic,isAsync:!!l.isAsync,visibility:l.visibility||"public"}))}getHeritage(e){let t=this.ensureDb();return e?Q(t,"SELECT * FROM edges WHERE type IN ('extends', 'implements') AND (source = ? OR target = ?) ORDER BY source, type",[e,e]):Q(t,"SELECT * FROM edges WHERE type IN ('extends', 'implements') ORDER BY source, type")}getUnusedFunctions(e,t=!0){let n=this.ensureDb(),r=t?"('function', 'method')":"('function')",s=e?" AND s.node_id = ?":"",o=e?[e]:[];return Q(n,`
+        `);
+  }
+  /** Search symbols by name (LIKE match). */
+  searchSymbols(query, kind) {
+    const db = this.ensureDb();
+    const sql = "SELECT node_id AS nodeId, name, kind, line, visibility, is_static AS isStatic, is_async AS isAsync FROM symbols WHERE name LIKE ?" + (kind ? " AND kind = ?" : "") + " ORDER BY name LIMIT 100";
+    const params = kind ? [`%${query}%`, kind] : [`%${query}%`];
+    const rows = queryAll(db, sql, params);
+    return rows.map((r) => ({ ...r, isStatic: !!r.isStatic, isAsync: !!r.isAsync, visibility: r.visibility || "public" }));
+  }
+  /** Get heritage edges (extends, implements). */
+  getHeritage(fileId) {
+    const db = this.ensureDb();
+    if (fileId) {
+      return queryAll(
+        db,
+        "SELECT * FROM edges WHERE type IN ('extends', 'implements') AND (source = ? OR target = ?) ORDER BY source, type",
+        [fileId, fileId]
+      );
+    }
+    return queryAll(
+      db,
+      "SELECT * FROM edges WHERE type IN ('extends', 'implements') ORDER BY source, type"
+    );
+  }
+  /** Find functions/methods never called anywhere (not even within their own file). */
+  getUnusedFunctions(fileId, includeMethods = true) {
+    const db = this.ensureDb();
+    const kinds = includeMethods ? "('function', 'method')" : "('function')";
+    const fileFilter = fileId ? " AND s.node_id = ?" : "";
+    const params = fileId ? [fileId] : [];
+    return queryAll(db, `
             SELECT s.node_id AS nodeId, s.name, s.kind, s.line, s.visibility
             FROM symbols s
-            WHERE s.kind IN ${r}${s}
+            WHERE s.kind IN ${kinds}${fileFilter}
               AND NOT EXISTS (
                 SELECT 1 FROM function_calls fc
                 WHERE fc.callee_name = s.name AND fc.callee_file = s.node_id
               )
             ORDER BY s.node_id, s.line
-        `,o)}getAllNodes(){return Q(this.ensureDb(),"SELECT * FROM nodes ORDER BY id")}getAllEdges(){return Q(this.ensureDb(),"SELECT * FROM edges ORDER BY source, target")}getFunctionCalls(e){let t=this.ensureDb();return e?Q(t,"SELECT * FROM function_calls WHERE caller_file = ? OR callee_file = ? ORDER BY caller_file, call_line",[e,e]):Q(t,"SELECT * FROM function_calls ORDER BY caller_file, call_line")}getCommunities(){let e=this.ensureDb(),t=Q(e,"SELECT id FROM nodes"),n=Q(e,"SELECT source, target FROM edges");if(t.length===0)return[];let r=new Map;t.forEach((b,y)=>r.set(b.id,y));let s=t.length,o=Array.from({length:s},()=>new Map),l=0;for(let b of n){let y=r.get(b.source),S=r.get(b.target);y===void 0||S===void 0||y===S||(o[y].set(S,(o[y].get(S)||0)+1),o[S].set(y,(o[S].get(y)||0)+1),l+=1)}if(l===0)return t.map((b,y)=>({nodeId:b.id,community:y}));let u=l*2,h=new Float64Array(s);for(let b=0;b<s;b++){let y=0;for(let S of o[b].values())y+=S;h[b]=y}let m=new Int32Array(s);for(let b=0;b<s;b++)m[b]=b;let _=!0,T=0;for(;_&&T<20;){_=!1,T++;for(let b=0;b<s;b++){let y=m[b],S=new Map;for(let[$,re]of o[b]){let R=m[$];S.set(R,(S.get(R)||0)+re)}let L=new Map;for(let $=0;$<s;$++){if($===b)continue;let re=m[$];(S.has(re)||re===y)&&L.set(re,(L.get(re)||0)+h[$])}let ee=h[b],N=S.get(y)||0,B=L.get(y)||0,A=N/l-ee*B/(u*u)*2,V=0,q=y;for(let[$,re]of S){if($===y)continue;let R=L.get($)||0,se=re/l-ee*R/(u*u)*2-A;se>V&&(V=se,q=$)}q!==y&&(m[b]=q,_=!0)}}let x=new Map,F=0,v=[];for(let b=0;b<s;b++){let y=m[b];x.has(y)||x.set(y,F++),v.push({nodeId:t[b].id,community:x.get(y)})}return v}getMeta(e){return vn(this.ensureDb(),"SELECT value FROM meta WHERE key = ?",[e])?.value??null}getAllMeta(){let e=Q(this.ensureDb(),"SELECT key, value FROM meta"),t={};for(let n of e)t[n.key]=n.value;return t}deleteDocChunks(e){this.ensureDb().run("DELETE FROM doc_chunks WHERE file_id = ?",[e])}replaceDocChunks(e,t){let n=this.ensureDb();n.run("DELETE FROM doc_chunks WHERE file_id = ?",[e]);let r="INSERT INTO doc_chunks (file_id, section, content, line_start) VALUES (?, ?, ?, ?)";for(let s of t)n.run(r,[e,s.section,s.content,s.lineStart])}importDocChunks(e){let t=this.ensureDb();t.run("BEGIN TRANSACTION");try{t.run("DELETE FROM doc_chunks");let n="INSERT INTO doc_chunks (file_id, section, content, line_start) VALUES (?, ?, ?, ?)";for(let r of e)t.run(n,[r.fileId,r.section,r.content,r.lineStart]);t.run("COMMIT")}catch(n){throw t.run("ROLLBACK"),n}}searchDocs(e,t=10){let n=this.ensureDb(),r=ea(e),s=r.map(u=>`"${u}"*`).join(" OR ");if(!s)return[];let l=Q(n,`SELECT file_id, section, content, line_start
+        `, params);
+  }
+  /** Get all nodes. */
+  getAllNodes() {
+    return queryAll(this.ensureDb(), "SELECT * FROM nodes ORDER BY id");
+  }
+  /** Get all edges. */
+  getAllEdges() {
+    return queryAll(this.ensureDb(), "SELECT * FROM edges ORDER BY source, target");
+  }
+  /** Get function-level call sites, optionally filtered by file. */
+  getFunctionCalls(fileId) {
+    const db = this.ensureDb();
+    if (fileId) {
+      return queryAll(
+        db,
+        "SELECT * FROM function_calls WHERE caller_file = ? OR callee_file = ? ORDER BY caller_file, call_line",
+        [fileId, fileId]
+      );
+    }
+    return queryAll(db, "SELECT * FROM function_calls ORDER BY caller_file, call_line");
+  }
+  /**
+   * Community detection using Louvain algorithm.
+   * Returns nodeId → communityId mapping.
+   */
+  getCommunities() {
+    const db = this.ensureDb();
+    const nodes = queryAll(db, "SELECT id FROM nodes");
+    const edges = queryAll(db, "SELECT source, target FROM edges");
+    if (nodes.length === 0)
+      return [];
+    const nodeIndex = /* @__PURE__ */ new Map();
+    nodes.forEach((n2, i) => nodeIndex.set(n2.id, i));
+    const n = nodes.length;
+    const adj = Array.from({ length: n }, () => /* @__PURE__ */ new Map());
+    let totalWeight = 0;
+    for (const e of edges) {
+      const si = nodeIndex.get(e.source);
+      const ti = nodeIndex.get(e.target);
+      if (si === void 0 || ti === void 0 || si === ti)
+        continue;
+      adj[si].set(ti, (adj[si].get(ti) || 0) + 1);
+      adj[ti].set(si, (adj[ti].get(si) || 0) + 1);
+      totalWeight += 1;
+    }
+    if (totalWeight === 0) {
+      return nodes.map((nd, i) => ({ nodeId: nd.id, community: i }));
+    }
+    const m2 = totalWeight * 2;
+    const deg = new Float64Array(n);
+    for (let i = 0; i < n; i++) {
+      let d = 0;
+      for (const w of adj[i].values())
+        d += w;
+      deg[i] = d;
+    }
+    const community = new Int32Array(n);
+    for (let i = 0; i < n; i++)
+      community[i] = i;
+    let improved = true;
+    let iterations = 0;
+    while (improved && iterations < 20) {
+      improved = false;
+      iterations++;
+      for (let i = 0; i < n; i++) {
+        const ci = community[i];
+        const commWeights = /* @__PURE__ */ new Map();
+        for (const [j, w] of adj[i]) {
+          const cj = community[j];
+          commWeights.set(cj, (commWeights.get(cj) || 0) + w);
+        }
+        const commDeg = /* @__PURE__ */ new Map();
+        for (let j = 0; j < n; j++) {
+          if (j === i)
+            continue;
+          const cj = community[j];
+          if (commWeights.has(cj) || cj === ci) {
+            commDeg.set(cj, (commDeg.get(cj) || 0) + deg[j]);
+          }
+        }
+        const ki = deg[i];
+        const wIn = commWeights.get(ci) || 0;
+        const sumCi = commDeg.get(ci) || 0;
+        const removeCost = wIn / totalWeight - ki * sumCi / (m2 * m2) * 2;
+        let bestGain = 0;
+        let bestComm = ci;
+        for (const [cj, wj] of commWeights) {
+          if (cj === ci)
+            continue;
+          const sumCj = commDeg.get(cj) || 0;
+          const gain = wj / totalWeight - ki * sumCj / (m2 * m2) * 2 - removeCost;
+          if (gain > bestGain) {
+            bestGain = gain;
+            bestComm = cj;
+          }
+        }
+        if (bestComm !== ci) {
+          community[i] = bestComm;
+          improved = true;
+        }
+      }
+    }
+    const idMap = /* @__PURE__ */ new Map();
+    let nextId = 0;
+    const result = [];
+    for (let i = 0; i < n; i++) {
+      let cid = community[i];
+      if (!idMap.has(cid))
+        idMap.set(cid, nextId++);
+      result.push({ nodeId: nodes[i].id, community: idMap.get(cid) });
+    }
+    return result;
+  }
+  /** Get meta value by key. */
+  getMeta(key) {
+    const row = queryOne(this.ensureDb(), "SELECT value FROM meta WHERE key = ?", [key]);
+    return row?.value ?? null;
+  }
+  /** Get all meta as a map. */
+  getAllMeta() {
+    const rows = queryAll(this.ensureDb(), "SELECT key, value FROM meta");
+    const map = {};
+    for (const r of rows)
+      map[r.key] = r.value;
+    return map;
+  }
+  // ── Documentation RAG (FTS5) ───────────────────────────────
+  /** Delete all chunks for a single file. */
+  deleteDocChunks(fileId) {
+    const db = this.ensureDb();
+    db.run("DELETE FROM doc_chunks WHERE file_id = ?", [fileId]);
+  }
+  /** Replace all chunks for a single file (delete + insert). Does not save(). */
+  replaceDocChunks(fileId, chunks) {
+    const db = this.ensureDb();
+    db.run("DELETE FROM doc_chunks WHERE file_id = ?", [fileId]);
+    const ins = "INSERT INTO doc_chunks (file_id, section, content, line_start) VALUES (?, ?, ?, ?)";
+    for (const c of chunks) {
+      db.run(ins, [fileId, c.section, c.content, c.lineStart]);
+    }
+  }
+  /** Bulk-replace ALL doc chunks (used after a full project re-analysis). Does not save(). */
+  importDocChunks(chunks) {
+    const db = this.ensureDb();
+    db.run("BEGIN TRANSACTION");
+    try {
+      db.run("DELETE FROM doc_chunks");
+      const ins = "INSERT INTO doc_chunks (file_id, section, content, line_start) VALUES (?, ?, ?, ?)";
+      for (const c of chunks) {
+        db.run(ins, [c.fileId, c.section, c.content, c.lineStart]);
+      }
+      db.run("COMMIT");
+    } catch (err2) {
+      db.run("ROLLBACK");
+      throw err2;
+    }
+  }
+  /**
+   * Full-text search across documentation chunks using FTS4 MATCH +
+   * a simple JS-side keyword frequency ranker (FTS4 has no built-in bm25).
+   * @param query — free-text query (will be sanitized into a MATCH expression)
+   * @param limit — max results (default 10)
+   */
+  searchDocs(query, limit = 10) {
+    const db = this.ensureDb();
+    const tokens = extractDocTokens(query);
+    const matchExpr = tokens.map((t) => `"${t}"*`).join(" OR ");
+    if (!matchExpr)
+      return [];
+    const rows = queryAll(
+      db,
+      `SELECT file_id, section, content, line_start
              FROM doc_chunks WHERE doc_chunks MATCH ?
-             LIMIT ?`,[s,Math.max(t*5,50)]).map(u=>{let h=(u.section||"").toLowerCase(),m=u.content.toLowerCase(),_=0;for(let T of r){let x=T.toLowerCase();x&&(_+=Zs(h,x)*3,_+=Zs(m,x))}return{fileId:u.file_id,section:u.section,content:u.content,lineStart:u.line_start,score:_}});return l.sort((u,h)=>h.score-u.score),l.slice(0,t)}migrateSchema(){let e=this.ensureDb(),t=Q(e,"PRAGMA table_info('symbols')").map(s=>s.name),n=[["visibility","ALTER TABLE symbols ADD COLUMN visibility TEXT DEFAULT 'public'"],["is_static","ALTER TABLE symbols ADD COLUMN is_static INTEGER DEFAULT 0"],["is_async","ALTER TABLE symbols ADD COLUMN is_async INTEGER DEFAULT 0"]];for(let[s,o]of n)t.includes(s)||e.run(o);let r=Q(e,"SELECT name FROM sqlite_master WHERE type='table'").map(s=>s.name);r.includes("function_calls")||(e.run(`CREATE TABLE function_calls (
+             LIMIT ?`,
+      [matchExpr, Math.max(limit * 5, 50)]
+    );
+    const scored = rows.map((r) => {
+      const sectionLow = (r.section || "").toLowerCase();
+      const contentLow = r.content.toLowerCase();
+      let score = 0;
+      for (const t of tokens) {
+        const lt = t.toLowerCase();
+        if (!lt)
+          continue;
+        score += countOccurrences(sectionLow, lt) * 3;
+        score += countOccurrences(contentLow, lt);
+      }
+      return {
+        fileId: r.file_id,
+        section: r.section,
+        content: r.content,
+        lineStart: r.line_start,
+        score
+      };
+    });
+    scored.sort((a, b) => b.score - a.score);
+    return scored.slice(0, limit);
+  }
+  // ── Private ────────────────────────────────────────────────
+  /** Add columns that may be missing in older databases. */
+  migrateSchema() {
+    const db = this.ensureDb();
+    const cols = queryAll(db, "PRAGMA table_info('symbols')").map((c) => c.name);
+    const migrations = [
+      ["visibility", "ALTER TABLE symbols ADD COLUMN visibility TEXT DEFAULT 'public'"],
+      ["is_static", "ALTER TABLE symbols ADD COLUMN is_static INTEGER DEFAULT 0"],
+      ["is_async", "ALTER TABLE symbols ADD COLUMN is_async INTEGER DEFAULT 0"]
+    ];
+    for (const [col, sql] of migrations) {
+      if (!cols.includes(col)) {
+        db.run(sql);
+      }
+    }
+    const tables = queryAll(db, "SELECT name FROM sqlite_master WHERE type='table'").map((t) => t.name);
+    if (!tables.includes("function_calls")) {
+      db.run(`CREATE TABLE function_calls (
                 caller_file TEXT NOT NULL, caller_name TEXT NOT NULL,
                 callee_file TEXT NOT NULL, callee_name TEXT NOT NULL,
                 call_line INTEGER NOT NULL,
                 PRIMARY KEY (caller_file, caller_name, callee_file, callee_name, call_line)
-            )`),e.run("CREATE INDEX IF NOT EXISTS idx_fcalls_caller ON function_calls(caller_file, caller_name)"),e.run("CREATE INDEX IF NOT EXISTS idx_fcalls_callee ON function_calls(callee_file, callee_name)")),r.includes("doc_chunks")||e.run(`CREATE VIRTUAL TABLE doc_chunks USING fts4(
+            )`);
+      db.run("CREATE INDEX IF NOT EXISTS idx_fcalls_caller ON function_calls(caller_file, caller_name)");
+      db.run("CREATE INDEX IF NOT EXISTS idx_fcalls_callee ON function_calls(callee_file, callee_name)");
+    }
+    if (!tables.includes("doc_chunks")) {
+      db.run(`CREATE VIRTUAL TABLE doc_chunks USING fts4(
                 file_id, section, content, line_start, tokenize=porter
-            )`)}ensureDb(){if(!this.db)throw new Error("GraphDB is not open");return this.db}};var at=Ee(require("vscode"));function Oe(i){return new at.LanguageModelToolResult([new at.LanguageModelTextPart(JSON.stringify(i,null,2))])}function Ft(){return Oe({error:"Aura has not analyzed this workspace yet.",hint:'Run the "Aura: Visualize Codebase" command first, then retry.'})}function Xs(i,e,t){let n=(r,s)=>{i.subscriptions.push(at.lm.registerTool(r,{invoke:o=>s(o.input)}))};n("aura_resolve_context",r=>{let s=e();if(!s)return Ft();try{return Oe(Zt(s,r.task,r.limit??10))}catch(o){return Oe({error:o instanceof Error?o.message:String(o)})}}),n("aura_search_docs",r=>{let s=e();if(!s)return Ft();let o=s.searchDocs(r.query,r.limit??10);return Oe({query:r.query,total:o.length,results:o.map(l=>({file:l.fileId,section:l.section,line:l.lineStart,score:l.score,excerpt:l.content.length>600?l.content.slice(0,600)+"\u2026":l.content}))})}),n("aura_get_hotspots",r=>{let s=e();if(!s)return Ft();let o=r.limit??20,l=r.sort_by??"risk";if(l==="risk"){let h=t?.();if(h)return Oe(Yt(h,o))}let u=s.getHotspots(o,l==="risk"?"impact":l);return Oe({sort_by:l==="risk"?"impact":l,hotspots:u.map(h=>({file:h.id,lines:h.lines,complexity:h.complexity,fan_in:h.fan_in,fan_out:h.fan_out,impact_score:h.impact_score})),total:u.length})}),n("aura_find_path",r=>{let s=e();if(!s)return Ft();let o=s.findPath(r.from,r.to);return Oe(o?{from:r.from,to:r.to,path:o,length:o.length-1}:{from:r.from,to:r.to,path:null,message:"No dependency path found between these files"})}),n("aura_search_symbols",r=>{let s=e();if(!s)return Ft();let o=s.searchSymbols(r.query,r.kind);return Oe({query:r.query,kind:r.kind||"all",results:o.map(l=>({file:l.nodeId,symbol:l.name,kind:l.kind,line:l.line,visibility:l.visibility,is_static:l.isStatic,is_async:l.isAsync})),total:o.length})})}var ta=/^(#{1,3})\s+(.+?)\s*$/,na=/^(=+|-+|~+)\s*$/;function Ks(i,e,t=1500){let n=i.split(`
-`),r=[],s=e.split("/").pop()||e,o=[],l=1,u=h=>{let m=o.join(`
-`).trim();if(m.length===0)return;let _=ra(m,t),T=0;for(let x of _)r.push({fileId:e,section:s,content:x,lineStart:l+T}),T+=x.split(`
-`).length;o=[],l=h+1};for(let h=0;h<n.length;h++){let m=n[h],_=m.match(ta),T=h+1<n.length&&n[h+1].match(na);if(_){u(h),s=_[2],l=h+1;continue}if(T&&m.trim().length>0){u(h-1),s=m.trim(),l=h+1,h++;continue}o.push(m)}return u(n.length),r}function ra(i,e){if(i.length<=e)return[i];let t=i.split(/\n\s*\n/),n=[],r="";for(let s of t)for(r.length+s.length+2>e&&r.length>0&&(n.push(r.trim()),r=""),r+=(r?`
+            )`);
+    }
+  }
+  ensureDb() {
+    if (!this.db)
+      throw new Error("GraphDB is not open");
+    return this.db;
+  }
+};
 
-`:"")+s;r.length>e*1.5;)n.push(r.slice(0,e)),r=r.slice(e);return r.trim().length>0&&n.push(r.trim()),n}var D,P,Ne=[],ve,he,De=[],lt,oe,Sn,lr=!0,dt=new Map,Ct,ct,fe,Tt,ut,xn=!1,J,je;function sa(i){ut=new Xt;let e=M.window.createTreeView("auraVisualizer.statsView",{treeDataProvider:ut,showCollapseAll:!0});i.subscriptions.push(e),fe=M.window.createStatusBarItem(M.StatusBarAlignment.Left,50),fe.command="auraVisualizer.open",fe.text="$(eye) Aura",fe.tooltip="Open Aura 3D Visualizer",fe.show(),i.subscriptions.push(fe),oe=M.window.createStatusBarItem(M.StatusBarAlignment.Right,50),oe.command="auraVisualizer.open",oe.tooltip="Aura risk map",i.subscriptions.push(oe),Xs(i,()=>J,()=>dr()),i.subscriptions.push(M.commands.registerCommand("auraVisualizer.open",()=>oa(i)),M.commands.registerCommand("auraVisualizer.refresh",()=>It(i)),M.commands.registerCommand("auraVisualizer.focusFile",()=>_a()),M.commands.registerCommand("auraVisualizer.openFileFromTree",t=>{let n=M.workspace.workspaceFolders?.[0];if(!n)return;let r=Y.join(n.uri.fsPath,t);M.window.showTextDocument(M.Uri.file(r),{preview:!0})}),M.commands.registerCommand("auraVisualizer.exportGraph",()=>ya()),M.commands.registerCommand("auraVisualizer.blastRadius",()=>ga(i)),M.commands.registerCommand("auraVisualizer.statusBarRisk",t=>fa(i,t))),wa(i),i.subscriptions.push(M.workspace.onDidChangeConfiguration(t=>{t.affectsConfiguration("auraVisualizer")&&D&&D.sendSettings({}),t.affectsConfiguration("auraVisualizer.riskWindow")&&kn()})),i.subscriptions.push(M.workspace.onDidSaveTextDocument(()=>{ma()})),i.subscriptions.push(M.window.onDidChangeActiveTextEditor(t=>{if(En(),t&&D?.isVisible){let n=M.workspace.workspaceFolders?.[0];if(n){let r=Y.relative(n.uri.fsPath,t.document.uri.fsPath);r.startsWith("..")||D.focusNode(r)}}})),i.subscriptions.push(M.window.onDidChangeActiveColorTheme(t=>{D?.sendTheme(t.kind)})),M.window.registerWebviewPanelSerializer(Pe.viewType,{async deserializeWebviewPanel(t){if(D||(D=new Pe(i.extensionUri,i.workspaceState,()=>J,Fn()),Nn()),D.restore(t),P&&(D.sendGraphData(P),he)){D.sendHistoryIndex(he);for(let n of De)D.sendHistoryDelta(n)}}}),M.workspace.workspaceFolders?.length&&ia(i),ti()}async function ia(i){let e=M.workspace.workspaceFolders?.[0];if(!e){It(i);return}let t=e.uri.fsPath,n=Y.join(t,".aura","graph.db");if((0,ze.existsSync)(n))try{J||(J=new kt,await J.open(n));let o=J.exportGraphData();o&&o.nodes.length>0&&(P=o,D&&D.sendGraphData(P),ut?.update(P),Rt(),console.log(`[aura] Loaded ${o.nodes.length} files from cache in DB`))}catch(o){console.error("[aura] Failed to load from DB cache:",o)}let r=Y.join(t,".aura","history"),s=Y.join(r,"index.json");if((0,ze.existsSync)(s))try{let o=JSON.parse((0,ze.readFileSync)(s,"utf-8"));he=o,kn(),D&&D.sendHistoryIndex(he);for(let l of o.commits){let u=Y.join(r,`${l.hash}.json`);if((0,ze.existsSync)(u))try{let h=JSON.parse((0,ze.readFileSync)(u,"utf-8"));De.push(h),D&&D.sendHistoryDelta(h)}catch{}}console.log(`[aura] Loaded ${De.length} cached history deltas`)}catch(o){console.error("[aura] Failed to load cached history:",o)}It(i)}function Nn(){D&&D.onOpenFile(async({path:i,line:e})=>{let t=M.workspace.workspaceFolders?.[0];if(!t)return;let n=Y.join(t.uri.fsPath,i),r=M.Uri.file(n);try{let s=await M.workspace.openTextDocument(r),o=await M.window.showTextDocument(s,{viewColumn:M.ViewColumn.Beside,preserveFocus:!1});if(e&&e>0){let l=new M.Position(e-1,0);o.selection=new M.Selection(l,l),o.revealRange(new M.Range(l,l),M.TextEditorRevealType.InCenter)}}catch{}})}async function oa(i){if(D||(D=new Pe(i.extensionUri,i.workspaceState,()=>J,Fn()),Nn()),D.show(),P){if(D.sendGraphData(P),he){D.sendHistoryIndex(he);for(let e of De)D.sendHistoryDelta(e)}}else await It(i)}async function It(i){if(xn)return;xn=!0;let e=M.workspace.workspaceFolders?.[0];if(!e){xn=!1,M.window.showWarningMessage("Aura: No workspace folder open.");return}let t=e.uri.fsPath,r=M.workspace.getConfiguration("auraVisualizer").get("excludePaths",["node_modules",".git","dist","build","out","__pycache__"]);fe&&(fe.text="$(loading~spin) Aura: Analyzing...");try{let s=await M.window.withProgress({location:M.ProgressLocation.Window,title:"Aura: Analyzing codebase..."},()=>la(i.extensionUri,t,r,e.name)),o=P;if(P=s.graphData,Ne=s.files,je=gn(Ne,P),D)if(o&&o.nodes.length>0){let l=da(o,P,"",!1),u=o.functionCalls?.length||0,h=P.functionCalls?.length||0;l.changedNodes.length>0||l.removedNodeIds.length>0||l.addedLinks.length>0||l.removedLinks.length>0||u!==h?D.sendGraphDelta(l):D.sendRefreshComplete()}else D.sendGraphData(P);ut?.update(P),Rt();try{if(!J){J=new kt;let l=Y.join(t,".aura");await ke.mkdir(l,{recursive:!0}),await J.open(Y.join(l,"graph.db"))}J.importGraphData(P),J.importDocChunks(s.docChunks),await aa(i,t)}catch(l){console.error("[aura] GraphDB import error:",l)}ha(i,t,r)}catch(s){let o=s instanceof Error?s.message:String(s);M.window.showErrorMessage(`Aura: Analysis failed \u2014 ${o}`),fe&&(fe.text="$(eye) Aura")}finally{xn=!1}}async function aa(i,e){let t=Y.join(e,".vscode"),n=Y.join(t,"mcp.json"),r=Y.join(i.extensionUri.fsPath,"out","mcp-server.js"),s=Y.join(e,".aura","graph.db"),o={};try{let l=await ke.readFile(n,"utf-8");o=JSON.parse(l)}catch{}o.servers&&o.servers.aura||(o.servers=o.servers||{},o.servers.aura={command:"node",args:[r],env:{AURA_DB_PATH:s}},await ke.mkdir(t,{recursive:!0}),await ke.writeFile(n,JSON.stringify(o,null,4)+`
-`,"utf-8"),console.log("[aura] MCP server registered in .vscode/mcp.json"))}function la(i,e,t,n){return new Promise((r,s)=>{let o=Y.join(i.fsPath,"out","analyzer-worker.js"),l=new cr.Worker(o,{execArgv:[],workerData:{rootPath:e,skipDirs:t,projectName:n}});l.on("message",u=>{if(u.progress){D?.sendProgress(u.progress.phase,u.progress.message);return}u.error?s(new Error(u.error)):r({graphData:u.graphData,files:u.files,docChunks:u.docChunks||[]}),l.terminate()}),l.on("error",u=>{s(u),l.terminate()}),l.on("exit",u=>{u!==0&&s(new Error(`Worker exited with code ${u}`))})})}async function ca(i,e){let t=M.workspace.workspaceFolders?.[0];if(!t||Ne.length===0)return;let n=t.uri.fsPath,r=Y.relative(n,i.fsPath);if(r.startsWith(".."))return;if(e){if(Ne=Ne.filter(y=>y.id!==r),je&&(je.fileMap.delete(r),je.fileSymbols.delete(r)),J&&(J.deleteNode(r),J.save()),P){let y=P.links.filter(S=>S.source===r||S.target===r).map(S=>({source:S.source,target:S.target,type:S.type}));if(P.nodes=P.nodes.filter(S=>S.id!==r),P.links=P.links.filter(S=>S.source!==r&&S.target!==r),P.functionCalls=(P.functionCalls||[]).filter(S=>S.callerFile!==r&&S.calleeFile!==r),P.meta.totalFiles=P.nodes.length,P.meta.totalLinks=P.links.length,D?.isVisible){let S={changedNodes:[],removedNodeIds:[r],addedLinks:[],removedLinks:y,meta:P.meta,functionCalls:P.functionCalls||[]};D.sendGraphDelta(S)}}ut?.update(P),Rt();return}let s=await Zn(i.fsPath,n);if(!s)return;let o=Ne.findIndex(y=>y.id===r);if(o>=0?Ne[o]=s:Ne.push(s),s.language==="documentation"){if(J){let y={id:s.id,name:s.name,path:s.path,language:s.language,extension:s.extension,group:s.id.split("/").slice(0,-1).join("/")||s.name,size:s.size,linesOfCode:s.content.split(`
-`).length,complexity:1,complexityDetails:{},fanIn:0,fanOut:0,lastModified:s.lastModified};J.upsertNode(y);try{let S=Ks(s.content,s.id);J.replaceDocChunks(s.id,S)}catch{}J.save()}Rt();return}je||(je=gn(Ne,P));let u=(await sr([s])).get(s.id),h=P?P.links.filter(y=>y.source===s.id):[],m=h.map(y=>y.target),_=ir(s,je,u),T=_.outEdges.map(y=>y.target),x=[...new Set([s.id,...m,...T])];J&&(J.replaceFileData(s.id,_.node,_.outEdges,_.callSites),J.updateFanCounts(x),J.save());let F={changedNodes:[_.node],removedNodeIds:[],addedLinks:[],removedLinks:[],meta:P?.meta??{},functionCalls:P?.functionCalls??[]},v=new Set(h.map(y=>`${y.source}|${y.target}|${y.type}`)),b=new Set(_.outEdges.map(y=>`${y.source}|${y.target}|${y.type}`));for(let y of _.outEdges)v.has(`${y.source}|${y.target}|${y.type}`)||F.addedLinks.push(y);for(let y of h)b.has(`${y.source}|${y.target}|${y.type}`)||F.removedLinks.push({source:y.source,target:y.target,type:y.type});if(P){let y=P.nodes.findIndex(L=>L.id===s.id);y>=0?P.nodes[y]=_.node:P.nodes.push(_.node),P.links=P.links.filter(L=>L.source!==s.id),P.links.push(..._.outEdges);let S=P.functionCalls||[];if(P.functionCalls=S.filter(L=>L.callerFile!==s.id).concat(_.callSites),J)for(let L of x){let ee=J.getNodeDetail(L),N=P.nodes.find(B=>B.id===L);ee&&N&&(N.fanIn!==ee.fan_in||N.fanOut!==ee.fan_out)&&(N.fanIn=ee.fan_in,N.fanOut=ee.fan_out,L!==s.id&&F.changedNodes.push(N))}P.meta.totalFiles=P.nodes.length,P.meta.totalLinks=P.links.length,F.meta=P.meta,F.functionCalls=P.functionCalls||[]}D?.isVisible&&D.sendGraphDelta(F),ut?.update(P),Rt()}function da(i,e,t,n){let r={changedNodes:[],removedNodeIds:[],addedLinks:[],removedLinks:[],meta:e.meta,functionCalls:e.functionCalls||[]};n&&r.removedNodeIds.push(t);let s=new Map(i.nodes.map(m=>[m.id,m])),o=new Map(e.nodes.map(m=>[m.id,m]));for(let m of e.nodes){let _=s.get(m.id);(!_||m.fanIn!==_.fanIn||m.fanOut!==_.fanOut||m.complexity!==_.complexity||m.linesOfCode!==_.linesOfCode||m.size!==_.size)&&r.changedNodes.push(m)}for(let m of i.nodes)o.has(m.id)||r.removedNodeIds.includes(m.id)||r.removedNodeIds.push(m.id);let l=m=>`${typeof m.source=="object"?m.source.id:m.source}|${typeof m.target=="object"?m.target.id:m.target}|${m.type}`,u=new Set(i.links.map(l)),h=new Set(e.links.map(l));for(let m of e.links)u.has(l(m))||r.addedLinks.push(m);for(let m of i.links)h.has(l(m))||r.removedLinks.push({source:typeof m.source=="object"?m.source.id:m.source,target:typeof m.target=="object"?m.target.id:m.target,type:m.type});return r}function Rt(){if(kn(),!fe||!P)return;let{totalFiles:i,totalLinks:e}=P.meta;fe.text=`$(eye) Aura: ${i} files, ${e} links`,fe.tooltip=`Aura \u2014 ${i} files, ${e} dependencies
-Click to open 3D visualizer`}function kn(){lr=!0,En()}function dr(){if(!P||P.nodes.length===0)return;if(!lr&&Sn)return Sn;let i=et(M.workspace.getConfiguration("auraVisualizer").get("riskWindow",90));return Sn=is(P.nodes,he?.commits??[],i),lr=!1,Sn}function En(){if(!oe)return;let i=dr();if(!i||i.byId.size===0){oe.hide();return}let e=pa(i);if(e.length>0){oe.text=`$(warning) ${e.length} hotspot${e.length>1?"s":""} in your changes`;let l=new M.MarkdownString;l.appendMarkdown(`**${e.length} high-risk file${e.length>1?"s":""} in your current changes**
+// src/lm-tools.ts
+var vscode4 = __toESM(require("vscode"));
+function jsonResult(payload) {
+  return new vscode4.LanguageModelToolResult([
+    new vscode4.LanguageModelTextPart(JSON.stringify(payload, null, 2))
+  ]);
+}
+function notAnalyzedResult() {
+  return jsonResult({
+    error: "Aura has not analyzed this workspace yet.",
+    hint: 'Run the "Aura: Visualize Codebase" command first, then retry.'
+  });
+}
+function registerAuraLmTools(context, getDb, getRiskSnapshot) {
+  const register = (name, invoke) => {
+    context.subscriptions.push(
+      vscode4.lm.registerTool(name, {
+        invoke: (options) => invoke(options.input)
+      })
+    );
+  };
+  register("aura_resolve_context", (input) => {
+    const db = getDb();
+    if (!db)
+      return notAnalyzedResult();
+    try {
+      return jsonResult(resolveContext(db, input.task, input.limit ?? 10));
+    } catch (err2) {
+      return jsonResult({ error: err2 instanceof Error ? err2.message : String(err2) });
+    }
+  });
+  register("aura_search_docs", (input) => {
+    const db = getDb();
+    if (!db)
+      return notAnalyzedResult();
+    const results = db.searchDocs(input.query, input.limit ?? 10);
+    return jsonResult({
+      query: input.query,
+      total: results.length,
+      results: results.map((r) => ({
+        file: r.fileId,
+        section: r.section,
+        line: r.lineStart,
+        score: r.score,
+        excerpt: r.content.length > 600 ? r.content.slice(0, 600) + "\u2026" : r.content
+      }))
+    });
+  });
+  register("aura_get_hotspots", (input) => {
+    const db = getDb();
+    if (!db)
+      return notAnalyzedResult();
+    const limit = input.limit ?? 20;
+    const sortBy = input.sort_by ?? "risk";
+    if (sortBy === "risk") {
+      const snapshot = getRiskSnapshot?.();
+      if (snapshot) {
+        return jsonResult(topRiskHotspots(snapshot, limit));
+      }
+    }
+    const hotspots = db.getHotspots(limit, sortBy === "risk" ? "impact" : sortBy);
+    return jsonResult({
+      sort_by: sortBy === "risk" ? "impact" : sortBy,
+      hotspots: hotspots.map((h) => ({
+        file: h.id,
+        lines: h.lines,
+        complexity: h.complexity,
+        fan_in: h.fan_in,
+        fan_out: h.fan_out,
+        impact_score: h.impact_score
+      })),
+      total: hotspots.length
+    });
+  });
+  register("aura_find_path", (input) => {
+    const db = getDb();
+    if (!db)
+      return notAnalyzedResult();
+    const path3 = db.findPath(input.from, input.to);
+    return jsonResult(path3 ? { from: input.from, to: input.to, path: path3, length: path3.length - 1 } : { from: input.from, to: input.to, path: null, message: "No dependency path found between these files" });
+  });
+  register("aura_search_symbols", (input) => {
+    const db = getDb();
+    if (!db)
+      return notAnalyzedResult();
+    const results = db.searchSymbols(input.query, input.kind);
+    return jsonResult({
+      query: input.query,
+      kind: input.kind || "all",
+      results: results.map((r) => ({
+        file: r.nodeId,
+        symbol: r.name,
+        kind: r.kind,
+        line: r.line,
+        visibility: r.visibility,
+        is_static: r.isStatic,
+        is_async: r.isAsync
+      })),
+      total: results.length
+    });
+  });
+}
 
-`);let u=e.slice(0,5);for(let h of u){let m=i.byId.get(h);l.appendMarkdown(`- \`${h}\`${m?` \u2014 risk ${Math.round(m.score)}/100`:""}
-`)}e.length>u.length&&l.appendMarkdown(`
-\u2026 and ${e.length-u.length} more`),oe.tooltip=l,oe.backgroundColor=new M.ThemeColor("statusBarItem.warningBackground"),oe.command={command:"auraVisualizer.statusBarRisk",title:"Reveal in Risk tab",arguments:[e[0]]},oe.show();return}oe.backgroundColor=void 0;let t=M.workspace.workspaceFolders?.[0],n=M.window.activeTextEditor;if(!t||!n){oe.hide();return}let r=Y.relative(t.uri.fsPath,n.document.uri.fsPath);if(r.startsWith("..")||Y.isAbsolute(r)){oe.hide();return}let s=r.split(Y.sep).join("/"),o=i.byId.get(s)||i.byId.get(r);if(!o){oe.hide();return}oe.text=`$(shield) Risk ${Math.round(o.score)}${o.topLabel?" \xB7 "+o.topLabel:""}`,oe.tooltip=ua(o,s),oe.command={command:"auraVisualizer.statusBarRisk",title:"Reveal in Risk tab",arguments:[o.id]},oe.show()}function ua(i,e){let t=new M.MarkdownString;t.appendMarkdown(`**Risk ${Math.round(i.score)}/100**`),i.topLabel&&t.appendMarkdown(` \u2014 ${i.topLabel} of this repository`),t.appendMarkdown(`
+// src/analyzer/parsers/doc-parser.ts
+var HEADING_RE = /^(#{1,3})\s+(.+?)\s*$/;
+var RST_UNDERLINE_RE = /^(=+|-+|~+)\s*$/;
+function chunkDocument(content, fileId, maxChars = 1500) {
+  const lines = content.split("\n");
+  const chunks = [];
+  let currentSection = fileId.split("/").pop() || fileId;
+  let buffer2 = [];
+  let bufferStart = 1;
+  const flush = (endLine) => {
+    const text = buffer2.join("\n").trim();
+    if (text.length === 0)
+      return;
+    const pieces = splitByParagraph(text, maxChars);
+    let offset = 0;
+    for (const piece of pieces) {
+      chunks.push({
+        fileId,
+        section: currentSection,
+        content: piece,
+        lineStart: bufferStart + offset
+      });
+      offset += piece.split("\n").length;
+    }
+    buffer2 = [];
+    bufferStart = endLine + 1;
+  };
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const mdMatch = line.match(HEADING_RE);
+    const rstUnderline = i + 1 < lines.length && lines[i + 1].match(RST_UNDERLINE_RE);
+    if (mdMatch) {
+      flush(i);
+      currentSection = mdMatch[2];
+      bufferStart = i + 1;
+      continue;
+    }
+    if (rstUnderline && line.trim().length > 0) {
+      flush(i - 1);
+      currentSection = line.trim();
+      bufferStart = i + 1;
+      i++;
+      continue;
+    }
+    buffer2.push(line);
+  }
+  flush(lines.length);
+  return chunks;
+}
+function splitByParagraph(text, maxChars) {
+  if (text.length <= maxChars)
+    return [text];
+  const paragraphs = text.split(/\n\s*\n/);
+  const out2 = [];
+  let current = "";
+  for (const p of paragraphs) {
+    if (current.length + p.length + 2 > maxChars && current.length > 0) {
+      out2.push(current.trim());
+      current = "";
+    }
+    current += (current ? "\n\n" : "") + p;
+    while (current.length > maxChars * 1.5) {
+      out2.push(current.slice(0, maxChars));
+      current = current.slice(maxChars);
+    }
+  }
+  if (current.trim().length > 0)
+    out2.push(current.trim());
+  return out2;
+}
 
-`);for(let n of i.reasons.slice(0,5))t.appendMarkdown(`- ${n.text}
-`);return t.appendMarkdown(`
-\`${e}\` \u2014 click to reveal in the Risk tab`),t}function Js(i){let e=M.workspace.workspaceFolders?.[0];if(!e||!ct)return;let t=Y.relative(e.uri.fsPath,Y.join(ct,i));if(!(t.startsWith("..")||Y.isAbsolute(t)))return t.split(Y.sep).join("/")}function pa(i){if(dt.size===0)return[];let e=[];for(let t of dt.keys()){let n=Js(t);n&&i.highIds.has(n)&&e.push(n)}return e.sort((t,n)=>(i.byId.get(n)?.score??0)-(i.byId.get(t)?.score??0)),e}function ei(){let i={};for(let[e,t]of dt){let n=Js(e);n&&(i[n]=t)}return i}function Qs(){D?.sendWorkingTree(ei())}function Fn(){return{riskSnapshot:()=>dr(),workingTree:()=>ei()}}async function ti(){let i=M.workspace.workspaceFolders?.[0];if(!i){dt=new Map,Qs(),En();return}try{if(ct===void 0)try{ct=await Ws(i.uri.fsPath)}catch{ct=""}dt=ct?await js(i.uri.fsPath):new Map}catch{dt=new Map}Qs(),En()}function ma(){Ct&&clearTimeout(Ct),Ct=setTimeout(()=>{ti()},300)}async function fa(i,e){if(D||(D=new Pe(i.extensionUri,i.workspaceState,()=>J,Fn()),Nn()),D.show(),P&&(D.sendGraphData(P),he)){D.sendHistoryIndex(he);for(let t of De)D.sendHistoryDelta(t)}e&&D.focusRiskFile(e)}async function ha(i,e,t){if(!await ar(e))return;ve&&(ve.terminate(),ve=void 0),De=[];let r=Y.join(e,".aura","history"),s=Y.join(i.extensionUri.fsPath,"out","history-worker.js");ve=new cr.Worker(s,{execArgv:[],workerData:{rootPath:e,skipDirs:t,historyDir:r}}),ve.on("message",o=>{switch(o.type){case"index":he=o.payload,kn(),D&&D.sendHistoryIndex(he);break;case"progress":{let l=o.payload;D&&D.sendHistoryProgress(l.scanned,l.total);break}case"delta":{let l=o.payload;De.push(l),D&&D.sendHistoryDelta(l);break}case"done":break;case"error":break}}),ve.on("error",()=>{}),ve.on("exit",()=>{ve=void 0})}function _a(){let i=M.window.activeTextEditor;if(!i||!D?.isVisible)return;let e=M.workspace.workspaceFolders?.[0];if(!e)return;let t=Y.relative(e.uri.fsPath,i.document.uri.fsPath);t.startsWith("..")||D.focusNode(t)}async function ga(i){let e=M.window.activeTextEditor,t=M.workspace.workspaceFolders?.[0];if(!e||!t)return;let n=Y.relative(t.uri.fsPath,e.document.uri.fsPath);if(!n.startsWith("..")){if(D||(D=new Pe(i.extensionUri,i.workspaceState,()=>J,Fn()),Nn()),D.show(),P&&(D.sendGraphData(P),he)){D.sendHistoryIndex(he);for(let r of De)D.sendHistoryDelta(r)}setTimeout(()=>D?.sendBlastRadius(n),300)}}async function ya(){let i=M.workspace.workspaceFolders?.[0];if(!i){M.window.showWarningMessage("Aura: No workspace folder open.");return}if(!P){M.window.showWarningMessage("Aura: No graph data. Run analysis first (Ctrl+Shift+A).");return}let e=Y.join(i.uri.fsPath,".aura");await ke.mkdir(e,{recursive:!0});let t=P,n={meta:t.meta,nodes:t.nodes.map(s=>({id:s.id,name:s.name,path:s.path,language:s.language,extension:s.extension,size:s.size,linesOfCode:s.linesOfCode,group:s.group,fanIn:s.fanIn,fanOut:s.fanOut,complexity:s.complexity})),links:t.links.map(s=>({source:s.source,target:s.target,type:s.type,label:s.label}))};await ke.writeFile(Y.join(e,"graph.json"),JSON.stringify(n,null,2),"utf-8");let r=ba(t);await ke.writeFile(Y.join(e,"summary.md"),r,"utf-8"),M.window.showInformationMessage("Aura: Exported to .aura/ \u2014 graph.json + summary.md","Open summary").then(s=>{s==="Open summary"&&M.window.showTextDocument(M.Uri.file(Y.join(e,"summary.md")),{preview:!0})})}function ba(i){let{meta:e,nodes:t,links:n}=i,r=[];r.push(`# Aura Graph \u2014 ${e.projectName}`),r.push(`> Auto-generated by Aura Visualizer on ${e.analyzedAt}`),r.push("> This file describes the codebase architecture for AI-assisted development."),r.push(""),r.push("## Overview"),r.push(`- **${e.totalFiles}** files, **${e.totalLinks}** dependencies`);let s=Object.entries(e.languageStats).sort((x,F)=>F[1].count-x[1].count).map(([x,F])=>`${x} (${F.count} files, ${F.totalLOC} LOC)`);if(r.push(`- Languages: ${s.join(", ")}`),e.unresolvedReferences>0&&r.push(`- Unresolved references: ${e.unresolvedReferences}`),r.push(""),e.groups.length>0){r.push("## Directory Structure");for(let x of e.groups){let F=t.filter(b=>b.group===x),v=F.reduce((b,y)=>b+y.linesOfCode,0);r.push(`- \`${x}/\` \u2014 ${F.length} files, ${v} LOC`)}r.push("")}let o=[...t].sort((x,F)=>F.fanIn-x.fanIn).slice(0,15).filter(x=>x.fanIn>0);if(o.length>0){r.push("## Hotspots (most depended-on files)"),r.push("| File | Fan-in | Fan-out | Complexity | LOC |"),r.push("|------|--------|---------|------------|-----|");for(let x of o)r.push(`| \`${x.id}\` | ${x.fanIn} | ${x.fanOut} | ${x.complexity} | ${x.linesOfCode} |`);r.push("")}let l=[...t].sort((x,F)=>F.complexity-x.complexity).slice(0,10).filter(x=>x.complexity>1);if(l.length>0){r.push("## Most Complex Files"),r.push("| File | Complexity | LOC | Fan-in | Fan-out |"),r.push("|------|------------|-----|--------|---------|");for(let x of l)r.push(`| \`${x.id}\` | ${x.complexity} | ${x.linesOfCode} | ${x.fanIn} | ${x.fanOut} |`);r.push("")}let u=[...t].sort((x,F)=>F.linesOfCode-x.linesOfCode).slice(0,10);if(u.length>0){r.push("## Largest Files"),r.push("| File | LOC | Complexity | Language |"),r.push("|------|-----|------------|----------|");for(let x of u)r.push(`| \`${x.id}\` | ${x.linesOfCode} | ${x.complexity} | ${x.language} |`);r.push("")}let h=t.filter(x=>x.fanIn===0&&x.fanOut===0);if(h.length>0){r.push("## Orphan Files (no dependencies)");for(let x of h)r.push(`- \`${x.id}\` (${x.language}, ${x.linesOfCode} LOC)`);r.push("")}let m=[],_=new Set(n.map(x=>`${x.source}\u2192${x.target}`));for(let x of n){let F=`${x.target}\u2192${x.source}`;_.has(F)&&x.source<x.target&&m.push(`\`${x.source}\` \u2194 \`${x.target}\``)}if(m.length>0){r.push("## Circular Dependencies");for(let x of m)r.push(`- ${x}`);r.push("")}let T={};for(let x of n)T[x.type]=(T[x.type]||0)+1;if(Object.keys(T).length>0){r.push("## Dependency Types");for(let[x,F]of Object.entries(T).sort((v,b)=>b[1]-v[1]))r.push(`- **${x}**: ${F}`);r.push("")}return r.push("## Usage Notes for AI Agents"),r.push("- Files with high fan-in are **critical hubs** \u2014 changes impact many dependents."),r.push("- Check circular dependencies before refactoring \u2014 break cycles where possible."),r.push("- Orphan files may be dead code candidates for cleanup."),r.push("- Use `graph.json` for programmatic queries (e.g., find all dependents of a file)."),r.push("- High complexity files (>15) are prime candidates for decomposition."),r.push(""),r.join(`
-`)}function wa(i){if(!M.workspace.getConfiguration("auraVisualizer").get("autoRefresh",!0))return;lt=M.workspace.createFileSystemWatcher("**/*.{c,h,js,ts,py,css,html}");let n=new Map,r=()=>{Tt&&clearTimeout(Tt),Tt=setTimeout(async()=>{let s=new Map(n);if(n.clear(),Ne.length===0){D?.isVisible?It(i):P=void 0;return}for(let[,o]of s)await ca(o.uri,o.deleted)},500)};lt.onDidChange(s=>{n.set(s.fsPath,{uri:s,deleted:!1}),r()}),lt.onDidCreate(s=>{n.set(s.fsPath,{uri:s,deleted:!1}),r()}),lt.onDidDelete(s=>{n.set(s.fsPath,{uri:s,deleted:!0}),r()}),i.subscriptions.push(lt)}function va(){D?.dispose(),lt?.dispose(),Tt&&clearTimeout(Tt),Ct&&clearTimeout(Ct),ve&&(ve.terminate(),ve=void 0),J&&(J.close(),J=void 0)}0&&(module.exports={activate,deactivate});
+// src/extension.ts
+var webviewProvider;
+var cachedGraphData;
+var cachedFiles = [];
+var historyWorker;
+var commitIndex;
+var cachedDeltas = [];
+var fileWatcher;
+var riskStatusBarItem;
+var riskSnapshot;
+var riskSnapshotDirty = true;
+var workingTreeFiles = /* @__PURE__ */ new Map();
+var workingTreeTimer;
+var gitRepoRoot;
+var statusBarItem;
+var refreshTimeout;
+var treeProvider;
+var isAnalyzing = false;
+var graphDb;
+var incrementalCtx;
+function activate(context) {
+  treeProvider = new AuraTreeProvider();
+  const treeView = vscode5.window.createTreeView("auraVisualizer.statsView", {
+    treeDataProvider: treeProvider,
+    showCollapseAll: true
+  });
+  context.subscriptions.push(treeView);
+  statusBarItem = vscode5.window.createStatusBarItem(vscode5.StatusBarAlignment.Left, 50);
+  statusBarItem.command = "auraVisualizer.open";
+  statusBarItem.text = "$(eye) Aura";
+  statusBarItem.tooltip = "Open Aura 3D Visualizer";
+  statusBarItem.show();
+  context.subscriptions.push(statusBarItem);
+  riskStatusBarItem = vscode5.window.createStatusBarItem(vscode5.StatusBarAlignment.Right, 50);
+  riskStatusBarItem.command = "auraVisualizer.open";
+  riskStatusBarItem.tooltip = "Aura risk map";
+  context.subscriptions.push(riskStatusBarItem);
+  registerAuraLmTools(context, () => graphDb, () => ensureRiskSnapshot());
+  context.subscriptions.push(
+    vscode5.commands.registerCommand("auraVisualizer.open", () => openVisualizer(context)),
+    vscode5.commands.registerCommand("auraVisualizer.refresh", () => refreshAnalysis(context)),
+    vscode5.commands.registerCommand("auraVisualizer.focusFile", () => focusCurrentFile()),
+    vscode5.commands.registerCommand("auraVisualizer.openFileFromTree", (relativePath) => {
+      const workspaceFolder = vscode5.workspace.workspaceFolders?.[0];
+      if (!workspaceFolder)
+        return;
+      const fullPath = path2.join(workspaceFolder.uri.fsPath, relativePath);
+      vscode5.window.showTextDocument(vscode5.Uri.file(fullPath), { preview: true });
+    }),
+    vscode5.commands.registerCommand("auraVisualizer.exportGraph", () => exportGraph()),
+    vscode5.commands.registerCommand("auraVisualizer.blastRadius", () => blastRadiusCurrentFile(context)),
+    vscode5.commands.registerCommand("auraVisualizer.statusBarRisk", (nodeId) => focusRiskFromStatusBar(context, nodeId))
+  );
+  setupFileWatcher(context);
+  context.subscriptions.push(
+    vscode5.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration("auraVisualizer") && webviewProvider) {
+        webviewProvider.sendSettings({});
+      }
+      if (e.affectsConfiguration("auraVisualizer.riskWindow")) {
+        invalidateRisk();
+      }
+    })
+  );
+  context.subscriptions.push(
+    vscode5.workspace.onDidSaveTextDocument(() => {
+      scheduleWorkingTreeRefresh();
+    })
+  );
+  context.subscriptions.push(
+    vscode5.window.onDidChangeActiveTextEditor((editor) => {
+      updateRiskStatusBar();
+      if (editor && webviewProvider?.isVisible) {
+        const workspaceFolder = vscode5.workspace.workspaceFolders?.[0];
+        if (workspaceFolder) {
+          const relativePath = path2.relative(workspaceFolder.uri.fsPath, editor.document.uri.fsPath);
+          if (!relativePath.startsWith("..")) {
+            webviewProvider.focusNode(relativePath);
+          }
+        }
+      }
+    })
+  );
+  context.subscriptions.push(
+    vscode5.window.onDidChangeActiveColorTheme((theme) => {
+      webviewProvider?.sendTheme(theme.kind);
+    })
+  );
+  vscode5.window.registerWebviewPanelSerializer(WebviewProvider.viewType, {
+    async deserializeWebviewPanel(panel) {
+      if (!webviewProvider) {
+        webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState, () => graphDb, hostDataAccessors());
+        registerOpenFileHandler();
+      }
+      webviewProvider.restore(panel);
+      if (cachedGraphData) {
+        webviewProvider.sendGraphData(cachedGraphData);
+        if (commitIndex) {
+          webviewProvider.sendHistoryIndex(commitIndex);
+          for (const delta of cachedDeltas) {
+            webviewProvider.sendHistoryDelta(delta);
+          }
+        }
+      }
+    }
+  });
+  if (vscode5.workspace.workspaceFolders?.length) {
+    loadFromDbThenRefresh(context);
+  }
+  void refreshWorkingTree();
+}
+async function loadFromDbThenRefresh(context) {
+  const workspaceFolder = vscode5.workspace.workspaceFolders?.[0];
+  if (!workspaceFolder) {
+    refreshAnalysis(context);
+    return;
+  }
+  const rootPath = workspaceFolder.uri.fsPath;
+  const dbPath = path2.join(rootPath, ".aura", "graph.db");
+  if ((0, import_fs2.existsSync)(dbPath)) {
+    try {
+      if (!graphDb) {
+        graphDb = new GraphDB();
+        await graphDb.open(dbPath);
+      }
+      const cached = graphDb.exportGraphData();
+      if (cached && cached.nodes.length > 0) {
+        cachedGraphData = cached;
+        if (webviewProvider) {
+          webviewProvider.sendGraphData(cachedGraphData);
+        }
+        treeProvider?.update(cachedGraphData);
+        updateStatusBar();
+        console.log(`[aura] Loaded ${cached.nodes.length} files from cache in DB`);
+      }
+    } catch (err2) {
+      console.error("[aura] Failed to load from DB cache:", err2);
+    }
+  }
+  const historyDir = path2.join(rootPath, ".aura", "history");
+  const indexPath = path2.join(historyDir, "index.json");
+  if ((0, import_fs2.existsSync)(indexPath)) {
+    try {
+      const idx = JSON.parse((0, import_fs2.readFileSync)(indexPath, "utf-8"));
+      commitIndex = idx;
+      invalidateRisk();
+      if (webviewProvider) {
+        webviewProvider.sendHistoryIndex(commitIndex);
+      }
+      for (const commit of idx.commits) {
+        const deltaPath = path2.join(historyDir, `${commit.hash}.json`);
+        if (!(0, import_fs2.existsSync)(deltaPath)) {
+          continue;
+        }
+        try {
+          const delta = JSON.parse((0, import_fs2.readFileSync)(deltaPath, "utf-8"));
+          cachedDeltas.push(delta);
+          if (webviewProvider) {
+            webviewProvider.sendHistoryDelta(delta);
+          }
+        } catch {
+        }
+      }
+      console.log(`[aura] Loaded ${cachedDeltas.length} cached history deltas`);
+    } catch (err2) {
+      console.error("[aura] Failed to load cached history:", err2);
+    }
+  }
+  refreshAnalysis(context);
+}
+function registerOpenFileHandler() {
+  if (!webviewProvider)
+    return;
+  webviewProvider.onOpenFile(async ({ path: filePath, line }) => {
+    const workspaceFolder = vscode5.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder)
+      return;
+    const fullPath = path2.join(workspaceFolder.uri.fsPath, filePath);
+    const uri = vscode5.Uri.file(fullPath);
+    try {
+      const doc = await vscode5.workspace.openTextDocument(uri);
+      const editor = await vscode5.window.showTextDocument(doc, {
+        viewColumn: vscode5.ViewColumn.Beside,
+        preserveFocus: false
+      });
+      if (line && line > 0) {
+        const position = new vscode5.Position(line - 1, 0);
+        editor.selection = new vscode5.Selection(position, position);
+        editor.revealRange(
+          new vscode5.Range(position, position),
+          vscode5.TextEditorRevealType.InCenter
+        );
+      }
+    } catch {
+    }
+  });
+}
+async function openVisualizer(context) {
+  if (!webviewProvider) {
+    webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState, () => graphDb, hostDataAccessors());
+    registerOpenFileHandler();
+  }
+  webviewProvider.show();
+  if (cachedGraphData) {
+    webviewProvider.sendGraphData(cachedGraphData);
+    if (commitIndex) {
+      webviewProvider.sendHistoryIndex(commitIndex);
+      for (const delta of cachedDeltas) {
+        webviewProvider.sendHistoryDelta(delta);
+      }
+    }
+  } else {
+    await refreshAnalysis(context);
+  }
+}
+async function refreshAnalysis(context) {
+  if (isAnalyzing)
+    return;
+  isAnalyzing = true;
+  const workspaceFolder = vscode5.workspace.workspaceFolders?.[0];
+  if (!workspaceFolder) {
+    isAnalyzing = false;
+    vscode5.window.showWarningMessage("Aura: No workspace folder open.");
+    return;
+  }
+  const rootPath = workspaceFolder.uri.fsPath;
+  const config = vscode5.workspace.getConfiguration("auraVisualizer");
+  const excludePaths = config.get("excludePaths", [
+    "node_modules",
+    ".git",
+    "dist",
+    "build",
+    "out",
+    "__pycache__"
+  ]);
+  if (statusBarItem) {
+    statusBarItem.text = "$(loading~spin) Aura: Analyzing...";
+  }
+  try {
+    const result = await vscode5.window.withProgress(
+      {
+        location: vscode5.ProgressLocation.Window,
+        title: "Aura: Analyzing codebase..."
+      },
+      () => runAnalysisInWorker(context.extensionUri, rootPath, excludePaths, workspaceFolder.name)
+    );
+    const oldGraphData = cachedGraphData;
+    cachedGraphData = result.graphData;
+    cachedFiles = result.files;
+    incrementalCtx = restoreIncrementalContext(cachedFiles, cachedGraphData);
+    if (webviewProvider) {
+      if (oldGraphData && oldGraphData.nodes.length > 0) {
+        const delta = computeGraphDelta(oldGraphData, cachedGraphData, "", false);
+        const oldCallCount = oldGraphData.functionCalls?.length || 0;
+        const newCallCount = cachedGraphData.functionCalls?.length || 0;
+        const hasChanges = delta.changedNodes.length > 0 || delta.removedNodeIds.length > 0 || delta.addedLinks.length > 0 || delta.removedLinks.length > 0 || oldCallCount !== newCallCount;
+        if (hasChanges) {
+          webviewProvider.sendGraphDelta(delta);
+        } else {
+          webviewProvider.sendRefreshComplete();
+        }
+      } else {
+        webviewProvider.sendGraphData(cachedGraphData);
+      }
+    }
+    treeProvider?.update(cachedGraphData);
+    updateStatusBar();
+    try {
+      if (!graphDb) {
+        graphDb = new GraphDB();
+        const dbDir = path2.join(rootPath, ".aura");
+        await fs2.mkdir(dbDir, { recursive: true });
+        await graphDb.open(path2.join(dbDir, "graph.db"));
+      }
+      graphDb.importGraphData(cachedGraphData);
+      graphDb.importDocChunks(result.docChunks);
+      await registerMcpServer(context, rootPath);
+    } catch (dbErr) {
+      console.error("[aura] GraphDB import error:", dbErr);
+    }
+    startHistoryScan(context, rootPath, excludePaths);
+  } catch (err2) {
+    const message = err2 instanceof Error ? err2.message : String(err2);
+    vscode5.window.showErrorMessage(`Aura: Analysis failed \u2014 ${message}`);
+    if (statusBarItem) {
+      statusBarItem.text = "$(eye) Aura";
+    }
+  } finally {
+    isAnalyzing = false;
+  }
+}
+async function registerMcpServer(context, rootPath) {
+  const vscodeDir = path2.join(rootPath, ".vscode");
+  const mcpPath = path2.join(vscodeDir, "mcp.json");
+  const mcpServerPath = path2.join(context.extensionUri.fsPath, "out", "mcp-server.js");
+  const dbPath = path2.join(rootPath, ".aura", "graph.db");
+  let config = {};
+  try {
+    const existing = await fs2.readFile(mcpPath, "utf-8");
+    config = JSON.parse(existing);
+  } catch {
+  }
+  if (config.servers && config.servers["aura"]) {
+    return;
+  }
+  config.servers = config.servers || {};
+  config.servers["aura"] = {
+    command: "node",
+    args: [mcpServerPath],
+    env: {
+      AURA_DB_PATH: dbPath
+    }
+  };
+  await fs2.mkdir(vscodeDir, { recursive: true });
+  await fs2.writeFile(mcpPath, JSON.stringify(config, null, 4) + "\n", "utf-8");
+  console.log("[aura] MCP server registered in .vscode/mcp.json");
+}
+function runAnalysisInWorker(extensionUri, rootPath, excludePaths, projectName) {
+  return new Promise((resolve, reject) => {
+    const workerPath = path2.join(extensionUri.fsPath, "out", "analyzer-worker.js");
+    const worker = new import_worker_threads.Worker(workerPath, {
+      // Don't inherit the debugger's --inspect flag: worker_threads copy
+      // process.execArgv by default, so under the VS Code extension debugger
+      // they try to attach to the inspector and hang the extension host.
+      execArgv: [],
+      workerData: {
+        rootPath,
+        skipDirs: excludePaths,
+        projectName
+      }
+    });
+    worker.on("message", (msg) => {
+      if (msg.progress) {
+        webviewProvider?.sendProgress(msg.progress.phase, msg.progress.message);
+        return;
+      }
+      if (msg.error) {
+        reject(new Error(msg.error));
+      } else {
+        resolve({ graphData: msg.graphData, files: msg.files, docChunks: msg.docChunks || [] });
+      }
+      worker.terminate();
+    });
+    worker.on("error", (err2) => {
+      reject(err2);
+      worker.terminate();
+    });
+    worker.on("exit", (code) => {
+      if (code !== 0) {
+        reject(new Error(`Worker exited with code ${code}`));
+      }
+    });
+  });
+}
+async function incrementalUpdate(fileUri, deleted) {
+  const workspaceFolder = vscode5.workspace.workspaceFolders?.[0];
+  if (!workspaceFolder || cachedFiles.length === 0)
+    return;
+  const rootPath = workspaceFolder.uri.fsPath;
+  const relativePath = path2.relative(rootPath, fileUri.fsPath);
+  if (relativePath.startsWith(".."))
+    return;
+  if (deleted) {
+    cachedFiles = cachedFiles.filter((f) => f.id !== relativePath);
+    if (incrementalCtx) {
+      incrementalCtx.fileMap.delete(relativePath);
+      incrementalCtx.fileSymbols.delete(relativePath);
+    }
+    if (graphDb) {
+      graphDb.deleteNode(relativePath);
+      graphDb.save();
+    }
+    if (cachedGraphData) {
+      const removedLinks = cachedGraphData.links.filter((l) => l.source === relativePath || l.target === relativePath).map((l) => ({ source: l.source, target: l.target, type: l.type }));
+      cachedGraphData.nodes = cachedGraphData.nodes.filter((n) => n.id !== relativePath);
+      cachedGraphData.links = cachedGraphData.links.filter((l) => l.source !== relativePath && l.target !== relativePath);
+      cachedGraphData.functionCalls = (cachedGraphData.functionCalls || []).filter(
+        (fc) => fc.callerFile !== relativePath && fc.calleeFile !== relativePath
+      );
+      cachedGraphData.meta.totalFiles = cachedGraphData.nodes.length;
+      cachedGraphData.meta.totalLinks = cachedGraphData.links.length;
+      if (webviewProvider?.isVisible) {
+        const delta2 = {
+          changedNodes: [],
+          removedNodeIds: [relativePath],
+          addedLinks: [],
+          removedLinks,
+          meta: cachedGraphData.meta,
+          functionCalls: cachedGraphData.functionCalls || []
+        };
+        webviewProvider.sendGraphDelta(delta2);
+      }
+    }
+    treeProvider?.update(cachedGraphData);
+    updateStatusBar();
+    return;
+  }
+  const newInfo = await scanSingleFile(fileUri.fsPath, rootPath);
+  if (!newInfo)
+    return;
+  const idx = cachedFiles.findIndex((f) => f.id === relativePath);
+  if (idx >= 0)
+    cachedFiles[idx] = newInfo;
+  else
+    cachedFiles.push(newInfo);
+  if (newInfo.language === "documentation") {
+    if (graphDb) {
+      const docNode = {
+        id: newInfo.id,
+        name: newInfo.name,
+        path: newInfo.path,
+        language: newInfo.language,
+        extension: newInfo.extension,
+        group: newInfo.id.split("/").slice(0, -1).join("/") || newInfo.name,
+        size: newInfo.size,
+        linesOfCode: newInfo.content.split("\n").length,
+        complexity: 1,
+        complexityDetails: {},
+        fanIn: 0,
+        fanOut: 0,
+        lastModified: newInfo.lastModified
+      };
+      graphDb.upsertNode(docNode);
+      try {
+        const chunks = chunkDocument(newInfo.content, newInfo.id);
+        graphDb.replaceDocChunks(newInfo.id, chunks);
+      } catch {
+      }
+      graphDb.save();
+    }
+    updateStatusBar();
+    return;
+  }
+  if (!incrementalCtx) {
+    incrementalCtx = restoreIncrementalContext(cachedFiles, cachedGraphData);
+  }
+  const trees = await preParseFiles([newInfo]);
+  const tree = trees.get(newInfo.id);
+  const oldOutEdges = cachedGraphData ? cachedGraphData.links.filter((l) => l.source === newInfo.id) : [];
+  const oldTargets = oldOutEdges.map((e) => e.target);
+  const result = rebuildSingleFile(newInfo, incrementalCtx, tree);
+  const newTargets = result.outEdges.map((e) => e.target);
+  const affectedIds = [.../* @__PURE__ */ new Set([newInfo.id, ...oldTargets, ...newTargets])];
+  if (graphDb) {
+    graphDb.replaceFileData(newInfo.id, result.node, result.outEdges, result.callSites);
+    graphDb.updateFanCounts(affectedIds);
+    graphDb.save();
+  }
+  const delta = {
+    changedNodes: [result.node],
+    removedNodeIds: [],
+    addedLinks: [],
+    removedLinks: [],
+    meta: cachedGraphData?.meta ?? {},
+    functionCalls: cachedGraphData?.functionCalls ?? []
+  };
+  const oldLinkKeys = new Set(oldOutEdges.map((l) => `${l.source}|${l.target}|${l.type}`));
+  const newLinkKeys = new Set(result.outEdges.map((e) => `${e.source}|${e.target}|${e.type}`));
+  for (const e of result.outEdges) {
+    if (!oldLinkKeys.has(`${e.source}|${e.target}|${e.type}`)) {
+      delta.addedLinks.push(e);
+    }
+  }
+  for (const l of oldOutEdges) {
+    if (!newLinkKeys.has(`${l.source}|${l.target}|${l.type}`)) {
+      delta.removedLinks.push({ source: l.source, target: l.target, type: l.type });
+    }
+  }
+  if (cachedGraphData) {
+    const nodeIdx = cachedGraphData.nodes.findIndex((n) => n.id === newInfo.id);
+    if (nodeIdx >= 0)
+      cachedGraphData.nodes[nodeIdx] = result.node;
+    else
+      cachedGraphData.nodes.push(result.node);
+    cachedGraphData.links = cachedGraphData.links.filter((l) => l.source !== newInfo.id);
+    cachedGraphData.links.push(...result.outEdges);
+    const existingCalls = cachedGraphData.functionCalls || [];
+    cachedGraphData.functionCalls = existingCalls.filter((fc) => fc.callerFile !== newInfo.id).concat(result.callSites);
+    if (graphDb) {
+      for (const id of affectedIds) {
+        const dbNode = graphDb.getNodeDetail(id);
+        const cachedNode = cachedGraphData.nodes.find((n) => n.id === id);
+        if (dbNode && cachedNode) {
+          if (cachedNode.fanIn !== dbNode.fan_in || cachedNode.fanOut !== dbNode.fan_out) {
+            cachedNode.fanIn = dbNode.fan_in;
+            cachedNode.fanOut = dbNode.fan_out;
+            if (id !== newInfo.id) {
+              delta.changedNodes.push(cachedNode);
+            }
+          }
+        }
+      }
+    }
+    cachedGraphData.meta.totalFiles = cachedGraphData.nodes.length;
+    cachedGraphData.meta.totalLinks = cachedGraphData.links.length;
+    delta.meta = cachedGraphData.meta;
+    delta.functionCalls = cachedGraphData.functionCalls || [];
+  }
+  if (webviewProvider?.isVisible) {
+    webviewProvider.sendGraphDelta(delta);
+  }
+  treeProvider?.update(cachedGraphData);
+  updateStatusBar();
+}
+function computeGraphDelta(oldGraph, newGraph, changedFileId, deleted) {
+  const delta = {
+    changedNodes: [],
+    removedNodeIds: [],
+    addedLinks: [],
+    removedLinks: [],
+    meta: newGraph.meta,
+    functionCalls: newGraph.functionCalls || []
+  };
+  if (deleted) {
+    delta.removedNodeIds.push(changedFileId);
+  }
+  const oldNodeMap = new Map(oldGraph.nodes.map((n) => [n.id, n]));
+  const newNodeMap = new Map(newGraph.nodes.map((n) => [n.id, n]));
+  for (const node of newGraph.nodes) {
+    const oldNode = oldNodeMap.get(node.id);
+    if (!oldNode || node.fanIn !== oldNode.fanIn || node.fanOut !== oldNode.fanOut || node.complexity !== oldNode.complexity || node.linesOfCode !== oldNode.linesOfCode || node.size !== oldNode.size) {
+      delta.changedNodes.push(node);
+    }
+  }
+  for (const node of oldGraph.nodes) {
+    if (!newNodeMap.has(node.id)) {
+      if (!delta.removedNodeIds.includes(node.id)) {
+        delta.removedNodeIds.push(node.id);
+      }
+    }
+  }
+  const linkKey = (l) => `${typeof l.source === "object" ? l.source.id : l.source}|${typeof l.target === "object" ? l.target.id : l.target}|${l.type}`;
+  const oldLinkSet = new Set(oldGraph.links.map(linkKey));
+  const newLinkSet = new Set(newGraph.links.map(linkKey));
+  for (const link of newGraph.links) {
+    if (!oldLinkSet.has(linkKey(link))) {
+      delta.addedLinks.push(link);
+    }
+  }
+  for (const link of oldGraph.links) {
+    if (!newLinkSet.has(linkKey(link))) {
+      delta.removedLinks.push({
+        source: typeof link.source === "object" ? link.source.id : link.source,
+        target: typeof link.target === "object" ? link.target.id : link.target,
+        type: link.type
+      });
+    }
+  }
+  return delta;
+}
+function updateStatusBar() {
+  invalidateRisk();
+  if (!statusBarItem || !cachedGraphData)
+    return;
+  const { totalFiles, totalLinks } = cachedGraphData.meta;
+  statusBarItem.text = `$(eye) Aura: ${totalFiles} files, ${totalLinks} links`;
+  statusBarItem.tooltip = `Aura \u2014 ${totalFiles} files, ${totalLinks} dependencies
+Click to open 3D visualizer`;
+}
+function invalidateRisk() {
+  riskSnapshotDirty = true;
+  updateRiskStatusBar();
+}
+function ensureRiskSnapshot() {
+  if (!cachedGraphData || cachedGraphData.nodes.length === 0)
+    return void 0;
+  if (!riskSnapshotDirty && riskSnapshot)
+    return riskSnapshot;
+  const days = normalizeRiskWindow(
+    vscode5.workspace.getConfiguration("auraVisualizer").get("riskWindow", 90)
+  );
+  riskSnapshot = buildRiskSnapshot(cachedGraphData.nodes, commitIndex?.commits ?? [], days);
+  riskSnapshotDirty = false;
+  return riskSnapshot;
+}
+function updateRiskStatusBar() {
+  if (!riskStatusBarItem)
+    return;
+  const snapshot = ensureRiskSnapshot();
+  if (!snapshot || snapshot.byId.size === 0) {
+    riskStatusBarItem.hide();
+    return;
+  }
+  const hotspots = dirtyHotspotIds(snapshot);
+  if (hotspots.length > 0) {
+    riskStatusBarItem.text = `$(warning) ${hotspots.length} hotspot${hotspots.length > 1 ? "s" : ""} in your changes`;
+    const md = new vscode5.MarkdownString();
+    md.appendMarkdown(`**${hotspots.length} high-risk file${hotspots.length > 1 ? "s" : ""} in your current changes**
+
+`);
+    const shown = hotspots.slice(0, 5);
+    for (const h of shown) {
+      const entry2 = snapshot.byId.get(h);
+      md.appendMarkdown(`- \`${h}\`${entry2 ? ` \u2014 risk ${Math.round(entry2.score)}/100` : ""}
+`);
+    }
+    if (hotspots.length > shown.length) {
+      md.appendMarkdown(`
+\u2026 and ${hotspots.length - shown.length} more`);
+    }
+    riskStatusBarItem.tooltip = md;
+    riskStatusBarItem.backgroundColor = new vscode5.ThemeColor("statusBarItem.warningBackground");
+    riskStatusBarItem.command = { command: "auraVisualizer.statusBarRisk", title: "Reveal in Risk tab", arguments: [hotspots[0]] };
+    riskStatusBarItem.show();
+    return;
+  }
+  riskStatusBarItem.backgroundColor = void 0;
+  const ws = vscode5.workspace.workspaceFolders?.[0];
+  const editor = vscode5.window.activeTextEditor;
+  if (!ws || !editor) {
+    riskStatusBarItem.hide();
+    return;
+  }
+  const rel = path2.relative(ws.uri.fsPath, editor.document.uri.fsPath);
+  if (rel.startsWith("..") || path2.isAbsolute(rel)) {
+    riskStatusBarItem.hide();
+    return;
+  }
+  const relNorm = rel.split(path2.sep).join("/");
+  const entry = snapshot.byId.get(relNorm) || snapshot.byId.get(rel);
+  if (!entry) {
+    riskStatusBarItem.hide();
+    return;
+  }
+  riskStatusBarItem.text = `$(shield) Risk ${Math.round(entry.score)}${entry.topLabel ? " \xB7 " + entry.topLabel : ""}`;
+  riskStatusBarItem.tooltip = buildRiskTooltip(entry, relNorm);
+  riskStatusBarItem.command = { command: "auraVisualizer.statusBarRisk", title: "Reveal in Risk tab", arguments: [entry.id] };
+  riskStatusBarItem.show();
+}
+function buildRiskTooltip(entry, relPath) {
+  const md = new vscode5.MarkdownString();
+  md.appendMarkdown(`**Risk ${Math.round(entry.score)}/100**`);
+  if (entry.topLabel)
+    md.appendMarkdown(` \u2014 ${entry.topLabel} of this repository`);
+  md.appendMarkdown("\n\n");
+  for (const r of entry.reasons.slice(0, 5)) {
+    md.appendMarkdown(`- ${r.text}
+`);
+  }
+  md.appendMarkdown(`
+\`${relPath}\` \u2014 click to reveal in the Risk tab`);
+  return md;
+}
+function toWorkspaceRelative(repoRelative) {
+  const ws = vscode5.workspace.workspaceFolders?.[0];
+  if (!ws || !gitRepoRoot)
+    return void 0;
+  const rel = path2.relative(ws.uri.fsPath, path2.join(gitRepoRoot, repoRelative));
+  if (rel.startsWith("..") || path2.isAbsolute(rel))
+    return void 0;
+  return rel.split(path2.sep).join("/");
+}
+function dirtyHotspotIds(snapshot) {
+  if (workingTreeFiles.size === 0)
+    return [];
+  const ids = [];
+  for (const repoRel of workingTreeFiles.keys()) {
+    const wsRel = toWorkspaceRelative(repoRel);
+    if (wsRel && snapshot.highIds.has(wsRel))
+      ids.push(wsRel);
+  }
+  ids.sort((a, b) => (snapshot.byId.get(b)?.score ?? 0) - (snapshot.byId.get(a)?.score ?? 0));
+  return ids;
+}
+function buildWorkingTreePayload() {
+  const files = {};
+  for (const [repoRel, state] of workingTreeFiles) {
+    const wsRel = toWorkspaceRelative(repoRel);
+    if (wsRel)
+      files[wsRel] = state;
+  }
+  return files;
+}
+function pushWorkingTreeToWebview() {
+  webviewProvider?.sendWorkingTree(buildWorkingTreePayload());
+}
+function hostDataAccessors() {
+  return {
+    riskSnapshot: () => ensureRiskSnapshot(),
+    workingTree: () => buildWorkingTreePayload()
+  };
+}
+async function refreshWorkingTree() {
+  const ws = vscode5.workspace.workspaceFolders?.[0];
+  if (!ws) {
+    workingTreeFiles = /* @__PURE__ */ new Map();
+    pushWorkingTreeToWebview();
+    updateRiskStatusBar();
+    return;
+  }
+  try {
+    if (gitRepoRoot === void 0) {
+      try {
+        gitRepoRoot = await getGitRoot(ws.uri.fsPath);
+      } catch {
+        gitRepoRoot = "";
+      }
+    }
+    workingTreeFiles = gitRepoRoot ? await getWorkingTreeFiles(ws.uri.fsPath) : /* @__PURE__ */ new Map();
+  } catch {
+    workingTreeFiles = /* @__PURE__ */ new Map();
+  }
+  pushWorkingTreeToWebview();
+  updateRiskStatusBar();
+}
+function scheduleWorkingTreeRefresh() {
+  if (workingTreeTimer)
+    clearTimeout(workingTreeTimer);
+  workingTreeTimer = setTimeout(() => {
+    void refreshWorkingTree();
+  }, 300);
+}
+async function focusRiskFromStatusBar(context, nodeId) {
+  if (!webviewProvider) {
+    webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState, () => graphDb, hostDataAccessors());
+    registerOpenFileHandler();
+  }
+  webviewProvider.show();
+  if (cachedGraphData) {
+    webviewProvider.sendGraphData(cachedGraphData);
+    if (commitIndex) {
+      webviewProvider.sendHistoryIndex(commitIndex);
+      for (const delta of cachedDeltas) {
+        webviewProvider.sendHistoryDelta(delta);
+      }
+    }
+  }
+  if (nodeId) {
+    webviewProvider.focusRiskFile(nodeId);
+  }
+}
+async function startHistoryScan(context, rootPath, excludePaths) {
+  const isGit = await isGitRepo(rootPath);
+  if (!isGit)
+    return;
+  if (historyWorker) {
+    historyWorker.terminate();
+    historyWorker = void 0;
+  }
+  cachedDeltas = [];
+  const historyDir = path2.join(rootPath, ".aura", "history");
+  const workerPath = path2.join(context.extensionUri.fsPath, "out", "history-worker.js");
+  historyWorker = new import_worker_threads.Worker(workerPath, {
+    execArgv: [],
+    workerData: {
+      rootPath,
+      skipDirs: excludePaths,
+      historyDir
+    }
+  });
+  historyWorker.on("message", (msg) => {
+    switch (msg.type) {
+      case "index":
+        commitIndex = msg.payload;
+        invalidateRisk();
+        if (webviewProvider) {
+          webviewProvider.sendHistoryIndex(commitIndex);
+        }
+        break;
+      case "progress": {
+        const progress = msg.payload;
+        if (webviewProvider) {
+          webviewProvider.sendHistoryProgress(progress.scanned, progress.total);
+        }
+        break;
+      }
+      case "delta": {
+        const delta = msg.payload;
+        cachedDeltas.push(delta);
+        if (webviewProvider) {
+          webviewProvider.sendHistoryDelta(delta);
+        }
+        break;
+      }
+      case "done":
+        break;
+      case "error":
+        break;
+    }
+  });
+  historyWorker.on("error", () => {
+  });
+  historyWorker.on("exit", () => {
+    historyWorker = void 0;
+  });
+}
+function focusCurrentFile() {
+  const editor = vscode5.window.activeTextEditor;
+  if (!editor || !webviewProvider?.isVisible)
+    return;
+  const workspaceFolder = vscode5.workspace.workspaceFolders?.[0];
+  if (!workspaceFolder)
+    return;
+  const relativePath = path2.relative(workspaceFolder.uri.fsPath, editor.document.uri.fsPath);
+  if (!relativePath.startsWith("..")) {
+    webviewProvider.focusNode(relativePath);
+  }
+}
+async function blastRadiusCurrentFile(context) {
+  const editor = vscode5.window.activeTextEditor;
+  const workspaceFolder = vscode5.workspace.workspaceFolders?.[0];
+  if (!editor || !workspaceFolder)
+    return;
+  const relativePath = path2.relative(workspaceFolder.uri.fsPath, editor.document.uri.fsPath);
+  if (relativePath.startsWith(".."))
+    return;
+  if (!webviewProvider) {
+    webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState, () => graphDb, hostDataAccessors());
+    registerOpenFileHandler();
+  }
+  webviewProvider.show();
+  if (cachedGraphData) {
+    webviewProvider.sendGraphData(cachedGraphData);
+    if (commitIndex) {
+      webviewProvider.sendHistoryIndex(commitIndex);
+      for (const delta of cachedDeltas) {
+        webviewProvider.sendHistoryDelta(delta);
+      }
+    }
+  }
+  setTimeout(() => webviewProvider?.sendBlastRadius(relativePath), 300);
+}
+async function exportGraph() {
+  const workspaceFolder = vscode5.workspace.workspaceFolders?.[0];
+  if (!workspaceFolder) {
+    vscode5.window.showWarningMessage("Aura: No workspace folder open.");
+    return;
+  }
+  if (!cachedGraphData) {
+    vscode5.window.showWarningMessage("Aura: No graph data. Run analysis first (Ctrl+Shift+A).");
+    return;
+  }
+  const auraDir = path2.join(workspaceFolder.uri.fsPath, ".aura");
+  await fs2.mkdir(auraDir, { recursive: true });
+  const graph = cachedGraphData;
+  const graphJson = {
+    meta: graph.meta,
+    nodes: graph.nodes.map((n) => ({
+      id: n.id,
+      name: n.name,
+      path: n.path,
+      language: n.language,
+      extension: n.extension,
+      size: n.size,
+      linesOfCode: n.linesOfCode,
+      group: n.group,
+      fanIn: n.fanIn,
+      fanOut: n.fanOut,
+      complexity: n.complexity
+    })),
+    links: graph.links.map((l) => ({
+      source: l.source,
+      target: l.target,
+      type: l.type,
+      label: l.label
+    }))
+  };
+  await fs2.writeFile(
+    path2.join(auraDir, "graph.json"),
+    JSON.stringify(graphJson, null, 2),
+    "utf-8"
+  );
+  const summary = generateSummary(graph);
+  await fs2.writeFile(path2.join(auraDir, "summary.md"), summary, "utf-8");
+  vscode5.window.showInformationMessage(
+    `Aura: Exported to .aura/ \u2014 graph.json + summary.md`,
+    "Open summary"
+  ).then((choice) => {
+    if (choice === "Open summary") {
+      vscode5.window.showTextDocument(
+        vscode5.Uri.file(path2.join(auraDir, "summary.md")),
+        { preview: true }
+      );
+    }
+  });
+}
+function generateSummary(graph) {
+  const { meta, nodes, links } = graph;
+  const lines = [];
+  lines.push(`# Aura Graph \u2014 ${meta.projectName}`);
+  lines.push(`> Auto-generated by Aura Visualizer on ${meta.analyzedAt}`);
+  lines.push(`> This file describes the codebase architecture for AI-assisted development.`);
+  lines.push("");
+  lines.push("## Overview");
+  lines.push(`- **${meta.totalFiles}** files, **${meta.totalLinks}** dependencies`);
+  const langs = Object.entries(meta.languageStats).sort((a, b) => b[1].count - a[1].count).map(([lang, s]) => `${lang} (${s.count} files, ${s.totalLOC} LOC)`);
+  lines.push(`- Languages: ${langs.join(", ")}`);
+  if (meta.unresolvedReferences > 0) {
+    lines.push(`- Unresolved references: ${meta.unresolvedReferences}`);
+  }
+  lines.push("");
+  if (meta.groups.length > 0) {
+    lines.push("## Directory Structure");
+    for (const g of meta.groups) {
+      const groupFiles = nodes.filter((n) => n.group === g);
+      const totalLOC = groupFiles.reduce((s, n) => s + n.linesOfCode, 0);
+      lines.push(`- \`${g}/\` \u2014 ${groupFiles.length} files, ${totalLOC} LOC`);
+    }
+    lines.push("");
+  }
+  const highFanIn = [...nodes].sort((a, b) => b.fanIn - a.fanIn).slice(0, 15).filter((n) => n.fanIn > 0);
+  if (highFanIn.length > 0) {
+    lines.push("## Hotspots (most depended-on files)");
+    lines.push("| File | Fan-in | Fan-out | Complexity | LOC |");
+    lines.push("|------|--------|---------|------------|-----|");
+    for (const n of highFanIn) {
+      lines.push(`| \`${n.id}\` | ${n.fanIn} | ${n.fanOut} | ${n.complexity} | ${n.linesOfCode} |`);
+    }
+    lines.push("");
+  }
+  const complex = [...nodes].sort((a, b) => b.complexity - a.complexity).slice(0, 10).filter((n) => n.complexity > 1);
+  if (complex.length > 0) {
+    lines.push("## Most Complex Files");
+    lines.push("| File | Complexity | LOC | Fan-in | Fan-out |");
+    lines.push("|------|------------|-----|--------|---------|");
+    for (const n of complex) {
+      lines.push(`| \`${n.id}\` | ${n.complexity} | ${n.linesOfCode} | ${n.fanIn} | ${n.fanOut} |`);
+    }
+    lines.push("");
+  }
+  const largest = [...nodes].sort((a, b) => b.linesOfCode - a.linesOfCode).slice(0, 10);
+  if (largest.length > 0) {
+    lines.push("## Largest Files");
+    lines.push("| File | LOC | Complexity | Language |");
+    lines.push("|------|-----|------------|----------|");
+    for (const n of largest) {
+      lines.push(`| \`${n.id}\` | ${n.linesOfCode} | ${n.complexity} | ${n.language} |`);
+    }
+    lines.push("");
+  }
+  const orphans = nodes.filter((n) => n.fanIn === 0 && n.fanOut === 0);
+  if (orphans.length > 0) {
+    lines.push("## Orphan Files (no dependencies)");
+    for (const n of orphans) {
+      lines.push(`- \`${n.id}\` (${n.language}, ${n.linesOfCode} LOC)`);
+    }
+    lines.push("");
+  }
+  const circularPairs = [];
+  const linkSet = new Set(links.map((l) => `${l.source}\u2192${l.target}`));
+  for (const l of links) {
+    const reverse = `${l.target}\u2192${l.source}`;
+    if (linkSet.has(reverse) && l.source < l.target) {
+      circularPairs.push(`\`${l.source}\` \u2194 \`${l.target}\``);
+    }
+  }
+  if (circularPairs.length > 0) {
+    lines.push("## Circular Dependencies");
+    for (const pair of circularPairs) {
+      lines.push(`- ${pair}`);
+    }
+    lines.push("");
+  }
+  const typeCounts = {};
+  for (const l of links) {
+    typeCounts[l.type] = (typeCounts[l.type] || 0) + 1;
+  }
+  if (Object.keys(typeCounts).length > 0) {
+    lines.push("## Dependency Types");
+    for (const [type, count] of Object.entries(typeCounts).sort((a, b) => b[1] - a[1])) {
+      lines.push(`- **${type}**: ${count}`);
+    }
+    lines.push("");
+  }
+  lines.push("## Usage Notes for AI Agents");
+  lines.push("- Files with high fan-in are **critical hubs** \u2014 changes impact many dependents.");
+  lines.push("- Check circular dependencies before refactoring \u2014 break cycles where possible.");
+  lines.push("- Orphan files may be dead code candidates for cleanup.");
+  lines.push("- Use `graph.json` for programmatic queries (e.g., find all dependents of a file).");
+  lines.push("- High complexity files (>15) are prime candidates for decomposition.");
+  lines.push("");
+  return lines.join("\n");
+}
+function setupFileWatcher(context) {
+  const config = vscode5.workspace.getConfiguration("auraVisualizer");
+  const autoRefresh = config.get("autoRefresh", true);
+  if (!autoRefresh)
+    return;
+  fileWatcher = vscode5.workspace.createFileSystemWatcher("**/*.{c,h,js,ts,py,css,html}");
+  let pendingUpdates = /* @__PURE__ */ new Map();
+  const flushUpdates = () => {
+    if (refreshTimeout)
+      clearTimeout(refreshTimeout);
+    refreshTimeout = setTimeout(async () => {
+      const updates = new Map(pendingUpdates);
+      pendingUpdates.clear();
+      if (cachedFiles.length === 0) {
+        if (webviewProvider?.isVisible) {
+          refreshAnalysis(context);
+        } else {
+          cachedGraphData = void 0;
+        }
+        return;
+      }
+      for (const [, update] of updates) {
+        await incrementalUpdate(update.uri, update.deleted);
+      }
+    }, 500);
+  };
+  fileWatcher.onDidChange((uri) => {
+    pendingUpdates.set(uri.fsPath, { uri, deleted: false });
+    flushUpdates();
+  });
+  fileWatcher.onDidCreate((uri) => {
+    pendingUpdates.set(uri.fsPath, { uri, deleted: false });
+    flushUpdates();
+  });
+  fileWatcher.onDidDelete((uri) => {
+    pendingUpdates.set(uri.fsPath, { uri, deleted: true });
+    flushUpdates();
+  });
+  context.subscriptions.push(fileWatcher);
+}
+function deactivate() {
+  webviewProvider?.dispose();
+  fileWatcher?.dispose();
+  if (refreshTimeout)
+    clearTimeout(refreshTimeout);
+  if (workingTreeTimer)
+    clearTimeout(workingTreeTimer);
+  if (historyWorker) {
+    historyWorker.terminate();
+    historyWorker = void 0;
+  }
+  if (graphDb) {
+    graphDb.close();
+    graphDb = void 0;
+  }
+}
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  activate,
+  deactivate
+});
+//# sourceMappingURL=extension.js.map

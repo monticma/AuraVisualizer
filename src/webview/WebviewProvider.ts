@@ -10,6 +10,7 @@ import { runChatStream } from '../chat';
 import { normalizeRiskWindow } from '../risk/risk-core';
 import type { RiskSnapshot } from '../risk/risk-service';
 import { parseAnnotations, serializeAnnotations, withNote, withoutNote, type AnnotationMap } from '../annotations';
+import { makeWarp, parseWarps, removeWarp, serializeWarps, upsertWarp, type WarpList } from '../warps';
 
 /** Whitelist of webview-editable settings, with per-key validation. */
 const SETTING_NORMALIZERS: Record<string, (v: unknown) => unknown> = {
@@ -153,6 +154,7 @@ export class WebviewProvider {
                             this.panel?.webview.postMessage({ type: 'workingTree', payload: { files: workingTree } });
                         }
                         void this.sendAnnotations();
+                        void this.sendWarps();
                         break;
                     case 'openFile':
                         if (message.payload) {
@@ -248,6 +250,20 @@ export class WebviewProvider {
                         const p = (message.payload || {}) as { path?: string };
                         if (p.path) {
                             void this.handleDeleteNote(p.path);
+                        }
+                        break;
+                    }
+                    case 'saveWarp': {
+                        const p = (message.payload || {}) as { warp?: unknown };
+                        if (p.warp) {
+                            void this.handleSaveWarp(p.warp);
+                        }
+                        break;
+                    }
+                    case 'deleteWarp': {
+                        const p = (message.payload || {}) as { id?: string };
+                        if (p.id) {
+                            void this.handleDeleteWarp(p.id);
                         }
                         break;
                     }
@@ -349,6 +365,66 @@ export class WebviewProvider {
             await this.sendAnnotations();
         } catch (err) {
             console.error('[aura] deleteNote failed:', err);
+        }
+    }
+
+    // ============================================================
+    // Warp points (camera bookmarks) — .aura/warps.json
+    // ============================================================
+
+    /** Push the current warp list to the webview (safe when not ready yet). */
+    public async sendWarps(): Promise<void> {
+        const warps = await this.loadWarps();
+        this.panel?.webview.postMessage({ type: 'warps', payload: { warps } });
+    }
+
+    private warpsFileUri(): vscode.Uri | undefined {
+        const ws = vscode.workspace.workspaceFolders?.[0];
+        if (!ws) return undefined;
+        return vscode.Uri.joinPath(ws.uri, '.aura', 'warps.json');
+    }
+
+    private async loadWarps(): Promise<WarpList> {
+        const file = this.warpsFileUri();
+        if (!file) return [];
+        try {
+            const buf = await vscode.workspace.fs.readFile(file);
+            return parseWarps(Buffer.from(buf).toString('utf-8'));
+        } catch {
+            return []; // File not created yet — no warps.
+        }
+    }
+
+    private async persistWarps(list: WarpList): Promise<void> {
+        const ws = vscode.workspace.workspaceFolders?.[0];
+        if (!ws) return;
+        const dir = vscode.Uri.joinPath(ws.uri, '.aura');
+        await vscode.workspace.fs.createDirectory(dir);
+        await vscode.workspace.fs.writeFile(
+            vscode.Uri.joinPath(dir, 'warps.json'),
+            Buffer.from(serializeWarps(list), 'utf-8')
+        );
+    }
+
+    private async handleSaveWarp(payload: unknown): Promise<void> {
+        try {
+            const warp = makeWarp(payload);
+            if (!warp) return; // Unusable pose (missing coordinates) — ignore.
+            const list = upsertWarp(await this.loadWarps(), warp);
+            await this.persistWarps(list);
+            await this.sendWarps();
+        } catch (err) {
+            console.error('[aura] saveWarp failed:', err);
+        }
+    }
+
+    private async handleDeleteWarp(id: string): Promise<void> {
+        try {
+            const list = removeWarp(await this.loadWarps(), id);
+            await this.persistWarps(list);
+            await this.sendWarps();
+        } catch (err) {
+            console.error('[aura] deleteWarp failed:', err);
         }
     }
 
@@ -1036,6 +1112,7 @@ export class WebviewProvider {
             <button class="filter-btn" id="btn-cycles" title="Circular dependencies">🔄 Cycles</button>
             <button class="filter-btn" id="btn-dirty-only" title="Only files with uncommitted changes (git working tree)">✏️ Dirty</button>
             <button class="filter-btn active" id="btn-notes" title="Show note indicators on annotated files">📝 Notes</button>
+            <button class="filter-btn" id="btn-warps-panel" title="Warp points — named camera bookmarks">🌀 Warps</button>
             <button class="filter-btn" id="btn-group-dirs" title="Group by directory">📁 Groups</button>
             <button class="filter-btn" id="btn-path-mode" title="Find path between 2 nodes">🔗 Path</button>
             <button class="filter-btn" id="btn-labels" title="Show file names">🏷️ Names</button>
@@ -1100,6 +1177,52 @@ export class WebviewProvider {
             </div>
         </div>
         <div id="community-list"></div>
+    </div>
+
+    <!-- Warps Panel (overlay) -->
+    <div id="warps-panel" class="hidden">
+        <div class="warps-panel-header">
+            <span>🌀 Warps</span>
+            <div class="warps-panel-actions">
+                <button id="warps-capture" title="Capture the current view">📌</button>
+                <button id="warps-panel-close" title="Close">✕</button>
+            </div>
+        </div>
+        <div id="warps-list"></div>
+    </div>
+
+    <!-- Warp Modal (name + quick slot) -->
+    <div id="warp-modal" class="hidden">
+        <div class="warp-modal-header">
+            <span id="warp-modal-title">📌 New Warp</span>
+            <button id="warp-modal-close" title="Close">✕</button>
+        </div>
+        <div class="warp-modal-body">
+            <label class="warp-field">
+                <span>Name</span>
+                <input id="warp-name-input" type="text" maxlength="60" placeholder="Warp name…" />
+            </label>
+            <label class="warp-field">
+                <span>Quick slot</span>
+                <select id="warp-slot-select">
+                    <option value="">—</option>
+                    <option value="1">Alt+Shift+1</option>
+                    <option value="2">Alt+Shift+2</option>
+                    <option value="3">Alt+Shift+3</option>
+                    <option value="4">Alt+Shift+4</option>
+                    <option value="5">Alt+Shift+5</option>
+                    <option value="6">Alt+Shift+6</option>
+                    <option value="7">Alt+Shift+7</option>
+                    <option value="8">Alt+Shift+8</option>
+                    <option value="9">Alt+Shift+9</option>
+                </select>
+            </label>
+            <p class="warp-hint">The current camera pose (position + view target) is captured — fly back with a click, or <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>1–9</kbd> in orbit mode.</p>
+        </div>
+        <div class="warp-modal-footer">
+            <button id="warp-save" class="qm-btn qm-primary">Save</button>
+            <button id="warp-cancel" class="qm-btn">Cancel</button>
+        </div>
     </div>
 
     <!-- Saved Queries Modal (overlay) -->
@@ -1265,11 +1388,15 @@ export class WebviewProvider {
                 <p>Files with uncommitted changes wear a thin <span style="color:#ffb300">● amber ring</span> in the graph — read straight from <code>git status</code> (modified, staged, untracked, renamed, conflicts). The detail panel shows the exact state on its <strong>Git</strong> line.</p>
                 <p>The <strong>✏️ Dirty</strong> toolbar button filters the graph down to those files (nodes and links); the <code>dirty</code> flag does the same in queries. The VS Code status bar shows the risk of the file you are editing and switches to <strong>⚠ N hotspots in your changes</strong> when your changes touch high-risk files — click it to reveal them in the Risk tab.</p>
 
-                <h3>� Notes</h3>
+                <h3>📝 Notes</h3>
                 <p>Click a file node to annotate it: the detail panel's <strong>📝 Note</strong> section takes free text (up to 2 000 chars) plus one of five colors. Annotated files wear a <strong>pulsing note-colored ring + dot</strong> in the graph — animated, so they stay visible at any zoom.</p>
                 <p>The <strong>📝 Notes</strong> toolbar button (next to ✏️ Dirty) shows / hides the indicators; the <code>hasnote</code> query flag finds annotated files. Notes are stored in <code>.aura/annotations.json</code> — local to your workspace, never committed.</p>
 
-                <h3>�📂 Directory Filtering</h3>
+                <h3>🌀 Warp Points</h3>
+                <p>Save named camera bookmarks of the 3D view: the <strong>🌀 Warps</strong> toolbar button opens the floating panel; its <strong>📌</strong> button captures the current pose (camera position + view target + orientation). Click a warp to fly there (smooth 800 ms tween), re-capture or rename it, and assign quick slots — <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>1–9</kbd> flies back from anywhere (plain <kbd>Alt</kbd>+<kbd>digit</kbd> is captured by VS Code). The <strong>🏠 Home</strong> row returns to the default fit-to-view pose.</p>
+                <p>Warps are stored in <code>.aura/warps.json</code> — local to your workspace, never committed.</p>
+
+                <h3>📂 Directory Filtering</h3>
                 <p>In the <strong>File Explorer</strong> panel, each directory has a checkbox to show/hide its files in the graph. Use the <strong>All</strong> / <strong>None</strong> buttons for batch selection. Directories are checked by default.</p>
 
                 <h3>🔍 Query Filter</h3>
