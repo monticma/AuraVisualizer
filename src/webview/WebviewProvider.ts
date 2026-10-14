@@ -1380,6 +1380,7 @@ export class WebviewProvider {
                     <tr><td><kbd>Shift+Click</kbd></td><td>Multi-select — aggregate stats for multiple files</td></tr>
                     <tr><td><kbd>Scroll</kbd></td><td>Zoom in / out</td></tr>
                     <tr><td><kbd>Drag</kbd></td><td>Rotate the 3D view</td></tr>
+                    <tr><td><kbd>Hold LMB / RMB</kbd></td><td>Pilot mode — fly forward / backward while looking around</td></tr>
                     <tr><td><kbd>Background click</kbd></td><td>Clear all selections</td></tr>
                 </table>
 
@@ -1399,7 +1400,9 @@ export class WebviewProvider {
                     <tr><td><kbd>V</kbd></td><td>Toggle timeline compare mode (dual slider)</td></tr>
                     <tr><td><kbd>I</kbd></td><td>Toggle timeline impact cascade</td></tr>
                     <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Timeline: previous / next commit</td></tr>
-                    <tr><td><kbd>Escape</kbd></td><td>Reset all selections and modes</td></tr>
+                    <tr><td><kbd>Space</kbd></td><td>Toggle pilot mode (free flight)</td></tr>
+                    <tr><td><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>1</kbd>–<kbd>9</kbd></td><td>Fly to the warp point on that quick slot</td></tr>
+                    <tr><td><kbd>Escape</kbd></td><td>Reset all selections and modes (in pilot: exit the flight)</td></tr>
                 </table>
 
                 <h3>🌡️ Heatmap Modes</h3>
@@ -1457,6 +1460,8 @@ export class WebviewProvider {
                     <tr><td><strong>Mouse rotation speed</strong></td><td>Slider 1–5 — speed when dragging the 3D graph</td></tr>
                     <tr><td><strong>Link style</strong></td><td>Straight or curved dependency edges (+ curvature)</td></tr>
                     <tr><td><strong>Selected node effect</strong></td><td>Glow halo or bloom post-processing (+ intensity / radius / threshold)</td></tr>
+                    <tr><td><strong>Flight speed / smoothing</strong></td><td>Pilot mode base speed (scene-scaled) and acceleration damping</td></tr>
+                    <tr><td><strong>Mouse look sensitivity / invert Y</strong></td><td>Pilot mode mouse-look feel</td></tr>
                     <tr><td><strong>Auto-refresh on save</strong></td><td>Re-analyze changed files automatically</td></tr>
                 </table>
                 <p>The footer link opens the full <code>auraVisualizer.*</code> settings list in VS Code.</p>

@@ -775,6 +775,7 @@ USER QUESTION: `+e,l=[fe.LanguageModelChatMessage.User(o)],u=yo.map(m=>({name:m.
                     <tr><td><kbd>Shift+Click</kbd></td><td>Multi-select \u2014 aggregate stats for multiple files</td></tr>
                     <tr><td><kbd>Scroll</kbd></td><td>Zoom in / out</td></tr>
                     <tr><td><kbd>Drag</kbd></td><td>Rotate the 3D view</td></tr>
+                    <tr><td><kbd>Hold LMB / RMB</kbd></td><td>Pilot mode \u2014 fly forward / backward while looking around</td></tr>
                     <tr><td><kbd>Background click</kbd></td><td>Clear all selections</td></tr>
                 </table>
 
@@ -794,7 +795,9 @@ USER QUESTION: `+e,l=[fe.LanguageModelChatMessage.User(o)],u=yo.map(m=>({name:m.
                     <tr><td><kbd>V</kbd></td><td>Toggle timeline compare mode (dual slider)</td></tr>
                     <tr><td><kbd>I</kbd></td><td>Toggle timeline impact cascade</td></tr>
                     <tr><td><kbd>\u2190</kbd> <kbd>\u2192</kbd></td><td>Timeline: previous / next commit</td></tr>
-                    <tr><td><kbd>Escape</kbd></td><td>Reset all selections and modes</td></tr>
+                    <tr><td><kbd>Space</kbd></td><td>Toggle pilot mode (free flight)</td></tr>
+                    <tr><td><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>1</kbd>\u2013<kbd>9</kbd></td><td>Fly to the warp point on that quick slot</td></tr>
+                    <tr><td><kbd>Escape</kbd></td><td>Reset all selections and modes (in pilot: exit the flight)</td></tr>
                 </table>
 
                 <h3>\u{1F321}\uFE0F Heatmap Modes</h3>
@@ -852,6 +855,8 @@ USER QUESTION: `+e,l=[fe.LanguageModelChatMessage.User(o)],u=yo.map(m=>({name:m.
                     <tr><td><strong>Mouse rotation speed</strong></td><td>Slider 1\u20135 \u2014 speed when dragging the 3D graph</td></tr>
                     <tr><td><strong>Link style</strong></td><td>Straight or curved dependency edges (+ curvature)</td></tr>
                     <tr><td><strong>Selected node effect</strong></td><td>Glow halo or bloom post-processing (+ intensity / radius / threshold)</td></tr>
+                    <tr><td><strong>Flight speed / smoothing</strong></td><td>Pilot mode base speed (scene-scaled) and acceleration damping</td></tr>
+                    <tr><td><strong>Mouse look sensitivity / invert Y</strong></td><td>Pilot mode mouse-look feel</td></tr>
                     <tr><td><strong>Auto-refresh on save</strong></td><td>Re-analyze changed files automatically</td></tr>
                 </table>
                 <p>The footer link opens the full <code>auraVisualizer.*</code> settings list in VS Code.</p>
