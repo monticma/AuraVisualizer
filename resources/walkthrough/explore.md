@@ -14,6 +14,7 @@ Filter buttons at the bottom show only languages present in your project.
 - 🖱️ **Shift+Click** — Multi-select several nodes for aggregate stats
 - 🖱️ **Scroll** — Zoom in/out
 - 🖱️ **Drag** — Rotate the 3D view
+- 🖱️ **Hold left / right click** (pilot mode) — Fly forward / backward while looking around
 
 **Toolbar buttons:**
 - **Labels** (`L`) — Show/hide file names above nodes
@@ -24,6 +25,8 @@ Filter buttons at the bottom show only languages present in your project.
 - **📝 Notes** — Show/hide the note indicators — annotated files wear a pulsing note-colored ring + dot
 - **Recenter** (`F`) — Fit the entire graph in view
 - **🗺️ Map** — Toggle the minimap — a real-time overview that rotates with the camera. Drag inside to pan the viewport.
+- **🌀 Warps** — Named camera bookmarks — capture the current view (📌) and fly back to it, quick slots on `Alt+Shift+1–9`
+- **🚀 Pilot** (`Space`) — Free flight: `WASD`/`Q`/`E` to move, mouse to look, hold left/right click to advance/retreat
 
 **Detail panel** — Click any node to see: file path, LOC, complexity, fan-in/out, symbols (functions, structs, enums), dependencies, dependents, and — when the file has uncommitted changes — its **Git state** (modified, staged, untracked, renamed). Function-call links show the actual function name (e.g. `helper()`) next to the target file, with a green `×N` badge when several distinct call sites connect the same pair of files. In the 3D Graph itself, function-call edges are **scaled in width** by call count and **hovering an edge** reveals a tooltip listing the top caller → callee pairs. Every file also has a **📝 Note** section — write an annotation, pick one of five colors and Save: the node gains a pulsing note-colored ring + dot in the graph (toggle them all with the **📝 Notes** toolbar button).
 

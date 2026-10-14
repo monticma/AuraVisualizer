@@ -205,6 +205,27 @@ Toggle with the **🗺️ Map** button in the toolbar. A floating minimap displa
 - **Drag the header** — reposition the minimap panel
 - **Close** with the ✕ button or toggle the toolbar button
 
+### Warp Points 🌀
+
+Save named camera bookmarks of the 3D view and fly back to them in one click:
+
+- **📌 capture** (in the panel header) — stores the current pose: camera position, **orientation** and view target — the exact view comes back to the pixel
+- **Click a warp** — smooth ~800 ms flight; **✏️ rename · 📌 re-capture · 🗑️ delete** per row
+- **Quick slots** — assign `Alt+Shift+1–9` in the panel; the shortcut flies there from anywhere in the graph
+- **🏠 Home** — the first row always returns to the default fit-to-view
+- Stored in `.aura/warps.json`, local to the workspace (not committed)
+
+### Pilot Mode 🚀
+
+Switch from orbiting the graph to **flying through it** — first-person navigation:
+
+- **Toggle** with the `🚀 Pilot` toolbar button or `Space`; `Esc` (or `Space`) exits — the orbit controls take over seamlessly at the exact same view
+- **`W A S D`** move camera-relative (physical key layout — AZERTY gets ZQSD), **`Q`/`E`** descend / ascend
+- **Mouse look** with pointer lock; hold the **left mouse button** to fly forward, the **right** to fly backward — steer by looking while you hold
+- **Wheel** adjusts base speed, **`Shift`** boosts — the base speed scales with the graph size
+- No roll (pitch clamped), smooth acceleration/damping, and single-letter shortcuts, hover and clicks are suspended while flying
+- Flight speed, smoothing, mouse sensitivity and Y-inversion live in **⚙️ Settings**
+
 ### Time Travel ⏳
 
 Navigate your project's git history commit by commit. A timeline bar at the bottom lets you scrub through commits. Changed files are color-coded: 🟢 green = added, 🔴 pink = removed, 🟡 yellow = modified. Edges follow the same color scheme.
@@ -290,6 +311,8 @@ The **⚙️ button** in the tab bar (next to 🔍 Query) opens an in-app settin
 | **Mouse rotation speed** | 1 → 5 slider — how fast dragging rotates the 3D view |
 | **Link style** | Straight or curved dependency edges (+ curvature amount) |
 | **Selected node effect** | Glow halo or bloom post-processing (+ intensity / radius / threshold) |
+| **Flight speed / smoothing** | Pilot mode base speed (scene-scaled) and acceleration damping |
+| **Mouse look sensitivity / invert Y** | Pilot mode mouse-look feel |
 | **Auto-refresh on save** | Re-analyze changed files automatically |
 
 Changes apply instantly and are saved to your workspace settings. The footer link opens the full `auraVisualizer.*` list.
@@ -379,6 +402,8 @@ You can also open the visualizer from the **Aura** icon in the Activity Bar or v
 | `1`–`5` | Set pinned focus depth |
 | `V` | Toggle timeline compare mode (dual slider) |
 | `I` | Toggle timeline impact cascade |
+| `Space` | Toggle pilot mode (free flight) |
+| `Alt`+`Shift`+`1`–`9` | Fly to the warp point on that quick slot |
 | `←` `→` | Timeline: previous / next commit |
 | `Escape` | Reset all — clear selections, heatmaps, timeline |
 

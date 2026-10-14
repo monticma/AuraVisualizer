@@ -5,6 +5,12 @@ All notable changes to Aura Visualizer are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-10-14
+
+### Added
+- **Pilot mode (free flight)** 🚀 — fly through the graph in first person: `WASD`/`ZQSD` camera-relative movement, `Q`/`E` down-up, pointer-lock mouse look (drag-to-look fallback), hold the **left mouse button** to advance and the **right** to retreat, mouse wheel = speed, `Shift` = boost. Toggle via the `🚀 Pilot` toolbar button or `Space`; `Esc`/`Space` exits and the orbit controls resume seamlessly at the exact same view. Speed scales with the graph size; flight speed, smoothing, sensitivity and invert-Y are settings. Single-letter shortcuts, hover and clicks are suspended while flying.
+- **Warp points** 🌀 — named camera bookmarks: capture the current pose (position + orientation + view target) from the floating panel, fly back with a smooth 800 ms flight, rename / re-capture / delete per row, exclusive quick slots on `Alt+Shift+1–9`, and a `🏠 Home` row for the default view. Stored in `.aura/warps.json` (local, never committed).
+
 ## [1.2.1] - 2026-10-13
 
 ### Added

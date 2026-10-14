@@ -17,6 +17,8 @@ Quick access to every feature without leaving the keyboard.
 | `I` | Toggle timeline impact cascade |
 | `V` | Toggle timeline compare mode (dual slider) |
 | `1`–`5` | Set pinned focus depth (1 to 5 levels) |
+| `Space` | Toggle pilot mode (free flight) — `Esc` exits and orbit resumes at the same view |
+| `Alt`+`Shift`+`1`–`9` | Fly to the warp point on that quick slot |
 | `←` `→` | Timeline: previous / next commit |
 | `Escape` | Reset everything — clear all selections, heatmaps, and timeline |
 
@@ -28,6 +30,8 @@ Quick access to every feature without leaving the keyboard.
 | **🗺️ Map** | Toggle the minimap — real-time overview that rotates with the camera |
 | **✏️ Dirty** | Show only files with uncommitted changes (git working tree) |
 | **📝 Notes** | Show/hide the note indicators — annotated files wear a pulsing note-colored ring + dot |
+| **🌀 Warps** | Warp points panel — capture the current view (📌), fly back to any saved pose, quick slots |
+| **🚀 Pilot** | Free flight — WASD/QE to move, mouse to look, hold left/right click to advance/retreat (`Space` toggles) |
 | **⚙️ Settings** | Open the in-app settings modal — rotation speed, link style, node effect, risk window, auto-refresh |
 
 ### Toolbar sliders
@@ -47,6 +51,7 @@ The **⚙️ button** (next to 🔍 Query) opens an in-app settings modal — ch
 - **Link style & curvature** — straight or curved dependency edges
 - **Selected node effect** — glow halo or bloom post-processing (intensity / radius / threshold)
 - **Auto-refresh on save** — re-analyze changed files automatically
+- **Flight speed · smoothing · mouse sensitivity · invert Y** — pilot mode feel
 
 ### Status bar
 
