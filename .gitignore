@@ -31,3 +31,6 @@ docs/
 # Code Cosmos per-developer settings
 .cosmos
 .cosmos.cache
+
+# Local MCP config (machine-specific paths, auto-created by VS Code)
+.mcp.json

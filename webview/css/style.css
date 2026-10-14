@@ -1217,6 +1217,129 @@ html, body {
 }
 
 /* ============================================================
+   Flowchart Modal
+   ============================================================ */
+#flow-modal {
+    position: fixed;
+    top: 60px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: min(880px, 92vw);
+    height: min(640px, 78vh);
+    min-width: 340px;
+    min-height: 220px;
+    max-width: 96vw;
+    max-height: 94vh;
+    background: var(--aura-sidebar-bg);
+    border: 1px solid var(--aura-border);
+    border-radius: var(--radius);
+    z-index: 270;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 6px 30px rgba(0,0,0,0.5);
+}
+#flow-modal.hidden { display: none; }
+
+/* Backdrop blur is re-rendered on every frame while moving/resizing —
+   killing it during the gesture keeps the drag buttery smooth. */
+#flow-modal.dragging {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+}
+
+.flow-resize-handle { position: absolute; z-index: 6; }
+.flow-resize-handle.n { top: 0; left: 10px; right: 10px; height: 6px; cursor: ns-resize; }
+.flow-resize-handle.s { bottom: 0; left: 10px; right: 10px; height: 6px; cursor: ns-resize; }
+.flow-resize-handle.e { right: 0; top: 10px; bottom: 10px; width: 6px; cursor: ew-resize; }
+.flow-resize-handle.w { left: 0; top: 10px; bottom: 10px; width: 6px; cursor: ew-resize; }
+.flow-resize-handle.se, .flow-resize-handle.sw { bottom: 0; width: 18px; height: 18px; }
+.flow-resize-handle.se { right: 0; cursor: nwse-resize; }
+.flow-resize-handle.sw { left: 0; cursor: nesw-resize; }
+.flow-resize-handle.se::after, .flow-resize-handle.sw::after {
+    content: '';
+    position: absolute;
+    bottom: 4px;
+    width: 8px;
+    height: 8px;
+    border-bottom: 1.5px solid rgba(139, 148, 158, 0.75);
+    pointer-events: none;
+}
+.flow-resize-handle.se::after {
+    right: 4px;
+    border-right: 1.5px solid rgba(139, 148, 158, 0.75);
+    border-bottom-right-radius: 3px;
+}
+.flow-resize-handle.sw::after {
+    left: 4px;
+    border-left: 1.5px solid rgba(139, 148, 158, 0.75);
+    border-bottom-left-radius: 3px;
+}
+
+.flow-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    font-weight: 600;
+    font-size: 11px;
+    letter-spacing: 0.3px;
+    color: rgba(201, 209, 217, 0.8);
+    border-bottom: 1px solid var(--aura-border);
+    flex-shrink: 0;
+    cursor: grab;
+    user-select: none;
+}
+.flow-modal-header:active { cursor: grabbing; }
+#flow-crumbs {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--aura-font-mono, monospace);
+    font-size: 11px;
+}
+.flow-modal-actions { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+.flow-modal-actions button {
+    background: transparent;
+    border: 1px solid var(--aura-border);
+    color: var(--aura-text-secondary);
+    padding: 2px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 10px;
+}
+.flow-modal-actions button:hover {
+    background: rgba(96, 165, 250, 0.15);
+    color: var(--aura-text);
+}
+.flow-badge {
+    font-size: 10px;
+    color: #a371f7;
+    border: 1px solid rgba(163, 113, 247, 0.5);
+    border-radius: 999px;
+    padding: 1px 8px;
+    white-space: nowrap;
+}
+#flow-body {
+    flex: 1;
+    overflow: auto;
+    padding: 12px;
+    display: flex;
+}
+/* margin:auto (not justify/align center) so that overflowing content stays
+   fully reachable by scrolling — flex centering clips the far side. */
+#flow-body > * { margin: auto; }
+#flow-body svg { flex: none; }
+.flow-empty {
+    color: var(--aura-text-secondary);
+    font-style: italic;
+    padding: 28px;
+}
+
+/* ============================================================
    Tooltip
    ============================================================ */
 #tooltip {

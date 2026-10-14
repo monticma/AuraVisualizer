@@ -260,6 +260,9 @@
                 warps = (message.payload && Array.isArray(message.payload.warps)) ? message.payload.warps : [];
                 renderWarpsPanel();
                 break;
+            case 'flowData':
+                if (window.AuraFlowView) window.AuraFlowView.receive(message.payload);
+                break;
             case 'applyQuery':
                 if (message.payload && typeof message.payload.expr === 'string') {
                     var qbInput = $('#qb-input');
@@ -3329,6 +3332,17 @@
                 var fn = node.symbols.functions[i];
                 var item = document.createElement('div');
                 item.className = 'symbol-item symbol-item-clickable';
+                var flowBtn = document.createElement('button');
+                flowBtn.className = 'flow-trace-btn';
+                flowBtn.textContent = '⑂';
+                flowBtn.title = 'Function flowchart for ' + fn.name;
+                (function(funcName, fileId, funcLine, lang) {
+                    flowBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        if (window.AuraFlowView) window.AuraFlowView.open(fileId, funcLine, lang, funcName);
+                    });
+                })(fn.name, node.id, fn.line, node.language);
+                item.appendChild(flowBtn);
                 var traceBtn = document.createElement('button');
                 traceBtn.className = 'flow-trace-btn';
                 traceBtn.textContent = '▶';
@@ -5105,6 +5119,30 @@
         }
 
         setupWarps();
+
+        if (window.AuraFlowView) {
+            window.AuraFlowView.init({
+                request: function (payload) {
+                    try { vscode.postMessage({ type: 'requestFlow', payload: payload }); } catch (_) { /* noop */ }
+                },
+                openFile: function (fileId, line) {
+                    try { vscode.postMessage({ type: 'openFile', payload: { path: fileId, line: line } }); } catch (_) { /* noop */ }
+                },
+                findFunction: function (name) {
+                    if (!graphData || !graphData.nodes) return null;
+                    for (var i = 0; i < graphData.nodes.length; i++) {
+                        var n = graphData.nodes[i];
+                        var fns = (n.symbols && n.symbols.functions) || [];
+                        for (var j = 0; j < fns.length; j++) {
+                            if (fns[j].name === name) {
+                                return { fileId: n.id, line: fns[j].line, language: n.language, name: name };
+                            }
+                        }
+                    }
+                    return null;
+                }
+            });
+        }
 
         $('#btn-cycles').addEventListener('click', function() {
             showCycles = !showCycles;

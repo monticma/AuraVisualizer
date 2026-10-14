@@ -4,6 +4,7 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { Worker } from 'worker_threads';
 import type { GraphData } from '../analyzer/index';
 import type { GraphDB } from '../graph-db';
 import { runChatStream } from '../chat';
@@ -11,6 +12,7 @@ import { normalizeRiskWindow } from '../risk/risk-core';
 import type { RiskSnapshot } from '../risk/risk-service';
 import { parseAnnotations, serializeAnnotations, withNote, withoutNote, type AnnotationMap } from '../annotations';
 import { makeWarp, parseWarps, removeWarp, serializeWarps, upsertWarp, type WarpList } from '../warps';
+import type { FunctionFlow } from '../flow/flow-core';
 
 /** Whitelist of webview-editable settings, with per-key validation. */
 const SETTING_NORMALIZERS: Record<string, (v: unknown) => unknown> = {
@@ -271,6 +273,13 @@ export class WebviewProvider {
                         }
                         break;
                     }
+                    case 'requestFlow': {
+                        const p = (message.payload || {}) as { fileId?: string; line?: number; language?: string };
+                        if (p.fileId && typeof p.line === 'number' && p.language) {
+                            void this.handleFlowRequest(p.fileId, p.line, p.language);
+                        }
+                        break;
+                    }
                 }
             },
             null,
@@ -430,6 +439,76 @@ export class WebviewProvider {
         } catch (err) {
             console.error('[aura] deleteWarp failed:', err);
         }
+    }
+
+    // ============================================================
+    // Function flowcharts — on-demand, computed in the analyzer worker
+    // ============================================================
+
+    /** mtime-aware cache — a flowchart is only recomputed when the file changed. */
+    private flowCache = new Map<string, { mtimeMs: number; flow: FunctionFlow | null }>();
+
+    private async handleFlowRequest(fileId: string, line: number, language: string): Promise<void> {
+        let flow: FunctionFlow | null = null;
+        let error: string | undefined;
+        try {
+            flow = await this.runFlowRequest(fileId, line, language);
+        } catch (err) {
+            error = err instanceof Error ? err.message : String(err);
+            console.error('[aura] requestFlow failed:', err);
+        }
+        this.panel?.webview.postMessage({ type: 'flowData', payload: { fileId, line, flow, error } });
+    }
+
+    private async runFlowRequest(fileId: string, line: number, language: string): Promise<FunctionFlow | null> {
+        const ws = vscode.workspace.workspaceFolders?.[0];
+        if (!ws || fileId.includes('..')) return null;
+        const filePath = path.join(ws.uri.fsPath, fileId);
+
+        let mtimeMs = 0;
+        try {
+            mtimeMs = (await vscode.workspace.fs.stat(vscode.Uri.file(filePath))).mtime;
+        } catch {
+            return null; // file gone
+        }
+
+        const key = filePath + '\u0000' + line;
+        const cached = this.flowCache.get(key);
+        if (cached && cached.mtimeMs === mtimeMs) return cached.flow;
+
+        const flow = await this.runFlowInWorker(filePath, language, line);
+
+        if (this.flowCache.size >= 200) {
+            const oldest = this.flowCache.keys().next().value;
+            if (oldest !== undefined) this.flowCache.delete(oldest);
+        }
+        this.flowCache.set(key, { mtimeMs, flow });
+        return flow;
+    }
+
+    private runFlowInWorker(filePath: string, language: string, line: number): Promise<FunctionFlow | null> {
+        return new Promise((resolve, reject) => {
+            const workerPath = path.join(this.extensionUri.fsPath, 'out', 'analyzer-worker.js');
+            const worker = new Worker(workerPath, {
+                // Don't inherit the debugger's --inspect flag: worker_threads copy
+                // process.execArgv, so under the extension debugger they try to
+                // attach to the inspector and hang the extension host.
+                execArgv: [],
+                workerData: { flowRequest: { filePath, language, line } },
+            });
+            worker.on('message', (msg: { flow?: FunctionFlow | null; error?: string }) => {
+                if (msg.error) reject(new Error(msg.error));
+                else resolve(msg.flow ?? null);
+                worker.terminate();
+            });
+            worker.on('error', (err) => {
+                reject(err);
+                worker.terminate();
+            });
+            worker.on('exit', (code) => {
+                if (code !== 0) reject(new Error(`Flow worker exited with code ${code}`));
+            });
+        });
     }
 
     public sendGraphData(data: GraphData): void {
@@ -603,6 +682,9 @@ export class WebviewProvider {
         );
         const flightUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'flight.js')
+        );
+        const flowUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'flow.js')
         );
         const forceGraphUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'lib', '3d-force-graph.min.js')
@@ -1281,6 +1363,19 @@ export class WebviewProvider {
         <span class="pilot-keys"><kbd>W A S D</kbd> move · <kbd>Q</kbd>/<kbd>E</kbd> down/up · hold <kbd>LMB</kbd>/<kbd>RMB</kbd> fwd/back · wheel = speed · <kbd>Shift</kbd> boost · <kbd>Esc</kbd>/<kbd>Space</kbd> exit</span>
     </div>
 
+    <!-- Flowchart Modal (overlay) -->
+    <div id="flow-modal" class="hidden">
+        <div class="flow-modal-header">
+            <span id="flow-crumbs">⑂ Flow</span>
+            <div class="flow-modal-actions">
+                <span id="flow-badge" class="flow-badge">—</span>
+                <button id="flow-export" title="Export as SVG">⤓ SVG</button>
+                <button id="flow-modal-close" title="Close">✕</button>
+            </div>
+        </div>
+        <div id="flow-body"></div>
+    </div>
+
     <!-- Settings Modal (overlay) -->
     <div id="settings-modal" class="hidden">
         <div class="help-modal-content">
@@ -1529,6 +1624,7 @@ export class WebviewProvider {
     <script nonce="${nonce}" src="${riskUri}"></script>
     <script nonce="${nonce}" src="${flightCoreUri}"></script>
     <script nonce="${nonce}" src="${flightUri}"></script>
+    <script nonce="${nonce}" src="${flowUri}"></script>
     <script nonce="${nonce}" src="${appUri}"></script>
 </body>
 </html>`;
