@@ -115,6 +115,18 @@ async function copyWebviewAssets() {
         tsconfig: 'tsconfig.json',
     });
 
+    // Flight core — pilot mode math, bundled for the webview as window.AuraPilot
+    // (same single-source pattern as risk-core).
+    await esbuild.build({
+        entryPoints: [path.join(__dirname, 'src', 'flight', 'flight-core.ts')],
+        bundle: true,
+        format: 'iife',
+        globalName: 'AuraPilot',
+        outfile: path.join(webviewDest, 'js', 'flight-core.js'),
+        logLevel: 'silent',
+        tsconfig: 'tsconfig.json',
+    });
+
     console.log('Webview assets copied.');
 }
 

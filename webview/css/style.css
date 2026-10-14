@@ -1177,6 +1177,46 @@ html, body {
 }
 
 /* ============================================================
+   Pilot HUD (free flight)
+   ============================================================ */
+#pilot-hud {
+    position: fixed;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 14px;
+    background: var(--aura-sidebar-bg);
+    border: 1px solid rgba(96, 165, 250, 0.5);
+    border-radius: 999px;
+    z-index: 280;
+    font-size: 11.5px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    pointer-events: none;
+    white-space: nowrap;
+}
+#pilot-hud.hidden { display: none; }
+.pilot-title {
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    color: #60a5fa;
+}
+.pilot-speed { color: var(--aura-text); }
+.pilot-speed span { font-weight: 600; }
+.pilot-keys { color: var(--aura-text-secondary); }
+.pilot-keys kbd {
+    background: rgba(201, 209, 217, 0.12);
+    border: 1px solid var(--aura-border);
+    border-radius: 3px;
+    padding: 0 4px;
+    font-size: 10px;
+}
+
+/* ============================================================
    Tooltip
    ============================================================ */
 #tooltip {

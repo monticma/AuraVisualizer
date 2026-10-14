@@ -22,6 +22,10 @@ const SETTING_NORMALIZERS: Record<string, (v: unknown) => unknown> = {
     bloomThreshold: (v) => clampNumber(v, 0, 1, 0),
     riskWindow: (v) => normalizeRiskWindow(v),
     rotateSpeed: (v) => clampNumber(v, 1, 5, 1),
+    flightSpeed: (v) => clampNumber(v, 0.25, 4, 1),
+    flightSmoothing: (v) => clampNumber(v, 0.02, 0.5, 0.12),
+    mouseSensitivity: (v) => clampNumber(v, 0.0005, 0.01, 0.0022),
+    invertY: (v) => v === true,
     autoRefresh: (v) => v === true,
 };
 
@@ -501,6 +505,10 @@ export class WebviewProvider {
                     bloomThreshold: config.get<number>('bloomThreshold', 0.0),
                     riskWindow: normalizeRiskWindow(config.get<number>('riskWindow', 90)),
                     rotateSpeed: normalizeRotateSpeed(config.get<number>('rotateSpeed', 1)),
+                    flightSpeed: clampNumber(config.get<number>('flightSpeed', 1), 0.25, 4, 1),
+                    flightSmoothing: clampNumber(config.get<number>('flightSmoothing', 0.12), 0.02, 0.5, 0.12),
+                    mouseSensitivity: clampNumber(config.get<number>('mouseSensitivity', 0.0022), 0.0005, 0.01, 0.0022),
+                    invertY: config.get<boolean>('invertY', false) === true,
                     autoRefresh: config.get<boolean>('autoRefresh', true),
                 }
             });
@@ -555,6 +563,10 @@ export class WebviewProvider {
                 bloomThreshold: config.get<number>('bloomThreshold', 0.0),
                 riskWindow: normalizeRiskWindow(config.get<number>('riskWindow', 90)),
                 rotateSpeed: normalizeRotateSpeed(config.get<number>('rotateSpeed', 1)),
+                flightSpeed: clampNumber(config.get<number>('flightSpeed', 1), 0.25, 4, 1),
+                flightSmoothing: clampNumber(config.get<number>('flightSmoothing', 0.12), 0.02, 0.5, 0.12),
+                mouseSensitivity: clampNumber(config.get<number>('mouseSensitivity', 0.0022), 0.0005, 0.01, 0.0022),
+                invertY: config.get<boolean>('invertY', false) === true,
                 autoRefresh: config.get<boolean>('autoRefresh', true),
             });
         } catch { return '{}'; }
@@ -585,6 +597,12 @@ export class WebviewProvider {
         );
         const riskUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'risk-core.js')
+        );
+        const flightCoreUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'flight-core.js')
+        );
+        const flightUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'flight.js')
         );
         const forceGraphUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'lib', '3d-force-graph.min.js')
@@ -1117,6 +1135,7 @@ export class WebviewProvider {
             <button class="filter-btn" id="btn-path-mode" title="Find path between 2 nodes">🔗 Path</button>
             <button class="filter-btn" id="btn-labels" title="Show file names">🏷️ Names</button>
             <button class="filter-btn" id="btn-recenter" title="Recenter view">🎯 Center</button>
+            <button class="filter-btn" id="btn-pilot" title="Pilot mode — free flight (WASD, mouse look, Esc to exit)">🚀 Pilot</button>
         </div>
         <div class="filter-separator graph-only"></div>
         <div class="filter-group graph-only">
@@ -1255,6 +1274,13 @@ export class WebviewProvider {
         <canvas id="minimap-canvas" width="200" height="200"></canvas>
     </div>
 
+    <!-- Pilot HUD (overlay) -->
+    <div id="pilot-hud" class="hidden">
+        <span class="pilot-title">🚀 PILOT</span>
+        <span class="pilot-speed">speed <span id="pilot-speed-mult">×1</span></span>
+        <span class="pilot-keys"><kbd>W A S D</kbd> move · <kbd>Q</kbd>/<kbd>E</kbd> down/up · hold <kbd>LMB</kbd>/<kbd>RMB</kbd> fwd/back · wheel = speed · <kbd>Shift</kbd> boost · <kbd>Esc</kbd> exit</span>
+    </div>
+
     <!-- Settings Modal (overlay) -->
     <div id="settings-modal" class="hidden">
         <div class="help-modal-content">
@@ -1311,6 +1337,22 @@ export class WebviewProvider {
                 <div class="settings-row">
                     <label for="set-autoRefresh">Auto-refresh on save<span class="settings-hint">Re-analyze changed files automatically</span></label>
                     <input id="set-autoRefresh" data-setting="autoRefresh" type="checkbox" />
+                </div>
+                <div class="settings-row">
+                    <label for="set-flightSpeed">Flight speed<span class="settings-hint">Pilot mode base speed (×, scene-scaled)</span></label>
+                    <input id="set-flightSpeed" data-setting="flightSpeed" type="number" min="0.25" max="4" step="0.05" />
+                </div>
+                <div class="settings-row">
+                    <label for="set-flightSmoothing">Flight smoothing<span class="settings-hint">Acceleration / damping time constant (s) — low = snappy</span></label>
+                    <input id="set-flightSmoothing" data-setting="flightSmoothing" type="number" min="0.02" max="0.5" step="0.01" />
+                </div>
+                <div class="settings-row">
+                    <label for="set-mouseSensitivity">Mouse look sensitivity<span class="settings-hint">Radians per pixel while flying</span></label>
+                    <input id="set-mouseSensitivity" data-setting="mouseSensitivity" type="number" min="0.0005" max="0.01" step="0.0005" />
+                </div>
+                <div class="settings-row">
+                    <label for="set-invertY">Invert mouse Y (flight)<span class="settings-hint">Flight look: moving up looks down</span></label>
+                    <input id="set-invertY" data-setting="invertY" type="checkbox" />
                 </div>
                 <div class="settings-footer">
                     <span id="settings-open-vscode">Open VS Code Settings →</span>
@@ -1396,6 +1438,9 @@ export class WebviewProvider {
                 <p>Save named camera bookmarks of the 3D view: the <strong>🌀 Warps</strong> toolbar button opens the floating panel; its <strong>📌</strong> button captures the current pose (camera position + view target + orientation). Click a warp to fly there (smooth 800 ms tween), re-capture or rename it, and assign quick slots — <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>1–9</kbd> flies back from anywhere (plain <kbd>Alt</kbd>+<kbd>digit</kbd> is captured by VS Code). The <strong>🏠 Home</strong> row returns to the default fit-to-view pose.</p>
                 <p>Warps are stored in <code>.aura/warps.json</code> — local to your workspace, never committed.</p>
 
+                <h3>🚀 Pilot Mode (free flight)</h3>
+                <p>The <strong>🚀 Pilot</strong> toolbar button switches to free-flight navigation: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move (camera-relative — physical key layout, so AZERTY gets ZQSD), <kbd>Q</kbd>/<kbd>E</kbd> down/up, mouse look (click locks the pointer), mouse wheel adjusts the speed, <kbd>Shift</kbd> boosts. Hold the <strong>left mouse button</strong> to fly forward and the <strong>right button</strong> to fly backward — steer by looking; keys keep working in parallel. Press <kbd>Esc</kbd> to exit — the orbit controls take over seamlessly at the exact same view. Flight speed, smoothing, mouse sensitivity and Y-inversion live in <strong>⚙️ Settings</strong>.</p>
+
                 <h3>📂 Directory Filtering</h3>
                 <p>In the <strong>File Explorer</strong> panel, each directory has a checkbox to show/hide its files in the graph. Use the <strong>All</strong> / <strong>None</strong> buttons for batch selection. Directories are checked by default.</p>
 
@@ -1477,6 +1522,8 @@ export class WebviewProvider {
     <script nonce="${nonce}" src="${configUri}"></script>
     <script nonce="${nonce}" src="${queryUri}"></script>
     <script nonce="${nonce}" src="${riskUri}"></script>
+    <script nonce="${nonce}" src="${flightCoreUri}"></script>
+    <script nonce="${nonce}" src="${flightUri}"></script>
     <script nonce="${nonce}" src="${appUri}"></script>
 </body>
 </html>`;

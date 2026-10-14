@@ -216,6 +216,7 @@
             case 'graphConfig':
                 if (message.payload) {
                     window.AURA_CONFIG = Object.assign({}, window.AURA_CONFIG || {}, message.payload);
+                    if (window.AuraFlight) window.AuraFlight.configure(window.AURA_CONFIG);
                     applyLinkStyle();
                     if (typeof applySelectedNodeEffect === 'function') {
                         applySelectedNodeEffect();
@@ -2500,6 +2501,7 @@
     // Interactions
     // ============================================================
     function handleNodeHover(node) {
+        if (window.AuraFlight && window.AuraFlight.isActive()) return; // pilot: navigate, don't select
         hoveredNode = node;
         graphContainer.style.cursor = node ? 'pointer' : 'default';
 
@@ -2570,6 +2572,7 @@
     }
 
     function handleNodeClick(node, event) {
+        if (window.AuraFlight && window.AuraFlight.isActive()) return; // pilot: clicks suspended
         if (!node) return;
 
         if (pathMode) {
@@ -2660,6 +2663,7 @@
     }
 
     function graphContainerDblClick() {
+        if (window.AuraFlight && window.AuraFlight.isActive()) return; // pilot: clicks suspended
         if (hoveredNode) handleNodeDblClick(hoveredNode);
     }
 
@@ -2684,6 +2688,7 @@
     }
 
     function handleBackgroundClick() {
+        if (window.AuraFlight && window.AuraFlight.isActive()) return; // pilot: clicks suspended
         if (pathMode) return;
         var hadSelection = !!selectedNode || multiSelectedNodes.size > 0;
         var hadPinned = !!pinnedNode || blastMode;
@@ -2711,6 +2716,7 @@
     // Right-click pinned focus
     // ============================================================
     function handleNodeRightClick(node, eventOrFlag) {
+        if (window.AuraFlight && window.AuraFlight.isActive()) return; // pilot: clicks suspended
         if (!node || pathMode) return;
 
         var isEvent = eventOrFlag && typeof eventOrFlag === 'object' && 'shiftKey' in eventOrFlag;
@@ -3841,7 +3847,10 @@
     }
 
     function travelToWarp(warp) {
-        if (warp) travelToPose(warp.pos, warp.target, warp.quat, warp.up, warp.fov);
+        if (!warp) return;
+        // Hand the camera back cleanly before the flight takes over.
+        if (window.AuraFlight && window.AuraFlight.isActive()) window.AuraFlight.stop();
+        travelToPose(warp.pos, warp.target, warp.quat, warp.up, warp.fov);
     }
 
     function findWarp(id) {
@@ -5155,6 +5164,19 @@
             saveViewState();
         });
 
+        var pilotBtn = $('#btn-pilot');
+        if (pilotBtn) {
+            pilotBtn.addEventListener('click', function () {
+                if (!graph || !window.AuraFlight) return;
+                if (window.AuraFlight.isActive()) {
+                    window.AuraFlight.stop();
+                } else {
+                    cancelWarpTravel(); // never take off while a warp flight owns the camera
+                    window.AuraFlight.start(graph, graphContainer);
+                }
+            });
+        }
+
         $('#btn-recenter').addEventListener('click', function() {
             if (!graph) return;
             cancelWarpTravel();
@@ -5482,6 +5504,10 @@
             // Ignore when typing in an input
             if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
             if (!graph) return;
+
+            // Pilot mode owns the keyboard while flying — single-letter
+            // shortcuts (D = DAG, …) must not fire.
+            if (window.AuraFlight && window.AuraFlight.isActive()) return;
 
             // Alt+Shift+1..9 — fly to the warp assigned to that quick slot.
             // (Plain Alt+digit is swallowed by VS Code; e.code — the physical Digit
@@ -6803,6 +6829,8 @@
             }
         } else {
             pauseGraph();
+            // Pilot mode only makes sense in the graph tab.
+            if (window.AuraFlight && window.AuraFlight.isActive()) window.AuraFlight.stop();
         }
 
         // Render tab content

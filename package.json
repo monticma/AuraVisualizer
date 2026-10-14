@@ -336,6 +336,32 @@
           "maximum": 5,
           "description": "Rotation speed when dragging the 3D graph (1 = default, 5 = fastest)"
         },
+        "auraVisualizer.flightSpeed": {
+          "type": "number",
+          "default": 1,
+          "minimum": 0.25,
+          "maximum": 4,
+          "description": "Pilot mode (free flight) base speed multiplier — the base speed scales with the scene size"
+        },
+        "auraVisualizer.flightSmoothing": {
+          "type": "number",
+          "default": 0.12,
+          "minimum": 0.02,
+          "maximum": 0.5,
+          "description": "Pilot mode acceleration/damping time constant in seconds (low = snappy, high = floaty)"
+        },
+        "auraVisualizer.mouseSensitivity": {
+          "type": "number",
+          "default": 0.0022,
+          "minimum": 0.0005,
+          "maximum": 0.01,
+          "description": "Pilot mode mouse-look sensitivity (radians per pixel)"
+        },
+        "auraVisualizer.invertY": {
+          "type": "boolean",
+          "default": false,
+          "description": "Pilot mode: invert the mouse Y axis (moving the mouse up looks down)"
+        },
         "auraVisualizer.savedQueries": {
           "type": "array",
           "default": [],
