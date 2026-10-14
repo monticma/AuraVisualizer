@@ -1278,7 +1278,7 @@ export class WebviewProvider {
     <div id="pilot-hud" class="hidden">
         <span class="pilot-title">🚀 PILOT</span>
         <span class="pilot-speed">speed <span id="pilot-speed-mult">×1</span></span>
-        <span class="pilot-keys"><kbd>W A S D</kbd> move · <kbd>Q</kbd>/<kbd>E</kbd> down/up · hold <kbd>LMB</kbd>/<kbd>RMB</kbd> fwd/back · wheel = speed · <kbd>Shift</kbd> boost · <kbd>Esc</kbd> exit</span>
+        <span class="pilot-keys"><kbd>W A S D</kbd> move · <kbd>Q</kbd>/<kbd>E</kbd> down/up · hold <kbd>LMB</kbd>/<kbd>RMB</kbd> fwd/back · wheel = speed · <kbd>Shift</kbd> boost · <kbd>Esc</kbd>/<kbd>Space</kbd> exit</span>
     </div>
 
     <!-- Settings Modal (overlay) -->
@@ -1439,7 +1439,7 @@ export class WebviewProvider {
                 <p>Warps are stored in <code>.aura/warps.json</code> — local to your workspace, never committed.</p>
 
                 <h3>🚀 Pilot Mode (free flight)</h3>
-                <p>The <strong>🚀 Pilot</strong> toolbar button switches to free-flight navigation: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move (camera-relative — physical key layout, so AZERTY gets ZQSD), <kbd>Q</kbd>/<kbd>E</kbd> down/up, mouse look (click locks the pointer), mouse wheel adjusts the speed, <kbd>Shift</kbd> boosts. Hold the <strong>left mouse button</strong> to fly forward and the <strong>right button</strong> to fly backward — steer by looking; keys keep working in parallel. Press <kbd>Esc</kbd> to exit — the orbit controls take over seamlessly at the exact same view. Flight speed, smoothing, mouse sensitivity and Y-inversion live in <strong>⚙️ Settings</strong>.</p>
+                <p>The <strong>🚀 Pilot</strong> toolbar button switches to free-flight navigation: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move (camera-relative — physical key layout, so AZERTY gets ZQSD), <kbd>Q</kbd>/<kbd>E</kbd> down/up, mouse look (click locks the pointer), mouse wheel adjusts the speed, <kbd>Shift</kbd> boosts. Hold the <strong>left mouse button</strong> to fly forward and the <strong>right button</strong> to fly backward — steer by looking; keys keep working in parallel. Press <kbd>Esc</kbd> to exit — or simply hit <kbd>Space</kbd> to toggle pilot mode on/off. The orbit controls take over seamlessly at the exact same view. Flight speed, smoothing, mouse sensitivity and Y-inversion live in <strong>⚙️ Settings</strong>.</p>
 
                 <h3>📂 Directory Filtering</h3>
                 <p>In the <strong>File Explorer</strong> panel, each directory has a checkbox to show/hide its files in the graph. Use the <strong>All</strong> / <strong>None</strong> buttons for batch selection. Directories are checked by default.</p>

@@ -5174,6 +5174,7 @@
                     cancelWarpTravel(); // never take off while a warp flight owns the camera
                     window.AuraFlight.start(graph, graphContainer);
                 }
+                pilotBtn.blur(); // keep Space free for the keyboard toggle
             });
         }
 
@@ -5524,6 +5525,19 @@
             }
 
             switch (e.key.toLowerCase()) {
+                case ' ':
+                    // Space — toggle pilot mode (graph tab only; while flying,
+                    // exit is handled inside AuraFlight itself).
+                    if (graphContainer.clientWidth > 0 && window.AuraFlight) {
+                        e.preventDefault();
+                        if (window.AuraFlight.isActive()) {
+                            window.AuraFlight.stop();
+                        } else {
+                            cancelWarpTravel();
+                            window.AuraFlight.start(graph, graphContainer);
+                        }
+                    }
+                    break;
                 case 'f':
                     // Fit-to-view
                     $('#btn-recenter').click();

@@ -673,7 +673,7 @@ USER QUESTION: `+e,l=[fe.LanguageModelChatMessage.User(o)],u=yo.map(m=>({name:m.
     <div id="pilot-hud" class="hidden">
         <span class="pilot-title">\u{1F680} PILOT</span>
         <span class="pilot-speed">speed <span id="pilot-speed-mult">\xD71</span></span>
-        <span class="pilot-keys"><kbd>W A S D</kbd> move \xB7 <kbd>Q</kbd>/<kbd>E</kbd> down/up \xB7 hold <kbd>LMB</kbd>/<kbd>RMB</kbd> fwd/back \xB7 wheel = speed \xB7 <kbd>Shift</kbd> boost \xB7 <kbd>Esc</kbd> exit</span>
+        <span class="pilot-keys"><kbd>W A S D</kbd> move \xB7 <kbd>Q</kbd>/<kbd>E</kbd> down/up \xB7 hold <kbd>LMB</kbd>/<kbd>RMB</kbd> fwd/back \xB7 wheel = speed \xB7 <kbd>Shift</kbd> boost \xB7 <kbd>Esc</kbd>/<kbd>Space</kbd> exit</span>
     </div>
 
     <!-- Settings Modal (overlay) -->
@@ -834,7 +834,7 @@ USER QUESTION: `+e,l=[fe.LanguageModelChatMessage.User(o)],u=yo.map(m=>({name:m.
                 <p>Warps are stored in <code>.aura/warps.json</code> \u2014 local to your workspace, never committed.</p>
 
                 <h3>\u{1F680} Pilot Mode (free flight)</h3>
-                <p>The <strong>\u{1F680} Pilot</strong> toolbar button switches to free-flight navigation: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move (camera-relative \u2014 physical key layout, so AZERTY gets ZQSD), <kbd>Q</kbd>/<kbd>E</kbd> down/up, mouse look (click locks the pointer), mouse wheel adjusts the speed, <kbd>Shift</kbd> boosts. Hold the <strong>left mouse button</strong> to fly forward and the <strong>right button</strong> to fly backward \u2014 steer by looking; keys keep working in parallel. Press <kbd>Esc</kbd> to exit \u2014 the orbit controls take over seamlessly at the exact same view. Flight speed, smoothing, mouse sensitivity and Y-inversion live in <strong>\u2699\uFE0F Settings</strong>.</p>
+                <p>The <strong>\u{1F680} Pilot</strong> toolbar button switches to free-flight navigation: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move (camera-relative \u2014 physical key layout, so AZERTY gets ZQSD), <kbd>Q</kbd>/<kbd>E</kbd> down/up, mouse look (click locks the pointer), mouse wheel adjusts the speed, <kbd>Shift</kbd> boosts. Hold the <strong>left mouse button</strong> to fly forward and the <strong>right button</strong> to fly backward \u2014 steer by looking; keys keep working in parallel. Press <kbd>Esc</kbd> to exit \u2014 or simply hit <kbd>Space</kbd> to toggle pilot mode on/off. The orbit controls take over seamlessly at the exact same view. Flight speed, smoothing, mouse sensitivity and Y-inversion live in <strong>\u2699\uFE0F Settings</strong>.</p>
 
                 <h3>\u{1F4C2} Directory Filtering</h3>
                 <p>In the <strong>File Explorer</strong> panel, each directory has a checkbox to show/hide its files in the graph. Use the <strong>All</strong> / <strong>None</strong> buttons for batch selection. Directories are checked by default.</p>

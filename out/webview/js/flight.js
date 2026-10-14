@@ -118,6 +118,14 @@
             }
             return;
         }
+        if (e.code === 'Space') {
+            // Space toggles back out — swallow the event so it can never
+            // re-activate a focused toolbar button.
+            e.preventDefault();
+            e.stopPropagation();
+            stop();
+            return;
+        }
         if (MOVE_CODES[e.code]) {
             keys[e.code] = true;
             e.preventDefault();
