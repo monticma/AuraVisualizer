@@ -247,6 +247,15 @@
                 workingTree = (message.payload && message.payload.files) || {};
                 if (queryActive) evaluateQuery();
                 refreshGraphAfterQuery();
+                // Keep the detail panel's Git line in sync (rings rebuild above)
+                if (selectedNode && !selectedNode._isCluster && !selectedNode._isSymbol) {
+                    var gitState = dirtyStateOf(selectedNode);
+                    var gitEl = $('#panel-git');
+                    if (gitEl) {
+                        gitEl.textContent = gitState ? (GIT_STATE_LABELS[gitState] || gitState) : '—';
+                        gitEl.style.color = gitState ? '#ffb300' : '';
+                    }
+                }
                 break;
             case 'annotations':
                 annotations = (message.payload && message.payload.notes) || {};

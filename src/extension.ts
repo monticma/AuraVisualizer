@@ -85,6 +85,11 @@ export function activate(context: vscode.ExtensionContext): void {
     // Watch for file changes (incremental)
     setupFileWatcher(context);
 
+    // Watch .git for state changes (commit, stage, checkout, stash, branch
+    // switch) so the dirty overlay stays fresh — none of those touch a source
+    // file, so the workspace watcher above never fires for them.
+    setupGitStateWatcher(context);
+
     // Watch for config changes (bloom, link style, risk window, etc.)
     context.subscriptions.push(
         vscode.workspace.onDidChangeConfiguration(e => {
@@ -844,8 +849,16 @@ function buildWorkingTreePayload(): Record<string, GitFileState> {
     return files;
 }
 
+let lastWorkingTreeJson: string | undefined;
+
 function pushWorkingTreeToWebview(): void {
-    webviewProvider?.sendWorkingTree(buildWorkingTreePayload());
+    const payload = buildWorkingTreePayload();
+    const json = JSON.stringify(payload);
+    // Git operations fire several watcher events (index, HEAD, refs) — skip
+    // the webview round-trip and ring rebuild when nothing actually changed.
+    if (json === lastWorkingTreeJson) return;
+    lastWorkingTreeJson = json;
+    webviewProvider?.sendWorkingTree(payload);
 }
 
 /** Host data the webview pulls on ready / for chat tool calls. */
@@ -1254,6 +1267,22 @@ function setupFileWatcher(context: vscode.ExtensionContext): void {
     });
 
     context.subscriptions.push(fileWatcher);
+}
+
+/**
+ * Watch `.git` for state changes and refresh the working-tree overlay. A commit
+ * or a `git add` leaves every source file untouched, so the workspace watcher
+ * never fires for them — without this, dirty rings stayed stale until the next
+ * file save. The default `files.watcherExclude` keeps the churny parts
+ * (.git/objects, subtree-cache) out, so only index/HEAD/refs events arrive.
+ */
+function setupGitStateWatcher(context: vscode.ExtensionContext): void {
+    const gitWatcher = vscode.workspace.createFileSystemWatcher('**/.git/**');
+    const schedule = () => scheduleWorkingTreeRefresh();
+    gitWatcher.onDidChange(schedule);
+    gitWatcher.onDidCreate(schedule);
+    gitWatcher.onDidDelete(schedule);
+    context.subscriptions.push(gitWatcher);
 }
 
 export function deactivate(): void {
