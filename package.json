@@ -420,7 +420,7 @@
           {
             "id": "tabbed-views",
             "title": "Switch Between Views",
-            "description": "Use the **tab bar** to switch between 7 views: 3D Graph, Treemap, Matrix (DSM), Chord Diagram, Metrics Dashboard, Timeline Chart, and File Table.\n\nEach view offers a different perspective on your architecture.",
+            "description": "Use the **tab bar** to switch between 8 views: 3D Graph, Treemap, Matrix (DSM), Chord Diagram, Metrics Dashboard, Timeline Chart, File Table, and the Risk Dashboard.\n\nEach view offers a different perspective on your architecture.",
             "media": {
               "markdown": "resources/walkthrough/views.md"
             }
@@ -439,6 +439,14 @@
             "description": "Click the **Path** button in the toolbar, then click two nodes to find the shortest dependency path between them.\n\nGreat for understanding how files are connected.",
             "media": {
               "markdown": "resources/walkthrough/paths.md"
+            }
+          },
+          {
+            "id": "function-flowcharts",
+            "title": "Read a Function at a Glance",
+            "description": "Click the **⑂** button next to a function in the detail panel to open its **flowchart**: branches, loops, switch cases and try/catch, built on demand from the source AST.\n\nClick any step to jump to its line, drill into calls, and export the chart as SVG.",
+            "media": {
+              "markdown": "resources/walkthrough/flowcharts.md"
             }
           },
           {

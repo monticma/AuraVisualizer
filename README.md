@@ -226,6 +226,17 @@ Switch from orbiting the graph to **flying through it** — first-person navigat
 - No roll (pitch clamped), smooth acceleration/damping, and single-letter shortcuts, hover and clicks are suspended while flying
 - Flight speed, smoothing, mouse sensitivity and Y-inversion live in **⚙️ Settings**
 
+### Function Flowcharts ⑂
+
+Turn any function into a readable **control-flow chart** — without tracing `if`s and loops by eye:
+
+- Click the **⑂ button** next to a function in the Explorer symbols list (JS/TS/TSX, Python, C and C++)
+- The chart is built on demand from the AST: conditions fork into `T` / `F` branches that re-join, loops get a framed body with their **back edge**, `switch` cases line up as columns, and `try` / `catch` / `finally` stack as labelled frames
+- **Dead code** after a `return` / `throw` is drawn as red dashed boxes; the header badge shows the function's decision count
+- **Click any step** to open the file at that exact line, and click an underlined **call chip** (`↳ validate()`) to drill into the called function — the breadcrumb walks back
+- **⤓ SVG** exports the chart as a standalone vector file
+- The window is **draggable and resizable**; `Esc` closes it
+
 ### Time Travel ⏳
 
 Navigate your project's git history commit by commit. A timeline bar at the bottom lets you scrub through commits. Changed files are color-coded: 🟢 green = added, 🔴 pink = removed, 🟡 yellow = modified. Edges follow the same color scheme.
@@ -342,6 +353,8 @@ Markdown, plain-text and reStructuredText files (`.md`, `.markdown`, `.txt`, `.r
 ### Symbols in the File Explorer
 
 Files in the side Explorer panel that contain functions or methods show a **chevron** to their left. Click it to reveal an indented list of every function/method in the file (sorted by line number). Click any function to **open the file in the editor and jump to that exact line**.
+
+Each function row also carries two action buttons: **▶** traces its outgoing call chain across files, and **⑂** opens its **function flowchart** — the branching structure of the function rendered as an explorable SVG diagram.
 
 This turns the Explorer into a fast outline / go-to-symbol navigator across your whole project.
 

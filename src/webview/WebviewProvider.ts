@@ -1521,6 +1521,10 @@ export class WebviewProvider {
                 <h3>▶ Flow Trace</h3>
                 <p>In the detail panel, click the <strong>▶</strong> button next to a function to trace its outgoing call chain across files. Files light up progressively by call depth.</p>
 
+                <h3>⑂ Function Flowcharts</h3>
+                <p>Click the <strong>⑂</strong> button next to a function to open its <strong>flowchart</strong> — built on demand from the source AST (JS/TS/TSX, Python, C, C++). Conditions fork into <strong>T</strong>/<strong>F</strong> branches that re-join, loops get a framed body with a <strong>back edge</strong>, <code>switch</code> cases line up as columns, and <code>try</code>/<code>catch</code>/<code>finally</code> stack as labelled frames. <strong>Red dashed</strong> boxes are <strong>dead code</strong> (unreachable after a return/throw); the badge shows the function's <strong>complexity</strong> (decision points).</p>
+                <p><strong>Click a step</strong> to open the file at its line, and click an underlined <strong>call chip</strong> (<code>↳ fn()</code>) to drill into the called function — the breadcrumb at the top walks back. <strong>⤓ SVG</strong> exports a standalone vector file, the window drags by its header and resizes from any edge or corner, and <kbd>Esc</kbd> closes it.</p>
+
                 <h3>⏳ Time Travel</h3>
                 <p>Navigate git history commit by commit. Changed files are color-coded: <span style="color:#00ff88">● green</span> = added, <span style="color:#ff2080">● pink</span> = removed, <span style="color:#ffff00">● yellow</span> = modified. Edges follow the same scheme. Press <kbd>V</kbd> or click <strong>⇄</strong> to enter <strong>Compare mode</strong> with a dual slider to diff any two commits.</p>
 
