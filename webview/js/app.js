@@ -1075,12 +1075,75 @@
         }
     }
 
+    // ============================================================
+    // Pointer-release self-healing (listeners registered in initGraph)
+    // ============================================================
+    var canvasPointerDown = false;
+    var canvasPointerId = 1;
+
+    function onCanvasPointerDownHeal(e) {
+        canvasPointerDown = true;
+        canvasPointerId = e.pointerId;
+    }
+
+    function onCanvasPointerUpHeal() {
+        canvasPointerDown = false;
+    }
+
+    /**
+     * A press started on the canvas but its release never reached this document
+     * (mouse released over the VS Code UI outside the webview). Reset both the
+     * 3d-force-graph press state and TrackballControls with a synthetic
+     * pointerup so the next click works again. The library early-returns for
+     * click dispatch when a drag was in progress, so this never fires a click.
+     */
+    function healMissedPointerUp() {
+        if (!canvasPointerDown) return;
+        canvasPointerDown = false;
+        var canvas = graphContainer ? graphContainer.querySelector('canvas') : null;
+        if (!canvas) return;
+        try {
+            canvas.dispatchEvent(new PointerEvent('pointerup', {
+                bubbles: true,
+                cancelable: false,
+                pointerId: canvasPointerId,
+                pointerType: 'mouse',
+                button: 0,
+                buttons: 0,
+                isPrimary: true
+            }));
+        } catch (e) { /* PointerEvent unsupported — nothing to do */ }
+    }
+
+    function onHealCheckMove(e) {
+        if (!canvasPointerDown) return;
+        // Buttons all released but no pointerup was seen on the canvas: the
+        // release happened outside the webview and never reached us.
+        if (e.buttons === 0) healMissedPointerUp();
+    }
+
+    function onHealCheckDown(e) {
+        if (!canvasPointerDown) return;
+        if (e.pointerType !== 'mouse') return; // touch pointers have implicit capture
+        // A new mouse press starts while we still track the old one: the old
+        // release was missed — close it first so this press behaves normally.
+        healMissedPointerUp();
+    }
+
+    function onHealCheckUp(e) {
+        if (!canvasPointerDown) return;
+        // A pointerup landed elsewhere in the document without being captured
+        // and retargeted through the graph container.
+        if (graphContainer && e.target && !graphContainer.contains(e.target)) {
+            healMissedPointerUp();
+        }
+    }
+
     function initGraph(data) {
         if (typeof ForceGraph3D === 'undefined') {
             console.error('[aura] ForceGraph3D not loaded!');
             return;
         }
-
         var filtered = filterGraphData(data);
 
         // Destroy previous graph if any
@@ -1108,6 +1171,9 @@
                 var isBlastSource = blastMode && pinnedNode && (node.id === pinnedNode.id || (impactMode && blastDepths[node.id] === 0));
                 var dirtyState = dirtyStateOf(node);
                 var noteInfo = showNotes ? annotationOf(node) : null;
+                // Rings must follow the node's dim state (query highlight, pin/blast,
+                // cycles…): derive the factor from the node color so they always agree.
+                var dimFactor = colorAlpha(getNodeColor(node));
                 var hasLabel = showLabels &&
                     !(showOrphans && (node.fanIn > 0 || node.fanOut > 0)) &&
                     !(showDeadCode && !(node.deadExports && node.deadExports.length > 0)) &&
@@ -1164,25 +1230,26 @@
                 var baseScale = Math.cbrt(getNodeSize(node) || 1) * 8;
 
                 // Git dirty ring — amber circle around files with uncommitted changes
-                if (dirtyState) {
+                if (dirtyState && dimFactor > 0.02) {
                     var ring = getDirtyRingSprite();
                     if (ring) {
                         ring.scale.set(baseScale, baseScale, 1);
+                        ring.material.opacity = dimFactor;
                         group.add(ring);
                     }
                 }
 
                 // Note indicator — breathing note-colored ring + dot for annotated files.
                 // The motion is what makes notes stand out at any zoom, whatever else glows.
-                if (noteInfo) {
+                if (noteInfo && dimFactor > 0.02) {
                     var noteRing = getNoteRingSprite(noteInfo.color);
                     if (noteRing) {
-                        attachNotePulse(noteRing, baseScale);
+                        attachNotePulse(noteRing, baseScale, dimFactor);
                         group.add(noteRing);
                     }
                     var noteDot = getNoteDotSprite(noteInfo.color);
                     if (noteDot) {
-                        attachNotePulse(noteDot, baseScale);
+                        attachNotePulse(noteDot, baseScale, dimFactor);
                         group.add(noteDot);
                     }
                 }
@@ -1330,6 +1397,31 @@
         graphContainer.addEventListener('contextmenu', function(e) {
             e.preventDefault();
         });
+
+        // --- Missed-pointerup self-healing ---------------------------------
+        // 3d-force-graph records the press on the container (isPointerPressed /
+        // isPointerDragging) and TrackballControls on the canvas. When the mouse
+        // button is released outside the webview (over the VS Code UI), that
+        // pointerup never reaches this document: the press stays "down", which
+        // swallows the next click and freezes hover until another release
+        // arrives — clicks appear to randomly do nothing, and a graph refresh
+        // cannot fix it. Detect the missed release and dispatch a synthetic
+        // pointerup so both layers reset (the library early-returns when a drag
+        // was in progress, so no spurious click is triggered).
+        graphContainer.removeEventListener('pointerdown', onCanvasPointerDownHeal, true);
+        graphContainer.addEventListener('pointerdown', onCanvasPointerDownHeal, true);
+        graphContainer.removeEventListener('pointerup', onCanvasPointerUpHeal, true);
+        graphContainer.addEventListener('pointerup', onCanvasPointerUpHeal, true);
+        graphContainer.removeEventListener('pointercancel', healMissedPointerUp);
+        graphContainer.addEventListener('pointercancel', healMissedPointerUp);
+        document.removeEventListener('pointermove', onHealCheckMove, true);
+        document.addEventListener('pointermove', onHealCheckMove, true);
+        document.removeEventListener('pointerdown', onHealCheckDown, true);
+        document.addEventListener('pointerdown', onHealCheckDown, true);
+        document.removeEventListener('pointerup', onHealCheckUp, true);
+        document.addEventListener('pointerup', onHealCheckUp, true);
+        window.removeEventListener('blur', healMissedPointerUp);
+        window.addEventListener('blur', healMissedPointerUp);
 
         setTimeout(function() {
             graph.zoomToFit(500, 50);
@@ -2228,6 +2320,33 @@
     // ============================================================
     // Node Visuals
     // ============================================================
+    /**
+     * Append an alpha channel to a CSS color. String concat only works for hex
+     * colors — heatmap colors are `rgb(r,g,b)` and would become invalid
+     * ("rgb(1,2,3)15" is not parseable by THREE.Color).
+     */
+    function withAlpha(color, alphaHex) {
+        if (typeof color !== 'string') return color;
+        if (color.charAt(0) === '#') return color + alphaHex;
+        var m = color.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/);
+        if (m) {
+            return 'rgba(' + m[1] + ',' + m[2] + ',' + m[3] + ',' +
+                (parseInt(alphaHex, 16) / 255).toFixed(3) + ')';
+        }
+        return color;
+    }
+
+    /** Opacity 0..1 encoded in a CSS color ('#rrggbbaa' / rgba()). Defaults to 1. */
+    function colorAlpha(color) {
+        if (typeof color !== 'string') return 1;
+        if (color.charAt(0) === '#') {
+            return color.length === 9 ? parseInt(color.slice(7, 9), 16) / 255 : 1;
+        }
+        var m = color.match(/^rgba\([^,]+,[^,]+,[^,]+,\s*([\d.]+)\)$/);
+        if (m) return parseFloat(m[1]);
+        return 1;
+    }
+
     function getNodeColor(node) {
         // Query filter (highlight mode dims non-matching nodes)
         if (queryActive && queryMode === 'highlight' && !querySet.has(node.id)) {
@@ -2272,7 +2391,7 @@
                 return '#ffffff11';
             }
             if (pathNodes.length === 1 && pathNodes[0].id === node.id) return '#4caf50';
-            return (LANGUAGE_COLORS[node.language] || '#ffffff') + '44';
+            return withAlpha(LANGUAGE_COLORS[node.language] || '#ffffff', '44');
         }
 
         // Flow trace mode — animated call propagation
@@ -2301,12 +2420,12 @@
                 var allActive = activeCommunities.size === Object.keys(communityNames).length;
                 if (!isActive) return '#ffffff08';
                 if (pinnedNode && blastMode) {
-                    if (!pinnedNodes.has(node)) return cColor + '15';
+                    if (!pinnedNodes.has(node)) return withAlpha(cColor, '15');
                     var bdc = blastDepths[node.id];
                     return BLAST_COLORS[Math.min(bdc || 0, BLAST_COLORS.length - 1)];
                 }
-                if (pinnedNode) return pinnedNodes.has(node) ? cColor : cColor + '15';
-                if (!allActive && highlightNodes.size > 0 && !highlightNodes.has(node)) return cColor + '44';
+                if (pinnedNode) return pinnedNodes.has(node) ? cColor : withAlpha(cColor, '15');
+                if (!allActive && highlightNodes.size > 0 && !highlightNodes.has(node)) return withAlpha(cColor, '44');
                 return cColor;
             }
             var value;
@@ -2322,12 +2441,12 @@
             var norm = normalizeMetric(value, heatmapMode);
             var color = heatmapColor(norm, HEATMAP_SCALES[heatmapMode]);
             if (pinnedNode && blastMode) {
-                if (!pinnedNodes.has(node)) return color + '15';
+                if (!pinnedNodes.has(node)) return withAlpha(color, '15');
                 var bd = blastDepths[node.id];
                 return BLAST_COLORS[Math.min(bd || 0, BLAST_COLORS.length - 1)];
             }
-            if (pinnedNode) return pinnedNodes.has(node) ? color : color + '15';
-            if (highlightNodes.size > 0 && !highlightNodes.has(node)) return color + '44';
+            if (pinnedNode) return pinnedNodes.has(node) ? color : withAlpha(color, '15');
+            if (highlightNodes.size > 0 && !highlightNodes.has(node)) return withAlpha(color, '44');
             return color;
         }
 
@@ -2337,12 +2456,12 @@
         var baseColor = LANGUAGE_COLORS[langKeyFinal] || '#ffffff';
 
         if (pinnedNode && blastMode) {
-            if (!pinnedNodes.has(node)) return baseColor + '15';
+            if (!pinnedNodes.has(node)) return withAlpha(baseColor, '15');
             var bd2 = blastDepths[node.id];
             return BLAST_COLORS[Math.min(bd2 || 0, BLAST_COLORS.length - 1)];
         }
-        if (pinnedNode) return pinnedNodes.has(node) ? baseColor : baseColor + '15';
-        if (highlightNodes.size > 0 && !highlightNodes.has(node)) return baseColor + '44';
+        if (pinnedNode) return pinnedNodes.has(node) ? baseColor : withAlpha(baseColor, '15');
+        if (highlightNodes.size > 0 && !highlightNodes.has(node)) return withAlpha(baseColor, '44');
         return baseColor;
     }
 
@@ -4032,6 +4151,7 @@
         panel.classList.toggle('hidden', !visible);
         if (btn) btn.classList.toggle('active', !!visible);
         if (visible) renderWarpsPanel();
+        saveViewState(); // open/closed state persists across sessions
     }
 
     function toggleWarpsPanel() {
@@ -4125,8 +4245,18 @@
                 panel.style.left = x + 'px';
                 panel.style.top = y + 'px';
             });
-            document.addEventListener('mouseup', function () { dragging = false; });
+            document.addEventListener('mouseup', function () {
+                if (!dragging) return;
+                dragging = false;
+                saveViewState(); // persist the dragged position
+            });
         })();
+
+        // CSS resize: both — persist user-resized dimensions (no mouseup to hook).
+        if (window.ResizeObserver) {
+            var warpsPanelEl = $('#warps-panel');
+            if (warpsPanelEl) new ResizeObserver(function () { schedulePaletteSave(); }).observe(warpsPanelEl);
+        }
 
         renderWarpsPanel();
     }
@@ -4578,11 +4708,22 @@
     // ============================================================
     var dirtyRingSprite = null;
 
+    /**
+     * Clone a sprite with its OWN material. THREE's clone() shares the material
+     * instance, so a per-node opacity (dimming) written on one clone leaks onto
+     * every other clone sharing it — the last write wins for all of them.
+     */
+    function cloneSpriteWithMaterial(sprite) {
+        var clone = sprite.clone();
+        clone.material = sprite.material.clone();
+        return clone;
+    }
+
     /** Amber ring drawn once, then cloned — shown around files with uncommitted changes. */
     function getDirtyRingSprite() {
         var T = window.THREE;
         if (!T) return null;
-        if (dirtyRingSprite) return dirtyRingSprite.clone();
+        if (dirtyRingSprite) return cloneSpriteWithMaterial(dirtyRingSprite);
 
         var size = 128;
         var canvas = document.createElement('canvas');
@@ -4610,7 +4751,7 @@
         var material = new T.SpriteMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false });
         var sprite = new T.Sprite(material);
         dirtyRingSprite = sprite;
-        return sprite.clone();
+        return cloneSpriteWithMaterial(sprite);
     }
 
     /** Git state of a node, or null when it has no uncommitted changes. */
@@ -4635,7 +4776,7 @@
         var T = window.THREE;
         if (!T) return null;
         var hex = NOTE_COLORS[colorKey] || NOTE_COLORS.yellow;
-        if (noteDotSprites[hex]) return noteDotSprites[hex].clone();
+        if (noteDotSprites[hex]) return cloneSpriteWithMaterial(noteDotSprites[hex]);
 
         // Same canvas scale as the dirty ring (128px, ring radius 0.30)
         // so the dot sits on the ring's top-right diagonal.
@@ -4664,7 +4805,7 @@
         var material = new T.SpriteMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false });
         var sprite = new T.Sprite(material);
         noteDotSprites[hex] = sprite;
-        return sprite.clone();
+        return cloneSpriteWithMaterial(sprite);
     }
 
     var noteRingSprites = {};
@@ -4674,7 +4815,7 @@
         var T = window.THREE;
         if (!T) return null;
         var hex = NOTE_COLORS[colorKey] || NOTE_COLORS.yellow;
-        if (noteRingSprites[hex]) return noteRingSprites[hex].clone();
+        if (noteRingSprites[hex]) return cloneSpriteWithMaterial(noteRingSprites[hex]);
 
         // Same canvas scale as the dirty ring (128px) but a tighter radius (0.22 vs 0.30),
         // so a noted+dirty file shows two nested rings instead of one ambiguous circle.
@@ -4704,7 +4845,7 @@
         var material = new T.SpriteMaterial({ map: texture, transparent: true, depthTest: false, depthWrite: false });
         var sprite = new T.Sprite(material);
         noteRingSprites[hex] = sprite;
-        return sprite.clone();
+        return cloneSpriteWithMaterial(sprite);
     }
 
     // ============================================================
@@ -4719,14 +4860,17 @@
      * Attach the per-frame breathing to a note sprite. Driven from onBeforeRender:
      * no global timer, the animation lives and dies with the sprite itself.
      */
-    function attachNotePulse(sprite, baseScale) {
+    function attachNotePulse(sprite, baseScale, opacityFactor) {
         sprite.userData.noteBaseScale = baseScale;
+        // Dimmed nodes keep dimmed rings — the factor multiplies the breathing
+        // opacity so the pulse never brightens a ghost.
+        sprite.userData.noteOpacityFactor = (typeof opacityFactor === 'number') ? opacityFactor : 1;
         sprite.onBeforeRender = function () {
             var t = performance.now() / NOTE_PULSE_MS * Math.PI * 2;
             var pulse = 0.5 + 0.5 * Math.sin(t); // 0..1
             var s = this.userData.noteBaseScale * (NOTE_PULSE_SCALE_MIN + NOTE_PULSE_SCALE_AMP * pulse);
             this.scale.set(s, s, 1);
-            this.material.opacity = NOTE_PULSE_ALPHA_MIN + (1 - NOTE_PULSE_ALPHA_MIN) * pulse;
+            this.material.opacity = (NOTE_PULSE_ALPHA_MIN + (1 - NOTE_PULSE_ALPHA_MIN) * pulse) * this.userData.noteOpacityFactor;
             // matrixWorld was computed before rendering — refresh it for the new scale.
             this.updateMatrixWorld(true);
         };
@@ -4887,6 +5031,58 @@
     // ============================================================
     // View State Persistence
     // ============================================================
+    /** Position/size of a user-moved or user-resized floating panel, or null. */
+    function capturePalettePosition(el) {
+        if (!el || !el.style) return null;
+        var out = null;
+        if (el.style.left) {
+            out = { left: el.style.left, top: el.style.top };
+        }
+        if (el.style.width || el.style.height) {
+            out = out || {};
+            if (el.style.width) out.width = el.style.width;
+            if (el.style.height) out.height = el.style.height;
+        }
+        return out;
+    }
+
+    /** Restore a saved palette position/size, clamped to the current viewport. */
+    function restorePalettePosition(el, pos, alsoBottom) {
+        if (!el || !pos) return;
+        if (pos.width || pos.height) {
+            if (pos.width) el.style.width = pos.width;
+            if (pos.height) el.style.height = pos.height;
+        }
+        if (pos.left === undefined || pos.top === undefined) return;
+        var left = parseInt(pos.left, 10);
+        var top = parseInt(pos.top, 10);
+        if (!isFinite(left) || !isFinite(top)) return;
+        left = Math.max(0, Math.min(left, window.innerWidth - 60));
+        top = Math.max(0, Math.min(top, window.innerHeight - 40));
+        el.style.left = left + 'px';
+        el.style.top = top + 'px';
+        el.style.right = 'auto';
+        if (alsoBottom) el.style.bottom = 'auto';
+    }
+
+    /** Debounced view-state save — native CSS resizes have no mouseup to hook. */
+    var paletteSaveTimer = null;
+    function schedulePaletteSave() {
+        if (paletteSaveTimer) clearTimeout(paletteSaveTimer);
+        paletteSaveTimer = setTimeout(function () {
+            paletteSaveTimer = null;
+            saveViewState();
+        }, 400);
+    }
+
+    /** Whether the warps panel should be open — even when a tab switch force-hides it. */
+    function warpsPanelVisibleIntent() {
+        var wp = $('#warps-panel');
+        if (!wp) return false;
+        if (activeTab === 'graph') return !wp.classList.contains('hidden');
+        return !!wp._wasVisible;
+    }
+
     function collectViewState() {
         return {
             activeLanguages: Array.from(activeLanguages),
@@ -4904,7 +5100,14 @@
             spreadMultiplier: spreadMultiplier,
             focusDepth: focusDepth,
             showExplorer: showExplorer,
-            showMinimap: !$('#minimap').classList.contains('hidden')
+            showMinimap: !$('#minimap').classList.contains('hidden'),
+            showWarps: warpsPanelVisibleIntent(),
+            // Floating panels — keep user-dragged positions across sessions
+            palettePositions: {
+                warps: capturePalettePosition($('#warps-panel')),
+                community: capturePalettePosition($('#community-palette')),
+                minimap: capturePalettePosition($('#minimap'))
+            }
         };
     }
 
@@ -5002,6 +5205,19 @@
             var mmBtn = $('#btn-minimap');
             if (mm) mm.classList.toggle('hidden', !state.showMinimap);
             if (mmBtn) mmBtn.classList.toggle('active', !!state.showMinimap);
+        }
+
+        // Warps panel — graph-tab-only panel: a tab switch force-hides it
+        // without changing the user's intent (kept in _wasVisible).
+        if (typeof state.showWarps === 'boolean') {
+            setWarpsPanelVisible(state.showWarps);
+        }
+
+        // Floating palette positions (drag positions persist across sessions)
+        if (state.palettePositions) {
+            restorePalettePosition($('#warps-panel'), state.palettePositions.warps);
+            restorePalettePosition($('#community-palette'), state.palettePositions.community);
+            restorePalettePosition($('#minimap'), state.palettePositions.minimap, true);
         }
 
         // Apply to graph
@@ -5290,9 +5506,17 @@
             });
 
             document.addEventListener('mouseup', function() {
+                if (!dragging) return;
                 dragging = false;
+                saveViewState(); // persist the dragged position
             });
         })();
+
+        // CSS resize: both — persist user-resized dimensions (no mouseup to hook).
+        if (window.ResizeObserver) {
+            var communityPaletteEl = $('#community-palette');
+            if (communityPaletteEl) new ResizeObserver(function () { schedulePaletteSave(); }).observe(communityPaletteEl);
+        }
 
         // ============================================================
         // Minimap — 2D top-down overview with camera viewport rectangle
@@ -5327,7 +5551,11 @@
                 container.style.left = x + 'px';
                 container.style.top = y + 'px';
             });
-            document.addEventListener('mouseup', function() { dragging = false; });
+            document.addEventListener('mouseup', function() {
+                if (!dragging) return;
+                dragging = false;
+                saveViewState(); // persist the dragged position
+            });
 
             // --- Helpers: camera-view projection with fixed centroid ---
             // Projects world positions onto the camera's screen plane
@@ -6835,7 +7063,7 @@
         // Show/hide graph-only UI elements
         var filterBar = $('#filter-bar');
         var timeBar = $('#timeline-bar');
-        var overlays = ['#heatmap-legend', '#community-palette', '#minimap', '#tooltip'];
+        var overlays = ['#heatmap-legend', '#community-palette', '#minimap', '#warps-panel', '#tooltip'];
 
         if (tabName !== 'graph') {
             if (prevTab === 'graph') {
