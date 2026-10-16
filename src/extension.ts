@@ -30,6 +30,7 @@ let riskSnapshot: RiskSnapshot | undefined;
 let riskSnapshotDirty = true;
 let workingTreeFiles: Map<string, GitFileState> = new Map();
 let workingTreeTimer: ReturnType<typeof setTimeout> | undefined;
+let startupWorkingTreeTimer: ReturnType<typeof setTimeout> | undefined;
 /** '' = checked, not a git repo (avoids re-probing on every save). */
 let gitRepoRoot: string | undefined;
 let statusBarItem: vscode.StatusBarItem | undefined;
@@ -158,8 +159,13 @@ export function activate(context: vscode.ExtensionContext): void {
         loadFromDbThenRefresh(context);
     }
 
-    // Prime the working-tree status (dirty files) for the risk status bar
-    void refreshWorkingTree();
+    // Prime the working-tree status (dirty files) for the risk status bar.
+    // Deferred ~2.5 s: `git status --untracked-files=all` is CPU-heavy on big
+    // repos and used to compete with the initial analysis / first graph render.
+    startupWorkingTreeTimer = setTimeout(() => {
+        startupWorkingTreeTimer = undefined;
+        void refreshWorkingTree();
+    }, 2500);
 }
 
 /**
@@ -1290,6 +1296,7 @@ export function deactivate(): void {
     fileWatcher?.dispose();
     if (refreshTimeout) clearTimeout(refreshTimeout);
     if (workingTreeTimer) clearTimeout(workingTreeTimer);
+    if (startupWorkingTreeTimer) clearTimeout(startupWorkingTreeTimer);
     if (historyWorker) {
         historyWorker.terminate();
         historyWorker = undefined;
