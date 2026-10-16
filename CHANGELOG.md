@@ -5,6 +5,21 @@ All notable changes to Aura Visualizer are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2026-10-16
+
+### Added
+- **Function flowcharts** ⑂ — click the ⑂ button next to a function in the detail panel (JS/TS/TSX, Python, C, C++) to open its **control-flow chart**, built on demand from the AST: conditions fork into `T`/`F` branches that re-join, loops get a framed body with their back edge, `switch` cases line up as columns, `try`/`catch`/`finally` stack as labelled frames. Dead code after a jump shows as red dashed boxes, the badge counts decision points. Click any step to open the file at its line, drill into calls through the breadcrumb, export a standalone **SVG**, and drag or resize the window.
+- Floating panels (Warps, Communities, Minimap) keep their dragged **position** — and Warps/Communities their resized **size** — across sessions; the Warps panel also keeps its open state.
+
+### Fixed
+- Dirty/note rings now dim (or hide) together with their node; `rgb()` heatmap colors dim correctly (they previously received an invalid hex-alpha suffix).
+- Node clicks no longer go dead after releasing the mouse outside the webview — the stuck press state is detected and self-healed.
+- The Warps panel is hidden outside the graph tab, like the minimap and the communities palette.
+- The dirty overlay (amber rings) refreshes automatically after commits, staging and checkouts — it used to wait for the next file save.
+
+### Changed
+- README, walkthrough and the in-app help document function flowcharts; tab descriptions refreshed.
+
 ## [1.3.0] - 2026-10-14
 
 ### Added
