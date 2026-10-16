@@ -689,6 +689,9 @@ export class WebviewProvider {
         const viewsUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'views.js')
         );
+        const warpsUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'warps.js')
+        );
         const forceGraphUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'lib', '3d-force-graph.min.js')
         );
@@ -1633,6 +1636,7 @@ export class WebviewProvider {
     <script nonce="${nonce}" src="${flightUri}"></script>
     <script nonce="${nonce}" src="${flowUri}"></script>
     <script nonce="${nonce}" src="${viewsUri}"></script>
+    <script nonce="${nonce}" src="${warpsUri}"></script>
     <script nonce="${nonce}" src="${appUri}"></script>
 </body>
 </html>`;
