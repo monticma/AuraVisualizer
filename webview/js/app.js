@@ -492,7 +492,7 @@
         setTimeout(function () { applyEngineBudget(); }, 200);
 
         // Update language buttons
-        updateLanguageButtons(graphData.nodes);
+        updateLanguageButtons(graphData.nodes, true);
 
         // Update explorer
         buildExplorerTree(graphData.nodes);
@@ -4359,7 +4359,7 @@
     // ============================================================
     // Filters
     // ============================================================
-    function updateLanguageButtons(nodes) {
+    function updateLanguageButtons(nodes, keepUserSelection) {
         var presentLangs = new Set();
         for (var i = 0; i < nodes.length; i++) {
             var langKey = nodes[i].language;
@@ -4372,9 +4372,14 @@
             var btn = langBtns[j];
             var lang = btn.dataset.lang;
             if (presentLangs.has(lang)) {
+                var wasHidden = (btn.style.display === 'none');
                 btn.style.display = '';
                 // Documentation is opt-in: only show the button, but don't auto-activate
                 if (lang === 'documentation') continue;
+                // On incremental updates (graph deltas) keep the user's choice:
+                // a language that is already visible keeps its filter state — only
+                // a language that just appeared gets switched on.
+                if (keepUserSelection && !wasHidden) continue;
                 if (!activeLanguages.has(lang)) activeLanguages.add(lang);
                 btn.classList.add('active');
             } else {
