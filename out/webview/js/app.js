@@ -290,6 +290,7 @@
                 break;
             case 'restoreViewState':
                 if (message.payload) applyViewState(message.payload);
+                viewStateReady = true;
                 break;
             case 'chatChunk':
             case 'chatDone':
@@ -399,6 +400,9 @@
         try { vscode.postMessage({ type: 'requestSavedQueries' }); } catch (_) { /* noop */ }
         // Request saved view state from extension (pull model — guarantees graph is ready)
         vscode.postMessage({ type: 'requestViewState' });
+        // Safety net: if no state is stored (fresh workspace) or the host never
+        // answers, re-enable saving after a grace period.
+        setTimeout(function() { viewStateReady = true; }, 5000);
     }
 
     function handleGraphDelta(delta) {
@@ -863,7 +867,7 @@
         for (var h = 1; h < files.length; h++) {
             if ((files[h].fanIn || 0) > (hub.fanIn || 0)) hub = files[h];
         }
-        return hub.name.replace(/\.[^.]+$/, '');
+        return String(hub.name || hub.id || '?').replace(/\.[^.]+$/, '');
     }
 
     function buildCommunityList() {
@@ -4463,7 +4467,17 @@
         };
     }
 
+    /**
+     * Nothing may be persisted before the initial restore is applied: boot-time
+     * savers (palette ResizeObserver → schedulePaletteSave, warps setVisible)
+     * would otherwise overwrite the stored state with defaults — the analysis
+     * can take seconds, and requestViewState/restoreViewState only round-trips
+     * after the graph data arrives.
+     */
+    var viewStateReady = false;
+
     function saveViewState() {
+        if (!viewStateReady) return;
         vscode.postMessage({ type: 'saveViewState', payload: collectViewState() });
     }
 
