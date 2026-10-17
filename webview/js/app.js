@@ -139,8 +139,6 @@
 
     var graphContainer = $('#graph-container');
     var loadingOverlay = $('#loading-overlay');
-    var searchInput = $('#search-input');
-    var searchResults = $('#search-results');
     var detailPanel = $('#detail-panel');
     var explorerPanel = $('#explorer-panel');
     var toggleExplorerBtn = $('#btn-toggle-explorer');
@@ -294,37 +292,10 @@
                 if (message.payload) applyViewState(message.payload);
                 break;
             case 'chatChunk':
-                if (message.payload && message.payload.id === chatCurrentId) {
-                    chatCurrentText += message.payload.text || '';
-                    if (chatCurrentEl) chatCurrentEl.textContent = chatCurrentText;
-                    chatScrollToBottom();
-                }
-                break;
             case 'chatDone':
-                if (message.payload && message.payload.id === chatCurrentId) {
-                    chatCurrentText = message.payload.fullText || chatCurrentText;
-                    if (chatCurrentEl) chatCurrentEl.innerHTML = chatRenderCitations(chatCurrentText);
-                    chatBusy = false;
-                    var sbDone = $('#chat-send');
-                    if (sbDone) sbDone.disabled = false;
-                    chatScrollToBottom();
-                }
-                break;
             case 'chatError':
-                if (message.payload && message.payload.id === chatCurrentId) {
-                    chatBusy = false;
-                    var sbErr = $('#chat-send');
-                    if (sbErr) sbErr.disabled = false;
-                    chatAddMessage('error', null, 'Error: ' + (message.payload.message || 'unknown'));
-                    chatScrollToBottom();
-                }
-                break;
             case 'chatTool':
-                if (message.payload && message.payload.id === chatCurrentId) {
-                    chatCurrentText += '\n\n🔧 ' + (message.payload.name || 'tool') + '…\n';
-                    if (chatCurrentEl) chatCurrentEl.textContent = chatCurrentText;
-                    chatScrollToBottom();
-                }
+                if (window.AuraChat) window.AuraChat.handleHostMessage(message.type, message.payload);
                 break;
         }
     });
@@ -332,124 +303,32 @@
     // Tell the extension we're ready
     vscode.postMessage({ type: 'ready' });
 
-    // ============================================================
-    // Chat (Aura Assistant)
-    // ============================================================
-    var chatBusy = false;
-    var chatCurrentId = null;
-    var chatCurrentEl = null;
-    var chatCurrentText = '';
-
-    function chatEscapeHtml(s) {
-        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
-
-    // Convert `path/to/file.ext:42` patterns into clickable citations.
-    function chatRenderCitations(text) {
-        var escaped = chatEscapeHtml(text);
-        var re = /([\w./-]+\.[A-Za-z0-9]{1,6})(?::(\d+))?/g;
-        return escaped.replace(re, function(match, file, line) {
-            return '<span class="chat-cite" data-file="' + chatEscapeHtml(file) + '" data-line="' + (line || '') + '">' + match + '</span>';
-        });
-    }
-
-    function chatScrollToBottom() {
-        var m = $('#chat-messages');
-        if (m) m.scrollTop = m.scrollHeight;
-    }
-
-    function chatOpenCitation(file, line) {
-        vscode.postMessage({ type: 'openFile', payload: { path: file, line: line ? parseInt(line, 10) : undefined } });
-        if (typeof focusNodeById === 'function') focusNodeById(file);
-    }
-
-    function chatAddMessage(role, html, rawText) {
-        var container = $('#chat-messages');
-        if (!container) return null;
-        var el = document.createElement('div');
-        el.className = 'chat-msg ' + role;
-        if (html) el.innerHTML = html;
-        else el.textContent = rawText || '';
-        container.appendChild(el);
-        chatScrollToBottom();
-        return el;
-    }
-
-    function chatSend() {
-        if (chatBusy) return;
-        var input = $('#chat-input');
-        if (!input) return;
-        var prompt = (input.value || '').trim();
-        if (!prompt) return;
-
-        input.value = '';
-        chatAddMessage('user', null, prompt);
-
-        chatBusy = true;
-        chatCurrentId = 'c_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-        chatCurrentText = '';
-        chatCurrentEl = chatAddMessage('assistant', '', '');
-        var sendBtn = $('#chat-send');
-        if (sendBtn) sendBtn.disabled = true;
-
-        vscode.postMessage({ type: 'chatRequest', payload: { id: chatCurrentId, prompt: prompt } });
-    }
-
-    function setupChat() {
-        var toggle = $('#chat-toggle');
-        var closeBtn = $('#chat-close');
-        var clearBtn = $('#chat-clear');
-        var sendBtn = $('#chat-send');
-        var input = $('#chat-input');
-
-        function setOpen(open) {
-            var panel = $('#chat-panel');
-            if (open) {
-                document.body.classList.add('chat-open');
-                if (toggle) toggle.classList.add('active');
-                if (panel) panel.classList.remove('collapsed');
-                // Focus after the slide-in transition, to avoid a horizontal scroll jump
-                if (input) setTimeout(function() { input.focus(); }, 280);
-            } else {
-                if (panel) panel.classList.add('collapsed');
-                document.body.classList.remove('chat-open');
-                if (toggle) toggle.classList.remove('active');
-            }
-        }
-
-        if (toggle) toggle.addEventListener('click', function(e) {
-            if (e) { e.preventDefault(); e.stopPropagation(); }
-            var panel = $('#chat-panel');
-            setOpen(panel ? panel.classList.contains('collapsed') : true);
-        });
-        if (closeBtn) closeBtn.addEventListener('click', function(e) { if (e) e.stopPropagation(); setOpen(false); });
-        if (clearBtn) clearBtn.addEventListener('click', function(e) {
-            if (e) e.stopPropagation();
-            var m = $('#chat-messages');
-            if (m) m.innerHTML = '';
-        });
-        if (sendBtn) sendBtn.addEventListener('click', function(e) { if (e) e.stopPropagation(); chatSend(); });
-        if (input) {
-            input.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    chatSend();
-                }
-            });
-        }
-
-        var msgs = $('#chat-messages');
-        if (msgs) msgs.addEventListener('click', function(e) {
-            var cite = e.target && e.target.closest ? e.target.closest('.chat-cite') : null;
-            if (cite) chatOpenCitation(cite.getAttribute('data-file'), cite.getAttribute('data-line'));
-        });
-    }
 
     // ============================================================
     // Initialization
     // ============================================================
     function init() {
-        setupSearch();
+        // Satellite modules — inject live-state hooks (getters, so no staleness)
+        if (window.AuraChat) {
+            AuraChat.init({
+                postMessage: function (msg) { vscode.postMessage(msg); },
+                focusNode: focusNodeById
+            });
+        }
+        if (window.AuraPanels) {
+            AuraPanels.init({
+                getGraph: function () { return graph; },
+                getActiveTab: function () { return activeTab; },
+                getCommunityMap: function () { return communityMap; },
+                getCommunityColors: function () { return communityColors; },
+                getMetricRanges: function () { return metricRanges; },
+                getGraphData: function () { return graphData; },
+                showCommunityPalette: showCommunityPalette,
+                hideCommunityPalette: hideCommunityPalette,
+                selectNode: handleNodeClick
+            });
+            AuraPanels.setupSearch();
+        }
         setupFilters();
         setupPanelClose();
         setupRefresh();
@@ -457,7 +336,7 @@
         setupTimeline();
         setupTabs();
         setupQueryBar();
-        setupChat();
+        if (window.AuraChat) AuraChat.setup();
         setupRisk();
         setupBottomBarsOffset();
         vscode.postMessage({ type: 'requestSavedQueries' });
@@ -3988,78 +3867,12 @@
         hoveredSymbolId = null;
     }
 
-    // ============================================================
-    // Heatmap
-    // ============================================================
-    function formatLegendDate(timestamp) {
-        if (!timestamp || timestamp === Infinity || timestamp === -Infinity) return '—';
-        var d = new Date(timestamp);
-        return d.toLocaleDateString();
-    }
 
+    // Heatmap mode — the visuals (legend, community palette, recolor) live in
+    // panels.js; this thin wrapper owns the state bit so the call sites stay put.
     function setHeatmapMode(mode) {
         heatmapMode = mode;
-        var legend = $('#heatmap-legend');
-        // The legend and the community palette are overlays of the 3D view: only
-        // show them there. A late state restore (restoreViewState) can call this
-        // while another tab is active — switchTab re-derives them on return.
-        var graphTabActive = (activeTab === 'graph');
-
-        // Show/hide community palette
-        if (mode === 'community') {
-            if (graphTabActive) showCommunityPalette();
-        } else {
-            hideCommunityPalette();
-        }
-
-        if (mode === 'off') {
-            legend.classList.add('hidden');
-        } else if (mode === 'community') {
-            if (graphTabActive) legend.classList.remove('hidden');
-            $('#legend-mode').textContent = HEATMAP_LABELS[mode] || mode;
-
-            // Count communities
-            var commCounts = {};
-            for (var nid in communityMap) {
-                var c = communityMap[nid];
-                commCounts[c] = (commCounts[c] || 0) + 1;
-            }
-            var numComm = Object.keys(commCounts).length;
-
-            var gradient = $('#legend-gradient');
-            // Build gradient from community colors
-            var stops = [];
-            for (var ci = 0; ci < Math.min(numComm, GROUP_COLORS.length); ci++) {
-                stops.push(communityColors[ci] || GROUP_COLORS[ci]);
-            }
-            if (stops.length > 0) {
-                gradient.style.background = 'linear-gradient(to right, ' + stops.join(', ') + ')';
-            }
-            $('#legend-low').textContent = numComm + ' communities';
-            $('#legend-high').textContent = '';
-        } else {
-            if (graphTabActive) legend.classList.remove('hidden');
-            $('#legend-mode').textContent = HEATMAP_LABELS[mode] || mode;
-
-            var gradient = $('#legend-gradient');
-            var scale = HEATMAP_SCALES[mode];
-            if (scale) {
-                gradient.style.background = 'linear-gradient(to right, ' + scale.join(', ') + ')';
-            }
-
-            var range = metricRanges[mode];
-            if (range) {
-                if (mode === 'lastModified') {
-                    $('#legend-low').textContent = formatLegendDate(range.min);
-                    $('#legend-high').textContent = formatLegendDate(range.max);
-                } else {
-                    $('#legend-low').textContent = range.min;
-                    $('#legend-high').textContent = range.max;
-                }
-            }
-        }
-
-        if (graph) graph.nodeColor(graph.nodeColor());
+        if (window.AuraPanels) window.AuraPanels.applyHeatmapMode(mode);
     }
 
     // ============================================================
@@ -4186,79 +3999,6 @@
         return { nodes: clusterNodes, links: clusterLinks };
     }
 
-    // ============================================================
-    // Search
-    // ============================================================
-    function setupSearch() {
-        searchInput.addEventListener('input', function(e) {
-            var query = e.target.value.trim().toLowerCase();
-            if (query.length < 2 || !graphData) {
-                searchResults.classList.add('hidden');
-                return;
-            }
-
-            var results = [];
-            for (var i = 0; i < graphData.nodes.length; i++) {
-                var n = graphData.nodes[i];
-                if (n.name.toLowerCase().indexOf(query) !== -1 ||
-                    n.path.toLowerCase().indexOf(query) !== -1) {
-                    results.push(n);
-                    if (results.length >= 10) break;
-                }
-            }
-
-            if (results.length === 0) {
-                searchResults.classList.add('hidden');
-                return;
-            }
-
-            searchResults.innerHTML = '';
-            for (var r = 0; r < results.length; r++) {
-                (function(node) {
-                    var item = document.createElement('div');
-                    item.className = 'search-result-item';
-                    item.innerHTML =
-                        '<span style="color:' + (LANGUAGE_COLORS[node.language] || '#fff') + '">' +
-                            (LANGUAGE_ICONS[node.language] || '📄') +
-                        '</span>' +
-                        '<div>' +
-                            '<div class="result-name">' + highlightMatch(node.name, query) + '</div>' +
-                            '<div class="result-path">' + escapeHtml(node.path) + '</div>' +
-                        '</div>';
-                    item.addEventListener('click', function() {
-                        handleNodeClick(node);
-                        searchResults.classList.add('hidden');
-                        searchInput.value = node.name;
-                    });
-                    searchResults.appendChild(item);
-                })(results[r]);
-            }
-
-            searchResults.classList.remove('hidden');
-        });
-
-        document.addEventListener('click', function(e) {
-            if (!e.target.closest('#search-container')) {
-                searchResults.classList.add('hidden');
-            }
-        });
-
-        searchInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                searchResults.classList.add('hidden');
-                searchInput.blur();
-            }
-        });
-    }
-
-    function highlightMatch(text, query) {
-        var idx = text.toLowerCase().indexOf(query);
-        if (idx === -1) return escapeHtml(text);
-        return escapeHtml(text.slice(0, idx)) +
-               '<strong style="color:#60a5fa">' +
-               escapeHtml(text.slice(idx, idx + query.length)) + '</strong>' +
-               escapeHtml(text.slice(idx + query.length));
-    }
 
     function escapeHtml(str) {
         return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
