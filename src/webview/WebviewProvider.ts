@@ -692,6 +692,9 @@ export class WebviewProvider {
         const warpsUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'warps.js')
         );
+        const timelineUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'timeline.js')
+        );
         const panelsUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'panels.js')
         );
@@ -1643,6 +1646,7 @@ export class WebviewProvider {
     <script nonce="${nonce}" src="${flowUri}"></script>
     <script nonce="${nonce}" src="${viewsUri}"></script>
     <script nonce="${nonce}" src="${warpsUri}"></script>
+    <script nonce="${nonce}" src="${timelineUri}"></script>
     <script nonce="${nonce}" src="${panelsUri}"></script>
     <script nonce="${nonce}" src="${chatUri}"></script>
     <script nonce="${nonce}" src="${appUri}"></script>
