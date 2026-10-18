@@ -359,10 +359,12 @@
                 getGraph: function () { return graph; },
                 postMessage: function (msg) { vscode.postMessage(msg); },
                 selectNode: handleNodeClick,
+                findNode: findNode,
                 showGraphTab: function () { switchTab('graph'); },
                 showRiskTab: function () { switchTab('risk'); },
                 getHeatmapMode: function () { return heatmapMode; },
-                refreshGraphColors: function () { refreshGraphColors(); }
+                refreshGraphColors: function () { refreshGraphColors(); },
+                computeMetricRanges: function () { computeMetricRanges(); }
             });
             AuraRiskMap.setup();
         }

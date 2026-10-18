@@ -224,7 +224,7 @@
     function focusRiskFile(id) {
         hooks.showGraphTab();
         requestAnimationFrame(function() {
-            var node = findNode(id);
+            var node = hooks.findNode(id);
             if (node && hooks.getGraph()) {
                 // Full selection: highlight, fly camera, and open the detail panel
                 hooks.selectNode(node);
@@ -696,7 +696,7 @@
                 if (!v || RISK_WINDOWS.indexOf(v) === -1) return;
                 riskWindowDays = v;
                 computeChurnIndex();
-                computeMetricRanges();
+                hooks.computeMetricRanges();
                 renderRiskDashboard();
                 if (hooks.getHeatmapMode() === 'churn') hooks.refreshGraphColors();
                 // Persist as a workspace setting — the host echoes it back via graphConfig
