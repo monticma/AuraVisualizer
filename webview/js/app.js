@@ -2868,11 +2868,13 @@
                 highlightedPath.nodes = nodesInPath;
                 
                 if (graph) {
+                    // Keep the current camera: fitting the path zooms all the
+                    // way out when the endpoints sit on opposite sides of the
+                    // graph, which loses the view the user was working in.
                     graph.nodeColor(graph.nodeColor())
                          .linkWidth(graph.linkWidth())
                          .linkColor(graph.linkColor())
                          .linkDirectionalParticles(graph.linkDirectionalParticles());
-                    graph.zoomToFit(1000, 50, function(n) { return nodesInPath.has(n); });
                 }
                 return;
             }
