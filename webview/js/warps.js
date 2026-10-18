@@ -32,6 +32,30 @@
 
     var WARP_ANCHOR_RADIUS = 120; // ≈ the focus-flight distance used by node clicks
 
+    /** Bounding radius of the laid-out graph around its centroid (0 when unpositioned). */
+    function graphRadius() {
+        if (!hooks.getGraphData) return 0;
+        var data = hooks.getGraphData();
+        if (!data || !data.nodes) return 0;
+        var sx = 0, sy = 0, sz = 0, n = 0;
+        for (var i = 0; i < data.nodes.length; i++) {
+            var nd = data.nodes[i];
+            if (typeof nd.x !== 'number' || typeof nd.y !== 'number' || typeof nd.z !== 'number') continue;
+            sx += nd.x; sy += nd.y; sz += nd.z; n++;
+        }
+        if (n === 0) return 0;
+        var cx = sx / n, cy = sy / n, cz = sz / n;
+        var maxD2 = 0;
+        for (var j = 0; j < data.nodes.length; j++) {
+            var m = data.nodes[j];
+            if (typeof m.x !== 'number' || typeof m.y !== 'number' || typeof m.z !== 'number') continue;
+            var dx = m.x - cx, dy = m.y - cy, dz = m.z - cz;
+            var d2 = dx * dx + dy * dy + dz * dz;
+            if (d2 > maxD2) maxD2 = d2;
+        }
+        return Math.sqrt(maxD2);
+    }
+
     /**
      * Nearest graph node to the looked-at point, as an anchor: a warp stores
      * camera offsets RELATIVE to that node, not absolute coordinates. The
@@ -54,12 +78,18 @@
             if (d2 < bestD2) { bestD2 = d2; best = n; }
         }
         if (!best || bestD2 > WARP_ANCHOR_RADIUS * WARP_ANCHOR_RADIUS) return null;
-        return {
+        var anchor = {
             id: best.id,
             pos: { x: best.x, y: best.y, z: best.z },
             posOffset: { x: pos.x - best.x, y: pos.y - best.y, z: pos.z - best.z },
             targetOffset: { x: target.x - best.x, y: target.y - best.y, z: target.z - best.z }
         };
+        // Remember the layout extent: offsets are rescaled against the CURRENT
+        // extent when travelling (the force layout is more or less spread out
+        // from session to session, which changed the framing distance).
+        var radius = graphRadius();
+        if (radius > 0) anchor.scaleRef = radius;
+        return anchor;
     }
 
     /**
@@ -75,8 +105,15 @@
         if (a && a.id && a.posOffset && a.targetOffset && hooks.findNode) {
             var node = hooks.findNode(a.id);
             if (node && typeof node.x === 'number' && typeof node.y === 'number' && typeof node.z === 'number') {
-                pos = { x: node.x + a.posOffset.x, y: node.y + a.posOffset.y, z: node.z + a.posOffset.z };
-                target = { x: node.x + a.targetOffset.x, y: node.y + a.targetOffset.y, z: node.z + a.targetOffset.z };
+                // Rescale to the current layout extent so the framing distance
+                // matches what was captured (clamped to a sane 0.25..4 range).
+                var k = 1;
+                if (typeof a.scaleRef === 'number' && a.scaleRef > 0) {
+                    var now = graphRadius();
+                    if (now > 0) k = Math.min(4, Math.max(0.25, now / a.scaleRef));
+                }
+                pos = { x: node.x + a.posOffset.x * k, y: node.y + a.posOffset.y * k, z: node.z + a.posOffset.z * k };
+                target = { x: node.x + a.targetOffset.x * k, y: node.y + a.targetOffset.y * k, z: node.z + a.targetOffset.z * k };
             }
         }
         return { pos: pos, target: target };

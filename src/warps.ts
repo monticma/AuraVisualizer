@@ -37,6 +37,12 @@ export interface WarpAnchor {
     posOffset: Vec3;
     /** camera.target − anchor.pos at capture time. */
     targetOffset: Vec3;
+    /**
+     * Layout scale reference (graph bounding radius at capture time). The
+     * force layout is more or less spread out between sessions; offsets are
+     * rescaled by radiusNow / scaleRef so the framing distance is preserved.
+     */
+    scaleRef?: number;
 }
 
 export interface Warp {
@@ -142,7 +148,9 @@ function normalizeAnchor(value: unknown): WarpAnchor | undefined {
     const posOffset = normalizeVec3(rec.posOffset);
     const targetOffset = normalizeVec3(rec.targetOffset);
     if (!pos || !posOffset || !targetOffset) return undefined;
-    return { id, pos, posOffset, targetOffset };
+    const anchor: WarpAnchor = { id, pos, posOffset, targetOffset };
+    if (isFiniteNumber(rec.scaleRef) && rec.scaleRef > 0) anchor.scaleRef = rec.scaleRef;
+    return anchor;
 }
 export function generateWarpId(now: number = Date.now()): string {
     return 'w_' + now.toString(36) + Math.random().toString(36).slice(2, 6);

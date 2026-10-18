@@ -236,6 +236,21 @@ describe('warps: node anchor', () => {
         expect(parsed[0].anchor).toEqual(anchor);
     });
 
+    it('preserves an optional layout scale reference', () => {
+        const withScale = makeWarp(pose({ anchor: { ...anchor, scaleRef: 250 } }), 1000)!;
+        expect(withScale.anchor!.scaleRef).toBe(250);
+        const round = parseWarps(serializeWarps([withScale]))[0];
+        expect(round.anchor!.scaleRef).toBe(250);
+    });
+
+    it('drops an invalid scale reference but keeps the anchor', () => {
+        for (const bad of [0, -5, Number.NaN, 'big']) {
+            const w = makeWarp(pose({ anchor: { ...anchor, scaleRef: bad } }), 1000)!;
+            expect(w.anchor).toBeDefined();
+            expect(w.anchor!.scaleRef).toBeUndefined();
+        }
+    });
+
     it('keeps old warps (no anchor) valid', () => {
         const warp = makeWarp(pose({ id: 'old' }), 1000)!;
         expect(warp.anchor).toBeUndefined();
