@@ -210,6 +210,7 @@ Toggle with the **🗺️ Map** button in the toolbar. A floating minimap displa
 Save named camera bookmarks of the 3D view and fly back to them in one click:
 
 - **📌 capture** (in the panel header) — stores the current pose: camera position, **orientation** and view target — the exact view comes back to the pixel
+- **Layout-proof** — warps are anchored to the files in view (plus the layout scale), so they land on the same spot even though the force layout differs between sessions
 - **Click a warp** — smooth ~800 ms flight; **✏️ rename · 📌 re-capture · 🗑️ delete** per row
 - **Quick slots** — assign `Alt+Shift+1–9` in the panel; the shortcut flies there from anywhere in the graph
 - **🏠 Home** — the first row always returns to the default fit-to-view
