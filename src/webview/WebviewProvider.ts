@@ -698,6 +698,9 @@ export class WebviewProvider {
         const riskMapUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'risk.js')
         );
+        const detailUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'detail.js')
+        );
         const panelsUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'panels.js')
         );
@@ -1651,6 +1654,7 @@ export class WebviewProvider {
     <script nonce="${nonce}" src="${warpsUri}"></script>
     <script nonce="${nonce}" src="${timelineUri}"></script>
     <script nonce="${nonce}" src="${riskMapUri}"></script>
+    <script nonce="${nonce}" src="${detailUri}"></script>
     <script nonce="${nonce}" src="${panelsUri}"></script>
     <script nonce="${nonce}" src="${chatUri}"></script>
     <script nonce="${nonce}" src="${appUri}"></script>
