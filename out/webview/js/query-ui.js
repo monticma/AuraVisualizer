@@ -539,6 +539,7 @@
             queryActive = false;
             queryFn = null;
             querySet.clear();
+            syncQueryState(); // clearing must re-enable every node visually
             setQueryError('');
             setQueryStatus('—', '');
             refreshGraphAfterQuery();
@@ -549,12 +550,14 @@
             compiled = window.AuraQuery.compile(queryExpr);
         } catch (e) {
             queryActive = false;
+            syncQueryState();
             setQueryError('Query engine error: ' + (e.message || 'unknown'));
             setQueryStatus('error', 'error');
             return;
         }
         if (!compiled.ok) {
             queryActive = false;
+            syncQueryState();
             setQueryError(compiled.error || 'Invalid expression');
             setQueryStatus('error', 'error');
             return;
