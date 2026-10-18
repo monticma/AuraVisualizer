@@ -553,7 +553,9 @@
             if (pn.x !== undefined) { pn.fx = pn.x; pn.fy = pn.y; pn.fz = pn.z; }
         }
 
-        // Update the graph — freeze simulation to prevent layout drift
+        // Update the graph — freeze simulation to prevent layout drift.
+        // Feed through filterGraphData: timeline navigation must respect the
+        // language/directory filters (disabled file types stay hidden).
         newLinks = filterLinksForCompare(newNodes, newLinks);
         hooks.getGraphData().nodes = newNodes;
         hooks.getGraphData().links = newLinks;
@@ -562,7 +564,7 @@
 
         var savedCooldown = hooks.getGraph().cooldownTicks();
         hooks.getGraph().cooldownTicks(0);
-        hooks.getGraph().graphData({ nodes: newNodes, links: newLinks });
+        hooks.getGraph().graphData(hooks.filterGraphData({ nodes: newNodes, links: newLinks }));
         hooks.getGraph().cooldownTicks(savedCooldown);
         hooks.refreshGraphVisuals();
     }
@@ -633,7 +635,8 @@
         hooks.getGraphData().links = restoredLinks;
         hooks.getGraphData().meta = JSON.parse(JSON.stringify(hooks.getHeadGraphData().meta));
 
-        hooks.getGraph().graphData({ nodes: newNodes, links: restoredLinks });
+        // Respect the active language/directory filters when restoring HEAD
+        hooks.getGraph().graphData(hooks.filterGraphData({ nodes: newNodes, links: restoredLinks }));
         timelineChangedNodes.clear();
         timelineAddedNodes.clear();
         timelineRemovedNodes.clear();
@@ -700,7 +703,7 @@
 
         var savedCooldown2 = hooks.getGraph().cooldownTicks();
         hooks.getGraph().cooldownTicks(0);
-        hooks.getGraph().graphData({ nodes: newNodes, links: restoredLinks });
+        hooks.getGraph().graphData(hooks.filterGraphData({ nodes: newNodes, links: restoredLinks }));
         hooks.getGraph().cooldownTicks(savedCooldown2);
         // Do NOT clear diff sets — they are pre-computed by computeCompareDiff
         hooks.refreshGraphVisuals();

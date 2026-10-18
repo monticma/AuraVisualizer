@@ -329,6 +329,7 @@
                 getHeadGraphData: function () { return headGraphData; },
                 getActiveTab: function () { return activeTab; },
                 getHeatmapMode: function () { return heatmapMode; },
+                filterGraphData: filterGraphData,
                 computeMetricRanges: function () { computeMetricRanges(); },
                 computeChurnIndex: function () { computeChurnIndex(); },
                 renderRiskDashboard: function () { renderRiskDashboard(); },
