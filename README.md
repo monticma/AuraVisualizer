@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <img src="resources/AuraScreen-1.1.8.png" alt="Aura 3D Visualizer — interactive dependency graph" width="900" />
+  <img src="resources/AuraScreen.png" alt="Aura 3D Visualizer — interactive dependency graph" width="900" />
 </p>
 
 ---
