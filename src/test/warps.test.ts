@@ -208,3 +208,37 @@ describe('warps: upsert / remove', () => {
         expect(removeWarp(list, 'a')).toEqual([]);
     });
 });
+
+describe('warps: node anchor', () => {
+    const anchor = {
+        id: 'src/a.js',
+        pos: { x: 10, y: 0, z: 0 },
+        posOffset: { x: 0, y: 0, z: 50 },
+        targetOffset: { x: 0, y: 1, z: 0 },
+    };
+
+    it('preserves a valid anchor (node position + camera offsets)', () => {
+        const warp = makeWarp(pose({ anchor }), 1000)!;
+        expect(warp.anchor).toEqual(anchor);
+    });
+
+    it('drops invalid anchors instead of failing the warp', () => {
+        expect(makeWarp(pose({ anchor: undefined }), 1000)!.anchor).toBeUndefined();
+        expect(makeWarp(pose({ anchor: 'nope' }), 1000)!.anchor).toBeUndefined();
+        expect(makeWarp(pose({ anchor: { ...anchor, id: '  ' } }), 1000)!.anchor).toBeUndefined();
+        expect(makeWarp(pose({ anchor: { ...anchor, posOffset: { x: Number.NaN, y: 0, z: 0 } } }), 1000)!.anchor).toBeUndefined();
+        expect(makeWarp(pose({ anchor: { ...anchor, targetOffset: null } }), 1000)!.anchor).toBeUndefined();
+    });
+
+    it('round-trips the anchor through serialize/parse', () => {
+        const warp = makeWarp(pose({ id: 'w1', anchor }), 1000)!;
+        const parsed = parseWarps(serializeWarps([warp]));
+        expect(parsed[0].anchor).toEqual(anchor);
+    });
+
+    it('keeps old warps (no anchor) valid', () => {
+        const warp = makeWarp(pose({ id: 'old' }), 1000)!;
+        expect(warp.anchor).toBeUndefined();
+        expect(parseWarps(serializeWarps([warp]))[0].anchor).toBeUndefined();
+    });
+});

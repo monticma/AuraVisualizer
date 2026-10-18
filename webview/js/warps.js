@@ -30,6 +30,57 @@
     // Warp points (camera bookmarks) — .aura/warps.json
     // ============================================================
 
+    var WARP_ANCHOR_RADIUS = 120; // ≈ the focus-flight distance used by node clicks
+
+    /**
+     * Nearest graph node to the looked-at point, as an anchor: a warp stores
+     * camera offsets RELATIVE to that node, not absolute coordinates. The
+     * force layout places nodes differently on every session, so absolute
+     * poses stop matching after a restart.
+     */
+    function findAnchorForPose(pos, target) {
+        if (!hooks.getGraphData) return null;
+        var data = hooks.getGraphData();
+        if (!data || !data.nodes) return null;
+        var best = null;
+        var bestD2 = Infinity;
+        for (var i = 0; i < data.nodes.length; i++) {
+            var n = data.nodes[i];
+            if (typeof n.x !== 'number' || typeof n.y !== 'number' || typeof n.z !== 'number') continue;
+            var dx = target.x - n.x;
+            var dy = target.y - n.y;
+            var dz = target.z - n.z;
+            var d2 = dx * dx + dy * dy + dz * dz;
+            if (d2 < bestD2) { bestD2 = d2; best = n; }
+        }
+        if (!best || bestD2 > WARP_ANCHOR_RADIUS * WARP_ANCHOR_RADIUS) return null;
+        return {
+            id: best.id,
+            pos: { x: best.x, y: best.y, z: best.z },
+            posOffset: { x: pos.x - best.x, y: pos.y - best.y, z: pos.z - best.z },
+            targetOffset: { x: target.x - best.x, y: target.y - best.y, z: target.z - best.z }
+        };
+    }
+
+    /**
+     * Rebuild the stored pose against the anchor node's CURRENT position.
+     * Falls back to the absolute pose when the node is gone (deleted file)
+     * or when the warp predates anchoring.
+     */
+    function resolveWarpPose(warp) {
+        if (!warp) return null;
+        var pos = warp.pos;
+        var target = warp.target;
+        var a = warp.anchor;
+        if (a && a.id && a.posOffset && a.targetOffset && hooks.findNode) {
+            var node = hooks.findNode(a.id);
+            if (node && typeof node.x === 'number' && typeof node.y === 'number' && typeof node.z === 'number') {
+                pos = { x: node.x + a.posOffset.x, y: node.y + a.posOffset.y, z: node.z + a.posOffset.z };
+                target = { x: node.x + a.targetOffset.x, y: node.y + a.targetOffset.y, z: node.z + a.targetOffset.z };
+            }
+        }
+        return { pos: pos, target: target };
+    }
     /** Current camera pose: position, orbit target and FOV. */
     function captureWarpPose() {
         syncCtx();
@@ -38,13 +89,17 @@
         var ctrl = null;
         try { ctrl = graph.controls(); } catch (e) { ctrl = null; }
         var target = (ctrl && ctrl.target) || { x: 0, y: 0, z: 0 };
-        return {
+        var pose = {
             pos: { x: cam.position.x, y: cam.position.y, z: cam.position.z },
             target: { x: target.x, y: target.y, z: target.z },
             quat: { x: cam.quaternion.x, y: cam.quaternion.y, z: cam.quaternion.z, w: cam.quaternion.w },
             up: { x: cam.up.x, y: cam.up.y, z: cam.up.z },
             fov: cam.fov
         };
+        // Anchor to the nearest node so the warp survives a rebuilt layout.
+        var anchor = findAnchorForPose(pose.pos, pose.target);
+        if (anchor) pose.anchor = anchor;
+        return pose;
     }
 
     var warpTravel = null;     // active camera flight — { cancel() }
@@ -169,7 +224,8 @@
         if (!warp) return;
         // Hand the camera back cleanly before the flight takes over.
         if (window.AuraFlight && window.AuraFlight.isActive()) window.AuraFlight.stop();
-        travelToPose(warp.pos, warp.target, warp.quat, warp.up, warp.fov);
+        var resolved = resolveWarpPose(warp);
+        travelToPose(resolved.pos, resolved.target, warp.quat, warp.up, warp.fov);
     }
 
     function findWarp(id) {
@@ -259,7 +315,8 @@
             postWarp({
                 id: warp.id, createdAt: warp.createdAt, name: warp.name,
                 quickSlot: warp.quickSlot || null,
-                pos: pose.pos, target: pose.target, quat: pose.quat, up: pose.up, fov: pose.fov
+                pos: pose.pos, target: pose.target, quat: pose.quat, up: pose.up, fov: pose.fov,
+                anchor: pose.anchor || null
             });
         });
         actions.appendChild(recaptureBtn);
@@ -318,16 +375,17 @@
 
         var existing = warpEditId ? findWarp(warpEditId) : null;
         if (existing) {
-            // Rename / quick-slot change — keep the stored pose.
+            // Rename / quick-slot change — keep the stored pose and anchor.
             postWarp({
                 id: existing.id, createdAt: existing.createdAt, name: name,
                 quickSlot: slot || null,
-                pos: existing.pos, target: existing.target, quat: existing.quat, up: existing.up, fov: existing.fov
+                pos: existing.pos, target: existing.target, quat: existing.quat, up: existing.up, fov: existing.fov,
+                anchor: existing.anchor || null
             });
         } else {
             var pose = captureWarpPose();
             if (!pose) return;
-            postWarp({ name: name, quickSlot: slot || null, pos: pose.pos, target: pose.target, quat: pose.quat, up: pose.up, fov: pose.fov });
+            postWarp({ name: name, quickSlot: slot || null, pos: pose.pos, target: pose.target, quat: pose.quat, up: pose.up, fov: pose.fov, anchor: pose.anchor || null });
         }
         hideWarpModal();
     }
@@ -466,6 +524,8 @@
         setVisible: function (visible) { syncCtx(); setWarpsPanelVisible(visible); },
         // Camera flight (quick-slot shortcut)
         travelTo: function (warp) { syncCtx(); travelToWarp(warp); },
+        // Resolved pose (node-anchored warps rebuild against the current layout)
+        resolvePose: function (warp) { syncCtx(); return resolveWarpPose(warp); },
         // Abort an in-flight warp flight (minimap drag, pilot take-off)
         cancelTravel: cancelWarpTravel
     };

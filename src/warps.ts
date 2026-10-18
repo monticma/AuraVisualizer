@@ -22,6 +22,23 @@ export interface Quat {
     w: number;
 }
 
+/**
+ * Node anchor that keeps a warp meaningful across sessions: the force layout
+ * places nodes differently on every start, so an absolute camera pose drifts.
+ * The camera pose is stored as offsets from a node position and rebuilt
+ * against that node's CURRENT position when travelling.
+ */
+export interface WarpAnchor {
+    /** Node id in the graph (workspace-relative file path). */
+    id: string;
+    /** Node position at capture time — fallback when the layout is missing. */
+    pos: Vec3;
+    /** camera.pos − anchor.pos at capture time. */
+    posOffset: Vec3;
+    /** camera.target − anchor.pos at capture time. */
+    targetOffset: Vec3;
+}
+
 export interface Warp {
     id: string;
     name: string;
@@ -44,6 +61,11 @@ export interface Warp {
     target: Vec3;
     /** Optional vertical field of view, in degrees. */
     fov?: number;
+    /**
+     * Node anchor (optional). Absent on warps captured before anchoring, or
+     * when no node was close enough to the looked-at point.
+     */
+    anchor?: WarpAnchor;
     /** Exclusive quick slot, 1..QUICK_SLOT_COUNT (Alt+1..9 in the webview). */
     quickSlot?: number;
     createdAt: number;  // epoch ms
@@ -110,7 +132,18 @@ export function normalizeFov(value: unknown): number | undefined {
     if (!isFiniteNumber(value) || value <= 0) return undefined;
     return Math.min(MAX_FOV, Math.max(MIN_FOV, value));
 }
-
+/** Node anchor, or undefined when any part is missing/invalid. */
+function normalizeAnchor(value: unknown): WarpAnchor | undefined {
+    if (!value || typeof value !== 'object') return undefined;
+    const rec = value as Record<string, unknown>;
+    const id = typeof rec.id === 'string' ? rec.id.trim() : '';
+    if (!id) return undefined;
+    const pos = normalizeVec3(rec.pos);
+    const posOffset = normalizeVec3(rec.posOffset);
+    const targetOffset = normalizeVec3(rec.targetOffset);
+    if (!pos || !posOffset || !targetOffset) return undefined;
+    return { id, pos, posOffset, targetOffset };
+}
 export function generateWarpId(now: number = Date.now()): string {
     return 'w_' + now.toString(36) + Math.random().toString(36).slice(2, 6);
 }
@@ -134,6 +167,7 @@ export function makeWarp(value: unknown, now: number = Date.now(), fallbackName:
         quat: normalizeQuat(rec.quat),
         up: normalizeUnitVec3(rec.up),
         fov: normalizeFov(rec.fov),
+        anchor: normalizeAnchor(rec.anchor),
         quickSlot: normalizeQuickSlot(rec.quickSlot),
         createdAt,
         updatedAt: isFiniteNumber(rec.updatedAt) ? rec.updatedAt : now,

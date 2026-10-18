@@ -3250,7 +3250,9 @@
         if (window.AuraWarps) {
             AuraWarps.init({
                 getGraph: function () { return graph; },
+                getGraphData: function () { return graphData; },
                 getWarps: function () { return warps; },
+                findNode: findNode,
                 postMessage: function (msg) { vscode.postMessage(msg); },
                 saveViewState: saveViewState,
                 schedulePaletteSave: schedulePaletteSave
