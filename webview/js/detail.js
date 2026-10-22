@@ -224,12 +224,19 @@
                 '<div class="dead-exports-header">☠️ Dead code <span class="dead-count">' +
                 node.deadExports.length + '</span></div>';
             for (var de = 0; de < node.deadExports.length; de++) {
+                var deadName = node.deadExports[de];
                 var dItem = document.createElement('div');
-                dItem.className = 'symbol-item dead-export-item';
+                dItem.className = 'symbol-item dead-export-item symbol-item-clickable';
+                dItem.title = 'Double-click to open in the editor';
                 dItem.innerHTML =
                     '<span class="symbol-icon">⚠️</span>' +
-                    '<span class="symbol-name dead-name">' + node.deadExports[de] + '</span>' +
+                    '<span class="symbol-name dead-name">' + deadName + '</span>' +
                     '<span class="symbol-meta">unused</span>';
+                (function(line) {
+                    dItem.addEventListener('dblclick', function() {
+                        hooks.postMessage({ type: 'openFile', payload: { path: node.path, line: line } });
+                    });
+                })(findSymbolLine(node, deadName));
                 deadSection.appendChild(dItem);
             }
             symbolsList.appendChild(deadSection);
@@ -442,6 +449,24 @@
         if (!params) return '';
         if (params.length > 40) return params.substring(0, 37) + '...';
         return params;
+    }
+
+    /**
+     * Find the source line for a dead-export name. The analyzer stores dead
+     * exports by name only (functions, classes and export specifiers), so look
+     * up the matching symbol to let the user jump straight to the declaration.
+     */
+    function findSymbolLine(node, name) {
+        var syms = node.symbols;
+        if (!syms) return undefined;
+        var groups = [syms.exports, syms.functions, syms.classes];
+        for (var g = 0; g < groups.length; g++) {
+            var list = groups[g] || [];
+            for (var i = 0; i < list.length; i++) {
+                if (list[i].name === name) return list[i].line;
+            }
+        }
+        return undefined;
     }
 
     function setupPanelClose() {

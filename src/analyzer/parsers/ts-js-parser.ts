@@ -49,6 +49,10 @@ const JS_BUILTINS = new Set([
     'bind', 'call', 'apply', 'next', 'done', 'emit', 'on', 'once', 'off'
 ]);
 
+/** Asset paths built with path.join()/joinPath() (webview scripts, styles). */
+const ASSET_REF_RE = /^(?:\.{0,2}\/)?(?:[\w.-]+\/)*[\w.-]+\.(?:js|mjs|cjs|css)$/i;
+const PATH_JOIN_FN_RE = /(?:^|\.)(?:join|joinPath)$/;
+
 export class TreeSitterJSParser extends BaseParser {
     constructor() {
         super('javascript');
@@ -63,7 +67,47 @@ export class TreeSitterJSParser extends BaseParser {
     override parseAST(tree: Parser.Tree, fileInfo: FileInfo, _options: Record<string, unknown> = {}): Relation[] {
         const relations: Relation[] = [];
         this.walkForImports(tree.rootNode, fileInfo.id, relations);
+        const seen = new Set(relations.map(r => r.target));
+        this.walkForAssetRefs(tree.rootNode, fileInfo.id, relations, seen);
         return relations;
+    }
+
+    /**
+     * Emit `script` / `stylesheet` relations for asset paths built with
+     * path.join() or vscode.Uri.joinPath(). Those files are loaded at runtime
+     * (webview scripts, stylesheets) but never imported, so they would
+     * otherwise appear isolated in the graph.
+     */
+    protected walkForAssetRefs(
+        node: Parser.SyntaxNode,
+        sourceId: string,
+        relations: Relation[],
+        seen: Set<string>,
+    ): void {
+        if (node.type === 'string' || node.type === 'template_string') {
+            if (this.isJoinPathArgument(node)) {
+                const target = this.stripQuotes(node.text);
+                if (ASSET_REF_RE.test(target) && !seen.has(target)) {
+                    const type = /\.css$/i.test(target) ? 'stylesheet' : 'script';
+                    relations.push({ source: sourceId, target, type, label: `${type} '${target}'` });
+                    seen.add(target);
+                }
+            }
+            return;
+        }
+        for (let i = 0; i < node.childCount; i++) {
+            this.walkForAssetRefs(node.child(i)!, sourceId, relations, seen);
+        }
+    }
+
+    /** True when the string node is a direct argument of join()/joinPath(). */
+    private isJoinPathArgument(node: Parser.SyntaxNode): boolean {
+        const args = node.parent;
+        if (!args || args.type !== 'arguments') { return false; }
+        const call = args.parent;
+        if (!call || call.type !== 'call_expression') { return false; }
+        const fn = call.childForFieldName('function');
+        return !!fn && PATH_JOIN_FN_RE.test(fn.text);
     }
 
     protected walkForImports(node: Parser.SyntaxNode, sourceId: string, relations: Relation[]): void {
@@ -471,7 +515,8 @@ export class TreeSitterJSParser extends BaseParser {
 
     protected stripQuotes(text: string): string {
         if ((text.startsWith("'") && text.endsWith("'"))
-            || (text.startsWith('"') && text.endsWith('"'))) {
+            || (text.startsWith('"') && text.endsWith('"'))
+            || (text.startsWith('`') && text.endsWith('`'))) {
             return text.slice(1, -1);
         }
         return text;

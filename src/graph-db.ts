@@ -544,7 +544,7 @@ export class GraphDB {
             const enums = syms.filter(s => s.kind === 'enum').map(s => ({ name: s.name, type: s.kind, line: s.line }));
             const macros = syms.filter(s => s.kind === 'macro').map(s => ({ name: s.name, type: s.kind, line: s.line }));
             const classes = syms.filter(s => s.kind === 'class').map(s => ({ name: s.name, type: s.kind, line: s.line }));
-            const exports = syms.filter(s => s.kind === 'export').map(s => ({ name: s.name, type: s.kind, line: s.line }));
+            const exports = syms.filter(s => s.kind.startsWith('export')).map(s => ({ name: s.name, type: s.kind, line: s.line }));
             const interfaces = syms.filter(s => s.kind === 'interface').map(s => ({ name: s.name, type: s.kind }));
             const traits = syms.filter(s => s.kind === 'trait').map(s => ({ name: s.name, type: s.kind }));
             const typeAliases = syms.filter(s => s.kind === 'type_alias').map(s => ({ name: s.name, type: s.kind }));

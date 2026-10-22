@@ -61,6 +61,25 @@ describe('TreeSitterJSParser.parseAST', () => {
         expect(rels[0]).toMatchObject({ target: './views/home.js', type: 'dynamic-import' });
     });
 
+    it('extracts script/stylesheet references from joinPath() literals', async () => {
+        const content = [
+            "const app = vscode.Uri.joinPath(root, 'js', 'app.js');",
+            "const css = path.join(__dirname, 'css', 'style.css');",
+            "const fixture = makeFileInfo({ id: 'fixture.js' });",
+            "const notAPath = 'hello.js';",
+            '',
+        ].join('\n');
+        const t = await tsTree(content);
+        const file = makeFileInfo({ id: 'provider.ts', content, language: 'typescript', extension: '.ts' });
+        const rels = tsParser.parseAST(t, file);
+        expect(rels).toEqual(expect.arrayContaining([
+            expect.objectContaining({ target: 'app.js', type: 'script' }),
+            expect.objectContaining({ target: 'style.css', type: 'stylesheet' }),
+        ]));
+        expect(rels.find(r => r.target === 'fixture.js')).toBeUndefined();
+        expect(rels.find(r => r.target === 'hello.js')).toBeUndefined();
+    });
+
     it('handles mixed import styles', async () => {
         const content = [
             "import { a } from './a';",
