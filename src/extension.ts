@@ -54,7 +54,6 @@ export function activate(context: vscode.ExtensionContext): void {
     statusBarItem.command = 'auraVisualizer.open';
     statusBarItem.text = '$(eye) Aura';
     statusBarItem.tooltip = 'Open Aura 3D Visualizer';
-    statusBarItem.show();
     context.subscriptions.push(statusBarItem);
 
     // Status bar (right) — risk score of the edited file; switches to an alert when
@@ -306,6 +305,7 @@ async function refreshAnalysis(context: vscode.ExtensionContext): Promise<void> 
 
     if (statusBarItem) {
         statusBarItem.text = '$(loading~spin) Aura: Analyzing...';
+        statusBarItem.show();
     }
 
     try {
@@ -348,6 +348,7 @@ async function refreshAnalysis(context: vscode.ExtensionContext): Promise<void> 
 
         treeProvider?.update(cachedGraphData);
         updateStatusBar();
+        void notifyScanComplete(context);
 
         // Persist graph to SQLite
         try {
@@ -372,9 +373,7 @@ async function refreshAnalysis(context: vscode.ExtensionContext): Promise<void> 
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         vscode.window.showErrorMessage(`Aura: Analysis failed — ${message}`);
-        if (statusBarItem) {
-            statusBarItem.text = '$(eye) Aura';
-        }
+        updateStatusBar();
     } finally {
         isAnalyzing = false;
     }
@@ -732,10 +731,41 @@ function computeGraphDelta(
 
 function updateStatusBar(): void {
     invalidateRisk();
-    if (!statusBarItem || !cachedGraphData) return;
+    if (!statusBarItem) return;
+    if (!cachedGraphData || cachedGraphData.nodes.length === 0) {
+        statusBarItem.text = '$(eye) Aura';
+        statusBarItem.hide();
+        return;
+    }
     const { totalFiles, totalLinks } = cachedGraphData.meta;
     statusBarItem.text = `$(eye) Aura: ${totalFiles} files, ${totalLinks} links`;
     statusBarItem.tooltip = `Aura — ${totalFiles} files, ${totalLinks} dependencies\nClick to open 3D visualizer`;
+    statusBarItem.show();
+}
+
+/**
+ * Post-scan summary notification (one per full analysis). Shows the same
+ * high-level health figures as the Risk tab and opens it on demand.
+ */
+async function notifyScanComplete(context: vscode.ExtensionContext): Promise<void> {
+    const config = vscode.workspace.getConfiguration('auraVisualizer');
+    if (!config.get<boolean>('notifyOnScan', true)) return;
+    if (!cachedGraphData || cachedGraphData.nodes.length === 0) return;
+
+    const meta = cachedGraphData.meta;
+    const snapshot = ensureRiskSnapshot();
+    const hotspots = snapshot ? snapshot.highIds.size : 0;
+    const cycles = meta.cycles?.length ?? 0;
+    const deadExports = meta.deadExportsTotal ?? 0;
+    const message = `Aura: ${meta.totalFiles} files · ${cycles} cycles · ${deadExports} dead exports · ${hotspots} hotspots`;
+
+    const choice = await vscode.window.showInformationMessage(message, 'View Risk');
+    if (choice !== 'View Risk') return;
+
+    const top = snapshot
+        ? Array.from(snapshot.byId.values()).sort((a, b) => b.score - a.score)[0]
+        : undefined;
+    await focusRiskFromStatusBar(context, top?.id);
 }
 
 // ============================================================

@@ -5,7 +5,8 @@
  *
  * Tool metadata (name, description, input schema) lives in `package.json`
  * under `contributes.languageModelTools` — this module only wires the `invoke`
- * logic. See docs/AI-CHAT.md for the full design.
+ * logic. See docs/Ideas/Done/AI-CHAT.md for the full design and
+ * docs/Ideas/AIChatStrategy.md for the current AI surface strategy.
  */
 
 import * as vscode from 'vscode';

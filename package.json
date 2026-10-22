@@ -260,6 +260,11 @@
           "default": true,
           "description": "Automatically refresh visualization when files are saved"
         },
+        "auraVisualizer.notifyOnScan": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a summary notification after a full codebase analysis (files, cycles, dead exports, hotspots)"
+        },
         "auraVisualizer.linkStyle": {
           "type": "string",
           "enum": [

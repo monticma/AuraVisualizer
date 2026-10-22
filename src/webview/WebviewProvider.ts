@@ -674,6 +674,9 @@ export class WebviewProvider {
         const queryUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'query.js')
         );
+        const structureUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'structure.js')
+        );
         const riskUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'risk-core.js')
         );
@@ -1632,8 +1635,8 @@ export class WebviewProvider {
                     <tr><td><span style="color:#81c784">━━</span> <strong>function-call</strong></td><td>Cross-file function calls</td></tr>
                     <tr><td><span style="color:#f06292">━━</span> <strong>extends</strong></td><td>Class / struct inheritance</td></tr>
                     <tr><td><span style="color:#ba68c8">━━</span> <strong>implements</strong></td><td>Interface / trait implementation</td></tr>
-                    <tr><td><span style="color:#ff8a65">━━</span> <strong>script</strong></td><td>HTML <code>&lt;script src&gt;</code></td></tr>
-                    <tr><td><span style="color:#ce93d8">━━</span> <strong>stylesheet</strong></td><td>HTML <code>&lt;link rel="stylesheet"&gt;</code> / CSS <code>@import</code></td></tr>
+                    <tr><td><span style="color:#ff8a65">━━</span> <strong>script</strong></td><td>HTML <code>&lt;script src&gt;</code> / script path built with <code>join()</code> or <code>joinPath()</code></td></tr>
+                    <tr><td><span style="color:#ce93d8">━━</span> <strong>stylesheet</strong></td><td>HTML <code>&lt;link rel="stylesheet"&gt;</code> / CSS <code>@import</code> / stylesheet path built with <code>join()</code></td></tr>
                     <tr><td><span style="color:#b0bec5">┈┈</span> <strong>doc-reference</strong></td><td>Symbol / filename mention inside a <code>.md</code> / <code>.txt</code> / <code>.rst</code> file</td></tr>
                 </table>
 
@@ -1652,6 +1655,7 @@ export class WebviewProvider {
     <!-- App Logic -->
     <script nonce="${nonce}" src="${configUri}"></script>
     <script nonce="${nonce}" src="${queryUri}"></script>
+    <script nonce="${nonce}" src="${structureUri}"></script>
     <script nonce="${nonce}" src="${riskUri}"></script>
     <script nonce="${nonce}" src="${flightCoreUri}"></script>
     <script nonce="${nonce}" src="${flightUri}"></script>

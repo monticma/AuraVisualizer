@@ -4,7 +4,8 @@
  * Streams an AI answer from VS Code's built-in language model (`vscode.lm`),
  * grounded in the analyzed codebase via `resolveContext` + documentation search.
  *
- * Design: docs/AI-CHAT.md (Option A — chat in the webview).
+ * Design: docs/Ideas/Done/AI-CHAT.md (Option A — chat in the webview).
+ * Current strategy: docs/Ideas/AIChatStrategy.md (VS Code Chat participant @aura).
  */
 
 import * as vscode from 'vscode';
