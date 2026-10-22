@@ -10,9 +10,10 @@ import { existsSync } from 'fs';
 import { isAbsolute, join, relative } from 'path';
 import type { GraphDB } from '../graph-db';
 import type { RiskSnapshot } from '../risk/risk-service';
-import { AURA_TOOLS, runAuraTool } from '../ai/tools';
+import { AURA_TOOLS, resolveFileArg, runAuraTool } from '../ai/tools';
 import { buildAuraSystemPrompt } from '../ai/prompts';
 import { describeAuraViewContext, getAuraViewContext, setAuraViewContext, type AuraViewContext } from './context';
+import { buildFileFacts } from './file-facts';
 import { buildUserPrompt, extractAql, extractFileReferences } from './prompt';
 
 export const AURA_PARTICIPANT_ID = 'monticma-aura.aura';
@@ -45,12 +46,13 @@ export function registerAuraChatParticipant(
     context: vscode.ExtensionContext,
     getDb: () => GraphDB | undefined,
     getRiskSnapshot?: () => RiskSnapshot | undefined,
+    isAuraVisible?: () => boolean,
 ): void {
     const handler: vscode.ChatRequestHandler = async (request, _chatContext, stream, token) => {
         const db = getDb();
         if (!db) {
             stream.markdown('Aura has not analyzed this workspace yet. Run **Aura: Visualize Codebase** first, then retry.');
-            stream.button({ command: 'auraVisualizer.open', title: 'Open Aura' });
+            if (!isAuraVisible?.()) stream.button({ command: 'auraVisualizer.open', title: 'Open Aura' });
             return;
         }
 
@@ -68,6 +70,21 @@ export function registerAuraChatParticipant(
 
         const systemPrompt = buildAuraSystemPrompt(describeAuraViewContext(viewContext));
         const userPrompt = buildUserPrompt(command, rawPrompt, selection);
+
+        // /explain: stream deterministic graph facts first, so the command always
+        // explains the file even when the model ends its turn on tool calls.
+        let explainedFile: string | undefined;
+        if (command === 'explain') {
+            const target = extractFileReferences(rawPrompt)[0] || selection;
+            const facts = target ? buildFileFacts(db, target) : undefined;
+            if (facts) {
+                explainedFile = facts.file;
+                stream.markdown(facts.markdown + '\n\n');
+            } else if (target) {
+                stream.markdown(`I couldn't find \`${target}\` in the analyzed graph. Check the path, then run **Aura: Visualize Codebase** again if the file is new.`);
+                return;
+            }
+        }
         const messages: vscode.LanguageModelChatMessage[] = [
             vscode.LanguageModelChatMessage.User(systemPrompt + '\n\nUSER QUESTION: ' + userPrompt),
         ];
@@ -78,19 +95,23 @@ export function registerAuraChatParticipant(
         }));
 
         let fullText = '';
+        let lastText = '';
         try {
             for (let i = 0; i < MAX_ITERATIONS; i++) {
                 const response = await request.model.sendRequest(messages, { tools }, token);
                 const toolCalls: vscode.LanguageModelToolCallPart[] = [];
+                let iterationText = '';
 
                 for await (const part of response.stream) {
                     if (part instanceof vscode.LanguageModelTextPart) {
+                        iterationText += part.value;
                         fullText += part.value;
                         stream.markdown(part.value);
                     } else if (part instanceof vscode.LanguageModelToolCallPart) {
                         toolCalls.push(part);
                     }
                 }
+                lastText = iterationText;
 
                 if (token.isCancellationRequested) return;
                 if (toolCalls.length === 0) break;
@@ -114,19 +135,22 @@ export function registerAuraChatParticipant(
             }
 
             // Clickable references + action buttons.
-            if (!fullText.trim()) {
+            if (!lastText.trim()) {
                 stream.markdown('_Aura queried the graph but returned no written answer. Try rephrasing, or name a specific file._');
             }
             const isQueryCommand = command === 'query';
             const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
             const refs = isQueryCommand ? [] : extractFileReferences(fullText);
-            for (const ref of refs.slice(0, 20)) {
+            if (explainedFile && !refs.includes(explainedFile)) refs.unshift(explainedFile);
+            const validRefs = refs.filter(ref => {
                 const abs = isAbsolute(ref) ? ref : (workspaceRoot ? join(workspaceRoot, ref) : '');
-                if (abs && existsSync(abs)) {
-                    stream.reference(vscode.Uri.file(abs));
-                }
+                return !!abs && existsSync(abs) && !!resolveFileArg(db, ref);
+            });
+            for (const ref of validRefs.slice(0, 20)) {
+                const abs = isAbsolute(ref) ? ref : (workspaceRoot ? join(workspaceRoot, ref) : '');
+                if (abs) stream.reference(vscode.Uri.file(abs));
             }
-            for (const ref of refs.slice(0, 3)) {
+            for (const ref of validRefs.slice(0, 3)) {
                 stream.button({ command: 'auraVisualizer.focusPath', title: `Focus ${ref}`, arguments: [ref] });
             }
             const aql = extractAql(fullText);
@@ -135,7 +159,9 @@ export function registerAuraChatParticipant(
             }
             if (!isQueryCommand) {
                 stream.button({ command: 'auraVisualizer.statusBarRisk', title: 'Open Risk' });
-                stream.button({ command: 'auraVisualizer.open', title: 'Open Aura' });
+                if (!isAuraVisible?.()) {
+                    stream.button({ command: 'auraVisualizer.open', title: 'Open Aura' });
+                }
             }
         } catch (err) {
             stream.markdown(`\n\n**Aura error:** ${err instanceof Error ? err.message : String(err)}`);

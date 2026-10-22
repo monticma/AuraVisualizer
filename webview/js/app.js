@@ -161,7 +161,14 @@
                 break;
             case 'focusNode':
                 if (message.payload && message.payload.nodeId) {
-                    focusNodeById(message.payload.nodeId, !!message.payload.reveal);
+                    if (message.payload.reveal && activeTab !== 'graph') {
+                        switchTab('graph');
+                        (function(nodeId) {
+                            requestAnimationFrame(function() { focusNodeById(nodeId, true); });
+                        })(message.payload.nodeId);
+                    } else {
+                        focusNodeById(message.payload.nodeId, !!message.payload.reveal);
+                    }
                 }
                 break;
             case 'blastRadius':

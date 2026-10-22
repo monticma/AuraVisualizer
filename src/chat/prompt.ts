@@ -31,7 +31,7 @@ export function buildUserPrompt(command: string | undefined, prompt: string, sel
     }
 }
 
-const FILE_REF_RE = /([A-Za-z0-9_./-]+\.[A-Za-z0-9]{1,8})(?::(\d+))?/g;
+const FILE_REF_RE = /([A-Za-z0-9_./-]+\.[A-Za-z][A-Za-z0-9]{0,7})(?::(\d+))?/g;
 
 /** Extract workspace-relative file references such as `src/foo.ts:42` from an answer. */
 export function extractFileReferences(text: string): string[] {

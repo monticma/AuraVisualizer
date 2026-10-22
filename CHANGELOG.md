@@ -15,9 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The legacy in-webview Aura Assistant is hidden; VS Code Chat is the primary conversational surface.
 
 ### Fixed
-- `@aura` **Focus** buttons now use the normal graph click behavior: fly close, center the file and open the detail panel.
-- **Open Risk** switches to the Risk tab without reloading the graph, and **Open Aura** no longer refreshes a graph that is already visible.
-- `/explain` and `/impact` use the active editor/selected file (and ask for one when missing) instead of returning an empty answer; `/query` only shows **Apply Aura Query**.
+- `@aura` **Focus** buttons now use the normal graph click behavior: switch back to the 3D view when needed, fly close, center the file and open the detail panel.
+- **Open Risk** switches to the Risk tab without reloading the graph, and **Open Aura** is hidden when the panel is already visible (and no longer refreshes a visible graph).
+- `/explain` and `/impact` use the active editor/selected file (and ask for one when missing) instead of returning an empty answer; `/explain` also streams deterministic graph facts, so it always returns content even if the model stops after a tool call.
+- `/query` only shows **Apply Aura Query**, and **Focus** buttons are only created for files that actually exist in the workspace graph (no more `69.0`).
 
 ## [1.3.1] - 2026-10-16
 

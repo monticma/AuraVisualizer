@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { buildUserPrompt, extractAql, extractFileReferences } from '../chat/prompt';
+import { buildFileFacts } from '../chat/file-facts';
 import { AURA_TOOLS } from '../ai/tools';
 import { AURA_SYSTEM_PROMPT, buildAuraSystemPrompt } from '../ai/prompts';
+import type { GraphDB } from '../graph-db';
 
 describe('chat prompt helpers', () => {
     it('routes slash commands to focused prompts', () => {
@@ -21,6 +23,8 @@ describe('chat prompt helpers', () => {
         expect(extractFileReferences('See src/a.ts:10 and src/a.ts, then docs/x.md.'))
             .toEqual(['src/a.ts', 'docs/x.md']);
         expect(extractFileReferences('No files here, just words.')).toEqual([]);
+        expect(extractFileReferences('Scores: 69.0, v1.2 and 3.14.')).toEqual([]);
+        expect(extractFileReferences('Compare 69.0 with src/a.ts.')).toEqual(['src/a.ts']);
     });
 
     it('extracts a single-line AQL expression from a fenced block', () => {
@@ -45,5 +49,22 @@ describe('chat prompt helpers', () => {
         const grounded = buildAuraSystemPrompt('- selected file: src/a.ts');
         expect(grounded).toContain('CURRENT AURA VIEW CONTEXT');
         expect(grounded).toContain('src/a.ts');
+    });
+
+    it('builds deterministic file facts for /explain', () => {
+        const db = {
+            getAllNodes: () => [{ id: 'src/a.ts', name: 'a.ts' }],
+            getNodeDetail: () => ({
+                id: 'src/a.ts', language: 'typescript', lines: 42, complexity: 7, fan_in: 3, fan_out: 2,
+                dependencies: ['src/b.ts'], dependents: ['src/main.ts'],
+                symbols: [{ name: 'run', kind: 'function', line: 10 }],
+            }),
+        } as unknown as GraphDB;
+        const facts = buildFileFacts(db, 'src/a.ts');
+        expect(facts?.file).toBe('src/a.ts');
+        expect(facts?.markdown).toContain('42 lines');
+        expect(facts?.markdown).toContain('src/b.ts');
+        expect(facts?.markdown).toContain('run');
+        expect(buildFileFacts(db, 'missing.ts')).toBeUndefined();
     });
 });

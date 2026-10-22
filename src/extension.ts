@@ -67,7 +67,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // Language Model tools — exposes Aura's codebase graph to VS Code AI agents (Copilot Chat, etc.)
     registerAuraLmTools(context, () => graphDb, () => ensureRiskSnapshot());
-    registerAuraChatParticipant(context, () => graphDb, () => ensureRiskSnapshot());
+    registerAuraChatParticipant(context, () => graphDb, () => ensureRiskSnapshot(), () => webviewProvider?.isOpen ?? false);
 
     // Commands
     context.subscriptions.push(
@@ -290,7 +290,7 @@ function registerOpenFileHandler(): void {
 }
 
 async function openVisualizer(context: vscode.ExtensionContext): Promise<void> {
-    const wasVisible = webviewProvider?.isVisible ?? false;
+    const wasOpen = webviewProvider?.isOpen ?? false;
     if (!webviewProvider) {
         webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState, () => graphDb, hostDataAccessors());
         registerOpenFileHandler();
@@ -298,9 +298,9 @@ async function openVisualizer(context: vscode.ExtensionContext): Promise<void> {
 
     webviewProvider.show();
 
-    // Already on screen: reveal only. Re-sending the whole graph would reset
+    // Already open: reveal only. Re-sending the whole graph would reset
     // the camera, selection and panels for no reason.
-    if (wasVisible) return;
+    if (wasOpen) return;
 
     if (cachedGraphData) {
         webviewProvider.sendGraphData(cachedGraphData);
@@ -965,13 +965,13 @@ function scheduleWorkingTreeRefresh(): void {
 }
 
 async function focusRiskFromStatusBar(context: vscode.ExtensionContext, nodeId?: string): Promise<void> {
-    const wasVisible = webviewProvider?.isVisible ?? false;
+    const wasOpen = webviewProvider?.isOpen ?? false;
     if (!webviewProvider) {
         webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState, () => graphDb, hostDataAccessors());
         registerOpenFileHandler();
     }
     webviewProvider.show();
-    if (!wasVisible && cachedGraphData) {
+    if (!wasOpen && cachedGraphData) {
         webviewProvider.sendGraphData(cachedGraphData);
         if (commitIndex) {
             webviewProvider.sendHistoryIndex(commitIndex);

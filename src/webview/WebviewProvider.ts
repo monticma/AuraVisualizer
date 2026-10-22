@@ -666,6 +666,11 @@ export class WebviewProvider {
         return this.panel?.visible ?? false;
     }
 
+    /** True as soon as the panel exists, even when another editor tab is active. */
+    public get isOpen(): boolean {
+        return this.panel !== undefined;
+    }
+
     public dispose(): void {
         this.panel?.dispose();
     }
