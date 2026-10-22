@@ -64,9 +64,9 @@ export interface NodeSymbols {
     macros: { name: string; type: string; line: number }[];
     classes: { name: string; type: string; line: number }[];
     exports: { name: string; type: string; line: number }[];
-    interfaces: { name: string; type: string }[];
-    traits: { name: string; type: string }[];
-    typeAliases: { name: string; type: string }[];
+    interfaces: { name: string; type: string; line?: number; visibility?: string }[];
+    traits: { name: string; type: string; line?: number; visibility?: string }[];
+    typeAliases: { name: string; type: string; line?: number; visibility?: string }[];
     methods: { name: string; returnType: string; params: string; line: number; type: string; visibility?: string; isStatic?: boolean; isAsync?: boolean }[];
     totalSymbols: number;
 }

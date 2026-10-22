@@ -539,7 +539,7 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
                 webviewProvider.sendGraphDelta(delta as unknown as Record<string, unknown>);
             }
         }
-        treeProvider?.update(cachedGraphData);
+        if (cachedGraphData) treeProvider?.update(cachedGraphData);
         updateStatusBar();
         return;
     }
@@ -675,7 +675,7 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
         webviewProvider.sendGraphDelta(delta as unknown as Record<string, unknown>);
     }
 
-    treeProvider?.update(cachedGraphData);
+    if (cachedGraphData) treeProvider?.update(cachedGraphData);
     updateStatusBar();
 }
 

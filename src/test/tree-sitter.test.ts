@@ -3,6 +3,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
+import type Parser from 'web-tree-sitter';
 import { initTreeSitter, loadLanguage, createParser, parseSource, hasGrammar, getSupportedLanguages } from '../analyzer/tree-sitter-loader';
 
 describe('Tree-sitter infrastructure', () => {
@@ -43,7 +44,7 @@ describe('Tree-sitter infrastructure', () => {
     it('should create a C parser', async () => {
         const parser = await createParser('c');
         expect(parser).toBeDefined();
-        expect(parser.language).toBeDefined();
+        expect(parser.getLanguage()).toBeDefined();
     });
 
     it('should parse a C source file', async () => {

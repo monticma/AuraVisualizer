@@ -208,7 +208,7 @@ function loadRiskSnapshot(db: GraphDB, windowDays: number): ReturnType<typeof bu
     } catch {
         // History not scanned yet — churn stays 0, the rest of the score still works.
     }
-    return buildRiskSnapshot(graph.nodes ?? [], commits, windowDays);
+    return buildRiskSnapshot(graph?.nodes ?? [], commits, windowDays);
 }
 
 const AURA_TOOL_BY_MCP: Record<string, string> = {

@@ -74,8 +74,6 @@ export class TreeSitterCParser extends BaseParser {
         for (let i = 0; i < node.childCount; i++) {
             this.walkForIncludes(node.child(i)!, sourceId, relations, includeSystem);
         }
-
-        return relations;
     }
 
     // ── AST-based symbol extraction ────────────────────────────
