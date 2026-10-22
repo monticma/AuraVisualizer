@@ -58,6 +58,9 @@ export class WebviewProvider {
     private pendingHistoryIndex: unknown | undefined;
     private pendingDeltas: unknown[] = [];
     private pendingFocus: string | undefined;
+    private pendingNodeFocus: { nodeId: string; reveal: boolean } | undefined;
+    private pendingShowRiskTab = false;
+    private pendingQuery: { expr: string; mode: 'highlight' | 'filter' | 'select' } | undefined;
     private webviewReady = false;
 
     private static readonly VIEW_STATE_KEY = 'aura.viewState';
@@ -126,6 +129,9 @@ export class WebviewProvider {
             this.panel = undefined;
             this.webviewReady = false;
             this.pendingDeltas = [];
+            this.pendingNodeFocus = undefined;
+            this.pendingShowRiskTab = false;
+            this.pendingQuery = undefined;
             this.disposables.forEach(d => d.dispose());
             this.disposables = [];
             this.onDisposeEmitter.fire();
@@ -154,6 +160,18 @@ export class WebviewProvider {
                         if (this.pendingFocus) {
                             this.panel?.webview.postMessage({ type: 'riskFocusFile', payload: { nodeId: this.pendingFocus } });
                             this.pendingFocus = undefined;
+                        }
+                        if (this.pendingNodeFocus) {
+                            this.panel?.webview.postMessage({ type: 'focusNode', payload: this.pendingNodeFocus });
+                            this.pendingNodeFocus = undefined;
+                        }
+                        if (this.pendingShowRiskTab) {
+                            this.panel?.webview.postMessage({ type: 'showRiskTab' });
+                            this.pendingShowRiskTab = false;
+                        }
+                        if (this.pendingQuery) {
+                            this.panel?.webview.postMessage({ type: 'applyQuery', payload: this.pendingQuery });
+                            this.pendingQuery = undefined;
                         }
                         const workingTree = this.getHostData.workingTree?.();
                         if (workingTree) {
@@ -535,13 +553,30 @@ export class WebviewProvider {
         this.panel?.webview.postMessage({ type: 'progress', payload: { phase, message } });
     }
 
-    public focusNode(nodeId: string): void {
-        this.panel?.webview.postMessage({ type: 'focusNode', payload: { nodeId } });
+    public focusNode(nodeId: string, reveal: boolean = false): void {
+        if (this.webviewReady) {
+            this.panel?.webview.postMessage({ type: 'focusNode', payload: { nodeId, reveal } });
+        } else {
+            this.pendingNodeFocus = { nodeId, reveal };
+        }
+    }
+
+    /** Switch the webview to the Risk tab without changing the graph. */
+    public showRiskTab(): void {
+        if (this.webviewReady) {
+            this.panel?.webview.postMessage({ type: 'showRiskTab' });
+        } else {
+            this.pendingShowRiskTab = true;
+        }
     }
 
     /** Apply an AQL expression coming from @aura or a command. */
     public applyQueryFromHost(expr: string, mode: 'highlight' | 'filter' | 'select' = 'filter'): void {
-        this.panel?.webview.postMessage({ type: 'applyQuery', payload: { expr, mode } });
+        if (this.webviewReady) {
+            this.panel?.webview.postMessage({ type: 'applyQuery', payload: { expr, mode } });
+        } else {
+            this.pendingQuery = { expr, mode };
+        }
     }
 
     /** Reveal a file in the Risk tab (expand its bucket, scroll to the row, flash it). */

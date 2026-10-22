@@ -7,16 +7,39 @@
 
 import * as vscode from 'vscode';
 import { existsSync } from 'fs';
-import { isAbsolute, join } from 'path';
+import { isAbsolute, join, relative } from 'path';
 import type { GraphDB } from '../graph-db';
 import type { RiskSnapshot } from '../risk/risk-service';
 import { AURA_TOOLS, runAuraTool } from '../ai/tools';
 import { buildAuraSystemPrompt } from '../ai/prompts';
-import { describeAuraViewContext } from './context';
+import { describeAuraViewContext, getAuraViewContext, setAuraViewContext, type AuraViewContext } from './context';
 import { buildUserPrompt, extractAql, extractFileReferences } from './prompt';
 
 export const AURA_PARTICIPANT_ID = 'monticma-aura.aura';
-const MAX_ITERATIONS = 6;
+const MAX_ITERATIONS = 8;
+
+/** Resolve the file under the cursor / selected in Aura, as a workspace-relative path. */
+function currentSelection(): string | undefined {
+    const existing = getAuraViewContext();
+    if (existing?.selection) return existing.selection;
+    const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    const editor = vscode.window.activeTextEditor;
+    if (!root || !editor) return undefined;
+    const rel = relative(root, editor.document.uri.fsPath);
+    return rel.startsWith('..') ? undefined : rel;
+}
+
+/** Merge the active editor into the stored view context before prompting. */
+function buildViewContext(): { context: AuraViewContext; selection?: string } {
+    const existing = getAuraViewContext() ?? {};
+    const selection = existing.selection || currentSelection();
+    if (selection && selection !== existing.selection) {
+        const context = { ...existing, selection };
+        setAuraViewContext(context);
+        return { context, selection };
+    }
+    return { context: existing, selection };
+}
 
 export function registerAuraChatParticipant(
     context: vscode.ExtensionContext,
@@ -31,8 +54,20 @@ export function registerAuraChatParticipant(
             return;
         }
 
-        const systemPrompt = buildAuraSystemPrompt(describeAuraViewContext());
-        const userPrompt = buildUserPrompt(request.command, request.prompt);
+        const command = request.command;
+        const rawPrompt = (request.prompt || '').trim();
+        const { context: viewContext, selection } = buildViewContext();
+        if (!rawPrompt && !selection && (command === 'explain' || command === 'impact')) {
+            stream.markdown(`Which file should I ${command === 'explain' ? 'explain' : 'analyze'}? Use \`/${command} src/file.ts\`, open the file in the editor, or select it in Aura.`);
+            return;
+        }
+        if (command === 'path' && !rawPrompt && !selection) {
+            stream.markdown('Give me two files to connect: `/path src/a.ts src/b.ts`.');
+            return;
+        }
+
+        const systemPrompt = buildAuraSystemPrompt(describeAuraViewContext(viewContext));
+        const userPrompt = buildUserPrompt(command, rawPrompt, selection);
         const messages: vscode.LanguageModelChatMessage[] = [
             vscode.LanguageModelChatMessage.User(systemPrompt + '\n\nUSER QUESTION: ' + userPrompt),
         ];
@@ -79,8 +114,12 @@ export function registerAuraChatParticipant(
             }
 
             // Clickable references + action buttons.
+            if (!fullText.trim()) {
+                stream.markdown('_Aura queried the graph but returned no written answer. Try rephrasing, or name a specific file._');
+            }
+            const isQueryCommand = command === 'query';
             const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-            const refs = extractFileReferences(fullText);
+            const refs = isQueryCommand ? [] : extractFileReferences(fullText);
             for (const ref of refs.slice(0, 20)) {
                 const abs = isAbsolute(ref) ? ref : (workspaceRoot ? join(workspaceRoot, ref) : '');
                 if (abs && existsSync(abs)) {
@@ -94,8 +133,10 @@ export function registerAuraChatParticipant(
             if (aql) {
                 stream.button({ command: 'auraVisualizer.applyQuery', title: 'Apply Aura Query', arguments: [aql] });
             }
-            stream.button({ command: 'auraVisualizer.statusBarRisk', title: 'Open Risk' });
-            stream.button({ command: 'auraVisualizer.open', title: 'Open Aura' });
+            if (!isQueryCommand) {
+                stream.button({ command: 'auraVisualizer.statusBarRisk', title: 'Open Risk' });
+                stream.button({ command: 'auraVisualizer.open', title: 'Open Aura' });
+            }
         } catch (err) {
             stream.markdown(`\n\n**Aura error:** ${err instanceof Error ? err.message : String(err)}`);
         }

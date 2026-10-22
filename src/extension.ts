@@ -94,7 +94,13 @@ export function activate(context: vscode.ExtensionContext): void {
         }),
         vscode.commands.registerCommand('auraVisualizer.focusPath', async (filePath?: string) => {
             await openVisualizer(context);
-            if (filePath) webviewProvider?.focusNode(filePath);
+            if (filePath) {
+                const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+                const relativePath = workspaceRoot && path.isAbsolute(filePath)
+                    ? path.relative(workspaceRoot, filePath)
+                    : filePath.replace(/^\.\//, '');
+                webviewProvider?.focusNode(relativePath, true);
+            }
         }),
         vscode.commands.registerCommand('auraVisualizer.applyQuery', async (expr?: string, mode: 'highlight' | 'filter' | 'select' = 'filter') => {
             if (!expr) return;
@@ -284,14 +290,17 @@ function registerOpenFileHandler(): void {
 }
 
 async function openVisualizer(context: vscode.ExtensionContext): Promise<void> {
+    const wasVisible = webviewProvider?.isVisible ?? false;
     if (!webviewProvider) {
         webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState, () => graphDb, hostDataAccessors());
         registerOpenFileHandler();
-
-
     }
 
     webviewProvider.show();
+
+    // Already on screen: reveal only. Re-sending the whole graph would reset
+    // the camera, selection and panels for no reason.
+    if (wasVisible) return;
 
     if (cachedGraphData) {
         webviewProvider.sendGraphData(cachedGraphData);
@@ -956,12 +965,13 @@ function scheduleWorkingTreeRefresh(): void {
 }
 
 async function focusRiskFromStatusBar(context: vscode.ExtensionContext, nodeId?: string): Promise<void> {
+    const wasVisible = webviewProvider?.isVisible ?? false;
     if (!webviewProvider) {
         webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState, () => graphDb, hostDataAccessors());
         registerOpenFileHandler();
     }
     webviewProvider.show();
-    if (cachedGraphData) {
+    if (!wasVisible && cachedGraphData) {
         webviewProvider.sendGraphData(cachedGraphData);
         if (commitIndex) {
             webviewProvider.sendHistoryIndex(commitIndex);
@@ -972,6 +982,8 @@ async function focusRiskFromStatusBar(context: vscode.ExtensionContext, nodeId?:
     }
     if (nodeId) {
         webviewProvider.focusRiskFile(nodeId);
+    } else {
+        webviewProvider.showRiskTab();
     }
 }
 
@@ -1066,7 +1078,7 @@ function focusCurrentFile(): void {
 
     const relativePath = path.relative(workspaceFolder.uri.fsPath, editor.document.uri.fsPath);
     if (!relativePath.startsWith('..')) {
-        webviewProvider.focusNode(relativePath);
+        webviewProvider.focusNode(relativePath, true);
     }
 }
 

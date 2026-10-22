@@ -11,6 +11,10 @@ describe('chat prompt helpers', () => {
         expect(buildUserPrompt('hotspots', '')).toContain('aura_get_hotspots');
         expect(buildUserPrompt('query', 'complex files')).toContain('AQL');
         expect(buildUserPrompt(undefined, 'hello')).toBe('hello');
+        expect(buildUserPrompt('explain', '', 'src/b.ts')).toContain('src/b.ts');
+        expect(buildUserPrompt('impact', '', 'src/b.ts')).toContain('src/b.ts');
+        expect(buildUserPrompt('path', '', 'src/b.ts')).toContain('src/b.ts');
+        expect(buildUserPrompt('explain', '')).toContain('which file');
     });
 
     it('extracts unique file references from an answer', () => {
@@ -22,6 +26,7 @@ describe('chat prompt helpers', () => {
     it('extracts a single-line AQL expression from a fenced block', () => {
         expect(extractAql('```\ncomplexity > 20 AND fanIn > 5\n```'))
             .toBe('complexity > 20 AND fanIn > 5');
+        expect(extractAql('```aql\nfanIn > 5```')).toBe('fanIn > 5');
         expect(extractAql('There is no query in this answer.')).toBeUndefined();
     });
 

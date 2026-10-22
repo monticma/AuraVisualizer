@@ -161,7 +161,7 @@
                 break;
             case 'focusNode':
                 if (message.payload && message.payload.nodeId) {
-                    focusNodeById(message.payload.nodeId);
+                    focusNodeById(message.payload.nodeId, !!message.payload.reveal);
                 }
                 break;
             case 'blastRadius':
@@ -231,6 +231,9 @@
                 if (window.AuraRiskMap && message.payload && message.payload.nodeId) {
                     window.AuraRiskMap.revealFile(message.payload.nodeId);
                 }
+                break;
+            case 'showRiskTab':
+                switchTab('risk');
                 break;
             case 'workingTree':
                 workingTree = (message.payload && message.payload.files) || {};
@@ -2414,22 +2417,48 @@
     // ============================================================
     // Focus node from extension (when switching editor tabs)
     // ============================================================
-    function focusNodeById(nodeId) {
+    function focusNodeById(nodeId, reveal) {
         if (!graph || !graphData) return;
         var node = null;
+        var normalized = String(nodeId || '').replace(/\\/g, '/').replace(/^\.\//, '');
         for (var i = 0; i < graphData.nodes.length; i++) {
-            if (graphData.nodes[i].id === nodeId) {
+            if (graphData.nodes[i].id === nodeId || graphData.nodes[i].id === normalized) {
                 node = graphData.nodes[i];
                 break;
             }
         }
+        if (!node) {
+            // Accept basenames and partial paths coming from AI citations.
+            for (var j = 0; j < graphData.nodes.length; j++) {
+                var candidate = graphData.nodes[j];
+                if (candidate.id.endsWith('/' + normalized) || candidate.name === normalized) {
+                    node = candidate;
+                    break;
+                }
+            }
+        }
         if (!node) return;
 
+        if (reveal) {
+            multiSelectedNodes.clear();
+            multiSelectedLinks.clear();
+        }
         selectedNode = node;
         updateExplorerSelection();
 
-        // Subtle highlight without flying camera
-        if (graph) {
+        if (reveal) {
+            // Match a normal graph click: fly close, center the node, open details.
+            if (graph) graph.nodeThreeObject(graph.nodeThreeObject());
+            var distance = 120;
+            var distRatio = 1 + distance / Math.hypot(node.x, node.y, node.z);
+            graph.cameraPosition(
+                { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio },
+                node,
+                1000
+            );
+            if (window.AuraDetail) AuraDetail.show(node);
+        } else if (graph) {
+            // Subtle highlight when following the active editor.
             graph.nodeColor(graph.nodeColor());
         }
     }
