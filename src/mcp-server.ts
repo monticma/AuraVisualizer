@@ -25,8 +25,8 @@ import initSqlJs from 'sql.js';
 import { readFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { GraphDB } from './graph-db';
-import { resolveContext } from './mcp/context';
-import { buildRiskSnapshot, topRiskHotspots, type RiskServiceCommit } from './risk/risk-service';
+import { runAuraTool } from './ai/tools';
+import { buildRiskSnapshot, type RiskServiceCommit } from './risk/risk-service';
 
 // ── Env ────────────────────────────────────────────────────────
 
@@ -37,18 +37,6 @@ if (!DB_PATH) {
 }
 
 // ── Helpers ────────────────────────────────────────────────────
-
-function nameCommunityMCP(files: string[]): string {
-    if (files.length === 0) return '?';
-    // Use shortest filename (likely the hub/index) as community name
-    let best = files[0];
-    for (const f of files) {
-        const name = f.replace(/.*\//, '');
-        const bestName = best.replace(/.*\//, '');
-        if (name.length < bestName.length) best = f;
-    }
-    return best.replace(/.*\//, '').replace(/\.[^.]+$/, '');
-}
 
 // ── Tool definitions ───────────────────────────────────────────
 
@@ -223,200 +211,114 @@ function loadRiskSnapshot(db: GraphDB, windowDays: number): ReturnType<typeof bu
     return buildRiskSnapshot(graph.nodes ?? [], commits, windowDays);
 }
 
+const AURA_TOOL_BY_MCP: Record<string, string> = {
+    find_dependencies: 'aura_find_dependencies',
+    find_dependents: 'aura_find_dependents',
+    find_path: 'aura_find_path',
+    find_cycles: 'aura_find_cycles',
+    find_dead_code: 'aura_find_dead_code',
+    get_hotspots: 'aura_get_hotspots',
+    search_symbols: 'aura_search_symbols',
+    find_heritage: 'aura_find_heritage',
+    get_architecture: 'aura_get_architecture',
+    get_communities: 'aura_get_communities',
+    generate_documentation: 'aura_generate_documentation',
+    find_unused_functions: 'aura_find_unused_functions',
+    search_docs: 'aura_search_docs',
+    resolve_context: 'aura_resolve_context',
+};
+
 function handleTool(db: GraphDB, name: string, args: Record<string, unknown>): unknown {
+    const auraName = AURA_TOOL_BY_MCP[name];
+    if (!auraName) throw new Error(`Unknown tool: ${name}`);
+
+    const input: Record<string, unknown> = { ...args };
+    if (name === 'resolve_context') {
+        if (!input.task) throw new Error('The "task" argument is required');
+        if (input.limit === undefined) input.limit = 10;
+    }
+
+    const riskSnapshot = (riskInput?: Record<string, unknown>) => {
+        const days = typeof riskInput?.window_days === 'number' && (riskInput.window_days as number) > 0
+            ? Math.round(riskInput.window_days as number)
+            : 90;
+        return loadRiskSnapshot(db, days);
+    };
+    const result = runAuraTool(db, auraName, input, riskSnapshot) as Record<string, unknown>;
+    if (result && typeof result.error === 'string') throw new Error(result.error);
+
     switch (name) {
         case 'find_dependencies': {
-            const file = args.file as string;
-            const depth = (args.depth as number) || 5;
-            const deps = db.getDependencies(file, depth);
+            const deps = (result.dependencies ?? []) as { file: string; depth: number }[];
             return {
-                file,
-                depth,
-                dependencies: deps,
+                file: args.file as string,
+                depth: (args.depth as number) || 5,
+                dependencies: deps.map(d => ({ id: d.file, depth: d.depth })),
                 total: deps.length,
             };
         }
         case 'find_dependents': {
-            const file = args.file as string;
-            const depth = (args.depth as number) || 5;
-            const blast = db.getBlastRadius(file, depth);
+            const blast = (result.dependents ?? []) as { file: string; depth: number; risk: string }[];
             const high = blast.filter(b => b.risk === 'high').length;
             const medium = blast.filter(b => b.risk === 'medium').length;
             const low = blast.filter(b => b.risk === 'low').length;
             return {
-                file,
-                depth,
-                blast_radius: blast,
+                file: args.file as string,
+                depth: (args.depth as number) || 5,
+                blast_radius: blast.map(b => ({ id: b.file, depth: b.depth, risk: b.risk })),
                 total: blast.length,
                 summary: `${high} high-risk, ${medium} medium-risk, ${low} low-risk`,
                 note: `Modifying this file impacts ${blast.length} file(s) transitively`,
             };
         }
         case 'find_path': {
-            const from = args.from as string;
-            const to = args.to as string;
-            const path = db.findPath(from, to);
-            return path
-                ? { from, to, path, length: path.length - 1 }
-                : { from, to, path: null, message: 'No dependency path found between these files' };
-        }
-        case 'find_cycles': {
-            const cycles = db.getCycles();
-            return {
-                cycles: cycles.map(c => ({ files: c, length: c.length })),
-                total: cycles.length,
-            };
+            if (!result.path) {
+                return {
+                    from: args.from,
+                    to: args.to,
+                    path: null,
+                    message: 'No dependency path found between these files',
+                    resolved_from: result.resolved_from,
+                    resolved_to: result.resolved_to,
+                };
+            }
+            return result;
         }
         case 'find_dead_code': {
-            const dead = db.getDeadCode();
-            // Group by file
+            const symbols = (result.symbols ?? []) as { file: string; symbol: string; kind: string }[];
             const byFile: Record<string, string[]> = {};
-            for (const d of dead) {
-                (byFile[d.nodeId] ??= []).push(`${d.symbol} (${d.kind})`);
-            }
+            for (const d of symbols) (byFile[d.file] ??= []).push(`${d.symbol} (${d.kind})`);
             return {
-                files: Object.entries(byFile).map(([file, symbols]) => ({ file, symbols })),
-                totalSymbols: dead.length,
+                files: Object.entries(byFile).map(([file, list]) => ({ file, symbols: list })),
+                totalSymbols: symbols.length,
                 totalFiles: Object.keys(byFile).length,
             };
         }
         case 'find_unused_functions': {
-            const file = args.file as string | undefined;
-            const includeMethods = args.include_methods !== false;
-            const unused = db.getUnusedFunctions(file, includeMethods);
-            const byFileUnused: Record<string, { name: string; kind: string; line: number; visibility: string }[]> = {};
-            for (const u of unused) {
-                (byFileUnused[u.nodeId] ??= []).push({ name: u.name, kind: u.kind, line: u.line, visibility: u.visibility });
+            const functions = (result.functions ?? []) as { file: string; name: string; kind: string; line: number; visibility: string }[];
+            const byFile: Record<string, { name: string; kind: string; line: number; visibility: string }[]> = {};
+            for (const f of functions) {
+                (byFile[f.file] ??= []).push({ name: f.name, kind: f.kind, line: f.line, visibility: f.visibility });
             }
             return {
-                files: Object.entries(byFileUnused).map(([f, fns]) => ({ file: f, functions: fns })),
-                totalFunctions: unused.length,
-                totalFiles: Object.keys(byFileUnused).length,
+                files: Object.entries(byFile).map(([file, list]) => ({ file, functions: list })),
+                totalFunctions: functions.length,
+                totalFiles: Object.keys(byFile).length,
             };
         }
-        case 'search_docs': {
-            const query = args.query as string;
-            const limit = (args.limit as number) || 10;
-            const results = db.searchDocs(query, limit);
+        case 'search_symbols':
             return {
-                query,
-                total: results.length,
-                results: results.map(r => ({
-                    file: r.fileId,
-                    section: r.section,
-                    line: r.lineStart,
-                    score: r.score,
-                    excerpt: r.content.length > 600 ? r.content.slice(0, 600) + '…' : r.content,
-                })),
-                note: results.length === 0
-                    ? 'No documentation matched. The project may not have indexed any Markdown / text / rst files yet.'
-                    : 'Results ranked by keyword-frequency score (higher = better). Section heading matches are weighted 3× over body matches.',
+                query: args.query,
+                kind: args.kind || 'all',
+                results: result.results,
+                total: result.total,
             };
-        }
-        case 'resolve_context': {
-            const task = args.task as string;
-            if (!task) throw new Error('The "task" argument is required');
-            const limit = (args.limit as number) || 10;
-            return resolveContext(db, task, limit);
-        }
-        case 'get_hotspots': {
-            const limit = (args.limit as number) || 20;
-            const sortBy = (args.sort_by as string) || 'risk';
-            if (sortBy === 'risk') {
-                const windowDays = typeof args.window_days === 'number' && (args.window_days as number) > 0
-                    ? Math.round(args.window_days as number)
-                    : 90;
-                return topRiskHotspots(loadRiskSnapshot(db, windowDays), limit);
-            }
-            const hotspots = db.getHotspots(limit, sortBy);
-            return {
-                hotspots: hotspots.map(h => ({
-                    file: h.id,
-                    lines: h.lines,
-                    complexity: h.complexity,
-                    fan_in: h.fan_in,
-                    fan_out: h.fan_out,
-                    impact_score: h.impact_score,
-                })),
-                sort_by: sortBy,
-                total: hotspots.length,
-            };
-        }
-        case 'search_symbols': {
-            const query = args.query as string;
-            const kind = args.kind as string | undefined;
-            const results = db.searchSymbols(query, kind);
-            return {
-                query,
-                kind: kind || 'all',
-                results: results.map(r => ({
-                    file: r.nodeId,
-                    symbol: r.name,
-                    kind: r.kind,
-                    line: r.line,
-                    visibility: r.visibility,
-                    is_static: r.isStatic,
-                    is_async: r.isAsync,
-                })),
-                total: results.length,
-            };
-        }
-        case 'find_heritage': {
-            const file = args.file as string | undefined;
-            const edges = db.getHeritage(file);
-            return {
-                file: file || 'all',
-                heritage: edges.map(e => ({
-                    source: e.source,
-                    target: e.target,
-                    type: e.type,
-                    label: e.label,
-                })),
-                total: edges.length,
-            };
-        }
-        case 'get_architecture': {
-            const overview = db.getArchitectureOverview();
-            const meta = db.getAllMeta();
-            return {
-                project: meta.projectName || 'unknown',
-                analyzed_at: meta.analyzedAt || 'unknown',
-                total_files: Number(meta.totalFiles) || 0,
-                total_links: Number(meta.totalLinks) || 0,
-                languages: overview.map(o => ({
-                    language: o.language,
-                    files: o.count,
-                    total_loc: o.total_loc,
-                    avg_complexity: o.avg_complexity,
-                })),
-            };
-        }
         case 'get_communities': {
-            const communities = db.getCommunities();
-            const groups: Record<number, string[]> = {};
-            for (const c of communities) {
-                (groups[c.community] ??= []).push(c.nodeId);
-            }
-            const sorted = Object.entries(groups)
-                .filter(([, files]) => files.length >= 2)
-                .map(([id, files]) => ({
-                    community: parseInt(id),
-                    name: nameCommunityMCP(files),
-                    files,
-                    size: files.length,
-                }))
-                .sort((a, b) => b.size - a.size);
-            // Group singletons into "Others"
-            const singletons = Object.entries(groups)
-                .filter(([, files]) => files.length < 2)
-                .flatMap(([, files]) => files);
+            const communities = (result.communities ?? []) as { community: number; name: string; files: string[]; size: number }[];
+            const singletons = (result.singletons ?? []) as string[];
+            const sorted = communities.slice();
             if (singletons.length > 0) {
-                sorted.push({
-                    community: sorted.length,
-                    name: 'Others',
-                    files: singletons,
-                    size: singletons.length,
-                });
+                sorted.push({ community: sorted.length, name: 'Others', files: singletons, size: singletons.length });
             }
             return {
                 communities: sorted,
@@ -424,117 +326,14 @@ function handleTool(db: GraphDB, name: string, args: Record<string, unknown>): u
                 note: `Detected ${sorted.length} architectural communities via Louvain algorithm`,
             };
         }
-        case 'generate_documentation': {
-            const hotspotLimit = (args.hotspot_limit as number) || 15;
-
-            // 1. Architecture overview
-            const meta = db.getAllMeta();
-            const overview = db.getArchitectureOverview();
-
-            // 2. Communities (modules)
-            const communityData = db.getCommunities();
-            const groups: Record<number, string[]> = {};
-            for (const c of communityData) {
-                (groups[c.community] ??= []).push(c.nodeId);
-            }
-            const modules = Object.entries(groups)
-                .filter(([, files]) => files.length >= 2)
-                .map(([id, files]) => ({
-                    id: parseInt(id),
-                    name: nameCommunityMCP(files),
-                    files,
-                    size: files.length,
-                }))
-                .sort((a, b) => b.size - a.size);
-            const singletonFiles = Object.entries(groups)
-                .filter(([, files]) => files.length < 2)
-                .flatMap(([, files]) => files);
-
-            // 3. Inter-module links
-            const nodeToModule: Record<string, string> = {};
-            for (const mod of modules) {
-                for (const f of mod.files) nodeToModule[f] = mod.name;
-            }
-            const allEdges = db.getAllEdges();
-            const interModuleSet = new Set<string>();
-            const interModuleLinks: { from_module: string; to_module: string; files: string[] }[] = [];
-            const interModuleMap: Record<string, string[]> = {};
-            for (const e of allEdges) {
-                const sm = nodeToModule[e.source];
-                const tm = nodeToModule[e.target];
-                if (sm && tm && sm !== tm) {
-                    const key = `${sm} → ${tm}`;
-                    if (!interModuleSet.has(key)) {
-                        interModuleSet.add(key);
-                        interModuleMap[key] = [];
-                    }
-                    interModuleMap[key].push(`${e.source} → ${e.target}`);
-                }
-            }
-            for (const [key, files] of Object.entries(interModuleMap)) {
-                const [from_module, to_module] = key.split(' → ');
-                interModuleLinks.push({ from_module, to_module, files: files.slice(0, 5) });
-            }
-
-            // 4. Hotspots
-            const hotspots = db.getHotspots(hotspotLimit, 'impact');
-
-            // 5. Cycles
-            const cycles = db.getCycles();
-
-            // 6. Dead code
-            const dead = db.getDeadCode();
-            const deadByFile: Record<string, string[]> = {};
-            for (const d of dead) {
-                (deadByFile[d.nodeId] ??= []).push(`${d.symbol} (${d.kind})`);
-            }
-
-            // 7. Critical dependencies (highest fan-in files)
-            const criticalDeps = db.getHotspots(10, 'fan_in');
-
-            return {
-                overview: {
-                    project: meta.projectName || 'unknown',
-                    analyzed_at: meta.analyzedAt || 'unknown',
-                    total_files: Number(meta.totalFiles) || 0,
-                    total_links: Number(meta.totalLinks) || 0,
-                    languages: overview.map(o => ({
-                        language: o.language,
-                        files: o.count,
-                        total_loc: o.total_loc,
-                        avg_complexity: o.avg_complexity,
-                    })),
-                },
-                modules: modules.map(m => ({
-                    name: m.name,
-                    size: m.size,
-                    files: m.files,
-                })),
-                singletons: singletonFiles,
-                critical_dependencies: criticalDeps.map(h => ({
-                    file: h.id,
-                    fan_in: h.fan_in,
-                    fan_out: h.fan_out,
-                    complexity: h.complexity,
-                    lines: h.lines,
-                })),
-                hotspots: hotspots.map(h => ({
-                    file: h.id,
-                    lines: h.lines,
-                    complexity: h.complexity,
-                    fan_in: h.fan_in,
-                    impact_score: h.impact_score,
-                })),
-                cycles: cycles.map(c => ({ files: c, length: c.length })),
-                dead_code: {
-                    files: Object.entries(deadByFile).map(([file, symbols]) => ({ file, symbols })),
-                    total_symbols: dead.length,
-                    total_files: Object.keys(deadByFile).length,
-                },
-                inter_module_links: interModuleLinks,
-                note: 'Use this data to generate comprehensive project documentation. Modules represent dependency-coupled groups detected via Louvain algorithm. Hotspots are files with highest complexity × fan-in. Critical dependencies are files imported by the most other files.',
-            };
-        }
+        case 'search_docs':
+        case 'resolve_context':
+        case 'get_hotspots':
+        case 'find_cycles':
+        case 'find_heritage':
+        case 'get_architecture':
+        case 'generate_documentation':
+            return result;
         default:
             throw new Error(`Unknown tool: ${name}`);
     }

@@ -431,6 +431,14 @@ Aura includes a built-in **MCP server** (Model Context Protocol) and a **Graph D
 
 Every analysis is persisted to a local SQLite database (`.aura/graph.db` via sql.js/WASM). This enables fast structural queries without re-parsing.
 
+### Chat participant `@aura`
+
+Open **VS Code Chat** and mention `@aura` to ask about architecture, hotspots, impact or dependencies. Aura grounds every answer in the analyzed graph and exposes the same deterministic tools as the MCP server and the Language Model tools.
+
+- **Slash commands:** `/explain`, `/impact`, `/path`, `/hotspots`, `/query`
+- **Answers** link files directly and offer actions: **Focus in Aura**, **Apply Aura Query**, **Open Risk**, **Open Aura**
+- The legacy in-panel assistant is hidden — VS Code Chat is the main conversational surface
+
 ### MCP Server
 
 The MCP server exposes your codebase graph to AI tools via stdio transport. It registers automatically in `.vscode/mcp.json` on first run.

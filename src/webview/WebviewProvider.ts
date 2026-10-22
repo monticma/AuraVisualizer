@@ -539,6 +539,11 @@ export class WebviewProvider {
         this.panel?.webview.postMessage({ type: 'focusNode', payload: { nodeId } });
     }
 
+    /** Apply an AQL expression coming from @aura or a command. */
+    public applyQueryFromHost(expr: string, mode: 'highlight' | 'filter' | 'select' = 'filter'): void {
+        this.panel?.webview.postMessage({ type: 'applyQuery', payload: { expr, mode } });
+    }
+
     /** Reveal a file in the Risk tab (expand its bucket, scroll to the row, flash it). */
     public focusRiskFile(nodeId: string): void {
         if (this.webviewReady) {

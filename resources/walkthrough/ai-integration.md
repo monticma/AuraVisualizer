@@ -6,6 +6,12 @@ Aura exposes your codebase structure to AI assistants through a built-in **MCP s
 
 Every analysis is persisted to `.aura/graph.db` (SQLite via sql.js). This enables instant structural queries without re-parsing.
 
+### Chat participant `@aura`
+
+Open **VS Code Chat** and type `@aura ...` to ask about the codebase. Aura uses the analyzed graph — the same deterministic tools as MCP and the Language Model tools — so answers cite real files instead of guessing.
+
+Slash commands: `/explain`, `/impact`, `/path`, `/hotspots`, `/query`. Each answer links files and offers **Focus in Aura**, **Apply Aura Query**, **Open Risk** and **Open Aura** buttons.
+
 ### MCP Server
 
 The MCP server starts automatically and registers itself in `.vscode/mcp.json`. AI assistants (like GitHub Copilot) can then query your codebase graph.

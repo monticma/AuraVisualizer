@@ -25,6 +25,7 @@
   "activationEvents": [
     "onCommand:auraVisualizer.open",
     "onWebviewPanel:auraVisualizer.graphView",
+    "onChatParticipant:monticma-aura.aura",
     "onStartupFinished",
     "onUri"
   ],
@@ -167,6 +168,37 @@
         }
       }
     ],
+    "chatParticipants": [
+      {
+        "id": "monticma-aura.aura",
+        "name": "aura",
+        "fullName": "Aura",
+        "description": "Ask Aura about codebase architecture, hotspots, impact and dependencies.",
+        "isSticky": true,
+        "commands": [
+          {
+            "name": "explain",
+            "description": "Explain a file or module and its role in the architecture"
+          },
+          {
+            "name": "impact",
+            "description": "Show what depends on a file and the blast radius"
+          },
+          {
+            "name": "path",
+            "description": "Find the shortest dependency path between two files"
+          },
+          {
+            "name": "hotspots",
+            "description": "List the most at-risk files and propose actions"
+          },
+          {
+            "name": "query",
+            "description": "Translate a natural-language filter into Aura Query Language"
+          }
+        ]
+      }
+    ],
     "commands": [
       {
         "command": "auraVisualizer.open",
@@ -195,6 +227,11 @@
         "command": "auraVisualizer.blastRadius",
         "title": "Aura: Blast Radius (Impact Analysis)",
         "icon": "$(radio-tower)"
+      },
+      {
+        "command": "auraVisualizer.askAura",
+        "title": "Aura: Ask @aura",
+        "icon": "$(comment-discussion)"
       }
     ],
     "viewsContainers": {
