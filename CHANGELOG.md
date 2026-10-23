@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`@aura` navigation actions** — file references now carry their line number, and answers expose **Open in editor** and **Blast radius** actions alongside **Focus**. Files outside the graph still get an **Open in editor** fallback; paths with spaces, absolute paths and `../` escapes are handled explicitly.
 - **Contextual Ask Aura actions** — the file detail panel offers **Explain**, **Impact**, **Refactor plan** and **Tests first**; clusters and communities expose an explanation action; the Risk dashboard opens the chat for its top 3 actions; the Aura explorer adds an **Ask @aura about this file** context-menu entry. Each action forwards the current view context (selection, tab, heatmap, query, filters) to the participant.
 - **Stale notes** — notes written before the file's last modification show a **⚠️ À revoir** badge, a **✓ Mark reviewed** action, an exact stale count on the **📝 Notes** button, a **⚠️ Stale** graph filter and the `stalenote` query flag.
+- **High-resolution PNG export** — the **📷 PNG** button opens a QuickPick for ×1/×2/×4 resolution, current/transparent background and optional Aura watermark, then saves the captured 3D graph through a unified save dialog.
+- **Unified exports** — `saveText`, `copyText`, `saveOrCopyText` and `saveBinary` centralize paths, save dialogs and notifications; the AI graph export, Risk report and PNG export use them.
 
 ### Changed
 - The legacy in-webview Aura Assistant is hidden; VS Code Chat is the primary conversational surface.

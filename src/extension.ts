@@ -19,6 +19,7 @@ import { registerAuraLmTools } from './lm-tools';
 import { registerAuraChatParticipant } from './chat/participant';
 import { registerNavigationCommands } from './commands/navigation';
 import { registerAskAuraCommands } from './commands/ask-aura';
+import { saveText } from './export/save';
 import { chunkDocument, type DocChunk } from './analyzer/parsers/doc-parser';
 
 let webviewProvider: WebviewProvider | undefined;
@@ -82,6 +83,7 @@ export function activate(context: vscode.ExtensionContext): void {
             vscode.window.showTextDocument(vscode.Uri.file(fullPath), { preview: true });
         }),
         vscode.commands.registerCommand('auraVisualizer.exportGraph', () => exportGraph()),
+        vscode.commands.registerCommand('auraVisualizer.exportImage', () => exportGraphImage(context)),
         vscode.commands.registerCommand('auraVisualizer.blastRadius', () => blastRadiusCurrentFile(context)),
         vscode.commands.registerCommand('auraVisualizer.statusBarRisk', (nodeId?: string) => focusRiskFromStatusBar(context, nodeId)),
         vscode.commands.registerCommand('auraVisualizer.applyQuery', async (expr?: string, mode: 'highlight' | 'filter' | 'select' = 'filter') => {
@@ -1097,6 +1099,47 @@ async function blastRadiusCurrentFile(context: vscode.ExtensionContext): Promise
     setTimeout(() => webviewProvider?.sendBlastRadius(relativePath), 300);
 }
 
+async function exportGraphImage(context: vscode.ExtensionContext): Promise<void> {
+    if (!cachedGraphData) {
+        vscode.window.showWarningMessage('Aura: No graph data. Run analysis first (Ctrl+Shift+A).');
+        return;
+    }
+    if (!webviewProvider) await openVisualizer(context);
+    if (!webviewProvider) return;
+
+    const resolution = await vscode.window.showQuickPick(
+        [
+            { label: 'PNG ×2', description: 'Recommended — sharp and reasonably small', value: 2 },
+            { label: 'PNG ×4', description: 'Maximum detail — larger file', value: 4 },
+            { label: 'PNG ×1', description: 'Screen resolution', value: 1 },
+        ],
+        { placeHolder: 'Aura: PNG resolution' },
+    );
+    if (!resolution) return;
+    const background = await vscode.window.showQuickPick(
+        [
+            { label: 'Current background', value: 'current' as const },
+            { label: 'Transparent background', value: 'transparent' as const },
+        ],
+        { placeHolder: 'Aura: PNG background' },
+    );
+    if (!background) return;
+    const watermark = await vscode.window.showQuickPick(
+        [
+            { label: 'No watermark', value: false },
+            { label: 'Aura watermark', value: true },
+        ],
+        { placeHolder: 'Aura: watermark' },
+    );
+    if (!watermark) return;
+
+    webviewProvider.captureGraphImage({
+        scale: resolution.value,
+        background: background.value,
+        watermark: watermark.value,
+    });
+}
+
 async function exportGraph(): Promise<void> {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) {
@@ -1107,9 +1150,6 @@ async function exportGraph(): Promise<void> {
         vscode.window.showWarningMessage('Aura: No graph data. Run analysis first (Ctrl+Shift+A).');
         return;
     }
-
-    const auraDir = path.join(workspaceFolder.uri.fsPath, '.aura');
-    await fs.mkdir(auraDir, { recursive: true });
 
     const graph = cachedGraphData;
 
@@ -1136,15 +1176,17 @@ async function exportGraph(): Promise<void> {
             label: l.label
         }))
     };
-    await fs.writeFile(
-        path.join(auraDir, 'graph.json'),
-        JSON.stringify(graphJson, null, 2),
-        'utf-8'
-    );
+    await saveText('Graph JSON', JSON.stringify(graphJson, null, 2), {
+        fileName: 'graph.json',
+        notify: false,
+    });
 
     // 2. Generate summary.md
     const summary = generateSummary(graph);
-    await fs.writeFile(path.join(auraDir, 'summary.md'), summary, 'utf-8');
+    await saveText('Summary', summary, {
+        fileName: 'summary.md',
+        notify: false,
+    });
 
     vscode.window.showInformationMessage(
         `Aura: Exported to .aura/ — graph.json + summary.md`,
@@ -1152,7 +1194,7 @@ async function exportGraph(): Promise<void> {
     ).then(choice => {
         if (choice === 'Open summary') {
             vscode.window.showTextDocument(
-                vscode.Uri.file(path.join(auraDir, 'summary.md')),
+                vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, '.aura', 'summary.md')),
                 { preview: true }
             );
         }

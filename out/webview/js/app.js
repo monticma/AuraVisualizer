@@ -283,6 +283,9 @@
                     window.AuraQueryBar.setSavedQueries(message.payload.queries);
                 }
                 break;
+            case 'captureGraphImage':
+                if (window.AuraExport) window.AuraExport.capture(message.payload);
+                break;
             case 'restoreViewState':
                 if (message.payload) applyViewState(message.payload);
                 viewStateReady = true;
@@ -363,6 +366,13 @@
                 setHoveredSymbolId: function (v) { hoveredSymbolId = v; },
                 getShowGroups: function () { return showGroups; }, setShowGroups: function (v) { showGroups = v; },
                 getExpandedGroups: function () { return expandedGroups; }, applyFilters: applyFilters
+            });
+        }
+        if (window.AuraExport) {
+            AuraExport.init({
+                getGraph: function () { return graph; },
+                getContainer: function () { return graphContainer; },
+                postMessage: function (msg) { vscode.postMessage(msg); }
             });
         }
         if (window.AuraDetail) {
@@ -1150,6 +1160,7 @@
         }
 
         graph = ForceGraph3D()(graphContainer)
+            .rendererConfig({ preserveDrawingBuffer: true, alpha: true })
             .graphData(filtered)
             .nodeId('id')
             .nodeLabel('')

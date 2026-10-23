@@ -11,6 +11,7 @@ import { runChatStream } from '../chat';
 import { normalizeRiskWindow } from '../risk/risk-core';
 import type { RiskSnapshot } from '../risk/risk-service';
 import { parseAnnotations, serializeAnnotations, withNote, withoutNote, type AnnotationMap } from '../annotations';
+import { saveOrCopyText, saveBinary } from '../export/save';
 import { makeWarp, parseWarps, removeWarp, serializeWarps, upsertWarp, type WarpList } from '../warps';
 import type { FunctionFlow } from '../flow/flow-core';
 
@@ -205,6 +206,19 @@ export class WebviewProvider {
                     case 'requestExport':
                         vscode.commands.executeCommand('auraVisualizer.exportGraph');
                         break;
+                    case 'requestExportImage':
+                        void vscode.commands.executeCommand('auraVisualizer.exportImage');
+                        break;
+                    case 'exportImageData':
+                        if (message.payload && typeof message.payload.dataUrl === 'string') {
+                            void this.handleExportImageData(message.payload.dataUrl);
+                        }
+                        break;
+                    case 'exportImageError':
+                        if (message.payload && typeof message.payload.message === 'string') {
+                            void vscode.window.showWarningMessage('Aura: PNG export failed — ' + message.payload.message);
+                        }
+                        break;
                     case 'saveViewState':
                         if (message.payload) {
                             this.workspaceState.update(WebviewProvider.VIEW_STATE_KEY, message.payload);
@@ -328,26 +342,25 @@ export class WebviewProvider {
     }
 
     private async handleExportRiskReport(markdown: string): Promise<void> {
-        const ws = vscode.workspace.workspaceFolders?.[0];
-        if (!ws) {
-            vscode.window.showWarningMessage('Aura: No workspace folder open.');
-            return;
-        }
-        const dir = vscode.Uri.joinPath(ws.uri, '.aura');
-        const file = vscode.Uri.joinPath(dir, 'risk-report.md');
         try {
-            await vscode.workspace.fs.createDirectory(dir);
-            await vscode.workspace.fs.writeFile(file, Buffer.from(markdown, 'utf-8'));
-            const choice = await vscode.window.showInformationMessage(
-                'Aura: Risk report exported to .aura/risk-report.md',
-                'Open'
-            );
-            if (choice === 'Open') {
-                vscode.window.showTextDocument(file, { preview: true });
-            }
+            await saveOrCopyText('Risk report', markdown, 'risk-report.md', { Markdown: ['md'] });
         } catch (err) {
             vscode.window.showErrorMessage(
                 'Aura: Failed to export risk report: ' + (err instanceof Error ? err.message : String(err))
+            );
+        }
+    }
+
+    private async handleExportImageData(dataUrl: string): Promise<void> {
+        try {
+            const comma = dataUrl.indexOf(',');
+            if (comma < 0) throw new Error('Invalid PNG data URL');
+            const data = Buffer.from(dataUrl.slice(comma + 1), 'base64');
+            const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+            await saveBinary('Graph image', data, `aura-graph-${stamp}.png`, { PNG: ['png'] });
+        } catch (err) {
+            void vscode.window.showErrorMessage(
+                'Aura: Failed to save PNG: ' + (err instanceof Error ? err.message : String(err))
             );
         }
     }
@@ -617,6 +630,15 @@ export class WebviewProvider {
         }
     }
 
+    /** Ask the webview to capture the current graph as a PNG. */
+    public captureGraphImage(options: { scale: number; background: 'current' | 'transparent'; watermark: boolean }): void {
+        if (!this.webviewReady) {
+            void vscode.window.showWarningMessage('Aura: Open the graph before exporting a PNG.');
+            return;
+        }
+        this.panel?.webview.postMessage({ type: 'captureGraphImage', payload: options });
+    }
+
     public sendFilterDirs(dirs: string[]): void {
         this.panel?.webview.postMessage({ type: 'filterDirs', payload: { dirs } });
     }
@@ -767,6 +789,9 @@ export class WebviewProvider {
         const queryUiUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'query-ui.js')
         );
+        const exportUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'export.js')
+        );
         const spritesUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'sprites.js')
         );
@@ -825,6 +850,7 @@ export class WebviewProvider {
                     <span class="stat" id="stat-time">—</span>
                 </div>
                 <button id="btn-export" class="top-btn" title="Export graph for AI">📤 Export</button>
+                <button id="btn-export-image" class="top-btn" title="Export a high-resolution PNG of the 3D graph">📷 PNG</button>
                 <button id="btn-minimap" class="top-btn" title="Toggle minimap">🗺️ Map</button>
                 <button id="btn-refresh" class="top-btn" title="Refresh analysis">🔄 Refresh</button>
                 <button id="btn-help" class="top-btn" title="Help & shortcuts">❓ Help</button>
@@ -1738,6 +1764,7 @@ export class WebviewProvider {
     <script nonce="${nonce}" src="${riskMapUri}"></script>
     <script nonce="${nonce}" src="${detailUri}"></script>
     <script nonce="${nonce}" src="${queryUiUri}"></script>
+    <script nonce="${nonce}" src="${exportUri}"></script>
     <script nonce="${nonce}" src="${spritesUri}"></script>
     <script nonce="${nonce}" src="${panelsUri}"></script>
     <script nonce="${nonce}" src="${chatUri}"></script>

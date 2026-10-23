@@ -147,6 +147,7 @@ Complexity, fan-in, fan-out and churn are **percentile ranks inside your reposit
 - **📊 Churn × Complexity** — scatter matrix (log scale) spotting files that are both complex and heavily churned (red = hot)
 - **👤 Bus Factor** — files touched by a single developer (≥ 3 commits in the window)
 - **📤 Export Report** — writes a Markdown report to `.aura/risk-report.md`, reasons included
+- **📷 PNG** — exports the 3D graph at ×1/×2/×4 with current or transparent background, optional watermark, and a unified save dialog
 
 Risk buckets: **High ≥ 66**, **Medium 33–65**, **Low < 33**. Churn is measured as commits per file and requires the git **Time Travel** scan.
 

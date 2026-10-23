@@ -224,6 +224,11 @@
         "icon": "$(export)"
       },
       {
+        "command": "auraVisualizer.exportImage",
+        "title": "Aura: Export Graph as PNG",
+        "icon": "$(device-camera)"
+      },
+      {
         "command": "auraVisualizer.blastRadius",
         "title": "Aura: Blast Radius (Impact Analysis)",
         "icon": "$(radio-tower)"
