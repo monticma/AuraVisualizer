@@ -867,7 +867,7 @@ export class WebviewProvider {
                     <span class="stat-separator">·</span>
                     <span class="stat" id="stat-time">—</span>
                 </div>
-                <button id="btn-export" class="top-btn" title="Export graph for AI">📤 Export</button>
+                <button id="btn-export" class="top-btn" title="Export AI context (Markdown/JSON) — selectable sections and token budget">📤 Export</button>
                 <button id="btn-export-image" class="top-btn" title="Export a high-resolution PNG of the 3D graph">📷</button>
                 <button id="btn-follow-editor" class="top-btn icon-btn" aria-pressed="true" title="Follow editor (on) — camera flies to the active file">👁</button>
                 <button id="btn-minimap" class="top-btn" title="Toggle minimap">🗺️ Map</button>
@@ -1727,6 +1727,7 @@ export class WebviewProvider {
                 <p>The graph is cached in a local SQLite database (<code>.aura/graph.db</code>). On next launch, the cached graph loads instantly while a background re-scan picks up changes and sends a delta update. File saves trigger incremental O(1) updates.</p>
 
                 <h3>📤 Export for AI</h3>
+                <p>The <strong>📤 Export</strong> button opens a guided export: choose <strong>Markdown</strong> or <strong>JSON</strong>, pick the sections (modules, contracts, hotspots, cycles, dead code) and a token budget (2k / 4k / 8k / 16k / no limit). The export estimates tokens at ~4 chars/token and reports any truncation explicitly. Save it or copy it straight into a prompt.</p>
                 <p>Export the graph as JSON for AI assistants. Aura also includes a built-in MCP server for direct AI integration.</p>
                 <p>Use <strong>Aura: Export Architecture Report</strong> from the Command Palette to generate a Markdown document with a Mermaid module graph, top dependencies, hotspots, cycles and dead exports. Documentation files are excluded by default. <strong>Aura: Export Architecture Report with AI Narrative</strong> adds a written explanation generated from that deterministic report by the selected VS Code model.</p>
                 <p><strong>Aura: Export Metrics (CSV/JSON)</strong> exports one row per file with LOC, complexity, fan-in/out, churn, authors and risk score, ready for a spreadsheet or a dashboard.</p>

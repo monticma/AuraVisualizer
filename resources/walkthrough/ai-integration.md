@@ -39,4 +39,11 @@ The MCP server starts automatically and registers itself in `.vscode/mcp.json`. 
 
 ### Export for AI
 
-Use the **Export** button (or command *Aura: Export Graph for AI*) to export the full graph data as JSON for manual analysis.
+Use the **📤 Export** button (or command *Aura: Export Graph for AI*) to build a focused context for an LLM:
+
+- Choose **Markdown** or structured **JSON**.
+- Pick sections: modules, contracts, hotspots, cycles and dead code.
+- Set a token budget (2k / 4k / 8k / 16k / no limit); truncation is reported explicitly.
+- Save the result or copy it directly into a chat prompt.
+
+For a raw graph, use the MCP `generate_documentation` tool or `get_architecture` / `get_hotspots` instead.

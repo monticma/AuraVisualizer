@@ -22,6 +22,7 @@ import { registerAskAuraCommands } from './commands/ask-aura';
 import { buildArchReportInput, generateArchReport, withAiNarrative, type ArchReportExtras, type ArchReportModule } from './report/arch-report';
 import { generateArchitectureNarrative } from './report/ai-summary';
 import { metricsToCsv, metricsToJson, type MetricsRow } from './report/metrics-export';
+import { buildAiExportInput, generateAiExport, type AiExportSection } from './export/ai-export';
 import { saveOrCopyText, saveText } from './export/save';
 import { chunkDocument, type DocChunk } from './analyzer/parsers/doc-parser';
 
@@ -1260,184 +1261,62 @@ async function exportGraphImage(context: vscode.ExtensionContext): Promise<void>
 }
 
 async function exportGraph(): Promise<void> {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) {
-        vscode.window.showWarningMessage('Aura: No workspace folder open.');
-        return;
-    }
     if (!cachedGraphData) {
         vscode.window.showWarningMessage('Aura: No graph data. Run analysis first (Ctrl+Shift+A).');
         return;
     }
 
-    const graph = cachedGraphData;
+    const format = await vscode.window.showQuickPick(
+        [
+            { label: 'Markdown', description: 'Readable architecture briefing for a chat prompt', value: 'markdown' as const },
+            { label: 'JSON', description: 'Structured sections for tools and agents', value: 'json' as const },
+        ],
+        { placeHolder: 'Aura: AI context format' },
+    );
+    if (!format) return;
 
-    // 1. Export graph.json (nodes without heavy content, + links + meta)
-    const graphJson = {
-        meta: graph.meta,
-        nodes: graph.nodes.map(n => ({
-            id: n.id,
-            name: n.name,
-            path: n.path,
-            language: n.language,
-            extension: n.extension,
-            size: n.size,
-            linesOfCode: n.linesOfCode,
-            group: n.group,
-            fanIn: n.fanIn,
-            fanOut: n.fanOut,
-            complexity: n.complexity
-        })),
-        links: graph.links.map(l => ({
-            source: l.source,
-            target: l.target,
-            type: l.type,
-            label: l.label
-        }))
-    };
-    await saveText('Graph JSON', JSON.stringify(graphJson, null, 2), {
-        fileName: 'graph.json',
-        notify: false,
+    const sectionChoices: Array<vscode.QuickPickItem & { id: AiExportSection }> = [
+        { id: 'modules', label: 'Modules', description: 'Modules, key files and inter-module dependencies', picked: true },
+        { id: 'contracts', label: 'Contracts', description: 'Public symbols, exported APIs and header declarations', picked: true },
+        { id: 'hotspots', label: 'Hotspots', description: 'Highest-impact files with metrics and reasons', picked: true },
+        { id: 'cycles', label: 'Cycles', description: 'Circular dependencies', picked: true },
+        { id: 'deadCode', label: 'Dead code', description: 'Unused exports and symbols', picked: true },
+    ];
+    const selected = await vscode.window.showQuickPick(sectionChoices, {
+        canPickMany: true,
+        placeHolder: 'Aura: sections to include in the AI context',
     });
+    if (!selected || selected.length === 0) {
+        vscode.window.showWarningMessage('Aura: Select at least one section to export.');
+        return;
+    }
 
-    // 2. Generate summary.md
-    const summary = generateSummary(graph);
-    await saveText('Summary', summary, {
-        fileName: 'summary.md',
-        notify: false,
+    const budget = await vscode.window.showQuickPick(
+        [
+            { label: '4,000 tokens', description: 'Recommended — enough context for most prompts', value: 4000 },
+            { label: '2,000 tokens', description: 'Compact — quick architecture summary', value: 2000 },
+            { label: '8,000 tokens', description: 'Detailed — more modules, contracts and hotspots', value: 8000 },
+            { label: '16,000 tokens', description: 'Large context window', value: 16000 },
+            { label: 'No limit', description: 'Everything (may exceed a model context window)', value: 0 },
+        ],
+        { placeHolder: 'Aura: token budget' },
+    );
+    if (!budget) return;
+
+    const input = buildAiExportInput(cachedGraphData, archReportExtras());
+    const content = generateAiExport(input, {
+        format: format.value,
+        sections: selected.map(item => item.id),
+        tokenBudget: budget.value,
+        generatedAt: new Date().toISOString(),
     });
-
-    vscode.window.showInformationMessage(
-        `Aura: Exported to .aura/ — graph.json + summary.md`,
-        'Open summary'
-    ).then(choice => {
-        if (choice === 'Open summary') {
-            vscode.window.showTextDocument(
-                vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, '.aura', 'summary.md')),
-                { preview: true }
-            );
-        }
-    });
-}
-
-function generateSummary(graph: GraphData): string {
-    const { meta, nodes, links } = graph;
-    const lines: string[] = [];
-
-    lines.push(`# Aura Graph — ${meta.projectName}`);
-    lines.push(`> Auto-generated by Aura Visualizer on ${meta.analyzedAt}`);
-    lines.push(`> This file describes the codebase architecture for AI-assisted development.`);
-    lines.push('');
-
-    // Overview
-    lines.push('## Overview');
-    lines.push(`- **${meta.totalFiles}** files, **${meta.totalLinks}** dependencies`);
-    const langs = Object.entries(meta.languageStats)
-        .sort((a, b) => b[1].count - a[1].count)
-        .map(([lang, s]) => `${lang} (${s.count} files, ${s.totalLOC} LOC)`);
-    lines.push(`- Languages: ${langs.join(', ')}`);
-    if (meta.unresolvedReferences > 0) {
-        lines.push(`- Unresolved references: ${meta.unresolvedReferences}`);
-    }
-    lines.push('');
-
-    // Groups / directories
-    if (meta.groups.length > 0) {
-        lines.push('## Directory Structure');
-        for (const g of meta.groups) {
-            const groupFiles = nodes.filter(n => n.group === g);
-            const totalLOC = groupFiles.reduce((s, n) => s + n.linesOfCode, 0);
-            lines.push(`- \`${g}/\` — ${groupFiles.length} files, ${totalLOC} LOC`);
-        }
-        lines.push('');
-    }
-
-    // Hotspots — high fan-in
-    const highFanIn = [...nodes].sort((a, b) => b.fanIn - a.fanIn).slice(0, 15).filter(n => n.fanIn > 0);
-    if (highFanIn.length > 0) {
-        lines.push('## Hotspots (most depended-on files)');
-        lines.push('| File | Fan-in | Fan-out | Complexity | LOC |');
-        lines.push('|------|--------|---------|------------|-----|');
-        for (const n of highFanIn) {
-            lines.push(`| \`${n.id}\` | ${n.fanIn} | ${n.fanOut} | ${n.complexity} | ${n.linesOfCode} |`);
-        }
-        lines.push('');
-    }
-
-    // Most complex files
-    const complex = [...nodes].sort((a, b) => b.complexity - a.complexity).slice(0, 10).filter(n => n.complexity > 1);
-    if (complex.length > 0) {
-        lines.push('## Most Complex Files');
-        lines.push('| File | Complexity | LOC | Fan-in | Fan-out |');
-        lines.push('|------|------------|-----|--------|---------|');
-        for (const n of complex) {
-            lines.push(`| \`${n.id}\` | ${n.complexity} | ${n.linesOfCode} | ${n.fanIn} | ${n.fanOut} |`);
-        }
-        lines.push('');
-    }
-
-    // Largest files
-    const largest = [...nodes].sort((a, b) => b.linesOfCode - a.linesOfCode).slice(0, 10);
-    if (largest.length > 0) {
-        lines.push('## Largest Files');
-        lines.push('| File | LOC | Complexity | Language |');
-        lines.push('|------|-----|------------|----------|');
-        for (const n of largest) {
-            lines.push(`| \`${n.id}\` | ${n.linesOfCode} | ${n.complexity} | ${n.language} |`);
-        }
-        lines.push('');
-    }
-
-    // Orphan files (no dependencies in or out)
-    const orphans = nodes.filter(n => n.fanIn === 0 && n.fanOut === 0);
-    if (orphans.length > 0) {
-        lines.push('## Orphan Files (no dependencies)');
-        for (const n of orphans) {
-            lines.push(`- \`${n.id}\` (${n.language}, ${n.linesOfCode} LOC)`);
-        }
-        lines.push('');
-    }
-
-    // Circular dependencies detection
-    const circularPairs: string[] = [];
-    const linkSet = new Set(links.map(l => `${l.source}→${l.target}`));
-    for (const l of links) {
-        const reverse = `${l.target}→${l.source}`;
-        if (linkSet.has(reverse) && l.source < l.target) {
-            circularPairs.push(`\`${l.source}\` ↔ \`${l.target}\``);
-        }
-    }
-    if (circularPairs.length > 0) {
-        lines.push('## Circular Dependencies');
-        for (const pair of circularPairs) {
-            lines.push(`- ${pair}`);
-        }
-        lines.push('');
-    }
-
-    // Dependency types breakdown
-    const typeCounts: Record<string, number> = {};
-    for (const l of links) {
-        typeCounts[l.type] = (typeCounts[l.type] || 0) + 1;
-    }
-    if (Object.keys(typeCounts).length > 0) {
-        lines.push('## Dependency Types');
-        for (const [type, count] of Object.entries(typeCounts).sort((a, b) => b[1] - a[1])) {
-            lines.push(`- **${type}**: ${count}`);
-        }
-        lines.push('');
-    }
-
-    // AI instructions
-    lines.push('## Usage Notes for AI Agents');
-    lines.push('- Files with high fan-in are **critical hubs** — changes impact many dependents.');
-    lines.push('- Check circular dependencies before refactoring — break cycles where possible.');
-    lines.push('- Orphan files may be dead code candidates for cleanup.');
-    lines.push('- Use `graph.json` for programmatic queries (e.g., find all dependents of a file).');
-    lines.push('- High complexity files (>15) are prime candidates for decomposition.');
-    lines.push('');
-
-    return lines.join('\n');
+    const isMarkdown = format.value === 'markdown';
+    await saveOrCopyText(
+        isMarkdown ? 'AI context (Markdown)' : 'AI context (JSON)',
+        content,
+        isMarkdown ? 'ai-context.md' : 'ai-context.json',
+        isMarkdown ? { Markdown: ['md'] } : { JSON: ['json'] },
+    );
 }
 
 function setupFileWatcher(context: vscode.ExtensionContext): void {

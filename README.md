@@ -409,7 +409,7 @@ You can also open the visualizer from the **Aura** icon in the Activity Bar or v
 | Aura: Refresh Visualization | — | Re-analyze the workspace |
 | Aura: Focus Current File | — | Highlight the active editor file in the graph |
 | Aura: Blast Radius | — | Show blast radius for the active file |
-| Aura: Export Graph for AI | — | Export graph data as JSON |
+| Aura: Export Graph for AI | — | AI context export — Markdown or JSON, selectable sections and token budget |
 | Aura: Export Graph as PNG | — | Capture the 3D graph at ×1/×2/×4 |
 | Aura: Export Architecture Report | — | Markdown + Mermaid architecture report |
 | Aura: Export Architecture Report with AI Narrative | — | Same report plus an AI-written architecture explanation |
@@ -455,6 +455,16 @@ Open **VS Code Chat** and mention `@aura` to ask about architecture, hotspots, i
 - **Answers** link files directly and offer actions: **Focus in Aura**, **Apply Aura Query**, **Open Risk**, **Open Aura**
 - **Ask Aura** buttons live directly in the UI: file detail (Explain / Impact / Refactor plan / Tests first), clusters, communities, the Risk dashboard and the explorer context menu
 - The legacy in-panel assistant is hidden — VS Code Chat is the main conversational surface
+
+### Export an AI context
+
+Use **📤 Export** (or *Aura: Export Graph for AI*) to give an LLM a focused view of the codebase:
+
+- **Format:** Markdown briefing or structured JSON
+- **Sections:** modules + inter-module dependencies, contracts (exports/interfaces/header declarations), hotspots, cycles and dead code
+- **Budget:** 2k / 4k / 8k / 16k tokens or no limit — estimated at ~4 characters per token
+- **Truncation is explicit:** omitted items/sections are reported, never silently cut
+- Save to a file or copy directly into the prompt
 
 ### MCP Server
 
