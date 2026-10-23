@@ -2086,24 +2086,8 @@
         }
 
         // Normal click: clear multi-selection, select single
-        if (multiSelectedNodes.size > 0) {
-            multiSelectedNodes.clear();
-            multiSelectedLinks.clear();
-        }
-        selectedNode = node;
-
-        // Refresh glow/bloom effect on selection
-        if (graph) graph.nodeThreeObject(graph.nodeThreeObject());
-
-        var distance = 120;
-        var distRatio = 1 + distance / Math.hypot(node.x, node.y, node.z);
-        graph.cameraPosition(
-            { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio },
-            node,
-            1000
-        );
-
-        if (window.AuraDetail) AuraDetail.show(node);
+        selectNodeLikeClick(node);
+        graph.cameraPosition(nodeCameraPose(node), node, 1000);
     }
 
     function updateMultiSelectedLinks() {
@@ -2506,30 +2490,39 @@
         return null;
     }
 
+    /** Selection + visual refresh + detail panel, exactly like a normal click. */
+    function selectNodeLikeClick(node) {
+        if (!graph || !node) return;
+        if (multiSelectedNodes.size > 0) {
+            multiSelectedNodes.clear();
+            multiSelectedLinks.clear();
+        }
+        selectedNode = node;
+        graph.nodeThreeObject(graph.nodeThreeObject());
+        updateExplorerSelection();
+        if (window.AuraDetail) AuraDetail.show(node);
+    }
+
+    /** Close-up camera position for a node, matching a normal click (120 units). */
+    function nodeCameraPose(node) {
+        var distance = 120;
+        var radius = Math.hypot(node.x, node.y, node.z);
+        var ratio = radius > 1e-6 ? 1 + distance / radius : 1;
+        return { x: node.x * ratio, y: node.y * ratio, z: node.z * ratio };
+    }
+
     function focusNodeById(nodeId, reveal) {
         if (!graph || !graphData) return;
         var node = findGraphNode(nodeId);
         if (!node) return;
 
         if (reveal) {
-            multiSelectedNodes.clear();
-            multiSelectedLinks.clear();
-        }
-        selectedNode = node;
-        updateExplorerSelection();
-
-        if (reveal) {
-            // Match a normal graph click: fly close, center the node, open details.
-            if (graph) graph.nodeThreeObject(graph.nodeThreeObject());
-            var distance = 120;
-            var distRatio = 1 + distance / Math.hypot(node.x, node.y, node.z);
-            graph.cameraPosition(
-                { x: node.x * distRatio, y: node.y * distRatio, z: node.z * distRatio },
-                node,
-                1000
-            );
-            if (window.AuraDetail) AuraDetail.show(node);
-        } else if (graph) {
+            // Match a normal graph click: select, fly close, open details.
+            selectNodeLikeClick(node);
+            graph.cameraPosition(nodeCameraPose(node), node, 1000);
+        } else {
+            selectedNode = node;
+            updateExplorerSelection();
             // Subtle highlight when following the active editor.
             graph.nodeColor(graph.nodeColor());
         }
@@ -2603,7 +2596,7 @@
         ctrl.addEventListener('start', followControlsStartHandler);
     }
 
-    /** Camera flight to the active editor file — does not open the detail panel. */
+    /** Camera flight to the active editor file — selects it exactly like a click. */
     function followNodeById(nodeId) {
         if (!followEditorEnabled || followEditorPaused) return;
         if (activeTab !== 'graph' || !graph || !graphData) return;
@@ -2612,10 +2605,7 @@
         var node = findGraphNode(nodeId);
         if (!node || typeof node.x !== 'number' || typeof node.y !== 'number' || typeof node.z !== 'number') return;
 
-        selectedNode = node;
-        updateExplorerSelection();
-        graph.nodeColor(graph.nodeColor());
-
+        // Compute the flight from the current framing before the detail panel opens.
         var pose = null;
         try {
             var cam = graph.camera();
@@ -2631,6 +2621,7 @@
         } catch (e) { pose = null; }
         if (!pose) return;
 
+        selectNodeLikeClick(node);
         if (window.AuraWarps && typeof window.AuraWarps.flyToPose === 'function') {
             AuraWarps.flyToPose(pose.pos, pose.target);
         } else {

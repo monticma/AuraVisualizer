@@ -146,7 +146,7 @@ describe('flight: scene scale & speed', () => {
 });
 
 describe('flight: follow-editor pose', () => {
-    it('targets the node, keeps the view direction and zooms in slightly', () => {
+    it('targets the node, keeps the view direction and lands at the click distance', () => {
         const pose = followPose(
             { x: 0, y: 0, z: 100 },
             { x: 0, y: 0, z: 0 },
@@ -155,17 +155,28 @@ describe('flight: follow-editor pose', () => {
         expect(pose.target).toEqual({ x: 10, y: 20, z: 30 });
         expect(near(pose.pos.x, 10)).toBe(true);
         expect(near(pose.pos.y, 20)).toBe(true);
-        expect(near(pose.pos.z, 110)).toBe(true); // 100 × 0.8 above the node
-        expect(near(Math.hypot(pose.pos.x - 10, pose.pos.y - 20, pose.pos.z - 30), 80)).toBe(true);
+        expect(near(pose.pos.z, 150)).toBe(true); // fixed 120 above the node
+        expect(near(Math.hypot(pose.pos.x - 10, pose.pos.y - 20, pose.pos.z - 30), 120)).toBe(true);
     });
 
-    it('keeps a usable minimum distance when already very close', () => {
+    it('keeps the same distance when alternating between files', () => {
+        const a = { x: -200, y: 10, z: 0 };
+        const b = { x: 300, y: -40, z: 80 };
+        const first = followPose({ x: 0, y: 0, z: 1000 }, { x: 0, y: 0, z: 0 }, b);
+        const second = followPose(first.pos, first.target, a);
+        const d1 = Math.hypot(first.pos.x - b.x, first.pos.y - b.y, first.pos.z - b.z);
+        const d2 = Math.hypot(second.pos.x - a.x, second.pos.y - a.y, second.pos.z - a.z);
+        expect(near(d1, 120)).toBe(true);
+        expect(near(d2, 120)).toBe(true);
+    });
+
+    it('does not zoom past the node when the camera is very close', () => {
         const pose = followPose(
             { x: 0, y: 0, z: 10 },
             { x: 0, y: 0, z: 0 },
             { x: 0, y: 0, z: 0 },
         );
-        expect(near(Math.hypot(pose.pos.x, pose.pos.y, pose.pos.z), 24)).toBe(true);
+        expect(near(Math.hypot(pose.pos.x, pose.pos.y, pose.pos.z), 120)).toBe(true);
     });
 
     it('falls back to a stable direction when camera and target coincide', () => {
@@ -175,6 +186,6 @@ describe('flight: follow-editor pose', () => {
             { x: 1, y: 2, z: 3 },
         );
         expect(pose.target).toEqual({ x: 1, y: 2, z: 3 });
-        expect(near(pose.pos.z, 27)).toBe(true);
+        expect(near(pose.pos.z, 123)).toBe(true); // 120 fallback above the node
     });
 });

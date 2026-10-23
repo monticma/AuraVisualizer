@@ -220,11 +220,12 @@ Save named camera bookmarks of the 3D view and fly back to them in one click:
 
 ### Follow Editor 👁
 
-Switch editor tabs and the 3D camera flies to the matching file — a smooth 800 ms move with a light zoom that preserves your viewing angle:
+Switch editor tabs and the 3D camera flies to the matching file — the same 800 ms close-up and selection as clicking its node:
 
 - The **👁** toolbar button toggles following; the choice is saved in the view state and as `auraVisualizer.followEditor`
+- The file is **selected** like a click: glow, explorer selection and detail panel, with a fixed 120-unit camera distance (no creeping zoom when alternating files)
 - Any manual orbit, pan or zoom **pauses** following so the camera never fights you — click 👁 again to resume
-- Files outside the analyzed graph are ignored; the detail panel stays closed during the flight
+- Files outside the analyzed graph are ignored
 
 ### Pilot Mode 🚀
 

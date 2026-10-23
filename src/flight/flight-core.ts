@@ -161,9 +161,8 @@ export function sceneScale(nodes: Array<{ x?: unknown; y?: unknown; z?: unknown 
     return Math.max(MIN_SCENE_SCALE, extent);
 }
 
-/** Follow-editor framing: a slight zoom-in while keeping the current view angle. */
-export const FOLLOW_ZOOM = 0.8;
-export const FOLLOW_MIN_DISTANCE = 24;
+/** Follow-editor framing: the same close-up distance as a normal node click. */
+export const FOLLOW_DISTANCE = 120;
 
 export interface FollowPose {
     pos: Vec3;
@@ -174,16 +173,17 @@ export interface FollowPose {
  * Camera pose for the "follow editor" flight.
  *
  * The orbit direction is preserved (the camera stays on the same side of the
- * target), the orbit target moves to the active file, and the distance is
- * shortened to {@link FOLLOW_ZOOM} of the current framing — a light zoom, not
- * a dramatic close-up. `minDistance` keeps tiny/zero-distance views usable.
+ * current target), the orbit target moves to the active file, and the camera
+ * lands at a fixed {@link FOLLOW_DISTANCE} from it. A fixed distance is
+ * essential: deriving it from the current distance made repeated editor
+ * switches creep closer and closer to the node. It also guarantees a close,
+ * readable view even when the user was zoomed far out on the overview.
  */
 export function followPose(
     camera: Vec3,
     orbitTarget: Vec3,
     node: Vec3,
-    zoom = FOLLOW_ZOOM,
-    minDistance = FOLLOW_MIN_DISTANCE,
+    distance = FOLLOW_DISTANCE,
 ): FollowPose {
     const dx = camera.x - orbitTarget.x;
     const dy = camera.y - orbitTarget.y;
@@ -192,12 +192,12 @@ export function followPose(
     const dir = current > 1e-9
         ? { x: dx / current, y: dy / current, z: dz / current }
         : { x: 0, y: 0, z: 1 };
-    const distance = Math.max(minDistance, current * clamp(zoom, 0.2, 1));
+    const dist = Math.max(1, distance);
     return {
         pos: {
-            x: node.x + dir.x * distance,
-            y: node.y + dir.y * distance,
-            z: node.z + dir.z * distance,
+            x: node.x + dir.x * dist,
+            y: node.y + dir.y * dist,
+            z: node.z + dir.z * dist,
         },
         target: { x: node.x, y: node.y, z: node.z },
     };
