@@ -44,6 +44,10 @@ export interface RiskFileEntry {
     complexity: number;
     fanIn: number;
     fanOut: number;
+    /** Commits in the selected window. */
+    churn: number;
+    /** Distinct authors across the whole history. */
+    authorCount: number;
 }
 
 export interface RiskSnapshot {
@@ -138,6 +142,8 @@ export function buildRiskSnapshot(
             complexity: r.node.complexity || 0,
             fanIn: r.node.fanIn || 0,
             fanOut: r.node.fanOut || 0,
+            churn: churnOf(r.node),
+            authorCount: stats ? stats.authors.size : 0,
         };
         byId.set(r.node.id, entry);
         if (entry.bucket === 'high') highIds.add(r.node.id);

@@ -21,6 +21,7 @@ import { registerNavigationCommands } from './commands/navigation';
 import { registerAskAuraCommands } from './commands/ask-aura';
 import { buildArchReportInput, generateArchReport, withAiNarrative, type ArchReportExtras, type ArchReportModule } from './report/arch-report';
 import { generateArchitectureNarrative } from './report/ai-summary';
+import { metricsToCsv, metricsToJson, type MetricsRow } from './report/metrics-export';
 import { saveOrCopyText, saveText } from './export/save';
 import { chunkDocument, type DocChunk } from './analyzer/parsers/doc-parser';
 
@@ -88,6 +89,7 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('auraVisualizer.exportImage', () => exportGraphImage(context)),
         vscode.commands.registerCommand('auraVisualizer.exportArchReport', () => exportArchReport()),
         vscode.commands.registerCommand('auraVisualizer.exportArchReportAI', () => exportArchReport(true)),
+        vscode.commands.registerCommand('auraVisualizer.exportMetrics', () => exportMetrics()),
         vscode.commands.registerCommand('auraVisualizer.blastRadius', () => blastRadiusCurrentFile(context)),
         vscode.commands.registerCommand('auraVisualizer.statusBarRisk', (nodeId?: string) => focusRiskFromStatusBar(context, nodeId)),
         vscode.commands.registerCommand('auraVisualizer.applyQuery', async (expr?: string, mode: 'highlight' | 'filter' | 'select' = 'filter') => {
@@ -1101,6 +1103,44 @@ async function blastRadiusCurrentFile(context: vscode.ExtensionContext): Promise
     }
     // Small delay to ensure graph is initialized before blast
     setTimeout(() => webviewProvider?.sendBlastRadius(relativePath), 300);
+}
+
+async function exportMetrics(): Promise<void> {
+    if (!cachedGraphData) {
+        vscode.window.showWarningMessage('Aura: No graph data. Run analysis first (Ctrl+Shift+A).');
+        return;
+    }
+    const snapshot = ensureRiskSnapshot();
+    const rows: MetricsRow[] = cachedGraphData.nodes.map(node => {
+        const risk = snapshot?.byId.get(node.id);
+        return {
+            file: node.id,
+            name: node.name,
+            language: node.language,
+            group: node.group,
+            lines: node.linesOfCode,
+            complexity: node.complexity,
+            fanIn: node.fanIn,
+            fanOut: node.fanOut,
+            churn: risk?.churn ?? 0,
+            authors: risk?.authorCount ?? 0,
+            riskScore: risk?.score ?? null,
+            riskBucket: risk?.bucket ?? null,
+        };
+    });
+    const format = await vscode.window.showQuickPick(
+        [
+            { label: 'CSV', description: 'Spreadsheet-friendly, stable columns', value: 'csv' as const },
+            { label: 'JSON', description: 'Versioned envelope with rows and columns', value: 'json' as const },
+        ],
+        { placeHolder: 'Aura: metrics export format' },
+    );
+    if (!format) return;
+    if (format.value === 'csv') {
+        await saveOrCopyText('Metrics CSV', metricsToCsv(rows), 'metrics.csv', { CSV: ['csv'] });
+    } else {
+        await saveOrCopyText('Metrics JSON', metricsToJson(rows), 'metrics.json', { JSON: ['json'] });
+    }
 }
 
 async function exportArchReport(includeAiNarrative = false): Promise<void> {

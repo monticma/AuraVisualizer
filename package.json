@@ -239,6 +239,11 @@
         "icon": "$(sparkle)"
       },
       {
+        "command": "auraVisualizer.exportMetrics",
+        "title": "Aura: Export Metrics (CSV/JSON)",
+        "icon": "$(table)"
+      },
+      {
         "command": "auraVisualizer.blastRadius",
         "title": "Aura: Blast Radius (Impact Analysis)",
         "icon": "$(radio-tower)"
