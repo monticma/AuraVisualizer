@@ -3319,12 +3319,20 @@
             if (!graph) return;
             if (window.AuraWarps) AuraWarps.cancelTravel();
             selectedNode = null;
+            multiSelectedNodes.clear();
+            multiSelectedLinks.clear();
             highlightNodes.clear();
             highlightLinks.clear();
             detailPanel.classList.add('collapsed');
             if (explodedNode) collapseExplosion();
+            updateExplorerSelection();
             graph.zoomToFit(500, 50);
-            graph.nodeColor(graph.nodeColor());
+            // Clearing `selectedNode` is not enough: the glow/bloom lives in the
+            // node three-objects, and link widths/particles may still reflect a
+            // multi-selection. Rebuild the visuals so the next background click
+            // sees a clean state (it otherwise skips the rebuild because
+            // `selectedNode` is already null and leaves a stale glow behind).
+            refreshGraphVisuals();
         });
 
         $('#heatmap-select').addEventListener('change', function(e) {
