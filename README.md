@@ -400,6 +400,8 @@ You can also open the visualizer from the **Aura** icon in the Activity Bar or v
 | Aura: Focus Current File | — | Highlight the active editor file in the graph |
 | Aura: Blast Radius | — | Show blast radius for the active file |
 | Aura: Export Graph for AI | — | Export graph data as JSON |
+| Aura: Export Graph as PNG | — | Capture the 3D graph at ×1/×2/×4 |
+| Aura: Export Architecture Report | — | Markdown + Mermaid architecture report |
 
 ## Keyboard Shortcuts (in graph)
 

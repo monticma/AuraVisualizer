@@ -19,7 +19,8 @@ import { registerAuraLmTools } from './lm-tools';
 import { registerAuraChatParticipant } from './chat/participant';
 import { registerNavigationCommands } from './commands/navigation';
 import { registerAskAuraCommands } from './commands/ask-aura';
-import { saveText } from './export/save';
+import { buildArchReportInput, generateArchReport, type ArchReportExtras, type ArchReportModule } from './report/arch-report';
+import { saveOrCopyText, saveText } from './export/save';
 import { chunkDocument, type DocChunk } from './analyzer/parsers/doc-parser';
 
 let webviewProvider: WebviewProvider | undefined;
@@ -84,6 +85,7 @@ export function activate(context: vscode.ExtensionContext): void {
         }),
         vscode.commands.registerCommand('auraVisualizer.exportGraph', () => exportGraph()),
         vscode.commands.registerCommand('auraVisualizer.exportImage', () => exportGraphImage(context)),
+        vscode.commands.registerCommand('auraVisualizer.exportArchReport', () => exportArchReport()),
         vscode.commands.registerCommand('auraVisualizer.blastRadius', () => blastRadiusCurrentFile(context)),
         vscode.commands.registerCommand('auraVisualizer.statusBarRisk', (nodeId?: string) => focusRiskFromStatusBar(context, nodeId)),
         vscode.commands.registerCommand('auraVisualizer.applyQuery', async (expr?: string, mode: 'highlight' | 'filter' | 'select' = 'filter') => {
@@ -1097,6 +1099,57 @@ async function blastRadiusCurrentFile(context: vscode.ExtensionContext): Promise
     }
     // Small delay to ensure graph is initialized before blast
     setTimeout(() => webviewProvider?.sendBlastRadius(relativePath), 300);
+}
+
+async function exportArchReport(): Promise<void> {
+    if (!cachedGraphData) {
+        vscode.window.showWarningMessage('Aura: No graph data. Run analysis first (Ctrl+Shift+A).');
+        return;
+    }
+    const markdown = generateArchReport(buildArchReportInput(cachedGraphData, archReportExtras()), {
+        maxLines: 400,
+        includePaths: true,
+    });
+    await saveOrCopyText('Architecture report', markdown, 'architecture.md', { Markdown: ['md'] });
+}
+
+function archReportExtras(): ArchReportExtras {
+    if (!graphDb) return {};
+    try {
+        const groups = new Map<number, string[]>();
+        for (const community of graphDb.getCommunities()) {
+            const files = groups.get(community.community) || [];
+            files.push(community.nodeId);
+            groups.set(community.community, files);
+        }
+        const modules: ArchReportModule[] = Array.from(groups.entries())
+            .map(([id, files]) => ({
+                id,
+                name: files.reduce((best, file) => {
+                    const name = file.replace(/.*\//, '');
+                    return name.length < best.length ? name : best;
+                }, files[0] || '?').replace(/\.[^.]+$/, ''),
+                files,
+                size: files.length,
+            }))
+            .sort((a, b) => b.size - a.size);
+        return {
+            modules,
+            cycles: graphDb.getCycles(),
+            deadCode: graphDb.getDeadCode().map(d => ({ file: d.nodeId, symbol: d.symbol, kind: d.kind })),
+            hotspots: graphDb.getHotspots(20, 'impact').map(h => ({
+                file: h.id,
+                lines: h.lines,
+                complexity: h.complexity,
+                fanIn: h.fan_in,
+                fanOut: h.fan_out,
+                impact: h.impact_score,
+            })),
+        };
+    } catch (err) {
+        console.warn('[aura] architecture report data unavailable:', err);
+        return {};
+    }
 }
 
 async function exportGraphImage(context: vscode.ExtensionContext): Promise<void> {
