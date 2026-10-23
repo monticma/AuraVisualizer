@@ -11,6 +11,7 @@ import {
     approach,
     approachVec3,
     baseSpeed,
+    followPose,
     inputVector,
     moveDirection,
     rotateVec3,
@@ -141,5 +142,39 @@ describe('flight: scene scale & speed', () => {
 
     it('boost stays a pure multiplier constant', () => {
         expect(BOOST_MULT).toBeGreaterThan(3);
+    });
+});
+
+describe('flight: follow-editor pose', () => {
+    it('targets the node, keeps the view direction and zooms in slightly', () => {
+        const pose = followPose(
+            { x: 0, y: 0, z: 100 },
+            { x: 0, y: 0, z: 0 },
+            { x: 10, y: 20, z: 30 },
+        );
+        expect(pose.target).toEqual({ x: 10, y: 20, z: 30 });
+        expect(near(pose.pos.x, 10)).toBe(true);
+        expect(near(pose.pos.y, 20)).toBe(true);
+        expect(near(pose.pos.z, 110)).toBe(true); // 100 × 0.8 above the node
+        expect(near(Math.hypot(pose.pos.x - 10, pose.pos.y - 20, pose.pos.z - 30), 80)).toBe(true);
+    });
+
+    it('keeps a usable minimum distance when already very close', () => {
+        const pose = followPose(
+            { x: 0, y: 0, z: 10 },
+            { x: 0, y: 0, z: 0 },
+            { x: 0, y: 0, z: 0 },
+        );
+        expect(near(Math.hypot(pose.pos.x, pose.pos.y, pose.pos.z), 24)).toBe(true);
+    });
+
+    it('falls back to a stable direction when camera and target coincide', () => {
+        const pose = followPose(
+            { x: 5, y: 5, z: 5 },
+            { x: 5, y: 5, z: 5 },
+            { x: 1, y: 2, z: 3 },
+        );
+        expect(pose.target).toEqual({ x: 1, y: 2, z: 3 });
+        expect(near(pose.pos.z, 27)).toBe(true);
     });
 });

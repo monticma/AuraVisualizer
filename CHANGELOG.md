@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Unified exports** — `saveText`, `copyText`, `saveOrCopyText` and `saveBinary` centralize paths, save dialogs and notifications; the AI graph export, Risk report and PNG export use them.
 - **Architecture report** — `Aura: Export Architecture Report` produces a deterministic Markdown document with a Mermaid module graph, top dependencies, hotspots, cycles and dead exports (line budget and path-free options included). Documentation files are excluded by default; `Aura: Export Architecture Report with AI Narrative` optionally adds an explanation generated from that report.
 - **CSV/JSON metrics export** — `Aura: Export Metrics (CSV/JSON)` writes a stable per-file table with lines, complexity, fan-in/out, churn, author count and risk score/bucket. CSV uses RFC 4180 escaping; JSON uses a versioned `{version, generatedAt, columns, rows}` envelope.
+- **Follow editor** — switching editor tabs flies the 3D camera to the active file with a light zoom (800 ms, view angle preserved). The 👁 toolbar toggle persists in the view state; any manual camera gesture pauses following until it is clicked again. Files outside the graph are ignored.
 
 ### Changed
 - The legacy in-webview Aura Assistant is hidden; VS Code Chat is the primary conversational surface.

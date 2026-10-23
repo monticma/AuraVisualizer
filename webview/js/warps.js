@@ -561,6 +561,8 @@
         setVisible: function (visible) { syncCtx(); setWarpsPanelVisible(visible); },
         // Camera flight (quick-slot shortcut)
         travelTo: function (warp) { syncCtx(); travelToWarp(warp); },
+        // Smooth 800 ms camera flight to an explicit pose (follow-editor)
+        flyToPose: function (pos, target) { syncCtx(); travelToPose(pos, target); },
         // Resolved pose (node-anchored warps rebuild against the current layout)
         resolvePose: function (warp) { syncCtx(); return resolveWarpPose(warp); },
         // Abort an in-flight warp flight (minimap drag, pilot take-off)

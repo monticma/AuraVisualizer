@@ -30,6 +30,7 @@ const SETTING_NORMALIZERS: Record<string, (v: unknown) => unknown> = {
     mouseSensitivity: (v) => clampNumber(v, 0.0005, 0.01, 0.0022),
     invertY: (v) => v === true,
     autoRefresh: (v) => v === true,
+    followEditor: (v) => v === true,
 };
 
 function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
@@ -60,6 +61,7 @@ export class WebviewProvider {
     private pendingDeltas: unknown[] = [];
     private pendingFocus: string | undefined;
     private pendingNodeFocus: { nodeId: string; reveal: boolean } | undefined;
+    private pendingFollowEditor: string | undefined;
     private pendingShowRiskTab = false;
     private pendingQuery: { expr: string; mode: 'highlight' | 'filter' | 'select' } | undefined;
     private pendingBlastRadius: string | undefined;
@@ -132,6 +134,7 @@ export class WebviewProvider {
             this.webviewReady = false;
             this.pendingDeltas = [];
             this.pendingNodeFocus = undefined;
+            this.pendingFollowEditor = undefined;
             this.pendingShowRiskTab = false;
             this.pendingQuery = undefined;
             this.pendingBlastRadius = undefined;
@@ -167,6 +170,10 @@ export class WebviewProvider {
                         if (this.pendingNodeFocus) {
                             this.panel?.webview.postMessage({ type: 'focusNode', payload: this.pendingNodeFocus });
                             this.pendingNodeFocus = undefined;
+                        }
+                        if (this.pendingFollowEditor) {
+                            this.panel?.webview.postMessage({ type: 'followEditor', payload: { nodeId: this.pendingFollowEditor } });
+                            this.pendingFollowEditor = undefined;
                         }
                         if (this.pendingShowRiskTab) {
                             this.panel?.webview.postMessage({ type: 'showRiskTab' });
@@ -585,6 +592,15 @@ export class WebviewProvider {
         }
     }
 
+    /** Fly the camera to the active editor file (does not open the detail panel). */
+    public followEditorFile(nodeId: string): void {
+        if (this.webviewReady) {
+            this.panel?.webview.postMessage({ type: 'followEditor', payload: { nodeId } });
+        } else {
+            this.pendingFollowEditor = nodeId;
+        }
+    }
+
     /** Switch the webview to the Risk tab without changing the graph. */
     public showRiskTab(): void {
         if (this.webviewReady) {
@@ -666,6 +682,7 @@ export class WebviewProvider {
                     mouseSensitivity: clampNumber(config.get<number>('mouseSensitivity', 0.0022), 0.0005, 0.01, 0.0022),
                     invertY: config.get<boolean>('invertY', false) === true,
                     autoRefresh: config.get<boolean>('autoRefresh', true),
+                    followEditor: config.get<boolean>('followEditor', true),
                 }
             });
         } catch { /* ignore */ }
@@ -729,6 +746,7 @@ export class WebviewProvider {
                 mouseSensitivity: clampNumber(config.get<number>('mouseSensitivity', 0.0022), 0.0005, 0.01, 0.0022),
                 invertY: config.get<boolean>('invertY', false) === true,
                 autoRefresh: config.get<boolean>('autoRefresh', true),
+                followEditor: config.get<boolean>('followEditor', true),
             });
         } catch { return '{}'; }
     }
@@ -851,6 +869,7 @@ export class WebviewProvider {
                 </div>
                 <button id="btn-export" class="top-btn" title="Export graph for AI">📤 Export</button>
                 <button id="btn-export-image" class="top-btn" title="Export a high-resolution PNG of the 3D graph">📷</button>
+                <button id="btn-follow-editor" class="top-btn icon-btn" aria-pressed="true" title="Follow editor (on) — camera flies to the active file">👁</button>
                 <button id="btn-minimap" class="top-btn" title="Toggle minimap">🗺️ Map</button>
                 <button id="btn-refresh" class="top-btn" title="Refresh analysis">🔄 Refresh</button>
                 <button id="btn-help" class="top-btn" title="Help & shortcuts">❓ Help</button>
@@ -1562,6 +1581,10 @@ export class WebviewProvider {
                     <input id="set-autoRefresh" data-setting="autoRefresh" type="checkbox" />
                 </div>
                 <div class="settings-row">
+                    <label for="set-followEditor">Follow editor<span class="settings-hint">Fly to the active file; manual camera movement pauses it (👁)</span></label>
+                    <input id="set-followEditor" data-setting="followEditor" type="checkbox" />
+                </div>
+                <div class="settings-row">
                     <label for="set-flightSpeed">Flight speed<span class="settings-hint">Pilot mode base speed (×, scene-scaled)</span></label>
                     <input id="set-flightSpeed" data-setting="flightSpeed" type="number" min="0.25" max="4" step="0.05" />
                 </div>
@@ -1671,6 +1694,9 @@ export class WebviewProvider {
                 <h3>🚀 Pilot Mode (free flight)</h3>
                 <p>The <strong>🚀 Pilot</strong> toolbar button switches to free-flight navigation: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move (camera-relative — physical key layout, so AZERTY gets ZQSD), <kbd>Q</kbd>/<kbd>E</kbd> down/up, mouse look (click locks the pointer), mouse wheel adjusts the speed, <kbd>Shift</kbd> boosts. Hold the <strong>left mouse button</strong> to fly forward and the <strong>right button</strong> to fly backward — steer by looking; keys keep working in parallel. Press <kbd>Esc</kbd> to exit — or simply hit <kbd>Space</kbd> to toggle pilot mode on/off. The orbit controls take over seamlessly at the exact same view. Flight speed, smoothing, mouse sensitivity and Y-inversion live in <strong>⚙️ Settings</strong>.</p>
 
+                <h3>👁 Follow Editor</h3>
+                <p>When you switch editor tabs, the camera flies to the matching file (800 ms, light zoom, same viewing angle) without opening the detail panel. The <strong>👁</strong> toolbar button toggles it; any manual orbit, pan or zoom pauses following so the camera never fights you — click 👁 again to resume. The choice is saved in the view state and as the <code>auraVisualizer.followEditor</code> setting.</p>
+
                 <h3>📂 Directory Filtering</h3>
                 <p>In the <strong>File Explorer</strong> panel, each directory has a checkbox to show/hide its files in the graph. Use the <strong>All</strong> / <strong>None</strong> buttons for batch selection. Directories are checked by default.</p>
 
@@ -1689,6 +1715,7 @@ export class WebviewProvider {
                     <tr><td><strong>Selected node effect</strong></td><td>Glow halo or bloom post-processing (+ intensity / radius / threshold)</td></tr>
                     <tr><td><strong>Flight speed / smoothing</strong></td><td>Pilot mode base speed (scene-scaled) and acceleration damping</td></tr>
                     <tr><td><strong>Mouse look sensitivity / invert Y</strong></td><td>Pilot mode mouse-look feel</td></tr>
+                    <tr><td><strong>Follow editor</strong></td><td>Fly to the active file; manual camera movement pauses it (👁)</td></tr>
                     <tr><td><strong>Auto-refresh on save</strong></td><td>Re-analyze changed files automatically</td></tr>
                 </table>
                 <p>The footer link opens the full <code>auraVisualizer.*</code> settings list in VS Code.</p>

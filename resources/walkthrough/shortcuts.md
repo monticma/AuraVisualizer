@@ -27,12 +27,13 @@ Quick access to every feature without leaving the keyboard.
 | Button | Effect |
 |--------|--------|
 | **🔍 Query** | Toggle the query filter bar (also `Ctrl+K`) — filter / highlight / select files by metric |
-| **🗺️ Map** | Toggle the minimap — real-time overview that rotates with the camera |
+| **� Follow** | Fly the camera to the active editor file; manual camera movement pauses it |
+| **�🗺️ Map** | Toggle the minimap — real-time overview that rotates with the camera |
 | **✏️ Dirty** | Show only files with uncommitted changes (git working tree) |
 | **📝 Notes** | Show/hide the note indicators — annotated files wear a pulsing note-colored ring + dot |
 | **🌀 Warps** | Warp points panel — capture the current view (📌), fly back to any saved pose, quick slots |
 | **🚀 Pilot** | Free flight — WASD/QE to move, mouse to look, hold left/right click to advance/retreat (`Space` toggles) |
-| **⚙️ Settings** | Open the in-app settings modal — rotation speed, link style, node effect, risk window, auto-refresh |
+| **⚙️ Settings** | Open the in-app settings modal — rotation speed, link style, node effect, risk window, follow editor, auto-refresh |
 
 ### Toolbar sliders
 
@@ -51,6 +52,7 @@ The **⚙️ button** (next to 🔍 Query) opens an in-app settings modal — ch
 - **Link style & curvature** — straight or curved dependency edges
 - **Selected node effect** — glow halo or bloom post-processing (intensity / radius / threshold)
 - **Auto-refresh on save** — re-analyze changed files automatically
+- **Follow editor** — fly the camera to the active file; manual camera movement pauses it until you click 👁 again
 - **Flight speed · smoothing · mouse sensitivity · invert Y** — pilot mode feel
 
 ### Status bar

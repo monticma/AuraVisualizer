@@ -137,15 +137,17 @@ export function activate(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         vscode.window.onDidChangeActiveTextEditor(editor => {
             updateRiskStatusBar();
-            if (editor && webviewProvider?.isVisible) {
-                const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-                if (workspaceFolder) {
-                    const relativePath = path.relative(workspaceFolder.uri.fsPath, editor.document.uri.fsPath);
-                    if (!relativePath.startsWith('..')) {
-                        webviewProvider.focusNode(relativePath);
-                    }
-                }
-            }
+            if (!editor || !webviewProvider?.isVisible) return;
+            if (editor.document.uri.scheme !== 'file') return;
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+            if (!workspaceFolder) return;
+            const relativePath = path.relative(workspaceFolder.uri.fsPath, editor.document.uri.fsPath)
+                .split(path.sep).join('/');
+            if (!relativePath || relativePath === '..' || relativePath.startsWith('../') || path.isAbsolute(relativePath)) return;
+            // Files outside the analyzed graph cannot be followed.
+            if (cachedGraphData &&
+                !cachedGraphData.nodes.some(node => node.id.replace(/\\/g, '/') === relativePath)) return;
+            webviewProvider.followEditorFile(relativePath);
         })
     );
 

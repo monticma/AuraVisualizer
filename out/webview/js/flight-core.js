@@ -25,6 +25,8 @@ var AuraPilot = (() => {
     DEFAULT_FLIGHT_SPEED: () => DEFAULT_FLIGHT_SPEED,
     DEFAULT_MOUSE_SENSITIVITY: () => DEFAULT_MOUSE_SENSITIVITY,
     DEFAULT_SMOOTHING: () => DEFAULT_SMOOTHING,
+    FOLLOW_MIN_DISTANCE: () => FOLLOW_MIN_DISTANCE,
+    FOLLOW_ZOOM: () => FOLLOW_ZOOM,
     MAX_PITCH: () => MAX_PITCH,
     MAX_SPEED_MULT: () => MAX_SPEED_MULT,
     MIN_SCENE_SCALE: () => MIN_SCENE_SCALE,
@@ -37,6 +39,7 @@ var AuraPilot = (() => {
     approachVec3: () => approachVec3,
     baseSpeed: () => baseSpeed,
     clamp: () => clamp,
+    followPose: () => followPose,
     inputVector: () => inputVector,
     moveDirection: () => moveDirection,
     rotateVec3: () => rotateVec3,
@@ -142,6 +145,24 @@ var AuraPilot = (() => {
       return MIN_SCENE_SCALE;
     const extent = Math.max(maxX - minX, maxY - minY, maxZ - minZ);
     return Math.max(MIN_SCENE_SCALE, extent);
+  }
+  var FOLLOW_ZOOM = 0.8;
+  var FOLLOW_MIN_DISTANCE = 24;
+  function followPose(camera, orbitTarget, node, zoom = FOLLOW_ZOOM, minDistance = FOLLOW_MIN_DISTANCE) {
+    const dx = camera.x - orbitTarget.x;
+    const dy = camera.y - orbitTarget.y;
+    const dz = camera.z - orbitTarget.z;
+    const current = Math.hypot(dx, dy, dz);
+    const dir = current > 1e-9 ? { x: dx / current, y: dy / current, z: dz / current } : { x: 0, y: 0, z: 1 };
+    const distance = Math.max(minDistance, current * clamp(zoom, 0.2, 1));
+    return {
+      pos: {
+        x: node.x + dir.x * distance,
+        y: node.y + dir.y * distance,
+        z: node.z + dir.z * distance
+      },
+      target: { x: node.x, y: node.y, z: node.z }
+    };
   }
   function baseSpeed(scale, speedSetting) {
     const setting = clamp(speedSetting, MIN_SPEED_MULT, MAX_SPEED_MULT);

@@ -88,6 +88,13 @@
     var activeTab = 'graph';
     var graphPaused = false;
 
+    // Follow editor — camera flies to the active file when the user switches
+    // editors. A manual camera move pauses it until the 👁 button is clicked.
+    var followEditorEnabled = (window.AURA_CONFIG && window.AURA_CONFIG.followEditor) !== false;
+    var followEditorPaused = false;
+    var followControls = null;
+    var followControlsStartHandler = null;
+
     // Explorer state
     var showExplorer = false;
     var fileTree = {};
@@ -173,6 +180,11 @@
                     }
                 }
                 break;
+            case 'followEditor':
+                if (message.payload && message.payload.nodeId) {
+                    followNodeById(message.payload.nodeId);
+                }
+                break;
             case 'blastRadius':
                 if (message.payload && message.payload.nodeId) {
                     if (activeTab !== 'graph') switchTab('graph');
@@ -216,6 +228,11 @@
                 if (message.payload) {
                     window.AURA_CONFIG = Object.assign({}, window.AURA_CONFIG || {}, message.payload);
                     if (window.AuraFlight) window.AuraFlight.configure(window.AURA_CONFIG);
+                    if (typeof message.payload.followEditor === 'boolean') {
+                        followEditorEnabled = message.payload.followEditor;
+                        if (!followEditorEnabled) followEditorPaused = false;
+                        updateFollowEditorButton();
+                    }
                     applyLinkStyle();
                     if (typeof applySelectedNodeEffect === 'function') {
                         applySelectedNodeEffect();
@@ -408,6 +425,7 @@
             AuraDetail.setup();
         }
         setupRefresh();
+        setupFollowEditor();
         setupExplorer();
         if (window.AuraTimeline) AuraTimeline.setup();
         setupTabs();
@@ -1155,6 +1173,7 @@
         var filtered = filterGraphData(data);
 
         // Destroy previous graph if any
+        detachFollowControls();
         if (graph) {
             graph._destructor && graph._destructor();
         }
@@ -1458,6 +1477,8 @@
         // The canvas starts at its default 300×150 layout: align the camera controls
         // with the real size so the rotation speed is right from the first frame.
         refreshCameraControls();
+        // Follow editor — pause on the first manual camera gesture.
+        attachFollowControls();
     }
 
     // ============================================================
@@ -2466,26 +2487,28 @@
     // ============================================================
     // Focus node from extension (when switching editor tabs)
     // ============================================================
-    function focusNodeById(nodeId, reveal) {
-        if (!graph || !graphData) return;
-        var node = null;
+    /** Resolve a graph node from an absolute/relative path or a basename. */
+    function findGraphNode(nodeId) {
+        if (!graphData) return null;
         var normalized = String(nodeId || '').replace(/\\/g, '/').replace(/^\.\//, '');
         for (var i = 0; i < graphData.nodes.length; i++) {
             if (graphData.nodes[i].id === nodeId || graphData.nodes[i].id === normalized) {
-                node = graphData.nodes[i];
-                break;
+                return graphData.nodes[i];
             }
         }
-        if (!node) {
-            // Accept basenames and partial paths coming from AI citations.
-            for (var j = 0; j < graphData.nodes.length; j++) {
-                var candidate = graphData.nodes[j];
-                if (candidate.id.endsWith('/' + normalized) || candidate.name === normalized) {
-                    node = candidate;
-                    break;
-                }
+        // Accept basenames and partial paths coming from AI citations.
+        for (var j = 0; j < graphData.nodes.length; j++) {
+            var candidate = graphData.nodes[j];
+            if (candidate.id.endsWith('/' + normalized) || candidate.name === normalized) {
+                return candidate;
             }
         }
+        return null;
+    }
+
+    function focusNodeById(nodeId, reveal) {
+        if (!graph || !graphData) return;
+        var node = findGraphNode(nodeId);
         if (!node) return;
 
         if (reveal) {
@@ -2509,6 +2532,109 @@
         } else if (graph) {
             // Subtle highlight when following the active editor.
             graph.nodeColor(graph.nodeColor());
+        }
+    }
+
+    /** Update the 👁 button so the toggle state and the auto-pause are visible. */
+    function updateFollowEditorButton() {
+        var btn = $('#btn-follow-editor');
+        if (!btn) return;
+        btn.classList.toggle('active', followEditorEnabled);
+        btn.classList.toggle('paused', followEditorEnabled && followEditorPaused);
+        btn.setAttribute('aria-pressed', followEditorEnabled ? 'true' : 'false');
+        if (!followEditorEnabled) {
+            btn.title = 'Follow editor (off) — click to fly to the active file';
+        } else if (followEditorPaused) {
+            btn.title = 'Follow editor paused — click to resume';
+        } else {
+            btn.title = 'Follow editor (on) — camera flies to the active file';
+        }
+    }
+
+    function setupFollowEditor() {
+        var btn = $('#btn-follow-editor');
+        if (btn) {
+            btn.addEventListener('click', function() {
+                if (followEditorEnabled && followEditorPaused) {
+                    followEditorPaused = false; // resume without turning the setting off
+                } else {
+                    followEditorEnabled = !followEditorEnabled;
+                    followEditorPaused = false;
+                }
+                updateFollowEditorButton();
+                saveViewState();
+                vscode.postMessage({
+                    type: 'updateSetting',
+                    payload: { key: 'followEditor', value: followEditorEnabled }
+                });
+                btn.blur();
+            });
+        }
+        updateFollowEditorButton();
+    }
+
+    function detachFollowControls() {
+        if (followControls && followControlsStartHandler &&
+            typeof followControls.removeEventListener === 'function') {
+            followControls.removeEventListener('start', followControlsStartHandler);
+        }
+        followControls = null;
+        followControlsStartHandler = null;
+    }
+
+    /**
+     * TrackballControls fires `start` on any user camera gesture. A manual
+     * orbit/pan/zoom therefore pauses follow-editor until the 👁 button is
+     * clicked again — the camera should not fight the user.
+     */
+    function attachFollowControls() {
+        detachFollowControls();
+        if (!graph || typeof graph.controls !== 'function') return;
+        var ctrl = null;
+        try { ctrl = graph.controls(); } catch (e) { ctrl = null; }
+        if (!ctrl || typeof ctrl.addEventListener !== 'function') return;
+        followControls = ctrl;
+        followControlsStartHandler = function() {
+            if (!followEditorEnabled || followEditorPaused) return;
+            if (window.AuraFlight && window.AuraFlight.isActive()) return;
+            followEditorPaused = true;
+            updateFollowEditorButton();
+        };
+        ctrl.addEventListener('start', followControlsStartHandler);
+    }
+
+    /** Camera flight to the active editor file — does not open the detail panel. */
+    function followNodeById(nodeId) {
+        if (!followEditorEnabled || followEditorPaused) return;
+        if (activeTab !== 'graph' || !graph || !graphData) return;
+        if (window.AuraFlight && window.AuraFlight.isActive()) return;
+
+        var node = findGraphNode(nodeId);
+        if (!node || typeof node.x !== 'number' || typeof node.y !== 'number' || typeof node.z !== 'number') return;
+
+        selectedNode = node;
+        updateExplorerSelection();
+        graph.nodeColor(graph.nodeColor());
+
+        var pose = null;
+        try {
+            var cam = graph.camera();
+            var ctrl = graph.controls();
+            var orbit = (ctrl && ctrl.target) || { x: 0, y: 0, z: 0 };
+            if (cam && cam.position && window.AuraPilot && typeof AuraPilot.followPose === 'function') {
+                pose = AuraPilot.followPose(
+                    { x: cam.position.x, y: cam.position.y, z: cam.position.z },
+                    { x: orbit.x, y: orbit.y, z: orbit.z },
+                    { x: node.x, y: node.y, z: node.z }
+                );
+            }
+        } catch (e) { pose = null; }
+        if (!pose) return;
+
+        if (window.AuraWarps && typeof window.AuraWarps.flyToPose === 'function') {
+            AuraWarps.flyToPose(pose.pos, pose.target);
+        } else {
+            graph.cameraPosition(pose.pos, pose.target, 800);
         }
     }
 
@@ -2815,6 +2941,7 @@
             showGroups: showGroups,
             pathMode: pathMode,
             showLabels: showLabels,
+            followEditor: followEditorEnabled,
             heatmapMode: heatmapMode,
             nodeSizeMultiplier: nodeSizeMultiplier,
             spreadMultiplier: spreadMultiplier,
@@ -2874,6 +3001,11 @@
         showNotes = state.showNotes === undefined ? true : !!state.showNotes;
         showLabels = !!state.showLabels;
         pathMode = !!state.pathMode;
+        if (typeof state.followEditor === 'boolean') {
+            followEditorEnabled = state.followEditor;
+            if (!followEditorEnabled) followEditorPaused = false;
+            updateFollowEditorButton();
+        }
 
         $('#btn-dag-mode').classList.toggle('active', dagMode);
         $('#btn-highlight-orphans').classList.toggle('active', showOrphans);

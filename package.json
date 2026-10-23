@@ -329,6 +329,11 @@
           "default": true,
           "description": "Automatically refresh visualization when files are saved"
         },
+        "auraVisualizer.followEditor": {
+          "type": "boolean",
+          "default": true,
+          "description": "Fly the 3D camera to the file of the active editor. Manual camera movement pauses following until the 👁 toolbar button is clicked again."
+        },
         "auraVisualizer.notifyOnScan": {
           "type": "boolean",
           "default": true,

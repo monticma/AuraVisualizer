@@ -218,6 +218,14 @@ Save named camera bookmarks of the 3D view and fly back to them in one click:
 - **🏠 Home** — the first row always returns to the default fit-to-view
 - Stored in `.aura/warps.json`, local to the workspace (not committed)
 
+### Follow Editor 👁
+
+Switch editor tabs and the 3D camera flies to the matching file — a smooth 800 ms move with a light zoom that preserves your viewing angle:
+
+- The **👁** toolbar button toggles following; the choice is saved in the view state and as `auraVisualizer.followEditor`
+- Any manual orbit, pan or zoom **pauses** following so the camera never fights you — click 👁 again to resume
+- Files outside the analyzed graph are ignored; the detail panel stays closed during the flight
+
 ### Pilot Mode 🚀
 
 Switch from orbiting the graph to **flying through it** — first-person navigation:
@@ -327,6 +335,7 @@ The **⚙️ button** in the tab bar (next to 🔍 Query) opens an in-app settin
 | **Selected node effect** | Glow halo or bloom post-processing (+ intensity / radius / threshold) |
 | **Flight speed / smoothing** | Pilot mode base speed (scene-scaled) and acceleration damping |
 | **Mouse look sensitivity / invert Y** | Pilot mode mouse-look feel |
+| **Follow editor** | Fly the camera to the file of the active editor (👁 toolbar toggle) |
 | **Auto-refresh on save** | Re-analyze changed files automatically |
 
 Changes apply instantly and are saved to your workspace settings. The footer link opens the full `auraVisualizer.*` list.
@@ -488,6 +497,7 @@ All settings live under `auraVisualizer.*` — the most common ones are also edi
 | `auraVisualizer.excludePaths` | `["node_modules", ".git", "dist", "build", "out", "__pycache__"]` | Directories to exclude from analysis |
 | `auraVisualizer.maxFiles` | `500` | Maximum number of files to analyze |
 | `auraVisualizer.autoRefresh` | `true` | Auto-refresh on file save |
+| `auraVisualizer.followEditor` | `true` | Fly the 3D camera to the active editor file; manual camera movement pauses following until the 👁 toolbar button is clicked again |
 | `auraVisualizer.riskWindow` | `90` | Git history window (30 / 90 / 365 days) used by the Risk Map, the status bar and `get_hotspots` |
 | `auraVisualizer.rotateSpeed` | `1` | Rotation speed when dragging the 3D graph (1–5, 5 = fastest) |
 | `auraVisualizer.linkStyle` | `"straight"` | Edge style in the 3D graph (`straight` / `curved`) |
