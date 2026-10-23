@@ -850,7 +850,7 @@ export class WebviewProvider {
                     <span class="stat" id="stat-time">—</span>
                 </div>
                 <button id="btn-export" class="top-btn" title="Export graph for AI">📤 Export</button>
-                <button id="btn-export-image" class="top-btn" title="Export a high-resolution PNG of the 3D graph">📷 PNG</button>
+                <button id="btn-export-image" class="top-btn" title="Export a high-resolution PNG of the 3D graph">📷</button>
                 <button id="btn-minimap" class="top-btn" title="Toggle minimap">🗺️ Map</button>
                 <button id="btn-refresh" class="top-btn" title="Refresh analysis">🔄 Refresh</button>
                 <button id="btn-help" class="top-btn" title="Help & shortcuts">❓ Help</button>

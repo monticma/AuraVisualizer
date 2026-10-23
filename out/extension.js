@@ -52,7 +52,7 @@ USER QUESTION: `+e,u=[ve.LanguageModelChatMessage.User(l)],f=ln.map(_=>({name:_.
                     <span class="stat" id="stat-time">\u2014</span>
                 </div>
                 <button id="btn-export" class="top-btn" title="Export graph for AI">\u{1F4E4} Export</button>
-                <button id="btn-export-image" class="top-btn" title="Export a high-resolution PNG of the 3D graph">\u{1F4F7} PNG</button>
+                <button id="btn-export-image" class="top-btn" title="Export a high-resolution PNG of the 3D graph">\u{1F4F7}</button>
                 <button id="btn-minimap" class="top-btn" title="Toggle minimap">\u{1F5FA}\uFE0F Map</button>
                 <button id="btn-refresh" class="top-btn" title="Refresh analysis">\u{1F504} Refresh</button>
                 <button id="btn-help" class="top-btn" title="Help & shortcuts">\u2753 Help</button>

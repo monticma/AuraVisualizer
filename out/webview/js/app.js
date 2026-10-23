@@ -1159,8 +1159,7 @@
             graph._destructor && graph._destructor();
         }
 
-        graph = ForceGraph3D()(graphContainer)
-            .rendererConfig({ preserveDrawingBuffer: true, alpha: true })
+        graph = ForceGraph3D({ rendererConfig: { preserveDrawingBuffer: true, alpha: true } })(graphContainer)
             .graphData(filtered)
             .nodeId('id')
             .nodeLabel('')
