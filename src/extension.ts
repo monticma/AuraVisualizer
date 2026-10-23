@@ -18,6 +18,7 @@ import { GraphDB } from './graph-db';
 import { registerAuraLmTools } from './lm-tools';
 import { registerAuraChatParticipant } from './chat/participant';
 import { setAuraViewContext, type AuraViewContext } from './chat/context';
+import { registerNavigationCommands } from './commands/navigation';
 import { chunkDocument, type DocChunk } from './analyzer/parsers/doc-parser';
 
 let webviewProvider: WebviewProvider | undefined;
@@ -92,22 +93,18 @@ export function activate(context: vscode.ExtensionContext): void {
                 vscode.window.showInformationMessage('Open VS Code Chat and mention @aura to ask about this codebase.');
             }
         }),
-        vscode.commands.registerCommand('auraVisualizer.focusPath', async (filePath?: string) => {
-            await openVisualizer(context);
-            if (filePath) {
-                const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-                const relativePath = workspaceRoot && path.isAbsolute(filePath)
-                    ? path.relative(workspaceRoot, filePath)
-                    : filePath.replace(/^\.\//, '');
-                webviewProvider?.focusNode(relativePath, true);
-            }
-        }),
         vscode.commands.registerCommand('auraVisualizer.applyQuery', async (expr?: string, mode: 'highlight' | 'filter' | 'select' = 'filter') => {
             if (!expr) return;
             await openVisualizer(context);
             webviewProvider?.applyQueryFromHost(expr, mode);
         })
     );
+
+    context.subscriptions.push(...registerNavigationCommands({
+        revealGraph: () => openVisualizer(context),
+        focusInGraph: (relativePath: string) => webviewProvider?.focusNode(relativePath, true),
+        blastRadiusInGraph: (relativePath: string) => webviewProvider?.sendBlastRadius(relativePath),
+    }));
 
     // Watch for file changes (incremental)
     setupFileWatcher(context);

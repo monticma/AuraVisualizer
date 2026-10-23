@@ -173,6 +173,7 @@
                 break;
             case 'blastRadius':
                 if (message.payload && message.payload.nodeId) {
+                    if (activeTab !== 'graph') switchTab('graph');
                     var brNode = findNode(message.payload.nodeId);
                     if (brNode) {
                         handleBlastRadius(brNode, false);

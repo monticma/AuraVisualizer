@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildUserPrompt, extractAql, extractFileReferences } from '../chat/prompt';
+import { buildUserPrompt, extractAql, extractFileAnchors, extractFileReferences } from '../chat/prompt';
 import { buildFileFacts } from '../chat/file-facts';
 import { AURA_TOOLS } from '../ai/tools';
 import { AURA_SYSTEM_PROMPT, buildAuraSystemPrompt } from '../ai/prompts';
@@ -25,6 +25,16 @@ describe('chat prompt helpers', () => {
         expect(extractFileReferences('No files here, just words.')).toEqual([]);
         expect(extractFileReferences('Scores: 69.0, v1.2 and 3.14.')).toEqual([]);
         expect(extractFileReferences('Compare 69.0 with src/a.ts.')).toEqual(['src/a.ts']);
+    });
+
+    it('keeps the first line number for each file anchor', () => {
+        expect(extractFileAnchors('See src/a.ts:10 and src/a.ts:20, then src/b.ts.')).toEqual([
+            { file: 'src/a.ts', line: 10 },
+            { file: 'src/b.ts', line: undefined },
+        ]);
+        expect(extractFileAnchors('src/a.ts then src/a.ts:42')).toEqual([
+            { file: 'src/a.ts', line: 42 },
+        ]);
     });
 
     it('extracts a single-line AQL expression from a fenced block', () => {

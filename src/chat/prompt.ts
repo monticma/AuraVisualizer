@@ -33,19 +33,35 @@ export function buildUserPrompt(command: string | undefined, prompt: string, sel
 
 const FILE_REF_RE = /([A-Za-z0-9_./-]+\.[A-Za-z][A-Za-z0-9]{0,7})(?::(\d+))?/g;
 
-/** Extract workspace-relative file references such as `src/foo.ts:42` from an answer. */
-export function extractFileReferences(text: string): string[] {
-    const out: string[] = [];
-    const seen = new Set<string>();
+export interface FileAnchor {
+    file: string;
+    line?: number;
+}
+
+/** Extract workspace-relative file references with optional 1-based line numbers. */
+export function extractFileAnchors(text: string): FileAnchor[] {
+    const out: FileAnchor[] = [];
+    const index = new Map<string, number>();
     const re = new RegExp(FILE_REF_RE.source, 'g');
     let m: RegExpExecArray | null;
     while ((m = re.exec(text)) !== null) {
         const file = m[1];
-        if (!file || file.includes('://') || seen.has(file)) continue;
-        seen.add(file);
-        out.push(file);
+        if (!file || file.includes('://')) continue;
+        const line = m[2] ? parseInt(m[2], 10) : undefined;
+        const existing = index.get(file);
+        if (existing === undefined) {
+            index.set(file, out.length);
+            out.push({ file, line });
+        } else if (out[existing].line === undefined && line) {
+            out[existing] = { file, line };
+        }
     }
     return out;
+}
+
+/** Extract workspace-relative file references such as `src/foo.ts:42` from an answer. */
+export function extractFileReferences(text: string): string[] {
+    return extractFileAnchors(text).map(a => a.file);
 }
 
 /** Extract a single-line AQL expression from a fenced/inline block, if present. */

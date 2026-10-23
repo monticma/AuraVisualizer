@@ -61,6 +61,7 @@ export class WebviewProvider {
     private pendingNodeFocus: { nodeId: string; reveal: boolean } | undefined;
     private pendingShowRiskTab = false;
     private pendingQuery: { expr: string; mode: 'highlight' | 'filter' | 'select' } | undefined;
+    private pendingBlastRadius: string | undefined;
     private webviewReady = false;
 
     private static readonly VIEW_STATE_KEY = 'aura.viewState';
@@ -132,6 +133,7 @@ export class WebviewProvider {
             this.pendingNodeFocus = undefined;
             this.pendingShowRiskTab = false;
             this.pendingQuery = undefined;
+            this.pendingBlastRadius = undefined;
             this.disposables.forEach(d => d.dispose());
             this.disposables = [];
             this.onDisposeEmitter.fire();
@@ -172,6 +174,10 @@ export class WebviewProvider {
                         if (this.pendingQuery) {
                             this.panel?.webview.postMessage({ type: 'applyQuery', payload: this.pendingQuery });
                             this.pendingQuery = undefined;
+                        }
+                        if (this.pendingBlastRadius) {
+                            this.panel?.webview.postMessage({ type: 'blastRadius', payload: { nodeId: this.pendingBlastRadius } });
+                            this.pendingBlastRadius = undefined;
                         }
                         const workingTree = this.getHostData.workingTree?.();
                         if (workingTree) {
@@ -599,7 +605,11 @@ export class WebviewProvider {
     }
 
     public sendBlastRadius(nodeId: string): void {
-        this.panel?.webview.postMessage({ type: 'blastRadius', payload: { nodeId } });
+        if (this.webviewReady) {
+            this.panel?.webview.postMessage({ type: 'blastRadius', payload: { nodeId } });
+        } else {
+            this.pendingBlastRadius = nodeId;
+        }
     }
 
     public sendFilterDirs(dirs: string[]): void {

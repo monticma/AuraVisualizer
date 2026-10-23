@@ -7,14 +7,15 @@
 
 import * as vscode from 'vscode';
 import { existsSync } from 'fs';
-import { isAbsolute, join, relative } from 'path';
+import { relative } from 'path';
 import type { GraphDB } from '../graph-db';
 import type { RiskSnapshot } from '../risk/risk-service';
 import { AURA_TOOLS, resolveFileArg, runAuraTool } from '../ai/tools';
 import { buildAuraSystemPrompt } from '../ai/prompts';
+import { resolveNavigationPath, type NavigationPath } from '../commands/navigation-core';
 import { describeAuraViewContext, getAuraViewContext, setAuraViewContext, type AuraViewContext } from './context';
 import { buildFileFacts } from './file-facts';
-import { buildUserPrompt, extractAql, extractFileReferences } from './prompt';
+import { buildUserPrompt, extractAql, extractFileAnchors } from './prompt';
 
 export const AURA_PARTICIPANT_ID = 'monticma-aura.aura';
 const MAX_ITERATIONS = 8;
@@ -75,7 +76,7 @@ export function registerAuraChatParticipant(
         // explains the file even when the model ends its turn on tool calls.
         let explainedFile: string | undefined;
         if (command === 'explain') {
-            const target = extractFileReferences(rawPrompt)[0] || selection;
+            const target = extractFileAnchors(rawPrompt)[0]?.file || selection;
             const facts = target ? buildFileFacts(db, target) : undefined;
             if (facts) {
                 explainedFile = facts.file;
@@ -140,18 +141,39 @@ export function registerAuraChatParticipant(
             }
             const isQueryCommand = command === 'query';
             const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-            const refs = isQueryCommand ? [] : extractFileReferences(fullText);
-            if (explainedFile && !refs.includes(explainedFile)) refs.unshift(explainedFile);
-            const validRefs = refs.filter(ref => {
-                const abs = isAbsolute(ref) ? ref : (workspaceRoot ? join(workspaceRoot, ref) : '');
-                return !!abs && existsSync(abs) && !!resolveFileArg(db, ref);
-            });
-            for (const ref of validRefs.slice(0, 20)) {
-                const abs = isAbsolute(ref) ? ref : (workspaceRoot ? join(workspaceRoot, ref) : '');
-                if (abs) stream.reference(vscode.Uri.file(abs));
+            const anchors = isQueryCommand ? [] : extractFileAnchors(fullText);
+            if (explainedFile && !anchors.some(a => a.file === explainedFile)) {
+                anchors.unshift({ file: explainedFile });
             }
-            for (const ref of validRefs.slice(0, 3)) {
-                stream.button({ command: 'auraVisualizer.focusPath', title: `Focus ${ref}`, arguments: [ref] });
+            const fileRefs: { file: string; line?: number; navigation: NavigationPath; graphFile?: string }[] = [];
+            for (const anchor of anchors) {
+                const navigation = resolveNavigationPath(anchor.file, workspaceRoot);
+                if (!navigation || !existsSync(navigation.absolutePath)) continue;
+                const graphFile = navigation.insideWorkspace
+                    ? resolveFileArg(db, navigation.relativePath) ?? undefined
+                    : undefined;
+                fileRefs.push({ ...anchor, navigation, graphFile });
+            }
+            const graphRefs = fileRefs.filter(ref => !!ref.graphFile);
+            for (const ref of fileRefs.slice(0, 20)) {
+                const uri = vscode.Uri.file(ref.navigation.absolutePath);
+                if (ref.line && ref.line > 0) {
+                    stream.reference(new vscode.Location(uri, new vscode.Position(ref.line - 1, 0)));
+                } else {
+                    stream.reference(uri);
+                }
+            }
+            for (const ref of graphRefs.slice(0, 3)) {
+                stream.button({ command: 'auraVisualizer.focusPath', title: `Focus ${ref.graphFile}`, arguments: [ref.graphFile] });
+            }
+            if (!isQueryCommand && fileRefs[0]) {
+                const primary = fileRefs[0];
+                const label = primary.line ? `${primary.file}:${primary.line}` : primary.file;
+                stream.button({ command: 'auraVisualizer.openFileAt', title: `Open ${label}`, arguments: [primary.file, primary.line] });
+            }
+            if (!isQueryCommand && graphRefs[0]) {
+                const blast = graphRefs[0];
+                stream.button({ command: 'auraVisualizer.blastRadiusPath', title: `Blast radius: ${blast.graphFile}`, arguments: [blast.graphFile] });
             }
             const aql = extractAql(fullText);
             if (aql) {
