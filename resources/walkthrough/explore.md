@@ -17,13 +17,15 @@ Filter buttons at the bottom show only languages present in your project.
 - 🖱️ **Hold left / right click** (pilot mode) — Fly forward / backward while looking around
 
 **Toolbar buttons:**
+- **👁 Follow** — fly the camera to the active editor file and select it exactly like a click (fixed 120-unit close-up). A manual camera move pauses following until you click 👁 again.
+- **📤 Export** — guided AI context export: Markdown or JSON, selectable sections and token budget.
 - **Labels** (`L`) — Show/hide file names above nodes
 - **DAG** (`D`) — Hierarchical top-down layout
 - **Orphans** (`O`) — Highlight disconnected files in red
 - **Groups** (`G`) — Cluster files by directory
 - **✏️ Dirty** — Show only files with uncommitted changes (git working tree) — those files also wear a thin amber ring by default
 - **📝 Notes** — Show/hide the note indicators — annotated files wear a pulsing note-colored ring + dot
-- **Recenter** (`F`) — Fit the entire graph in view
+- **Recenter** (`F`) — Fit the entire graph in view and clear the current selection, glow and detail panel
 - **🗺️ Map** — Toggle the minimap — a real-time overview that rotates with the camera. Drag inside to pan the viewport.
 - **🌀 Warps** — Named camera bookmarks — capture the current view (📌) and fly back to it, quick slots on `Alt+Shift+1–9`
 - **🚀 Pilot** (`Space`) — Free flight: `WASD`/`Q`/`E` to move, mouse to look, hold left/right click to advance/retreat

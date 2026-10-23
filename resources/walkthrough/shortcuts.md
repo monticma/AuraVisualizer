@@ -27,8 +27,7 @@ Quick access to every feature without leaving the keyboard.
 | Button | Effect |
 |--------|--------|
 | **🔍 Query** | Toggle the query filter bar (also `Ctrl+K`) — filter / highlight / select files by metric |
-| **� Follow** | Fly the camera to the active editor file; manual camera movement pauses it |
-| **�🗺️ Map** | Toggle the minimap — real-time overview that rotates with the camera |
+| **� Follow** | Fly the camera to the active editor file; manual camera movement pauses it || **📤 Export** | Guided AI context export — Markdown/JSON, sections and token budget || **�🗺️ Map** | Toggle the minimap — real-time overview that rotates with the camera |
 | **✏️ Dirty** | Show only files with uncommitted changes (git working tree) |
 | **📝 Notes** | Show/hide the note indicators — annotated files wear a pulsing note-colored ring + dot |
 | **🌀 Warps** | Warp points panel — capture the current view (📌), fly back to any saved pose, quick slots |

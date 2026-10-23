@@ -7,13 +7,24 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Languages-C%20%7C%20C%2B%2B%20%7C%20JS%20%7C%20TS%20%7C%20Python%20%7C%20Java%20%7C%20Go%20%7C%20Rust%20%7C%20Kotlin%20%7C%20Ruby%20%7C%20Swift%20%7C%20C%23%20%7C%20PHP%20%7C%20Vue%20%7C%20Bash%20%7C%20Lua%20%7C%20CSS%20%7C%20HTML%20%7C%20Markdown-blue" alt="Languages" />
-  <img src="https://img.shields.io/badge/VS%20Code-%3E%3D1.85-007ACC" alt="VS Code" />
+  <img src="https://img.shields.io/badge/VS%20Code-%3E%3D1.95-007ACC" alt="VS Code" />
   <img src="https://img.shields.io/badge/License-MIT-green" alt="License" />
 </p>
 
 <p align="center">
   <img src="resources/AuraScreen.png" alt="Aura 3D Visualizer — interactive dependency graph" width="900" />
 </p>
+
+---
+
+## What's New in 1.4.0
+
+- **`@aura` in VS Code Chat** — ask about architecture, hotspots, impact, dependency paths or natural-language filters, with clickable files and contextual actions.
+- **Follow editor 👁** — switching tabs flies the camera to the active file and selects it exactly like a click, at a fixed close-up distance.
+- **Guided AI context export 📤** — Markdown or JSON, selectable sections (modules, contracts, hotspots, cycles, dead code) and an explicit token budget.
+- **Architecture report** — deterministic Markdown + Mermaid, optionally enriched with an AI narrative.
+- **CSV/JSON metrics** — per-file LOC, complexity, fan-in/out, churn, authors and risk for spreadsheets or dashboards.
+- **Stale notes, PNG export and unified save/copy** — shareable outputs and notes that tell you when they need review.
 
 ---
 
@@ -478,7 +489,7 @@ The MCP server exposes your codebase graph to AI tools via stdio transport. It r
 | `aura://nodes` | All files with full metrics |
 | `aura://node/{id}` | Detail for a specific file — symbols, dependencies, dependents |
 
-**Tools:**
+**Tools (16):**
 
 | Tool | Parameters | Description |
 |------|-----------|-------------|
@@ -486,9 +497,11 @@ The MCP server exposes your codebase graph to AI tools via stdio transport. It r
 | `find_dependents` | `file`, `depth` | Impact analysis — blast radius with risk levels |
 | `find_path` | `from`, `to` | Shortest dependency path between two files |
 | `find_cycles` | — | All circular dependency cycles |
+| `find_orphan_files` | `limit` | Files that nothing imports |
 | `find_dead_code` | — | Unused exports across the codebase |
 | `find_unused_functions` | `file`, `include_methods` | Functions/methods never called anywhere |
 | `get_hotspots` | `limit`, `sort_by`, `window_days` | At-risk files ranked by the repository-relative risk score (percentile-based) with written reasons; raw metric sorts still available via `sort_by` |
+| `get_largest_files` | `limit` | Largest files by lines of code |
 | `search_symbols` | `query`, `kind` | Find functions, classes, exports by name |
 | `find_heritage` | `file` | Inheritance and implementation relationships (extends/implements) |
 | `get_architecture` | — | High-level overview by language |

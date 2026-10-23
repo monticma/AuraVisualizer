@@ -5,7 +5,7 @@ All notable changes to Aura Visualizer are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.4.0] - 2026-10-23
 
 ### Added
 - **`@aura` chat participant** — ask VS Code Chat about architecture, hotspots, impact, dependency paths or natural-language filters. Aura answers from the analyzed graph, links files, and offers **Focus in Aura**, **Apply Aura Query**, **Open Risk** and **Open Aura** actions. Slash commands: `/explain`, `/impact`, `/path`, `/hotspots`, `/query`.
