@@ -1701,7 +1701,7 @@ export class WebviewProvider {
 
                 <h3>📤 Export for AI</h3>
                 <p>Export the graph as JSON for AI assistants. Aura also includes a built-in MCP server for direct AI integration.</p>
-                <p>Use <strong>Aura: Export Architecture Report</strong> from the Command Palette to generate a Markdown document with a Mermaid module graph, top dependencies, hotspots, cycles and dead exports.</p>
+                <p>Use <strong>Aura: Export Architecture Report</strong> from the Command Palette to generate a Markdown document with a Mermaid module graph, top dependencies, hotspots, cycles and dead exports. Documentation files are excluded by default. <strong>Aura: Export Architecture Report with AI Narrative</strong> adds a written explanation generated from that deterministic report by the selected VS Code model.</p>
 
                 <h3>🗺️ Minimap</h3>
                 <p>Toggle with the <strong>🗺️ Map</strong> button. Shows a top-down overview of all nodes. The white rectangle indicates the camera viewport. Click on the minimap to navigate. Drag the header to reposition.</p>

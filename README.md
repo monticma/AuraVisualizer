@@ -402,6 +402,7 @@ You can also open the visualizer from the **Aura** icon in the Activity Bar or v
 | Aura: Export Graph for AI | — | Export graph data as JSON |
 | Aura: Export Graph as PNG | — | Capture the 3D graph at ×1/×2/×4 |
 | Aura: Export Architecture Report | — | Markdown + Mermaid architecture report |
+| Aura: Export Architecture Report with AI Narrative | — | Same report plus an AI-written architecture explanation |
 
 ## Keyboard Shortcuts (in graph)
 

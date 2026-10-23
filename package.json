@@ -234,6 +234,11 @@
         "icon": "$(book)"
       },
       {
+        "command": "auraVisualizer.exportArchReportAI",
+        "title": "Aura: Export Architecture Report with AI Narrative",
+        "icon": "$(sparkle)"
+      },
+      {
         "command": "auraVisualizer.blastRadius",
         "title": "Aura: Blast Radius (Impact Analysis)",
         "icon": "$(radio-tower)"

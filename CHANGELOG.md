@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Stale notes** — notes written before the file's last modification show a **⚠️ À revoir** badge, a **✓ Mark reviewed** action, an exact stale count on the **📝 Notes** button, a **⚠️ Stale** graph filter and the `stalenote` query flag.
 - **High-resolution PNG export** — the **📷 PNG** button opens a QuickPick for ×1/×2/×4 resolution, current/transparent background and optional Aura watermark, then saves the captured 3D graph through a unified save dialog.
 - **Unified exports** — `saveText`, `copyText`, `saveOrCopyText` and `saveBinary` centralize paths, save dialogs and notifications; the AI graph export, Risk report and PNG export use them.
-- **Architecture report** — `Aura: Export Architecture Report` produces a deterministic Markdown document with a Mermaid module graph, top dependencies, hotspots, cycles and dead exports (line budget and path-free options included).
+- **Architecture report** — `Aura: Export Architecture Report` produces a deterministic Markdown document with a Mermaid module graph, top dependencies, hotspots, cycles and dead exports (line budget and path-free options included). Documentation files are excluded by default; `Aura: Export Architecture Report with AI Narrative` optionally adds an explanation generated from that report.
 
 ### Changed
 - The legacy in-webview Aura Assistant is hidden; VS Code Chat is the primary conversational surface.

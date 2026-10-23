@@ -73,14 +73,39 @@ function fallbackModules(nodes: ArchReportInput['nodes']): ArchReportModule[] {
         .sort((a, b) => b.size - a.size);
 }
 
+export interface ArchReportBuildOptions {
+    /** Include Markdown/text/rst documentation nodes (default false). */
+    includeDocumentation?: boolean;
+}
+
+function isDocumentationNode(node: Pick<GraphNode, 'language' | 'extension'>): boolean {
+    return node.language === 'documentation' || ['.md', '.markdown', '.txt', '.rst'].includes(node.extension);
+}
+
 /** Build the pure report input from graph data plus optional DB enrichments. */
-export function buildArchReportInput(graph: GraphData, extras: ArchReportExtras = {}): ArchReportInput {
-    const modules = extras.modules && extras.modules.length > 0
-        ? extras.modules
-        : fallbackModules(graph.nodes);
-    const hotspots = extras.hotspots && extras.hotspots.length > 0
-        ? extras.hotspots
-        : graph.nodes
+export function buildArchReportInput(
+    graph: GraphData,
+    extras: ArchReportExtras = {},
+    options: ArchReportBuildOptions = {},
+): ArchReportInput {
+    const codeNodes = options.includeDocumentation
+        ? graph.nodes
+        : graph.nodes.filter(node => !isDocumentationNode(node));
+    const codeIds = new Set(codeNodes.map(node => node.id));
+    const codeLinks = graph.links.filter(link => codeIds.has(link.source) && codeIds.has(link.target));
+    const extrasModules = extras.modules
+        ?.map(mod => {
+            const files = mod.files.filter(file => codeIds.has(file));
+            return { ...mod, files, size: files.length };
+        })
+        .filter(mod => mod.size > 0);
+    const modules = extrasModules && extrasModules.length > 0
+        ? extrasModules
+        : fallbackModules(codeNodes);
+    const extrasHotspots = extras.hotspots?.filter(hotspot => codeIds.has(hotspot.file));
+    const hotspots = extrasHotspots && extrasHotspots.length > 0
+        ? extrasHotspots
+        : codeNodes
             .map(n => ({
                 file: n.id,
                 lines: n.linesOfCode,
@@ -93,7 +118,7 @@ export function buildArchReportInput(graph: GraphData, extras: ArchReportExtras 
     return {
         projectName: graph.meta.projectName || 'unknown',
         analyzedAt: graph.meta.analyzedAt || 'unknown',
-        nodes: graph.nodes.map(n => ({
+        nodes: codeNodes.map(n => ({
             id: n.id,
             name: n.name,
             language: n.language,
@@ -103,10 +128,10 @@ export function buildArchReportInput(graph: GraphData, extras: ArchReportExtras 
             fanOut: n.fanOut,
             group: n.group,
         })),
-        links: graph.links.map(l => ({ source: l.source, target: l.target, type: l.type })),
+        links: codeLinks.map(l => ({ source: l.source, target: l.target, type: l.type })),
         modules,
-        cycles: extras.cycles || graph.meta.cycles || [],
-        deadCode: extras.deadCode || [],
+        cycles: (extras.cycles || graph.meta.cycles || []).filter(cycle => cycle.every(file => codeIds.has(file))),
+        deadCode: (extras.deadCode || []).filter(dead => codeIds.has(dead.file)),
         hotspots,
     };
 }
@@ -123,6 +148,17 @@ function capLines(lines: string[], maxLines: number): string[] {
     if (lines.length <= maxLines) return lines;
     if (maxLines <= 1) return [`_Report truncated to ${maxLines} line._`];
     return [...lines.slice(0, maxLines - 1), `_Report truncated to ${maxLines} lines._`];
+}
+
+/** Insert an optional AI narrative after the report header, before Overview. */
+export function withAiNarrative(report: string, narrative: string): string {
+    const text = narrative.trim();
+    if (!text) return report;
+    const section = `## AI narrative\n\n_Generated from the deterministic report above by the selected VS Code language model._\n\n${text}\n\n`;
+    const marker = '## Overview';
+    const index = report.indexOf(marker);
+    if (index < 0) return report.trimEnd() + '\n\n' + section;
+    return report.slice(0, index) + section + report.slice(index);
 }
 
 /** Generate a deterministic Markdown architecture report. */

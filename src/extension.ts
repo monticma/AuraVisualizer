@@ -19,7 +19,8 @@ import { registerAuraLmTools } from './lm-tools';
 import { registerAuraChatParticipant } from './chat/participant';
 import { registerNavigationCommands } from './commands/navigation';
 import { registerAskAuraCommands } from './commands/ask-aura';
-import { buildArchReportInput, generateArchReport, type ArchReportExtras, type ArchReportModule } from './report/arch-report';
+import { buildArchReportInput, generateArchReport, withAiNarrative, type ArchReportExtras, type ArchReportModule } from './report/arch-report';
+import { generateArchitectureNarrative } from './report/ai-summary';
 import { saveOrCopyText, saveText } from './export/save';
 import { chunkDocument, type DocChunk } from './analyzer/parsers/doc-parser';
 
@@ -86,6 +87,7 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('auraVisualizer.exportGraph', () => exportGraph()),
         vscode.commands.registerCommand('auraVisualizer.exportImage', () => exportGraphImage(context)),
         vscode.commands.registerCommand('auraVisualizer.exportArchReport', () => exportArchReport()),
+        vscode.commands.registerCommand('auraVisualizer.exportArchReportAI', () => exportArchReport(true)),
         vscode.commands.registerCommand('auraVisualizer.blastRadius', () => blastRadiusCurrentFile(context)),
         vscode.commands.registerCommand('auraVisualizer.statusBarRisk', (nodeId?: string) => focusRiskFromStatusBar(context, nodeId)),
         vscode.commands.registerCommand('auraVisualizer.applyQuery', async (expr?: string, mode: 'highlight' | 'filter' | 'select' = 'filter') => {
@@ -1101,16 +1103,21 @@ async function blastRadiusCurrentFile(context: vscode.ExtensionContext): Promise
     setTimeout(() => webviewProvider?.sendBlastRadius(relativePath), 300);
 }
 
-async function exportArchReport(): Promise<void> {
+async function exportArchReport(includeAiNarrative = false): Promise<void> {
     if (!cachedGraphData) {
         vscode.window.showWarningMessage('Aura: No graph data. Run analysis first (Ctrl+Shift+A).');
         return;
     }
-    const markdown = generateArchReport(buildArchReportInput(cachedGraphData, archReportExtras()), {
+    const report = generateArchReport(buildArchReportInput(cachedGraphData, archReportExtras()), {
         maxLines: 400,
         includePaths: true,
     });
-    await saveOrCopyText('Architecture report', markdown, 'architecture.md', { Markdown: ['md'] });
+    const narrative = includeAiNarrative ? await generateArchitectureNarrative(report) : undefined;
+    if (includeAiNarrative && !narrative) {
+        void vscode.window.showWarningMessage('Aura: No AI model available — exporting the deterministic report.');
+    }
+    const finalReport = narrative ? withAiNarrative(report, narrative) : report;
+    await saveOrCopyText('Architecture report', finalReport, 'architecture.md', { Markdown: ['md'] });
 }
 
 function archReportExtras(): ArchReportExtras {

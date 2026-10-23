@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildArchReportInput, generateArchReport, type ArchReportModule } from '../report/arch-report';
+import { buildArchReportInput, generateArchReport, withAiNarrative, type ArchReportModule } from '../report/arch-report';
 import type { GraphData } from '../analyzer/types';
 
 const graph = {
@@ -12,11 +12,13 @@ const graph = {
         { id: 'src/a.ts', name: 'a.ts', language: 'typescript', linesOfCode: 10, complexity: 3, fanIn: 1, fanOut: 1, group: 'src' },
         { id: 'src/b.ts', name: 'b.ts', language: 'typescript', linesOfCode: 20, complexity: 5, fanIn: 2, fanOut: 1, group: 'src' },
         { id: 'lib/c.ts', name: 'c.ts', language: 'typescript', linesOfCode: 30, complexity: 2, fanIn: 1, fanOut: 0, group: 'lib' },
+        { id: 'docs/README.md', name: 'README.md', language: 'documentation', extension: '.md', linesOfCode: 5, complexity: 1, fanIn: 0, fanOut: 0, group: 'docs' },
     ],
     links: [
         { source: 'src/a.ts', target: 'src/b.ts', type: 'import', label: '' },
         { source: 'src/b.ts', target: 'lib/c.ts', type: 'import', label: '' },
         { source: 'src/a.ts', target: 'lib/c.ts', type: 'import', label: '' },
+        { source: 'docs/README.md', target: 'src/a.ts', type: 'doc-reference', label: '' },
     ],
 } as unknown as GraphData;
 
@@ -41,6 +43,7 @@ describe('architecture report', () => {
         expect(report).toContain('| src | 2 |');
         expect(report).toContain('oldThing');
         expect(report).toContain('src/b.ts');
+        expect(report).not.toContain('README.md');
         expect(generateArchReport(input)).toBe(report);
     });
 
@@ -61,5 +64,20 @@ describe('architecture report', () => {
         const noPaths = generateArchReport(input, { includePaths: false });
         expect(noPaths).not.toContain('src/a.ts');
         expect(noPaths).toContain('| src | 2 |');
+    });
+
+    it('can include documentation explicitly', () => {
+        const withDocs = buildArchReportInput(graph, {}, { includeDocumentation: true });
+        expect(withDocs.nodes.some(n => n.id === 'docs/README.md')).toBe(true);
+        expect(withDocs.links.some(l => l.source === 'docs/README.md')).toBe(true);
+    });
+
+    it('inserts an AI narrative before the overview', () => {
+        const input = buildArchReportInput(graph, { modules });
+        const report = generateArchReport(input);
+        const narrated = withAiNarrative(report, 'The system is modular.');
+        expect(narrated.indexOf('## AI narrative')).toBeLessThan(narrated.indexOf('## Overview'));
+        expect(narrated).toContain('The system is modular.');
+        expect(withAiNarrative(report, '   ')).toBe(report);
     });
 });
