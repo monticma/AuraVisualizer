@@ -437,6 +437,7 @@ Open **VS Code Chat** and mention `@aura` to ask about architecture, hotspots, i
 
 - **Slash commands:** `/explain`, `/impact`, `/path`, `/hotspots`, `/query`
 - **Answers** link files directly and offer actions: **Focus in Aura**, **Apply Aura Query**, **Open Risk**, **Open Aura**
+- **Ask Aura** buttons live directly in the UI: file detail (Explain / Impact / Refactor plan / Tests first), clusters, communities, the Risk dashboard and the explorer context menu
 - The legacy in-panel assistant is hidden — VS Code Chat is the main conversational surface
 
 ### MCP Server

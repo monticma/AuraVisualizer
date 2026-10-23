@@ -194,6 +194,11 @@ export class WebviewProvider {
                             });
                         }
                         break;
+                    case 'askAura':
+                        if (message.payload) {
+                            void vscode.commands.executeCommand('auraVisualizer.askAura', message.payload);
+                        }
+                        break;
                     case 'requestRefresh':
                         vscode.commands.executeCommand('auraVisualizer.refresh');
                         break;
@@ -948,6 +953,15 @@ export class WebviewProvider {
                 </div>
             </div>
         </div>
+        <div class="panel-section" id="ai-actions-section">
+            <h3>✨ Ask Aura</h3>
+            <div class="ai-actions">
+                <button id="ai-explain" type="button" class="ai-action-btn">Explain file</button>
+                <button id="ai-impact" type="button" class="ai-action-btn">Impact</button>
+                <button id="ai-plan" type="button" class="ai-action-btn">Refactor plan</button>
+                <button id="ai-tests" type="button" class="ai-action-btn">Tests first</button>
+            </div>
+        </div>
         <div class="panel-section" id="note-section">
             <h3>📝 Note</h3>
             <textarea id="note-input" rows="2" placeholder="Add a note for this file…" maxlength="2000"></textarea>
@@ -1004,6 +1018,7 @@ export class WebviewProvider {
                         <option value="365">365 days</option>
                     </select>
                 </label>
+                <button id="risk-ask-aura" type="button" class="risk-export-btn" title="Ask @aura for the top 3 actions on this Risk dashboard">✨ Ask Aura</button>
                 <button id="risk-export" type="button" class="risk-export-btn" title="Export a Markdown report to .aura/risk-report.md">📤 Export Report</button>
             </div>
         </div>

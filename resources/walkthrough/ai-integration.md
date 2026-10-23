@@ -12,6 +12,8 @@ Open **VS Code Chat** and type `@aura ...` to ask about the codebase. Aura uses 
 
 Slash commands: `/explain`, `/impact`, `/path`, `/hotspots`, `/query`. Each answer links files and offers **Focus in Aura**, **Apply Aura Query**, **Open Risk** and **Open Aura** buttons.
 
+Contextual **Ask Aura** actions are also available in the file detail panel, clusters, communities, the Risk dashboard and the explorer context menu — they open the chat with the current view context already attached.
+
 ### MCP Server
 
 The MCP server starts automatically and registers itself in `.vscode/mcp.json`. AI assistants (like GitHub Copilot) can then query your codebase graph.

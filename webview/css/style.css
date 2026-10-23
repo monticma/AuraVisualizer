@@ -625,6 +625,43 @@ html, body {
     gap: 8px;
 }
 
+.ai-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.ai-action-btn {
+    background: rgba(96, 165, 250, 0.12);
+    border: 1px solid rgba(96, 165, 250, 0.3);
+    color: var(--aura-fg);
+    border-radius: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.ai-action-btn:hover {
+    background: rgba(96, 165, 250, 0.24);
+    border-color: rgba(96, 165, 250, 0.55);
+}
+
+.community-ask {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    padding: 0 4px;
+    opacity: 0.55;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+.community-ask:hover {
+    opacity: 1;
+}
+
 .panel-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;

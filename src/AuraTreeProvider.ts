@@ -28,6 +28,7 @@ class AuraTreeItem extends vscode.TreeItem {
         } else if (entry.kind === 'stat') {
             this.iconPath = new vscode.ThemeIcon(entry.icon);
         } else if (entry.kind === 'file') {
+            this.contextValue = 'auraFile';
             this.description = entry.metric;
             this.iconPath = new vscode.ThemeIcon('file');
             this.command = {

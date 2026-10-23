@@ -39,6 +39,7 @@
             $('#panel-complexity').textContent = '—';
             $('#panel-symbols-count').textContent = '0';
             $('#symbols-section').style.display = 'none';
+            updateAiActions(node);
 
             // Show member files in deps section
             var depsUl = $('#panel-deps');
@@ -69,6 +70,7 @@
         }
 
         detailPanel.classList.remove('collapsed');
+        updateAiActions(node);
 
         $('#panel-icon').textContent = LANGUAGE_ICONS[node.language] || '📄';
         $('#panel-filename').textContent = node.name;
@@ -343,6 +345,8 @@
         // Multi-selection has no note editor
         var noteSectionMs = $('#note-section');
         if (noteSectionMs) noteSectionMs.style.display = 'none';
+        var aiSectionMs = $('#ai-actions-section');
+        if (aiSectionMs) aiSectionMs.style.display = 'none';
 
         var nodes = [];
         hooks.getMultiSelectedNodes().forEach(function(n) { nodes.push(n); });
@@ -479,6 +483,86 @@
             }
         });
         setupNoteEditor();
+        setupAiActions();
+    }
+
+    // ============================================================
+    // AI actions (opens VS Code Chat with the current view context)
+    // ============================================================
+    function buildAiContext(node) {
+        var context = { tab: hooks.getActiveTab ? hooks.getActiveTab() : 'graph' };
+        var heatmap = hooks.getHeatmapMode ? hooks.getHeatmapMode() : '';
+        if (heatmap) context.heatmap = heatmap;
+        var query = hooks.getQueryExpression ? hooks.getQueryExpression() : '';
+        if (query) context.query = query;
+        if (node._isCluster) {
+            context.filters = {
+                cluster: node._clusterGroup,
+                files: (node._memberIds || []).slice(0, 50)
+            };
+        } else {
+            context.selection = node.id || node.path;
+            var cid = hooks.getCommunityMap()[node.id];
+            if (cid !== undefined && hooks.getCommunityNames()[cid]) {
+                context.filters = { community: hooks.getCommunityNames()[cid].name };
+            }
+        }
+        return context;
+    }
+
+    function askAuraForNode(kind) {
+        var node = hooks.getSelectedNode();
+        if (!node) return;
+        var isCluster = !!node._isCluster;
+        var target = isCluster
+            ? 'cluster "' + node._clusterGroup + '" (' + (node._clusterCount || (node._memberIds || []).length) + ' files)'
+            : (node.id || node.path);
+        var prompt;
+        if (kind === 'impact') {
+            prompt = 'Analyze the impact of changing ' + target + ': dependents, blast radius, cycles and risk. Use the Aura tools and cite files.';
+        } else if (kind === 'plan') {
+            prompt = 'Propose a concrete step-by-step refactoring plan for ' + target + '. Prioritize low-risk steps, mention existing tests, and cite files. Use the Aura tools.';
+        } else if (kind === 'tests') {
+            prompt = 'Propose a tests-first plan for ' + target + ': which behaviors to lock down, which test files to add, and how to verify the refactor. Use the Aura tools.';
+        } else if (isCluster) {
+            prompt = 'Explain ' + target + ': its architectural role, internal coupling, hub files and boundaries. Use the Aura tools and cite files.';
+        } else {
+            prompt = 'Explain ' + target + ': its role, dependencies, dependents, symbols and risk. Use the Aura tools and cite files.';
+        }
+        hooks.postMessage({ type: 'askAura', payload: { prompt: prompt, context: buildAiContext(node) } });
+    }
+
+    function updateAiActions(node) {
+        var section = $('#ai-actions-section');
+        if (!section) return;
+        section.style.display = '';
+        var explain = $('#ai-explain');
+        var impact = $('#ai-impact');
+        var tests = $('#ai-tests');
+        if (node._isCluster) {
+            if (explain) explain.textContent = '✨ Explain cluster';
+            if (impact) impact.style.display = 'none';
+            if (tests) tests.style.display = 'none';
+        } else {
+            if (explain) explain.textContent = '✨ Explain file';
+            if (impact) impact.style.display = '';
+            if (tests) tests.style.display = '';
+        }
+    }
+
+    function setupAiActions() {
+        var actions = [
+            ['#ai-explain', 'explain'],
+            ['#ai-impact', 'impact'],
+            ['#ai-plan', 'plan'],
+            ['#ai-tests', 'tests']
+        ];
+        for (var i = 0; i < actions.length; i++) {
+            (function(id, kind) {
+                var btn = $(id);
+                if (btn) btn.addEventListener('click', function() { askAuraForNode(kind); });
+            })(actions[i][0], actions[i][1]);
+        }
     }
 
     // ============================================================

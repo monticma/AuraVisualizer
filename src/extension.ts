@@ -17,8 +17,8 @@ import { buildRiskSnapshot, type RiskSnapshot, type RiskFileEntry } from './risk
 import { GraphDB } from './graph-db';
 import { registerAuraLmTools } from './lm-tools';
 import { registerAuraChatParticipant } from './chat/participant';
-import { setAuraViewContext, type AuraViewContext } from './chat/context';
 import { registerNavigationCommands } from './commands/navigation';
+import { registerAskAuraCommands } from './commands/ask-aura';
 import { chunkDocument, type DocChunk } from './analyzer/parsers/doc-parser';
 
 let webviewProvider: WebviewProvider | undefined;
@@ -84,15 +84,6 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('auraVisualizer.exportGraph', () => exportGraph()),
         vscode.commands.registerCommand('auraVisualizer.blastRadius', () => blastRadiusCurrentFile(context)),
         vscode.commands.registerCommand('auraVisualizer.statusBarRisk', (nodeId?: string) => focusRiskFromStatusBar(context, nodeId)),
-        vscode.commands.registerCommand('auraVisualizer.askAura', async (options?: { prompt?: string; context?: AuraViewContext }) => {
-            if (options?.context) setAuraViewContext(options.context);
-            const prompt = options?.prompt?.trim() || 'What should I know about this view?';
-            try {
-                await vscode.commands.executeCommand('workbench.action.chat.open', { query: `@aura ${prompt}` });
-            } catch {
-                vscode.window.showInformationMessage('Open VS Code Chat and mention @aura to ask about this codebase.');
-            }
-        }),
         vscode.commands.registerCommand('auraVisualizer.applyQuery', async (expr?: string, mode: 'highlight' | 'filter' | 'select' = 'filter') => {
             if (!expr) return;
             await openVisualizer(context);
@@ -105,6 +96,7 @@ export function activate(context: vscode.ExtensionContext): void {
         focusInGraph: (relativePath: string) => webviewProvider?.focusNode(relativePath, true),
         blastRadiusInGraph: (relativePath: string) => webviewProvider?.sendBlastRadius(relativePath),
     }));
+    context.subscriptions.push(...registerAskAuraCommands());
 
     // Watch for file changes (incremental)
     setupFileWatcher(context);

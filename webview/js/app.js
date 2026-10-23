@@ -377,6 +377,9 @@
                 getCommunityMap: function () { return communityMap; },
                 getCommunityNames: function () { return communityNames; },
                 getCommunityColors: function () { return communityColors; },
+                getActiveTab: function () { return activeTab; },
+                getHeatmapMode: function () { return heatmapMode; },
+                getQueryExpression: function () { return (window.AuraQueryBar && window.AuraQueryBar.getExpression) ? window.AuraQueryBar.getExpression() : ''; },
                 getNoteColors: function () { return NOTE_COLORS; },
                 getGitStateLabels: function () { return GIT_STATE_LABELS; },
                 getAnnotation: annotationOf,
@@ -972,6 +975,23 @@
                     '<span class="community-swatch" style="background:' + (communityColors[cid] || '#888') + '"></span>' +
                     '<span class="community-name">' + escapeHtml(info.name) + '</span>' +
                     '<span class="community-count">' + info.files.length + '</span>';
+                var askBtn = document.createElement('button');
+                askBtn.type = 'button';
+                askBtn.className = 'community-ask';
+                askBtn.title = 'Ask Aura about this community';
+                askBtn.textContent = '✨';
+                askBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    vscode.postMessage({
+                        type: 'askAura',
+                        payload: {
+                            prompt: 'Explain the community "' + info.name + '" (' + info.files.length + ' files): its architectural role, hub files, internal coupling and boundaries. Use the Aura tools and cite files.',
+                            context: { tab: 'graph', filters: { community: info.name, files: info.files.slice(0, 50) } }
+                        }
+                    });
+                });
+                item.appendChild(askBtn);
                 item.addEventListener('click', function() {
                     if (activeCommunities.has(cid)) activeCommunities.delete(cid);
                     else activeCommunities.add(cid);

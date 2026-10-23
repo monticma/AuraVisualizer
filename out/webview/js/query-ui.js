@@ -771,6 +771,7 @@
         init: function (h) { hooks = h || {}; },
         setup: setupQueryBar,
         state: function () { return queryState; },
+        getExpression: function () { return queryExpr; },
         /** Re-run the active query after the dataset changed (graph data). */
         onGraphData: function () {
             if (!queryActive || !queryFn) return;

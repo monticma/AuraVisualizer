@@ -232,6 +232,11 @@
         "command": "auraVisualizer.askAura",
         "title": "Aura: Ask @aura",
         "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "auraVisualizer.askAuraForTreeItem",
+        "title": "Aura: Ask @aura about this file",
+        "icon": "$(comment-discussion)"
       }
     ],
     "viewsContainers": {
@@ -262,6 +267,13 @@
           "command": "auraVisualizer.open",
           "when": "view == auraVisualizer.statsView",
           "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "auraVisualizer.askAuraForTreeItem",
+          "when": "view == auraVisualizer.statsView && viewItem == auraFile",
+          "group": "inline"
         }
       ]
     },

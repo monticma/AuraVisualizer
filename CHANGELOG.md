@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`@aura` chat participant** — ask VS Code Chat about architecture, hotspots, impact, dependency paths or natural-language filters. Aura answers from the analyzed graph, links files, and offers **Focus in Aura**, **Apply Aura Query**, **Open Risk** and **Open Aura** actions. Slash commands: `/explain`, `/impact`, `/path`, `/hotspots`, `/query`.
 - **Shared tool registry** — MCP, Language Model tools and `@aura` now execute the same 16 deterministic GraphDB tools, including a shared `generate_documentation` implementation.
 - **`@aura` navigation actions** — file references now carry their line number, and answers expose **Open in editor** and **Blast radius** actions alongside **Focus**. Files outside the graph still get an **Open in editor** fallback; paths with spaces, absolute paths and `../` escapes are handled explicitly.
+- **Contextual Ask Aura actions** — the file detail panel offers **Explain**, **Impact**, **Refactor plan** and **Tests first**; clusters and communities expose an explanation action; the Risk dashboard opens the chat for its top 3 actions; the Aura explorer adds an **Ask @aura about this file** context-menu entry. Each action forwards the current view context (selection, tab, heatmap, query, filters) to the participant.
 
 ### Changed
 - The legacy in-webview Aura Assistant is hidden; VS Code Chat is the primary conversational surface.

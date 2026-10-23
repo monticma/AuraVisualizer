@@ -681,6 +681,18 @@
     }
 
     function setupRisk() {
+        var askAuraBtn = $('#risk-ask-aura');
+        if (askAuraBtn) {
+            askAuraBtn.addEventListener('click', function() {
+                hooks.postMessage({
+                    type: 'askAura',
+                    payload: {
+                        prompt: 'Analyze the Risk dashboard (history window ' + riskWindowDays + ' days). Give the top 3 concrete actions to reduce codebase risk, with file citations. Use the Aura tools.',
+                        context: { tab: 'risk', filters: { riskWindow: riskWindowDays } }
+                    }
+                });
+            });
+        }
         var exportBtn = $('#risk-export');
         if (exportBtn) {
             exportBtn.addEventListener('click', function() {
