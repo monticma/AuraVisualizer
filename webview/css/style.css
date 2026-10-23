@@ -218,7 +218,22 @@ html, body {
 .top-bar-right {
     display: flex;
     align-items: center;
+    gap: 6px;
     flex-shrink: 0;
+}
+
+#btn-export-image {
+    color: #93c5fd;
+    border-color: rgba(96, 165, 250, 0.55);
+}
+
+@media (max-width: 1200px) {
+    #stats-bar { display: none; }
+}
+
+@media (max-width: 900px) {
+    .top-bar-center { max-width: 220px; margin: 0 8px; }
+    .top-btn { padding: 6px 8px; }
 }
 
 /* Logo */
