@@ -168,7 +168,8 @@ Annotate any file with a personal, color-coded note — a marker that follows yo
 - **Write a note** — click a file node: the detail panel shows a **📝 Note** section with a text area (up to 2 000 characters) and five colors (yellow, red, blue, green, purple). **Save** applies it, **Delete** removes it
 - **Pulsing indicator** — annotated files wear a note-colored ring + dot in the graph, animated (breathing) so they stand out at any zoom level; the ring nests inside the amber dirty ring when a file is both annotated and modified
 - **📝 Notes toggle** — toolbar button next to ✏️ Dirty: shows / hides all note indicators; the choice is saved with your view state
-- **Query flag** — `hasnote` works in the query bar: `hasnote AND complexity > 20`
+- **Stale notes** — when a file changes after its note was written, the note header shows **⚠️ À revoir**, **✓ Mark reviewed** refreshes its timestamp, the **📝 Notes** button shows the exact count and the **⚠️ Stale** filter isolates those files
+- **Query flag** — `hasnote` works in the query bar: `hasnote AND complexity > 20`; use `stalenote` for notes older than their file
 - **Storage** — notes are stored in `.aura/annotations.json`, local to the workspace (not committed)
 
 ### Circular Dependencies 🔄

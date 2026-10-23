@@ -40,6 +40,8 @@
     var showCycles = false;
     var showDirtyOnly = false; // filter: only files with uncommitted changes
     var showNotes = true;      // show note indicators (pulsing ring + dot) on annotated files
+    var showStaleNotesOnly = false; // filter: only files whose note predates the file
+    var staleNoteIds = new Set();
     var workingTree = {};      // workspace-relative path → git state (modified / untracked / …)
     var annotations = {};      // workspace-relative path → { text, color, updatedAt }
     var NOTE_COLORS = { yellow: '#fdd835', red: '#ef5350', blue: '#42a5f5', green: '#66bb6a', purple: '#ab47bc' };
@@ -258,6 +260,7 @@
                 break;
             case 'annotations':
                 annotations = (message.payload && message.payload.notes) || {};
+                updateStaleNotesUI();
                 if (window.AuraQueryBar) window.AuraQueryBar.refreshAfterDataChange();
                 if (selectedNode && !selectedNode._isCluster && !selectedNode._isSymbol) {
                     if (window.AuraDetail) window.AuraDetail.refreshEditor(selectedNode);
@@ -483,6 +486,7 @@
         buildExplorerTree(graphData.nodes);
         // Refresh saved queries now that DB is definitely open
         try { vscode.postMessage({ type: 'requestSavedQueries' }); } catch (_) { /* noop */ }
+        updateStaleNotesUI();
         // Request saved view state from extension (pull model — guarantees graph is ready)
         vscode.postMessage({ type: 'requestViewState' });
         // Safety net: if no state is stored (fresh workspace) or the host never
@@ -591,6 +595,7 @@
         if (loadingOverlay) {
             loadingOverlay.style.display = 'none';
         }
+        updateStaleNotesUI();
 
     }
 
@@ -1155,6 +1160,7 @@
                 var qs = qsState();
                 if (qs.active && qs.mode === 'filter' && !qs.set.has(node.id)) return false;
                 if (showDirtyOnly && !dirtyStateOf(node)) return false;
+                if (showStaleNotesOnly && !staleNoteIds.has(node.id)) return false;
                 return true;
             })
             .nodeOpacity(0.92)
@@ -1771,6 +1777,11 @@
             var dSrc = typeof link.source === 'object' ? link.source.id : link.source;
             var dTgt = typeof link.target === 'object' ? link.target.id : link.target;
             if (!workingTree[dSrc] || !workingTree[dTgt]) return false;
+        }
+        if (showStaleNotesOnly) {
+            var sSrc = typeof link.source === 'object' ? link.source.id : link.source;
+            var sTgt = typeof link.target === 'object' ? link.target.id : link.target;
+            if (!staleNoteIds.has(sSrc) || !staleNoteIds.has(sTgt)) return false;
         }
         return true;
     }
@@ -2600,6 +2611,48 @@
         return annotations[node.id] || (node.path ? annotations[node.path] : null) || null;
     }
 
+    function isStaleNoteNode(node) {
+        if (!node || !window.AuraNotes) return false;
+        var note = annotationOf(node);
+        return !!note && window.AuraNotes.isStale(note, node.lastModified);
+    }
+
+    /** Refresh the stale-note counter and filter button state. */
+    function updateStaleNotesUI() {
+        staleNoteIds.clear();
+        if (graphData && graphData.nodes) {
+            for (var i = 0; i < graphData.nodes.length; i++) {
+                if (isStaleNoteNode(graphData.nodes[i])) staleNoteIds.add(graphData.nodes[i].id);
+            }
+        }
+        var count = staleNoteIds.size;
+        var countEl = $('#notes-stale-count');
+        if (countEl) {
+            countEl.textContent = String(count);
+            countEl.style.display = count > 0 ? '' : 'none';
+        }
+        var staleBtn = $('#btn-stale-notes');
+        var needsVisibilityRefresh = showStaleNotesOnly;
+        if (staleBtn) {
+            staleBtn.disabled = count === 0;
+            staleBtn.title = count > 0
+                ? count + ' note' + (count === 1 ? '' : 's') + ' to review (older than the file)'
+                : 'No stale notes';
+            if (count === 0 && showStaleNotesOnly) {
+                showStaleNotesOnly = false;
+                staleBtn.classList.remove('active');
+                needsVisibilityRefresh = true;
+            }
+        }
+        if (needsVisibilityRefresh && graph) {
+            graph.nodeVisibility(graph.nodeVisibility());
+            graph.linkVisibility(graph.linkVisibility());
+        }
+        if (selectedNode && !selectedNode._isCluster && !selectedNode._isSymbol && window.AuraDetail) {
+            if (window.AuraDetail.refreshStaleBadge) window.AuraDetail.refreshStaleBadge(selectedNode);
+        }
+    }
+
     function cloneSpriteWithMaterial(sprite) {
         return window.AuraSprites ? AuraSprites.cloneWithMaterial(sprite) : null;
     }
@@ -2748,6 +2801,7 @@
             showCycles: showCycles,
             showDirtyOnly: showDirtyOnly,
             showNotes: showNotes,
+            showStaleNotesOnly: showStaleNotesOnly,
             showGroups: showGroups,
             pathMode: pathMode,
             showLabels: showLabels,
@@ -2805,6 +2859,7 @@
         showDeadCode = !!state.showDeadCode;
         showCycles = !!state.showCycles;
         showDirtyOnly = !!state.showDirtyOnly;
+        showStaleNotesOnly = !!state.showStaleNotesOnly;
         // Defaults to true: states saved before the toggle existed must keep notes visible.
         showNotes = state.showNotes === undefined ? true : !!state.showNotes;
         showLabels = !!state.showLabels;
@@ -2816,6 +2871,9 @@
         $('#btn-cycles').classList.toggle('active', showCycles);
         $('#btn-dirty-only').classList.toggle('active', showDirtyOnly);
         $('#btn-notes').classList.toggle('active', showNotes);
+        var restoredStaleBtn = $('#btn-stale-notes');
+        if (restoredStaleBtn) restoredStaleBtn.classList.toggle('active', showStaleNotesOnly);
+        updateStaleNotesUI();
         $('#btn-labels').classList.toggle('active', showLabels);
         $('#btn-path-mode').classList.toggle('active', pathMode);
 
@@ -2996,6 +3054,20 @@
                 showNotes = !showNotes;
                 notesBtn.classList.toggle('active', showNotes);
                 if (graph) graph.nodeThreeObject(graph.nodeThreeObject());
+                saveViewState();
+            });
+        }
+
+        var staleNotesBtn = $('#btn-stale-notes');
+        if (staleNotesBtn) {
+            staleNotesBtn.addEventListener('click', function() {
+                if (staleNotesBtn.disabled) return;
+                showStaleNotesOnly = !showStaleNotesOnly;
+                staleNotesBtn.classList.toggle('active', showStaleNotesOnly);
+                if (graph) {
+                    graph.nodeVisibility(graph.nodeVisibility());
+                    graph.linkVisibility(graph.linkVisibility());
+                }
                 saveViewState();
             });
         }

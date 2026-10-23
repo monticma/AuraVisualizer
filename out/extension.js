@@ -190,11 +190,12 @@ USER QUESTION: `+e,u=[we.LanguageModelChatMessage.User(l)],f=an.map(_=>({name:_.
             </div>
         </div>
         <div class="panel-section" id="note-section">
-            <h3>\u{1F4DD} Note</h3>
+            <h3>\u{1F4DD} Note <span id="note-stale-badge" class="note-stale-badge" style="display:none">\u26A0\uFE0F \xC0 revoir</span></h3>
             <textarea id="note-input" rows="2" placeholder="Add a note for this file\u2026" maxlength="2000"></textarea>
             <div class="note-actions">
                 <span id="note-colors" class="note-colors"></span>
                 <span class="note-buttons">
+                    <button id="note-review" class="note-btn note-btn-review" style="display:none" title="Mark this note as reviewed (keeps its text)">\u2713 Mark reviewed</button>
                     <button id="note-save" class="note-btn">Save</button>
                     <button id="note-delete" class="note-btn note-btn-delete" style="display:none">\u{1F5D1} Delete</button>
                 </span>
@@ -538,7 +539,8 @@ USER QUESTION: `+e,u=[we.LanguageModelChatMessage.User(l)],f=an.map(_=>({name:_.
             <button class="filter-btn" id="btn-dead-code" title="Dead code detection">\u2620\uFE0F Dead</button>
             <button class="filter-btn" id="btn-cycles" title="Circular dependencies">\u{1F504} Cycles</button>
             <button class="filter-btn" id="btn-dirty-only" title="Only files with uncommitted changes (git working tree)">\u270F\uFE0F Dirty</button>
-            <button class="filter-btn active" id="btn-notes" title="Show note indicators on annotated files">\u{1F4DD} Notes</button>
+            <button class="filter-btn active" id="btn-notes" title="Show note indicators on annotated files">\u{1F4DD} Notes<span id="notes-stale-count" class="filter-count" style="display:none">0</span></button>
+            <button class="filter-btn" id="btn-stale-notes" title="No stale notes" disabled>\u26A0\uFE0F Stale</button>
             <button class="filter-btn" id="btn-warps-panel" title="Warp points \u2014 named camera bookmarks">\u{1F300} Warps</button>
             <button class="filter-btn" id="btn-group-dirs" title="Group by directory">\u{1F4C1} Groups</button>
             <button class="filter-btn" id="btn-path-mode" title="Find path between 2 nodes">\u{1F517} Path</button>
@@ -861,7 +863,7 @@ USER QUESTION: `+e,u=[we.LanguageModelChatMessage.User(l)],f=an.map(_=>({name:_.
 
                 <h3>\u{1F4DD} Notes</h3>
                 <p>Click a file node to annotate it: the detail panel's <strong>\u{1F4DD} Note</strong> section takes free text (up to 2 000 chars) plus one of five colors. Annotated files wear a <strong>pulsing note-colored ring + dot</strong> in the graph \u2014 animated, so they stay visible at any zoom.</p>
-                <p>The <strong>\u{1F4DD} Notes</strong> toolbar button (next to \u270F\uFE0F Dirty) shows / hides the indicators; the <code>hasnote</code> query flag finds annotated files. Notes are stored in <code>.aura/annotations.json</code> \u2014 local to your workspace, never committed.</p>
+                <p>The <strong>\u{1F4DD} Notes</strong> toolbar button (next to \u270F\uFE0F Dirty) shows / hides the indicators; the <code>hasnote</code> query flag finds annotated files. When a file is modified after its note was written, the note header shows <strong>\u26A0\uFE0F \xC0 revoir</strong>, the badge counts stale notes and <strong>\u2713 Mark reviewed</strong> refreshes the note timestamp. The <strong>\u26A0\uFE0F Stale</strong> filter isolates those files; <code>stalenote</code> does the same in queries. Notes are stored in <code>.aura/annotations.json</code> \u2014 local to your workspace, never committed.</p>
 
                 <h3>\u{1F300} Warp Points</h3>
                 <p>Save named camera bookmarks of the 3D view: the <strong>\u{1F300} Warps</strong> toolbar button opens the floating panel; its <strong>\u{1F4CC}</strong> button captures the current pose (camera position + view target + orientation). Click a warp to fly there (smooth 800 ms tween), re-capture or rename it, and assign quick slots \u2014 <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>1\u20139</kbd> flies back from anywhere (plain <kbd>Alt</kbd>+<kbd>digit</kbd> is captured by VS Code). The <strong>\u{1F3E0} Home</strong> row returns to the default fit-to-view pose.</p>
@@ -875,7 +877,7 @@ USER QUESTION: `+e,u=[we.LanguageModelChatMessage.User(l)],f=an.map(_=>({name:_.
 
                 <h3>\u{1F50D} Query Filter</h3>
                 <p>Open the query bar with the <strong>\u{1F50D} button</strong> (far right of the tab bar) or <kbd>Ctrl+K</kbd> / <kbd>Cmd+K</kbd> \u2014 it stays hidden until you need it. Type a boolean expression over node metrics, e.g. <code>complexity &gt; 20 AND fanIn &gt; 5</code>.</p>
-                <p><strong>Fields:</strong> <code>complexity</code>, <code>loc</code>, <code>fanin</code> / <code>fanout</code>, <code>size</code>, <code>mtime</code> / <code>lastmodified</code>, <code>symbols</code>, <code>deadexports</code>, <code>language</code>, <code>name</code>, <code>path</code>, <code>group</code>, <code>extension</code>, <code>community</code>, and flags <code>isorphan</code> / <code>isdead</code> / <code>incycle</code> / <code>ispinned</code> / <code>dirty</code> / <code>hasnote</code>.</p>
+                <p><strong>Fields:</strong> <code>complexity</code>, <code>loc</code>, <code>fanin</code> / <code>fanout</code>, <code>size</code>, <code>mtime</code> / <code>lastmodified</code>, <code>symbols</code>, <code>deadexports</code>, <code>language</code>, <code>name</code>, <code>path</code>, <code>group</code>, <code>extension</code>, <code>community</code>, and flags <code>isorphan</code> / <code>isdead</code> / <code>incycle</code> / <code>ispinned</code> / <code>dirty</code> / <code>hasnote</code> / <code>stalenote</code>.</p>
                 <p><strong>Operators:</strong> <code>==</code>, <code>!=</code>, <code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, <code>&lt;=</code>, <code>~</code> (regex), <code>!~</code>, <code>in [ ... ]</code>, plus <code>AND</code> / <code>OR</code> / <code>NOT</code>.</p>
                 <p><strong>Modes:</strong> <strong>Highlight</strong> (dim non-matching), <strong>Filter</strong> (hide non-matching), <strong>Select</strong> (multi-select). Press <strong>\u2B50</strong> to save a query and <strong>\u{1F4DA}</strong> to reopen saved ones.</p>
 

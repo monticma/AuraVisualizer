@@ -13,6 +13,29 @@
     var $ = function (sel) { return document.querySelector(sel); };
     var detailPanel = document.getElementById('detail-panel');
 
+    function noteTimestamp(value) {
+        if (value === null || value === undefined || value === '') return undefined;
+        if (value instanceof Date) {
+            var d = value.getTime();
+            return isFinite(d) ? d : undefined;
+        }
+        if (typeof value === 'number') {
+            if (!isFinite(value)) return undefined;
+            return value < 1e11 ? value * 1000 : value;
+        }
+        var parsed = Date.parse(value);
+        return isFinite(parsed) ? parsed : undefined;
+    }
+
+    function isNoteStale(note, lastModified) {
+        var noteTime = noteTimestamp(note && note.updatedAt);
+        var fileTime = noteTimestamp(lastModified);
+        return noteTime !== undefined && fileTime !== undefined && noteTime < fileTime;
+    }
+
+    // Shared with app.js / query.js for the stale-note filter and count.
+    window.AuraNotes = { isStale: isNoteStale, toTimestamp: noteTimestamp };
+
     // ============================================================
     // Detail Panel
     // ============================================================
@@ -609,6 +632,30 @@
                 });
             });
         }
+        var reviewBtn = $('#note-review');
+        if (reviewBtn) {
+            reviewBtn.addEventListener('click', function() {
+                var node = hooks.getSelectedNode();
+                if (!node || node._isCluster || node._isSymbol) return;
+                var note = hooks.getAnnotation(node);
+                if (!note) return;
+                hooks.postMessage({
+                    type: 'saveNote',
+                    payload: { path: node.id || node.path, text: note.text, color: note.color }
+                });
+            });
+        }
+    }
+
+    /** Update only the stale badge/action, without touching the note textarea. */
+    function refreshStaleBadge(node) {
+        if (!node || node._isCluster || node._isSymbol) return;
+        var note = hooks.getAnnotation(node);
+        var stale = !!note && isNoteStale(note, node.lastModified);
+        var staleBadge = $('#note-stale-badge');
+        if (staleBadge) staleBadge.style.display = stale ? '' : 'none';
+        var reviewBtn = $('#note-review');
+        if (reviewBtn) reviewBtn.style.display = stale ? '' : 'none';
     }
 
     /** Populate the note editor from the selected node's note (or clear it). */
@@ -624,6 +671,7 @@
         var note = hooks.getAnnotation(node);
         input.value = note ? note.text : '';
         noteSelectedColor = note ? note.color : 'yellow';
+        refreshStaleBadge(node);
         var colorsEl = $('#note-colors');
         if (colorsEl) {
             var all = colorsEl.querySelectorAll('.note-swatch');
@@ -641,6 +689,7 @@
         setup: setupPanelClose,
         show: showDetailPanel,
         showMultiSelect: showMultiSelectPanel,
-        refreshEditor: updateNoteEditor
+        refreshEditor: updateNoteEditor,
+        refreshStaleBadge: refreshStaleBadge
     };
 })();

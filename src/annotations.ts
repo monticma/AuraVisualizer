@@ -28,6 +28,31 @@ export interface NodeNote {
 
 export type AnnotationMap = Record<string, NodeNote>;
 
+/** Normalize ISO strings, Dates and millisecond/second numbers to epoch ms. */
+export function toTimestamp(value: string | number | Date | null | undefined): number | undefined {
+    if (value === null || value === undefined || value === '') return undefined;
+    if (value instanceof Date) {
+        const time = value.getTime();
+        return Number.isFinite(time) ? time : undefined;
+    }
+    if (typeof value === 'number') {
+        if (!Number.isFinite(value)) return undefined;
+        return value < 1e11 ? value * 1000 : value;
+    }
+    const time = Date.parse(value);
+    return Number.isFinite(time) ? time : undefined;
+}
+
+/** A note is stale when it was written before the file's last modification. */
+export function isNoteStale(
+    note: Pick<NodeNote, 'updatedAt'> | null | undefined,
+    lastModified: string | number | Date | null | undefined,
+): boolean {
+    const noteTime = toTimestamp(note?.updatedAt);
+    const fileTime = toTimestamp(lastModified);
+    return noteTime !== undefined && fileTime !== undefined && noteTime < fileTime;
+}
+
 export function normalizeNoteColor(value: unknown): NoteColor {
     return typeof value === 'string' && value in NOTE_COLORS ? (value as NoteColor) : DEFAULT_NOTE_COLOR;
 }

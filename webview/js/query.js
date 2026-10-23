@@ -50,7 +50,8 @@
         incycle: '_inCycle',
         ispinned: '_isPinned',
         dirty: '_isDirty',
-        hasnote: '_hasNote'
+        hasnote: '_hasNote',
+        stalenote: '_staleNote'
     };
 
     function buildContextNode(node, ctx) {
@@ -64,7 +65,9 @@
         node._inCycle = ctx.cycleNodeIds ? ctx.cycleNodeIds.has(node.id) : false;
         node._isPinned = ctx.pinnedNodes ? ctx.pinnedNodes.has(node) : false;
         node._isDirty = ctx.dirtySet ? (ctx.dirtySet.has(node.id) || (node.path ? ctx.dirtySet.has(node.path) : false)) : false;
-        node._hasNote = ctx.notes ? !!(ctx.notes[node.id] || (node.path ? ctx.notes[node.path] : false)) : false;
+        var note = ctx.notes ? (ctx.notes[node.id] || (node.path ? ctx.notes[node.path] : null)) : null;
+        node._hasNote = !!note;
+        node._staleNote = !!(note && window.AuraNotes && window.AuraNotes.isStale(note, node.lastModified));
         return node;
     }
 

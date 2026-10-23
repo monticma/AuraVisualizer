@@ -5,6 +5,8 @@ import {
     withNote,
     withoutNote,
     normalizeNoteColor,
+    isNoteStale,
+    toTimestamp,
     MAX_NOTE_LENGTH,
     type AnnotationMap,
 } from '../annotations';
@@ -94,5 +96,25 @@ describe('annotations — normalizeNoteColor', () => {
         expect(normalizeNoteColor('crimson')).toBe('yellow');
         expect(normalizeNoteColor(3)).toBe('yellow');
         expect(normalizeNoteColor(undefined)).toBe('yellow');
+    });
+});
+
+describe('annotations — stale notes', () => {
+    const fileTime = Date.parse('2026-10-20T12:00:00.000Z');
+
+    it('normalizes ISO strings, Dates and seconds', () => {
+        expect(toTimestamp('2026-10-20T12:00:00.000Z')).toBe(fileTime);
+        expect(toTimestamp(new Date(fileTime))).toBe(fileTime);
+        expect(toTimestamp(fileTime / 1000)).toBe(fileTime);
+        expect(toTimestamp('')).toBeUndefined();
+        expect(toTimestamp('not a date')).toBeUndefined();
+    });
+
+    it('flags old notes and leaves fresh/missing notes alone', () => {
+        expect(isNoteStale({ updatedAt: '2026-10-19T12:00:00.000Z' }, fileTime)).toBe(true);
+        expect(isNoteStale({ updatedAt: '2026-10-21T12:00:00.000Z' }, fileTime)).toBe(false);
+        expect(isNoteStale({ updatedAt: '' }, fileTime)).toBe(false);
+        expect(isNoteStale(null, fileTime)).toBe(false);
+        expect(isNoteStale({ updatedAt: '2026-10-19T12:00:00.000Z' }, undefined)).toBe(false);
     });
 });

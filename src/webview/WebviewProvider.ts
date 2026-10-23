@@ -963,11 +963,12 @@ export class WebviewProvider {
             </div>
         </div>
         <div class="panel-section" id="note-section">
-            <h3>📝 Note</h3>
+            <h3>📝 Note <span id="note-stale-badge" class="note-stale-badge" style="display:none">⚠️ À revoir</span></h3>
             <textarea id="note-input" rows="2" placeholder="Add a note for this file…" maxlength="2000"></textarea>
             <div class="note-actions">
                 <span id="note-colors" class="note-colors"></span>
                 <span class="note-buttons">
+                    <button id="note-review" class="note-btn note-btn-review" style="display:none" title="Mark this note as reviewed (keeps its text)">✓ Mark reviewed</button>
                     <button id="note-save" class="note-btn">Save</button>
                     <button id="note-delete" class="note-btn note-btn-delete" style="display:none">🗑 Delete</button>
                 </span>
@@ -1311,7 +1312,8 @@ export class WebviewProvider {
             <button class="filter-btn" id="btn-dead-code" title="Dead code detection">☠️ Dead</button>
             <button class="filter-btn" id="btn-cycles" title="Circular dependencies">🔄 Cycles</button>
             <button class="filter-btn" id="btn-dirty-only" title="Only files with uncommitted changes (git working tree)">✏️ Dirty</button>
-            <button class="filter-btn active" id="btn-notes" title="Show note indicators on annotated files">📝 Notes</button>
+            <button class="filter-btn active" id="btn-notes" title="Show note indicators on annotated files">📝 Notes<span id="notes-stale-count" class="filter-count" style="display:none">0</span></button>
+            <button class="filter-btn" id="btn-stale-notes" title="No stale notes" disabled>⚠️ Stale</button>
             <button class="filter-btn" id="btn-warps-panel" title="Warp points — named camera bookmarks">🌀 Warps</button>
             <button class="filter-btn" id="btn-group-dirs" title="Group by directory">📁 Groups</button>
             <button class="filter-btn" id="btn-path-mode" title="Find path between 2 nodes">🔗 Path</button>
@@ -1634,7 +1636,7 @@ export class WebviewProvider {
 
                 <h3>📝 Notes</h3>
                 <p>Click a file node to annotate it: the detail panel's <strong>📝 Note</strong> section takes free text (up to 2 000 chars) plus one of five colors. Annotated files wear a <strong>pulsing note-colored ring + dot</strong> in the graph — animated, so they stay visible at any zoom.</p>
-                <p>The <strong>📝 Notes</strong> toolbar button (next to ✏️ Dirty) shows / hides the indicators; the <code>hasnote</code> query flag finds annotated files. Notes are stored in <code>.aura/annotations.json</code> — local to your workspace, never committed.</p>
+                <p>The <strong>📝 Notes</strong> toolbar button (next to ✏️ Dirty) shows / hides the indicators; the <code>hasnote</code> query flag finds annotated files. When a file is modified after its note was written, the note header shows <strong>⚠️ À revoir</strong>, the badge counts stale notes and <strong>✓ Mark reviewed</strong> refreshes the note timestamp. The <strong>⚠️ Stale</strong> filter isolates those files; <code>stalenote</code> does the same in queries. Notes are stored in <code>.aura/annotations.json</code> — local to your workspace, never committed.</p>
 
                 <h3>🌀 Warp Points</h3>
                 <p>Save named camera bookmarks of the 3D view: the <strong>🌀 Warps</strong> toolbar button opens the floating panel; its <strong>📌</strong> button captures the current pose (camera position + view target + orientation). Click a warp to fly there (smooth 800 ms tween), re-capture or rename it, and assign quick slots — <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>1–9</kbd> flies back from anywhere (plain <kbd>Alt</kbd>+<kbd>digit</kbd> is captured by VS Code). The <strong>🏠 Home</strong> row returns to the default fit-to-view pose.</p>
@@ -1648,7 +1650,7 @@ export class WebviewProvider {
 
                 <h3>🔍 Query Filter</h3>
                 <p>Open the query bar with the <strong>🔍 button</strong> (far right of the tab bar) or <kbd>Ctrl+K</kbd> / <kbd>Cmd+K</kbd> — it stays hidden until you need it. Type a boolean expression over node metrics, e.g. <code>complexity &gt; 20 AND fanIn &gt; 5</code>.</p>
-                <p><strong>Fields:</strong> <code>complexity</code>, <code>loc</code>, <code>fanin</code> / <code>fanout</code>, <code>size</code>, <code>mtime</code> / <code>lastmodified</code>, <code>symbols</code>, <code>deadexports</code>, <code>language</code>, <code>name</code>, <code>path</code>, <code>group</code>, <code>extension</code>, <code>community</code>, and flags <code>isorphan</code> / <code>isdead</code> / <code>incycle</code> / <code>ispinned</code> / <code>dirty</code> / <code>hasnote</code>.</p>
+                <p><strong>Fields:</strong> <code>complexity</code>, <code>loc</code>, <code>fanin</code> / <code>fanout</code>, <code>size</code>, <code>mtime</code> / <code>lastmodified</code>, <code>symbols</code>, <code>deadexports</code>, <code>language</code>, <code>name</code>, <code>path</code>, <code>group</code>, <code>extension</code>, <code>community</code>, and flags <code>isorphan</code> / <code>isdead</code> / <code>incycle</code> / <code>ispinned</code> / <code>dirty</code> / <code>hasnote</code> / <code>stalenote</code>.</p>
                 <p><strong>Operators:</strong> <code>==</code>, <code>!=</code>, <code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, <code>&lt;=</code>, <code>~</code> (regex), <code>!~</code>, <code>in [ ... ]</code>, plus <code>AND</code> / <code>OR</code> / <code>NOT</code>.</p>
                 <p><strong>Modes:</strong> <strong>Highlight</strong> (dim non-matching), <strong>Filter</strong> (hide non-matching), <strong>Select</strong> (multi-select). Press <strong>⭐</strong> to save a query and <strong>📚</strong> to reopen saved ones.</p>
 
