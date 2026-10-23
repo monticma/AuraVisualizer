@@ -3550,6 +3550,9 @@
                 return;
             }
 
+            // Never steal VS Code chords such as Ctrl+Shift+P or Ctrl+K.
+            if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+
             switch (e.key.toLowerCase()) {
                 case ' ':
                     // Space — toggle pilot mode (graph tab only; while flying,

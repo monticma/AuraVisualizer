@@ -1112,12 +1112,29 @@ async function exportArchReport(includeAiNarrative = false): Promise<void> {
         maxLines: 400,
         includePaths: true,
     });
-    const narrative = includeAiNarrative ? await generateArchitectureNarrative(report) : undefined;
+    const narrative = includeAiNarrative
+        ? await vscode.window.withProgress(
+            {
+                location: vscode.ProgressLocation.Notification,
+                title: 'Aura: generating AI architecture narrative…',
+                cancellable: true,
+            },
+            (_progress, token) => generateArchitectureNarrative(report, token),
+        )
+        : undefined;
     if (includeAiNarrative && !narrative) {
-        void vscode.window.showWarningMessage('Aura: No AI model available — exporting the deterministic report.');
+        void vscode.window.showWarningMessage('Aura: AI narrative unavailable — exporting the deterministic report only.');
     }
     const finalReport = narrative ? withAiNarrative(report, narrative) : report;
-    await saveOrCopyText('Architecture report', finalReport, 'architecture.md', { Markdown: ['md'] });
+    if (includeAiNarrative) {
+        await saveText('Architecture report', finalReport, {
+            fileName: 'architecture.md',
+            askLocation: true,
+            filters: { Markdown: ['md'] },
+        });
+    } else {
+        await saveOrCopyText('Architecture report', finalReport, 'architecture.md', { Markdown: ['md'] });
+    }
 }
 
 function archReportExtras(): ArchReportExtras {

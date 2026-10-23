@@ -7,7 +7,7 @@
 
 import * as vscode from 'vscode';
 
-export async function generateArchitectureNarrative(report: string): Promise<string | undefined> {
+export async function generateArchitectureNarrative(report: string, token?: vscode.CancellationToken): Promise<string | undefined> {
     let model: vscode.LanguageModelChat;
     try {
         const models = await vscode.lm.selectChatModels({});
@@ -25,12 +25,12 @@ export async function generateArchitectureNarrative(report: string): Promise<str
         'ARCHITECTURE REPORT:\n' +
         report;
 
-    const source = new vscode.CancellationTokenSource();
+    const source = token ? undefined : new vscode.CancellationTokenSource();
     try {
         const response = await model.sendRequest(
             [vscode.LanguageModelChatMessage.User(prompt)],
             {},
-            source.token,
+            token || source!.token,
         );
         let text = '';
         for await (const part of response.stream) {
@@ -41,6 +41,6 @@ export async function generateArchitectureNarrative(report: string): Promise<str
     } catch {
         return undefined;
     } finally {
-        source.dispose();
+        source?.dispose();
     }
 }
