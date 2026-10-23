@@ -55,6 +55,7 @@ describe('chat prompt helpers', () => {
     });
 
     it('appends the current Aura view context to the system prompt', () => {
+        expect(AURA_SYSTEM_PROMPT).toContain('never end on a tool call');
         expect(buildAuraSystemPrompt()).toBe(AURA_SYSTEM_PROMPT);
         const grounded = buildAuraSystemPrompt('- selected file: src/a.ts');
         expect(grounded).toContain('CURRENT AURA VIEW CONTEXT');

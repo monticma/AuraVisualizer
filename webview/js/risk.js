@@ -687,7 +687,7 @@
                 hooks.postMessage({
                     type: 'askAura',
                     payload: {
-                        prompt: 'Analyze the Risk dashboard (history window ' + riskWindowDays + ' days). Give the top 3 concrete actions to reduce codebase risk, with file citations. Use the Aura tools.',
+                        prompt: 'Analyze the Risk dashboard (history window ' + riskWindowDays + ' days). Use at most 3 Aura tools, then give the top 3 concrete actions to reduce codebase risk, with file citations.',
                         context: { tab: 'risk', filters: { riskWindow: riskWindowDays } }
                     }
                 });

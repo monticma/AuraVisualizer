@@ -72,17 +72,22 @@ export function registerAuraChatParticipant(
         const systemPrompt = buildAuraSystemPrompt(describeAuraViewContext(viewContext));
         const userPrompt = buildUserPrompt(command, rawPrompt, selection);
 
-        // /explain: stream deterministic graph facts first, so the command always
-        // explains the file even when the model ends its turn on tool calls.
+        // Contextual actions (detail panel, cluster, Risk, explorer) name a file in
+        // their prompt. Stream deterministic facts first, so the answer is never an
+        // empty "no written answer" when the model ends on a tool call.
         let explainedFile: string | undefined;
-        if (command === 'explain') {
-            const target = extractFileAnchors(rawPrompt)[0]?.file || selection;
-            const facts = target ? buildFileFacts(db, target) : undefined;
+        const promptAnchors = extractFileAnchors(rawPrompt);
+        const fileTarget = promptAnchors[0]?.file || selection;
+        const wantsFileFacts = command !== 'query' && command !== 'path' && command !== 'hotspots'
+            && !!fileTarget
+            && (promptAnchors.length > 0 || command === 'explain' || command === 'impact');
+        if (wantsFileFacts && fileTarget) {
+            const facts = buildFileFacts(db, fileTarget);
             if (facts) {
                 explainedFile = facts.file;
                 stream.markdown(facts.markdown + '\n\n');
-            } else if (target) {
-                stream.markdown(`I couldn't find \`${target}\` in the analyzed graph. Check the path, then run **Aura: Visualize Codebase** again if the file is new.`);
+            } else if (promptAnchors.length > 0 || command === 'explain' || command === 'impact') {
+                stream.markdown(`I couldn't find \`${fileTarget}\` in the analyzed graph. Check the path, then run **Aura: Visualize Codebase** again if the file is new.`);
                 return;
             }
         }
@@ -136,6 +141,24 @@ export function registerAuraChatParticipant(
             }
 
             // Clickable references + action buttons.
+            if (!lastText.trim()) {
+                // The model sometimes ends its turn on a tool call (especially for
+                // long prompts such as "tests first"). Ask once for a plain answer
+                // without tools so the user always gets written content.
+                messages.push(vscode.LanguageModelChatMessage.User(
+                    'Now write the final answer for the user in markdown, using the tool results above. Do not call any more tools. Be concrete and cite files.',
+                ));
+                const finalResponse = await request.model.sendRequest(messages, {}, token);
+                let finalText = '';
+                for await (const part of finalResponse.stream) {
+                    if (part instanceof vscode.LanguageModelTextPart) {
+                        finalText += part.value;
+                        fullText += part.value;
+                        stream.markdown(part.value);
+                    }
+                }
+                lastText = finalText;
+            }
             if (!lastText.trim()) {
                 stream.markdown('_Aura queried the graph but returned no written answer. Try rephrasing, or name a specific file._');
             }

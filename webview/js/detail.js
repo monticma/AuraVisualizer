@@ -519,15 +519,15 @@
             : (node.id || node.path);
         var prompt;
         if (kind === 'impact') {
-            prompt = 'Analyze the impact of changing ' + target + ': dependents, blast radius, cycles and risk. Use the Aura tools and cite files.';
+            prompt = 'Analyze the impact of changing ' + target + ': dependents, blast radius, cycles and risk. Use at most 3 Aura tools, then write the answer and cite files.';
         } else if (kind === 'plan') {
-            prompt = 'Propose a concrete step-by-step refactoring plan for ' + target + '. Prioritize low-risk steps, mention existing tests, and cite files. Use the Aura tools.';
+            prompt = 'Propose a concrete step-by-step refactoring plan for ' + target + '. Prioritize low-risk steps and mention existing tests. Use at most 3 Aura tools, then write the answer and cite files.';
         } else if (kind === 'tests') {
-            prompt = 'Propose a tests-first plan for ' + target + ': which behaviors to lock down, which test files to add, and how to verify the refactor. Use the Aura tools.';
+            prompt = 'Propose a tests-first plan for ' + target + ': which behaviors to lock down, which test files to add, and how to verify the refactor. Use at most 2 Aura tools, then write the answer and cite files.';
         } else if (isCluster) {
-            prompt = 'Explain ' + target + ': its architectural role, internal coupling, hub files and boundaries. Use the Aura tools and cite files.';
+            prompt = 'Explain ' + target + ': its architectural role, internal coupling, hub files and boundaries. Use at most 3 Aura tools, then write the answer and cite files.';
         } else {
-            prompt = 'Explain ' + target + ': its role, dependencies, dependents, symbols and risk. Use the Aura tools and cite files.';
+            prompt = 'Explain ' + target + ': its role, dependencies, dependents, symbols and risk. Use at most 3 Aura tools, then write the answer and cite files.';
         }
         hooks.postMessage({ type: 'askAura', payload: { prompt: prompt, context: buildAiContext(node) } });
     }

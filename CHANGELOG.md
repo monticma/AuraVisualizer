@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Open Risk** switches to the Risk tab without reloading the graph, and **Open Aura** is hidden when the panel is already visible (and no longer refreshes a visible graph).
 - `/explain` and `/impact` use the active editor/selected file (and ask for one when missing) instead of returning an empty answer; `/explain` also streams deterministic graph facts, so it always returns content even if the model stops after a tool call.
 - `/query` only shows **Apply Aura Query**, and **Focus** buttons are only created for files that actually exist in the workspace graph (no more `69.0`).
+- Contextual **Ask Aura** actions (Explain / Impact / Refactor plan / Tests first) now stream deterministic file facts and request one final tool-free synthesis when the model stops on a tool call — they no longer end on the generic “no written answer” message.
 
 ## [1.3.1] - 2026-10-16
 

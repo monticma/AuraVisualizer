@@ -986,7 +986,7 @@
                     vscode.postMessage({
                         type: 'askAura',
                         payload: {
-                            prompt: 'Explain the community "' + info.name + '" (' + info.files.length + ' files): its architectural role, hub files, internal coupling and boundaries. Use the Aura tools and cite files.',
+                            prompt: 'Explain the community "' + info.name + '" (' + info.files.length + ' files): its architectural role, hub files, internal coupling and boundaries. Use at most 3 Aura tools, then write the answer and cite files.',
                             context: { tab: 'graph', filters: { community: info.name, files: info.files.slice(0, 50) } }
                         }
                     });

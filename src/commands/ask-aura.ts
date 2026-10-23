@@ -40,7 +40,7 @@ export function registerAskAuraCommands(): vscode.Disposable[] {
             const filePath = entry?.kind === 'file' ? entry.node?.path : undefined;
             if (!filePath) return;
             return askAura({
-                prompt: `Explain ${filePath}: its role, dependencies, dependents, symbols and risk. Use the Aura tools and cite files.`,
+                prompt: `Explain ${filePath}: its role, dependencies, dependents, symbols and risk. Use at most 3 Aura tools, then write the answer and cite files.`,
                 context: { selection: filePath, tab: 'explorer' },
             });
         }),
