@@ -15,7 +15,7 @@
 import { createHash } from 'crypto';
 
 /** Bump when analyzer/parser output changes without a package version bump. */
-export const PARSER_VERSION = '2026-10-24.1';
+export const PARSER_VERSION = '2026-10-24.2';
 
 export interface FileSignature {
     /** Workspace-relative path, same id used by the scanner/graph. */

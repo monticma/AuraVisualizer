@@ -25,10 +25,11 @@ import { CSSParser } from './parsers/css-parser';
 import { computeComplexity } from './complexity';
 import { collectFunctionMetrics, type FunctionMetricEntry } from '../flow/flow-core';
 import { createImportResolver, confidenceScore, type ImportResolver } from './path-resolver';
+import { computeSymbolCycles } from '../analysis/symbol-cycles';
 import { hasGrammar, parseSource } from './tree-sitter-loader';
 import type { BaseParser } from './parsers/base-parser';
 import type Parser from 'web-tree-sitter';
-import type { FileInfo, Relation, GraphData, GraphNode, GraphLink, AnalyzeOptions, FileSymbols, SymbolInfo, CallSite } from './types';
+import type { FileInfo, Relation, GraphData, GraphNode, GraphLink, AnalyzeOptions, FileSymbols, SymbolInfo, CallSite, FunctionCallSite } from './types';
 
 /** Parser registry — Tree-sitter for languages with WASM grammars, regex for HTML/CSS. */
 const PARSERS: Record<string, BaseParser> = {
@@ -462,7 +463,7 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
     }
 
     // Phase 3a: Collect function-level call sites
-    const allCallSites: { callerFile: string; callerName: string; calleeFile: string; calleeName: string; callLine: number }[] = [];
+    const allCallSites: FunctionCallSite[] = [];
     for (const file of files) {
         if (!SYMBOL_LANGUAGES.has(file.language)) continue;
         if (HEADER_EXTS.has(file.extension)) continue;
@@ -756,6 +757,9 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
     const deadCodeFiles = nodes.filter(n => n.deadExports && n.deadExports.length > 0).length;
     const deadExportsTotal = nodes.reduce((sum, n) => sum + (n.deadExports ? n.deadExports.length : 0), 0);
 
+    // Symbol-level cycles (V2-03): function → function recursion / mutual recursion.
+    const symbolCycles = computeSymbolCycles(allCallSites);
+
     // Cycle detection
     const cycles = findCycles(uniqueLinks);
 
@@ -785,6 +789,7 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
             deadCodeFiles,
             deadExportsTotal,
             cycles,
+            symbolCycles,
             languageStats: langStats,
             groups: [...groupSet].sort(),
         },
@@ -927,7 +932,7 @@ export function rebuildSingleFile(
 ): {
     node: GraphNode;
     outEdges: GraphLink[];
-    callSites: { callerFile: string; callerName: string; calleeFile: string; calleeName: string; callLine: number }[];
+    callSites: FunctionCallSite[];
 } {
     const { fileMap, globalFunctionIndex, fileSymbols: allFileSymbols } = ctx;
 
@@ -1036,7 +1041,7 @@ export function rebuildSingleFile(
     }
 
     // Phase 3a: Collect call sites
-    const callSites: { callerFile: string; callerName: string; calleeFile: string; calleeName: string; callLine: number }[] = [];
+    const callSites: FunctionCallSite[] = [];
     if (SYMBOL_LANGUAGES.has(file.language) && !HEADER_EXTS.has(file.extension) && parser && astTree && parser.usesTreeSitter) {
         const sites: CallSite[] = parser.extractCallSitesAST(astTree, file);
         const family = LANG_FAMILY[file.language] || file.language;

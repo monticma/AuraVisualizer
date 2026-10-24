@@ -22,6 +22,15 @@ Press `C` or click the **Cycles** button to highlight all files involved in depe
 - The detail panel shows the full cycle path (A → B → C → A)
 - Helps you break unwanted circular imports
 
+### Symbol Cycles 🔁
+
+File cycles are not the whole story: Aura also detects **function→function recursion** from resolved call sites.
+
+- **Direct recursion** (`walk() → walk()`) and **mutual recursion** (`parse() → validate() → parse()`) appear in the detail panel's **🔄 Symbol cycles** section
+- Every step keeps its **call line**; the flowchart badge adds **🔁 recursive** or **🔁 mutual recursion**
+- Calls that resolve to several same-name candidates are marked **ambiguous** (confidence 0.5)
+- The MCP `find_cycles` tool returns the same data as `symbol_cycles`
+
 ### Orphan Files
 
 Press `O` to highlight files with **zero connections** in red — files that neither import nor are imported by anything.

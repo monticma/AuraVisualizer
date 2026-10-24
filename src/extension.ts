@@ -27,6 +27,7 @@ import { buildAiExportInput, generateAiExport, type AiExportSection } from './ex
 import { saveOrCopyText, saveText } from './export/save';
 import { chunkDocument, type DocChunk } from './analyzer/parsers/doc-parser';
 import { computeCochange } from './analysis/cochange';
+import { computeSymbolCycles } from './analysis/symbol-cycles';
 
 let webviewProvider: WebviewProvider | undefined;
 let cachedGraphData: GraphData | undefined;
@@ -675,6 +676,11 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
             cachedGraphData.functionCalls = (cachedGraphData.functionCalls || []).filter(fc =>
                 fc.callerFile !== relativePath && fc.calleeFile !== relativePath
             );
+            cachedGraphData.meta.symbolCycles = computeSymbolCycles(cachedGraphData.functionCalls);
+            if (graphDb) {
+                graphDb.replaceSymbolCycles(cachedGraphData.meta.symbolCycles);
+                graphDb.save();
+            }
             cachedGraphData.meta.totalFiles = cachedGraphData.nodes.length;
             cachedGraphData.meta.totalLinks = cachedGraphData.links.length;
 
@@ -798,6 +804,11 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
         cachedGraphData.functionCalls = existingCalls
             .filter(fc => fc.callerFile !== newInfo.id)
             .concat(result.callSites);
+        cachedGraphData.meta.symbolCycles = computeSymbolCycles(cachedGraphData.functionCalls);
+        if (graphDb) {
+            graphDb.replaceSymbolCycles(cachedGraphData.meta.symbolCycles);
+            graphDb.save();
+        }
 
         // Sync fan counts from DB for affected nodes
         if (graphDb) {

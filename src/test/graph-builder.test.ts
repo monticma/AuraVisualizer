@@ -286,4 +286,46 @@ describe('buildGraph', () => {
         expect(localCall!.calleeFile).toBe('app.js');
         expect(localCall!.callerName).toBe('process');
     });
+
+    it('detects mutual recursion between TS files', async () => {
+        const files = [
+            makeFileInfo({
+                id: 'a.ts',
+                content: 'export function alpha() {\n    beta();\n}\n',
+                language: 'typescript', extension: '.ts',
+            }),
+            makeFileInfo({
+                id: 'b.ts',
+                content: 'export function beta() {\n    alpha();\n}\n',
+                language: 'typescript', extension: '.ts',
+            }),
+        ];
+        const trees = await preParseFiles(files);
+        const graph = buildGraph(files, 'Project', {}, trees);
+        expect(graph.meta.symbolCycles).toHaveLength(1);
+        expect(graph.meta.symbolCycles![0].kind).toBe('mutual');
+        expect(graph.meta.symbolCycles![0].nodes.map(n => n.name)).toEqual(['alpha', 'beta']);
+        expect(graph.meta.symbolCycles![0].edges.map(e => e.callLine)).toEqual([2, 2]);
+    });
+
+    it('detects direct recursion in a JS file', async () => {
+        const files = [
+            makeFileInfo({
+                id: 'walk.js',
+                content: [
+                    'function walk(node) {',
+                    '    if (node) walk(node.next);',
+                    '}',
+                ].join('\n'),
+                language: 'javascript', extension: '.js',
+            }),
+        ];
+        const trees = await preParseFiles(files);
+        const graph = buildGraph(files, 'Project', {}, trees);
+        expect(graph.meta.symbolCycles).toHaveLength(1);
+        expect(graph.meta.symbolCycles![0].kind).toBe('recursive');
+        expect(graph.meta.symbolCycles![0].edges[0]).toMatchObject({
+            callerName: 'walk', calleeName: 'walk', callLine: 2, confidence: 1,
+        });
+    });
 });

@@ -94,6 +94,7 @@
             }
             setSectionVisible('deps-section', memberCount > 0);
             setSectionVisible('dependents-section', false);
+            setSectionVisible('symbol-cycles-section', false);
 
             // Clusters have no note editor
             var noteSection = $('#note-section');
@@ -335,6 +336,8 @@
             symbolsSection.style.display = '';
         }
 
+        renderSymbolCycles(node);
+
         // Dependencies (outgoing)
         var deps = [];
         var currentLinks = hooks.getGraphData().links;
@@ -560,12 +563,61 @@
         depUl.innerHTML = '';
         $('#dependents-count').textContent = '0';
         setSectionVisible('dependents-section', false);
+        setSectionVisible('symbol-cycles-section', false);
     }
 
     function shortenParams(params) {
         if (!params) return '';
         if (params.length > 40) return params.substring(0, 37) + '...';
         return params;
+    }
+
+    /** Function→function cycles involving this file (V2-03). */
+    function renderSymbolCycles(node) {
+        var section = document.getElementById('symbol-cycles-section');
+        var list = document.getElementById('symbol-cycles-list');
+        var count = document.getElementById('symbol-cycles-count');
+        if (!section || !list) return;
+        var cycles = (hooks.getGraphData().meta && hooks.getGraphData().meta.symbolCycles) || [];
+        var involving = cycles.filter(function (cycle) {
+            var nodes = cycle.nodes || [];
+            for (var i = 0; i < nodes.length; i++) {
+                if (nodes[i].file === node.id) return true;
+            }
+            return false;
+        });
+        list.innerHTML = '';
+        if (count) count.textContent = involving.length;
+        setSectionVisible('symbol-cycles-section', involving.length > 0);
+        for (var c = 0; c < involving.length; c++) {
+            var cycle = involving[c];
+            var names = (cycle.nodes || []).map(function (n) { return n.name + '()'; });
+            if (names.length) names.push(names[0]);
+            var chain = names.join(' → ');
+            var li = document.createElement('li');
+            li.className = 'dep-card symbol-cycle-card';
+            li.title = (cycle.kind === 'recursive' ? 'Direct recursion: ' : 'Mutual recursion: ') + chain;
+            var steps = '';
+            for (var e = 0; e < (cycle.edges || []).length; e++) {
+                var edge = cycle.edges[e];
+                steps += '<div class="symbol-cycle-step">' +
+                    '<span class="symbol-cycle-call">' + edge.callerName + '() → ' + edge.calleeName + '()</span>' +
+                    '<span class="symbol-cycle-loc">' + edge.callerFile + ':' + edge.callLine + '</span>' +
+                '</div>';
+            }
+            li.innerHTML =
+                '<div class="dep-card-main">' +
+                    '<span class="dep-arrow">' + (cycle.kind === 'recursive' ? '🔁' : '🔄') + '</span>' +
+                    '<span class="dep-target">' + chain + '</span>' +
+                    '<span class="dep-confidence" title="Minimum resolution confidence">' + cycle.confidence.toFixed(1) + '</span>' +
+                '</div>' +
+                '<div class="dep-card-detail">' +
+                    '<span class="dep-path">' + (cycle.kind === 'recursive' ? 'direct recursion' : 'mutual recursion · ' + (cycle.nodes || []).length + ' functions') + '</span>' +
+                    (cycle.ambiguous ? '<span class="cycle-ambiguous">ambiguous</span>' : '') +
+                '</div>' +
+                (steps ? '<div class="symbol-cycle-steps">' + steps + '</div>' : '');
+            list.appendChild(li);
+        }
     }
 
     /**

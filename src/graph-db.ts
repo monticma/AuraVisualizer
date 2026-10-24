@@ -10,7 +10,7 @@
 import initSqlJs, { type Database as SqlJsDatabase } from 'sql.js';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
-import type { GraphData, GraphNode, GraphLink } from './analyzer/types';
+import type { GraphData, GraphNode, GraphLink, SymbolCycle, SymbolCycleStep } from './analyzer/types';
 import type { CochangePair } from './analysis/cochange';
 
 // ── Row types returned by queries ──────────────────────────────
@@ -144,6 +144,25 @@ CREATE TABLE IF NOT EXISTS cycles (
     PRIMARY KEY (cycle_id, position)
 );
 
+CREATE TABLE IF NOT EXISTS symbol_cycles (
+    cycle_id   INTEGER PRIMARY KEY,
+    kind       TEXT NOT NULL,
+    confidence REAL NOT NULL DEFAULT 1.0,
+    ambiguous  INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS symbol_cycle_steps (
+    cycle_id    INTEGER NOT NULL,
+    position    INTEGER NOT NULL,
+    caller_file TEXT NOT NULL,
+    caller_name TEXT NOT NULL,
+    callee_file TEXT NOT NULL,
+    callee_name TEXT NOT NULL,
+    call_line   INTEGER NOT NULL,
+    confidence  REAL NOT NULL DEFAULT 1.0,
+    PRIMARY KEY (cycle_id, position)
+);
+
 CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
@@ -188,6 +207,7 @@ CREATE INDEX IF NOT EXISTS idx_nodes_language ON nodes(language);
 CREATE INDEX IF NOT EXISTS idx_nodes_group ON nodes(group_name);
 CREATE INDEX IF NOT EXISTS idx_fcalls_caller ON function_calls(caller_file, caller_name);
 CREATE INDEX IF NOT EXISTS idx_fcalls_callee ON function_calls(callee_file, callee_name);
+CREATE INDEX IF NOT EXISTS idx_symbol_cycles_caller ON symbol_cycle_steps(caller_file);
 CREATE INDEX IF NOT EXISTS idx_cochange_score ON cochange_pairs(jaccard DESC, cochanges DESC);
 
 CREATE VIRTUAL TABLE IF NOT EXISTS doc_chunks USING fts4(
@@ -342,6 +362,8 @@ export class GraphDB {
             db.run('DELETE FROM symbols');
             db.run('DELETE FROM edges');
             db.run('DELETE FROM cycles');
+            db.run('DELETE FROM symbol_cycle_steps');
+            db.run('DELETE FROM symbol_cycles');
             db.run('DELETE FROM nodes');
             db.run('DELETE FROM meta');
             db.run('DELETE FROM function_calls');
@@ -423,6 +445,9 @@ export class GraphDB {
                 }
             }
 
+            // Insert function-level cycles (V2-03)
+            this.insertSymbolCycles(data.meta.symbolCycles || []);
+
             db.run('COMMIT');
         } catch (err) {
             db.run('ROLLBACK');
@@ -453,6 +478,8 @@ export class GraphDB {
             db.run('DELETE FROM edges WHERE source = ? OR target = ?', [nodeId, nodeId]);
             db.run('DELETE FROM symbols WHERE node_id = ?', [nodeId]);
             db.run('DELETE FROM function_calls WHERE caller_file = ? OR callee_file = ?', [nodeId, nodeId]);
+            db.run('DELETE FROM symbol_cycle_steps');
+            db.run('DELETE FROM symbol_cycles');
             db.run('DELETE FROM doc_chunks WHERE file_id = ?', [nodeId]);
             db.run('DELETE FROM nodes WHERE id = ?', [nodeId]);
             db.run('COMMIT');
@@ -528,6 +555,74 @@ export class GraphDB {
         }
     }
 
+    /** Replace function-level cycles (V2-03). Does not call save(). */
+    replaceSymbolCycles(cycles: SymbolCycle[]): void {
+        this.insertSymbolCycles(cycles);
+    }
+
+    private insertSymbolCycles(cycles: SymbolCycle[]): void {
+        const db = this.ensureDb();
+        db.run('DELETE FROM symbol_cycle_steps');
+        db.run('DELETE FROM symbol_cycles');
+        for (const cycle of cycles) {
+            db.run(
+                'INSERT INTO symbol_cycles (cycle_id, kind, confidence, ambiguous) VALUES (?, ?, ?, ?)',
+                [cycle.id, cycle.kind, cycle.confidence, cycle.ambiguous ? 1 : 0]
+            );
+            for (let pos = 0; pos < cycle.edges.length; pos++) {
+                const step = cycle.edges[pos];
+                db.run(
+                    'INSERT INTO symbol_cycle_steps (cycle_id, position, caller_file, caller_name, callee_file, callee_name, call_line, confidence) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                    [cycle.id, pos, step.callerFile, step.callerName, step.calleeFile, step.calleeName, step.callLine, step.confidence]
+                );
+            }
+        }
+    }
+
+    /** All function-level cycles (V2-03). */
+    getSymbolCycles(): SymbolCycle[] {
+        const db = this.ensureDb();
+        const rows = queryAll<{ cycle_id: number; kind: string; confidence: number; ambiguous: number }>(
+            db,
+            'SELECT cycle_id, kind, confidence, ambiguous FROM symbol_cycles ORDER BY cycle_id'
+        );
+        if (rows.length === 0) return [];
+
+        const stepRows = queryAll<{
+            cycle_id: number; caller_file: string; caller_name: string;
+            callee_file: string; callee_name: string; call_line: number; confidence: number;
+        }>(
+            db,
+            'SELECT cycle_id, caller_file, caller_name, callee_file, callee_name, call_line, confidence FROM symbol_cycle_steps ORDER BY cycle_id, position'
+        );
+        const stepsByCycle = new Map<number, SymbolCycleStep[]>();
+        for (const step of stepRows) {
+            const list = stepsByCycle.get(step.cycle_id);
+            const entry: SymbolCycleStep = {
+                callerFile: step.caller_file,
+                callerName: step.caller_name,
+                calleeFile: step.callee_file,
+                calleeName: step.callee_name,
+                callLine: step.call_line,
+                confidence: step.confidence,
+            };
+            if (list) list.push(entry);
+            else stepsByCycle.set(step.cycle_id, [entry]);
+        }
+
+        return rows.map(row => {
+            const edges = stepsByCycle.get(row.cycle_id) || [];
+            return {
+                id: row.cycle_id,
+                kind: row.kind === 'recursive' ? 'recursive' : 'mutual',
+                nodes: edges.map(edge => ({ file: edge.callerFile, name: edge.callerName })),
+                edges,
+                confidence: row.confidence,
+                ambiguous: !!row.ambiguous,
+            };
+        });
+    }
+
     /** Recompute fan_in / fan_out from the edges table for given node IDs (or all nodes). */
     updateFanCounts(nodeIds?: string[]): void {
         const db = this.ensureDb();
@@ -561,6 +656,7 @@ export class GraphDB {
         const fcalls = queryAll<{ caller_file: string; caller_name: string; callee_file: string; callee_name: string; call_line: number }>(
             db, 'SELECT * FROM function_calls ORDER BY caller_file, call_line'
         );
+        const symbolCycles = this.getSymbolCycles();
 
         // Group symbols by node_id
         const symbolsByNode = new Map<string, SymbolRow[]>();
@@ -663,6 +759,7 @@ export class GraphDB {
                 deadCodeFiles: parseInt(meta['deadCodeFiles'] || '0'),
                 deadExportsTotal: parseInt(meta['deadExportsTotal'] || '0'),
                 cycles,
+                symbolCycles,
                 languageStats: langStats,
                 groups,
             },

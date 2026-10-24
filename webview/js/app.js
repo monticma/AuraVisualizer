@@ -3375,6 +3375,9 @@
                         }
                     }
                     return null;
+                },
+                getSymbolCycles: function () {
+                    return (graphData && graphData.meta && graphData.meta.symbolCycles) || [];
                 }
             });
         }

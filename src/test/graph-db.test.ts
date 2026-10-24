@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, beforeAll } from 'vitest';
 import { GraphDB } from '../graph-db';
 import { buildGraph, preParseFiles } from '../analyzer/graph-builder';
 import { initTreeSitter } from '../analyzer/tree-sitter-loader';
+import { runAuraTool } from '../ai/tools';
 import { makeFileInfo } from './helpers';
 import type { GraphData, GraphNode, GraphLink } from '../analyzer/types';
 import { join } from 'path';
@@ -708,5 +709,32 @@ describe('GraphDB — granular updates', () => {
         expect(db.getCochange(10, 0.5)).toHaveLength(1);
         db.replaceCochange([], 365);
         expect(db.getCochange()).toEqual([]);
+    });
+
+    it('stores and exports symbol-level cycles', async () => {
+        const files = [
+            makeFileInfo({
+                id: 'walk.js',
+                content: 'function walk(node) {\n    if (node) walk(node.next);\n}\n',
+                language: 'javascript', extension: '.js', group: 'src',
+            }),
+        ];
+        const trees = await preParseFiles(files);
+        const graph = buildGraph(files, 'Project', {}, trees);
+        db.importGraphData(graph);
+
+        const cycles = db.getSymbolCycles();
+        expect(cycles).toHaveLength(1);
+        expect(cycles[0].kind).toBe('recursive');
+        expect(cycles[0].nodes).toEqual([{ file: 'walk.js', name: 'walk' }]);
+        expect(cycles[0].edges[0].callLine).toBe(2);
+
+        const exported = db.exportGraphData()!;
+        expect(exported.meta.symbolCycles).toHaveLength(1);
+        expect(exported.meta.symbolCycles![0].confidence).toBe(1);
+
+        const tool = runAuraTool(db, 'aura_find_cycles', {}) as { symbol_cycles: unknown[]; symbol_total: number };
+        expect(tool.symbol_total).toBe(1);
+        expect(tool.symbol_cycles).toHaveLength(1);
     });
 });

@@ -535,9 +535,37 @@
                     ' · MI ' + Math.round(flow.metrics.maintainability) +
                     ' · decisions ' + flow.decisions;
             }
+            var cycle = symbolCycleFor(req && req.fileId, req && req.name);
+            if (cycle) {
+                badge += cycle.kind === 'recursive' ? ' · 🔁 recursive' : ' · 🔁 mutual recursion';
+                if (cycle.ambiguous) badge += ' (ambiguous)';
+                badgeEl.title = symbolCycleChain(cycle);
+            } else {
+                badgeEl.title = '';
+            }
             if (flow.truncated) badge += ' · truncated';
             badgeEl.textContent = badge;
         }
+    }
+
+    function symbolCycleFor(fileId, name) {
+        if (!fileId || !name || !hooks.getSymbolCycles) return null;
+        var cycles = hooks.getSymbolCycles() || [];
+        for (var i = 0; i < cycles.length; i++) {
+            var nodes = cycles[i].nodes || [];
+            for (var j = 0; j < nodes.length; j++) {
+                if (nodes[j].file === fileId && nodes[j].name === name) return cycles[i];
+            }
+        }
+        return null;
+    }
+
+    function symbolCycleChain(cycle) {
+        var nodes = (cycle && cycle.nodes) || [];
+        if (!nodes.length) return '';
+        var names = nodes.map(function (n) { return n.name + '()'; });
+        names.push(names[0]);
+        return (cycle.kind === 'recursive' ? 'Recursive: ' : 'Mutual recursion: ') + names.join(' → ');
     }
 
     // ============================================================

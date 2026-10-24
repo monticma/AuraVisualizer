@@ -824,6 +824,42 @@ html, body {
     white-space: nowrap;
 }
 
+.symbol-cycles-list { max-height: 340px; }
+.symbol-cycle-card { cursor: default; }
+.symbol-cycle-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.symbol-cycle-step {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+    font-size: 10px;
+}
+.symbol-cycle-call { color: #ffb74d; white-space: nowrap; }
+.symbol-cycle-loc {
+    flex: 1;
+    min-width: 0;
+    opacity: 0.45;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.cycle-ambiguous {
+    padding: 1px 5px;
+    border-radius: 4px;
+    background: rgba(255, 179, 0, 0.15);
+    color: #ffcc80;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
 .meta-item {
     display: flex;
     flex-direction: column;

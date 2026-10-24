@@ -43,7 +43,7 @@ export const AURA_TOOLS: AuraTool[] = [
     },
     {
         name: 'aura_find_cycles',
-        description: 'Return all circular dependency cycles between files in the codebase.',
+        description: 'Return circular dependency cycles: file-level imports and function-level recursion/mutual recursion with call lines.',
         inputSchema: { type: 'object', properties: {} },
     },
     {
@@ -235,7 +235,19 @@ export function runAuraTool(db: GraphDB, name: string, input: Record<string, unk
         }
         case 'aura_find_cycles': {
             const cycles = db.getCycles();
-            return { cycles: cycles.map(c => ({ files: c, length: c.length })), total: cycles.length };
+            const symbolCycles = db.getSymbolCycles();
+            return {
+                cycles: cycles.map(c => ({ files: c, length: c.length })),
+                total: cycles.length,
+                symbol_cycles: symbolCycles.map(c => ({
+                    kind: c.kind,
+                    nodes: c.nodes,
+                    edges: c.edges,
+                    confidence: c.confidence,
+                    ambiguous: c.ambiguous,
+                })),
+                symbol_total: symbolCycles.length,
+            };
         }
         case 'aura_find_dead_code': {
             const dead = db.getDeadCode();

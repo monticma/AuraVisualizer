@@ -297,6 +297,19 @@ Turn any function into a readable **control-flow chart** — without tracing `if
 - **⤓ SVG** exports the chart as a standalone vector file
 - The window is **draggable and resizable**; `Esc` closes it
 
+### Symbol Cycles 🔁
+
+Aura also detects **function→function recursion**, not just file-level import loops:
+
+- **Direct recursion** — `walk() → walk()` — is reported as a self-loop
+- **Mutual recursion** — `parse() → validate() → parse()` — is reported with the full function chain
+- Every step keeps the **call line** (`file.ts:42`), and cycles through same-name candidates are marked **ambiguous** with a 0.5 confidence
+- The **🔄 Symbol cycles** section in the detail panel lists cycles involving the selected file; the function **flowchart badge** adds **🔁 recursive** / **🔁 mutual recursion**
+- Cycles are persisted in `.aura/graph.db` (`symbol_cycles` / `symbol_cycle_steps`) and recomputed after incremental edits
+- The MCP / `@aura` **`find_cycles`** tool returns both file cycles and `symbol_cycles`
+
+Dynamic dispatch, callbacks and unresolved calls are not guessed; cycles are built only from statically resolved call sites.
+
 ### Time Travel ⏳
 
 Navigate your project's git history commit by commit. A timeline bar at the bottom lets you scrub through commits. Changed files are color-coded: 🟢 green = added, 🔴 pink = removed, 🟡 yellow = modified. Edges follow the same color scheme.

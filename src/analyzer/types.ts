@@ -32,6 +32,38 @@ export interface CallSite {
     isLocal: boolean;         // true if callee is defined in the same file
 }
 
+/** A resolved function call, persisted so callers can rebuild the function graph. */
+export interface FunctionCallSite {
+    callerFile: string;
+    callerName: string;
+    calleeFile: string;
+    calleeName: string;
+    callLine: number;
+    /** 1.0 local call, 0.8 unique cross-file target, 0.5 ambiguous target. */
+    confidence?: number;
+}
+
+/** A function participating in a symbol-level cycle. */
+export interface SymbolCycleNode {
+    file: string;
+    name: string;
+}
+
+/** One call step of a symbol-level cycle. */
+export interface SymbolCycleStep extends FunctionCallSite {
+    confidence: number;
+}
+
+/** A function→function cycle (direct recursion or mutual recursion). */
+export interface SymbolCycle {
+    id: number;
+    kind: 'recursive' | 'mutual';
+    nodes: SymbolCycleNode[];
+    edges: SymbolCycleStep[];
+    confidence: number;
+    ambiguous: boolean;
+}
+
 export interface SymbolInfo {
     name: string;
     type: string;
@@ -131,6 +163,8 @@ export interface GraphMeta {
     deadCodeFiles: number;
     deadExportsTotal: number;
     cycles: string[][];
+    /** Function-level cycles (V2-03); absent on old databases until re-analysis. */
+    symbolCycles?: SymbolCycle[];
     languageStats: Record<string, LanguageStat>;
     groups: string[];
 }
@@ -139,7 +173,7 @@ export interface GraphData {
     meta: GraphMeta;
     nodes: GraphNode[];
     links: GraphLink[];
-    functionCalls?: { callerFile: string; callerName: string; calleeFile: string; calleeName: string; callLine: number }[];
+    functionCalls?: FunctionCallSite[];
 }
 
 export interface ScanOptions {

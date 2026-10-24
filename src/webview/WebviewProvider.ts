@@ -1037,6 +1037,15 @@ export class WebviewProvider {
                 <div id="symbols-list" class="symbols-list"></div>
             </div>
         </details>
+        <details class="panel-section panel-collapsible" id="symbol-cycles-section" style="display:none" open>
+            <summary class="panel-section-header">
+                <span class="panel-section-heading">🔄 Symbol cycles</span>
+                <span id="symbol-cycles-count" class="count-badge">0</span>
+            </summary>
+            <div class="panel-section-body">
+                <ul id="symbol-cycles-list" class="panel-list symbol-cycles-list"></ul>
+            </div>
+        </details>
         <details class="panel-section panel-collapsible" id="deps-section" open>
             <summary class="panel-section-header">
                 <span class="panel-section-heading">Dependencies</span>
@@ -1772,6 +1781,9 @@ export class WebviewProvider {
                 <h3>⑂ Function Flowcharts</h3>
                 <p>Click the <strong>⑂</strong> button next to a function to open its <strong>flowchart</strong> — built on demand from the source AST (JS/TS/TSX, Python, C, C++). Conditions fork into <strong>T</strong>/<strong>F</strong> branches that re-join, loops get a framed body with a <strong>back edge</strong>, <code>switch</code> cases line up as columns, and <code>try</code>/<code>catch</code>/<code>finally</code> stack as labelled frames. <strong>Red dashed</strong> boxes are <strong>dead code</strong> (unreachable after a return/throw); the badge shows the function's <strong>cognitive complexity</strong>, <strong>maintainability index</strong> and <strong>decision count</strong>.</p>
                 <p><strong>Click a step</strong> to open the file at its line, and click an underlined <strong>call chip</strong> (<code>↳ fn()</code>) to drill into the called function — the breadcrumb at the top walks back. <strong>⤓ SVG</strong> exports a standalone vector file, the window drags by its header and resizes from any edge or corner, and <kbd>Esc</kbd> closes it.</p>
+
+                <h3>🔁 Symbol Cycles</h3>
+                <p>Aura builds a function→function call graph from every resolved call site. <strong>Direct recursion</strong> (<code>walk() → walk()</code>) and <strong>mutual recursion</strong> (<code>parse() → validate() → parse()</code>) are shown in the detail panel's <strong>🔄 Symbol cycles</strong> section with the file and call line of every step, and the flowchart badge adds <strong>🔁 recursive</strong> or <strong>🔁 mutual recursion</strong>. Calls that resolve to several same-name candidates are marked <strong>ambiguous</strong> (confidence 0.5). Cycles are persisted in <code>.aura/graph.db</code> and exposed by the <code>find_cycles</code> MCP tool as <code>symbol_cycles</code>.</p>
 
                 <h3>⏳ Time Travel</h3>
                 <p>Navigate git history commit by commit. Changed files are color-coded: <span style="color:#00ff88">● green</span> = added, <span style="color:#ff2080">● pink</span> = removed, <span style="color:#ffff00">● yellow</span> = modified. Edges follow the same scheme. Press <kbd>V</kbd> or click <strong>⇄</strong> to enter <strong>Compare mode</strong> with a dual slider to diff any two commits.</p>

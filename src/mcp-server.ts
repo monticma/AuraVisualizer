@@ -79,7 +79,7 @@ const TOOLS = [
     },
     {
         name: 'find_cycles',
-        description: 'Find all circular dependency cycles in the codebase.',
+        description: 'Find circular dependency cycles: file-level imports and function-level recursion or mutual recursion with call lines.',
         inputSchema: {
             type: 'object' as const,
             properties: {},
