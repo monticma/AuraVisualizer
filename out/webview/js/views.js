@@ -1784,6 +1784,20 @@
     var tableSortAsc = false;
     var tableFilter = '';
 
+    /** Highest cognitive complexity among a file's functions/methods; null when unsupported. */
+    function fileCognitiveMax(node) {
+        if (!node.symbols) return null;
+        var lists = [node.symbols.functions || [], node.symbols.methods || []];
+        var max = null;
+        for (var l = 0; l < lists.length; l++) {
+            for (var i = 0; i < lists[l].length; i++) {
+                var value = lists[l][i].cognitive;
+                if (typeof value === 'number' && (max === null || value > max)) max = value;
+            }
+        }
+        return max;
+    }
+
     function renderTable() {
         syncCtx();
         var tbody = $('#table-body');
@@ -1810,6 +1824,8 @@
                 case 'language': va = (a.language || '').toLowerCase(); vb = (b.language || '').toLowerCase(); break;
                 case 'loc': va = a.linesOfCode || 0; vb = b.linesOfCode || 0; break;
                 case 'complexity': va = a.complexity || 0; vb = b.complexity || 0; break;
+                case 'cognitive': va = fileCognitiveMax(a); vb = fileCognitiveMax(b);
+                    va = va === null ? -1 : va; vb = vb === null ? -1 : vb; break;
                 case 'fanIn': va = a.fanIn || 0; vb = b.fanIn || 0; break;
                 case 'fanOut': va = a.fanOut || 0; vb = b.fanOut || 0; break;
                 case 'symbols': va = (a.symbols ? a.symbols.totalSymbols : 0); vb = (b.symbols ? b.symbols.totalSymbols : 0); break;
@@ -1836,12 +1852,14 @@
             var n = filtered[i];
             var color = LANGUAGE_COLORS[n.language] || '#888';
             var symCount = n.symbols ? n.symbols.totalSymbols : 0;
+            var cognitive = fileCognitiveMax(n);
             html += '<tr data-id="' + escapeHtml(n.id) + '"' +
                 (selectedNode && selectedNode.id === n.id ? ' class="selected"' : '') + '>' +
                 '<td title="' + escapeHtml(n.id) + '">' + escapeHtml(n.id) + '</td>' +
                 '<td><span class="lang-dot" style="background:' + color + '"></span>' + escapeHtml(n.language || '—') + '</td>' +
                 '<td class="num">' + (n.linesOfCode || 0).toLocaleString() + '</td>' +
                 '<td class="num">' + (n.complexity || 0) + '</td>' +
+                '<td class="num">' + (cognitive === null ? '—' : cognitive) + '</td>' +
                 '<td class="num">' + (n.fanIn || 0) + '</td>' +
                 '<td class="num">' + (n.fanOut || 0) + '</td>' +
                 '<td class="num">' + symCount + '</td>' +

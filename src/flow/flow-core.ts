@@ -12,6 +12,10 @@
  *
  * Runs in the analyzer worker (on-demand, per function); the JSON tree is
  * cached host-side and rendered by the 2D SVG modal in the webview.
+ *
+ * The same AST profile also drives per-function metrics: Sonar-style cognitive
+ * complexity (nesting + boolean sequences), McCabe cyclomatic complexity,
+ * approximate Halstead volume and the Maintainability Index.
  */
 
 import type Parser from 'web-tree-sitter';
@@ -94,8 +98,43 @@ export interface FunctionFlow {
     /** 1 + decisions (if / loop / case / catch / ternary) — AST-exact branching count. */
     decisions: number;
     nodes: FlowNode[];
+    /** Cognitive complexity, Halstead and maintainability for this function. */
+    metrics: FunctionMetrics;
     /** Node cap hit — the function is too large to display in full. */
     truncated?: boolean;
+}
+
+/** Approximate Halstead metrics (token counts, not a compiler semantic pass). */
+export interface HalsteadMetrics {
+    distinctOperators: number;
+    distinctOperands: number;
+    totalOperators: number;
+    totalOperands: number;
+    vocabulary: number;
+    length: number;
+    volume: number;
+    difficulty: number;
+    effort: number;
+    bugs: number;
+}
+
+export interface FunctionMetrics {
+    /** Sonar-style cognitive complexity (nesting + boolean sequences). */
+    cognitive: number;
+    /** McCabe cyclomatic complexity (1 + branches + logical operators). */
+    cyclomatic: number;
+    /** Function length in source lines (signature to closing brace). */
+    lines: number;
+    halstead: HalsteadMetrics;
+    /** Maintainability Index, 0–100 (higher is better). */
+    maintainability: number;
+}
+
+export interface FunctionMetricEntry {
+    name: string;
+    line: number;
+    endLine: number;
+    metrics: FunctionMetrics;
 }
 
 // ============================================================
@@ -146,6 +185,12 @@ export interface FlowProfile {
     callFuncField?: string;
     /** Counted for the decisions badge (stays inside the step text). */
     ternaryNode?: string;
+    /** Logical expression node types (binary_expression, boolean_operator…). */
+    logicalNodeTypes?: string[];
+    /** Logical operators worth +1 cognitive each time the sequence changes. */
+    logicalOperators?: string[];
+    /** AST field holding a binary/unary operator token. */
+    operatorField?: string;
     /** Function-like node types: located by line, and never descended into when nested. */
     functions: string[];
     /** Additional opaque scope types (classes, lambdas…) skipped when nested. */
@@ -194,6 +239,9 @@ const JAVASCRIPT_PROFILE: FlowProfile = {
     callNode: 'call_expression',
     callFuncField: 'function',
     ternaryNode: 'ternary_expression',
+    logicalNodeTypes: ['binary_expression'],
+    logicalOperators: ['&&', '||'],
+    operatorField: 'operator',
     functions: JS_FUNCTIONS,
     scopeOnly: ['class_declaration', 'class'],
     commentTypes: ['comment'],
@@ -228,6 +276,9 @@ const PYTHON_PROFILE: FlowProfile = {
     callNode: 'call',
     callFuncField: 'function',
     ternaryNode: 'conditional_expression',
+    logicalNodeTypes: ['boolean_operator'],
+    logicalOperators: ['and', 'or'],
+    operatorField: 'operator',
     functions: ['function_definition'],
     scopeOnly: ['lambda', 'class_definition'],
     commentTypes: ['comment'],
@@ -251,6 +302,7 @@ const C_PROFILE: FlowProfile = {
     switchValueField: 'condition',
     switchCaseTypes: ['case_statement'],
     switchCaseLabelField: 'value',
+    elseWrapperTypes: ['else_clause'],
     jumps: {
         return_statement: 'return',
         break_statement: 'break',
@@ -260,6 +312,9 @@ const C_PROFILE: FlowProfile = {
     callNode: 'call_expression',
     callFuncField: 'function',
     ternaryNode: 'conditional_expression',
+    logicalNodeTypes: ['binary_expression'],
+    logicalOperators: ['&&', '||'],
+    operatorField: 'operator',
     functions: ['function_definition'],
     commentTypes: ['comment'],
     bodyField: 'body',
@@ -298,6 +353,375 @@ export function flowLanguages(): string[] {
 
 export function flowProfile(language: string): FlowProfile | undefined {
     return FLOW_PROFILES[language];
+}
+
+/** Map Aura language ids (`c-source`, `cpp-header`…) to a flow grammar id. */
+export function normalizeFlowLanguage(language: string): string {
+    if (language.indexOf('cpp') === 0) return 'cpp';
+    if (language.indexOf('c-') === 0) return 'c';
+    return language;
+}
+
+// ============================================================
+// Cognitive complexity + Halstead + maintainability
+// ============================================================
+
+/** Leaf-like node types counted as Halstead operands (approximate). */
+const OPERAND_NODE_TYPES = new Set([
+    'identifier', 'property_identifier', 'field_identifier', 'type_identifier',
+    'shorthand_property_identifier', 'shorthand_property_identifier_pattern',
+    'number', 'integer', 'float', 'number_literal', 'integer_literal', 'float_literal',
+    'string', 'string_literal', 'template_string',
+    'char_literal', 'true', 'false', 'null', 'none', 'nil', 'undefined',
+    'this', 'self', 'super',
+]);
+
+interface MeasureContext {
+    profile: FlowProfile;
+    cognitive: number;
+    cyclomatic: number;
+    operators: Set<string>;
+    operands: Set<string>;
+    totalOperators: number;
+    totalOperands: number;
+}
+
+function recordOperator(ctx: MeasureContext, token: string): void {
+    const op = collapse(token, 24);
+    if (!op) return;
+    ctx.operators.add(op);
+    ctx.totalOperators++;
+}
+
+function recordOperand(ctx: MeasureContext, token: string): void {
+    const operand = collapse(token, 40);
+    if (!operand) return;
+    ctx.operands.add(operand);
+    ctx.totalOperands++;
+}
+
+function isLogicalNode(node: Parser.SyntaxNode, profile: FlowProfile): boolean {
+    if (!profile.logicalNodeTypes || !profile.logicalNodeTypes.includes(node.type)) return false;
+    const op = logicalOperator(node, profile);
+    return !profile.logicalOperators || profile.logicalOperators.includes(op);
+}
+
+/** Operator token of a logical expression, with a text fallback for grammars without the field. */
+function logicalOperator(node: Parser.SyntaxNode, profile: FlowProfile): string {
+    const field = profile.operatorField || 'operator';
+    const op = node.childForFieldName(field);
+    if (op) return op.text.trim();
+    const match = node.text.match(/&&|\|\||\b(?:and|or)\b/);
+    return match ? match[0] : '';
+}
+
+/**
+ * Logical operators in source order. A binary tree stores its root operator
+ * between its operands, so an in-order walk is required to count sequences
+ * correctly: `a && b || c && d` → `&&`, `||`, `&&` (3 runs).
+ */
+function collectLogicalOperators(node: Parser.SyntaxNode, profile: FlowProfile, out: string[]): void {
+    if (!isLogicalNode(node, profile)) return;
+    const op = logicalOperator(node, profile);
+    const children: Parser.SyntaxNode[] = [];
+    for (let i = 0; i < node.namedChildCount; i++) {
+        const child = node.namedChild(i);
+        if (child) children.push(child);
+    }
+    if (children.length >= 2) {
+        collectLogicalOperators(children[0], profile, out);
+        if (op) out.push(op);
+        for (let i = 1; i < children.length; i++) {
+            collectLogicalOperators(children[i], profile, out);
+        }
+    } else {
+        if (op) out.push(op);
+        for (const child of children) collectLogicalOperators(child, profile, out);
+    }
+}
+
+/** Whether a body contains at least one real statement (comments do not count). */
+function bodyIsMeaningful(node: Parser.SyntaxNode, profile: FlowProfile): boolean {
+    const body = bodyNode(node, profile.bodyField, profile);
+    if (body) {
+        return statementNodes(body, profile).some((s) => !isSkippable(s, profile));
+    }
+    const wrapper = wrapperStatements(node, profile);
+    if (wrapper.length > 0) return wrapper.some((s) => !isSkippable(s, profile));
+    return !isSkippable(node, profile);
+}
+
+function walkMeasuredBody(body: Parser.SyntaxNode | null, nesting: number, ctx: MeasureContext): void {
+    if (!body) return;
+    const statements = statementNodes(body, ctx.profile);
+    for (const statement of statements) measureNode(statement, nesting, false, ctx);
+}
+
+function measureIf(node: Parser.SyntaxNode, nesting: number, elseIf: boolean, ctx: MeasureContext): void {
+    const p = ctx.profile;
+    ctx.cognitive += elseIf ? 1 : 1 + nesting;
+    ctx.cyclomatic += 1;
+    recordOperator(ctx, elseIf ? 'else if' : 'if');
+
+    const condition = p.ifCondField ? node.childForFieldName(p.ifCondField) : null;
+    if (condition) measureNode(condition, nesting, false, ctx);
+
+    walkMeasuredBody(bodyNode(node, p.ifThenField, p), nesting + 1, ctx);
+
+    for (const alt of alternativeNodes(node, p)) {
+        if (alt.type === p.ifNode || (p.elseIfTypes && p.elseIfTypes.includes(alt.type))) {
+            measureIf(alt, nesting, true, ctx);
+            continue;
+        }
+        if (p.elseWrapperTypes && p.elseWrapperTypes.includes(alt.type)) {
+            // JS wraps `else if` in an else_clause; an inner if is still an else-if.
+            let innerIf: Parser.SyntaxNode | null = null;
+            for (let i = 0; i < alt.namedChildCount; i++) {
+                const child = alt.namedChild(i);
+                if (child && (child.type === p.ifNode || (p.elseIfTypes && p.elseIfTypes.includes(child.type)))) {
+                    innerIf = child;
+                    break;
+                }
+            }
+            if (innerIf) {
+                measureIf(innerIf, nesting, true, ctx);
+                continue;
+            }
+            if (bodyIsMeaningful(alt, p)) {
+                ctx.cognitive += 1;
+                recordOperator(ctx, 'else');
+            }
+            walkMeasuredBody(bodyNode(alt, p.bodyField, p), nesting + 1, ctx);
+            continue;
+        }
+        if (bodyIsMeaningful(alt, p)) {
+            ctx.cognitive += 1;
+            recordOperator(ctx, 'else');
+        }
+        walkMeasuredBody(alt, nesting + 1, ctx);
+    }
+}
+
+function measureNode(node: Parser.SyntaxNode, nesting: number, inLogical: boolean, ctx: MeasureContext): void {
+    const p = ctx.profile;
+
+    // Nested functions and opaque scopes belong to their own metric.
+    if (p.functions.includes(node.type)) return;
+    if (p.scopeOnly && p.scopeOnly.includes(node.type)) return;
+
+    if (node.type === p.ifNode || (p.elseIfTypes && p.elseIfTypes.includes(node.type))) {
+        measureIf(node, nesting, !!(p.elseIfTypes && p.elseIfTypes.includes(node.type)), ctx);
+        return;
+    }
+
+    for (const spec of p.loops) {
+        if (node.type !== spec.node) continue;
+        ctx.cognitive += 1 + nesting;
+        ctx.cyclomatic += 1;
+        recordOperator(ctx, spec.label);
+        const loopBody = bodyNode(node, p.loopBodyField, p);
+        if (spec.headerFields && spec.headerFields.length > 0) {
+            for (const field of spec.headerFields) {
+                const header = node.childForFieldName(field);
+                if (header) measureNode(header, nesting, false, ctx);
+            }
+        } else {
+            for (let i = 0; i < node.namedChildCount; i++) {
+                const child = node.namedChild(i);
+                if (child && !sameNode(child, loopBody)) measureNode(child, nesting, false, ctx);
+            }
+        }
+        walkMeasuredBody(loopBody, nesting + 1, ctx);
+        return;
+    }
+
+    if (p.switchNode && node.type === p.switchNode) {
+        ctx.cognitive += 1 + nesting;
+        ctx.cyclomatic += 1;
+        recordOperator(ctx, 'switch');
+        const value = p.switchValueField ? node.childForFieldName(p.switchValueField) : null;
+        if (value) measureNode(value, nesting, false, ctx);
+        const body = bodyNode(node, 'body', p);
+        if (body && p.switchCaseTypes) {
+            for (let i = 0; i < body.namedChildCount; i++) {
+                const child = body.namedChild(i);
+                if (!child || !p.switchCaseTypes.includes(child.type)) continue;
+                ctx.cognitive += 1;
+                ctx.cyclomatic += 1;
+                recordOperator(ctx, 'case');
+                measureNode(child, nesting + 1, false, ctx);
+            }
+        }
+        return;
+    }
+
+    if (p.tryNode && node.type === p.tryNode) {
+        recordOperator(ctx, 'try');
+        walkMeasuredBody(bodyNode(node, p.tryBodyField || 'body', p), nesting, ctx);
+        for (let i = 0; i < node.namedChildCount; i++) {
+            const child = node.namedChild(i);
+            if (!child) continue;
+            if (p.catchTypes && p.catchTypes.includes(child.type)) {
+                ctx.cognitive += 1 + nesting;
+                ctx.cyclomatic += 1;
+                recordOperator(ctx, 'catch');
+                if (p.catchParamField) {
+                    const param = child.childForFieldName(p.catchParamField);
+                    if (param) measureNode(param, nesting, false, ctx);
+                }
+                walkMeasuredBody(bodyNode(child, 'body', p), nesting + 1, ctx);
+            } else if (p.finallyTypes && p.finallyTypes.includes(child.type)) {
+                recordOperator(ctx, 'finally');
+                walkMeasuredBody(bodyNode(child, p.finallyBodyField || 'body', p), nesting, ctx);
+            }
+        }
+        return;
+    }
+
+    if (p.ternaryNode && node.type === p.ternaryNode) {
+        ctx.cognitive += 1 + nesting;
+        ctx.cyclomatic += 1;
+        recordOperator(ctx, '?:');
+        for (let i = 0; i < node.namedChildCount; i++) {
+            const child = node.namedChild(i);
+            if (child) measureNode(child, nesting + 1, false, ctx);
+        }
+        return;
+    }
+
+    if (isLogicalNode(node, p)) {
+        if (!inLogical) {
+            const operators: string[] = [];
+            collectLogicalOperators(node, p, operators);
+            let runs = 0;
+            let previous = '';
+            for (const op of operators) {
+                if (op !== previous) runs++;
+                previous = op;
+                recordOperator(ctx, op);
+            }
+            ctx.cognitive += runs;
+            ctx.cyclomatic += operators.length;
+        }
+        for (let i = 0; i < node.namedChildCount; i++) {
+            const child = node.namedChild(i);
+            if (child) measureNode(child, nesting, true, ctx);
+        }
+        return;
+    }
+
+    // Generic token accounting for Halstead / McCabe.
+    const operatorField = p.operatorField || 'operator';
+    const operator = node.childForFieldName(operatorField);
+    if (operator) recordOperator(ctx, operator.text);
+    else if (node.type.indexOf('assignment') !== -1) recordOperator(ctx, '=');
+    if (p.callNode && node.type === p.callNode) recordOperator(ctx, '()');
+    if (node.type.indexOf('member_expression') !== -1 || node.type.indexOf('field_expression') !== -1) {
+        recordOperator(ctx, '.');
+    }
+    if (node.type.indexOf('subscript') !== -1 || node.type.indexOf('index_expression') !== -1) {
+        recordOperator(ctx, '[]');
+    }
+    const jump = p.jumps[node.type];
+    if (jump) {
+        recordOperator(ctx, jump);
+        if (jump === 'goto') ctx.cognitive += 1; // explicit jump breaks linear flow
+    }
+    if (OPERAND_NODE_TYPES.has(node.type)) recordOperand(ctx, node.text);
+
+    for (let i = 0; i < node.namedChildCount; i++) {
+        const child = node.namedChild(i);
+        if (child) measureNode(child, nesting, false, ctx);
+    }
+}
+
+function round2(value: number): number {
+    return Math.round(value * 100) / 100;
+}
+
+function finalizeHalstead(ctx: MeasureContext): HalsteadMetrics {
+    const n1 = ctx.operators.size;
+    const n2 = ctx.operands.size;
+    const N1 = ctx.totalOperators;
+    const N2 = ctx.totalOperands;
+    const vocabulary = n1 + n2;
+    const length = N1 + N2;
+    const volume = vocabulary > 0 ? length * Math.log2(vocabulary) : 0;
+    const difficulty = n2 > 0 ? (n1 / 2) * (N2 / n2) : 0;
+    return {
+        distinctOperators: n1,
+        distinctOperands: n2,
+        totalOperators: N1,
+        totalOperands: N2,
+        vocabulary,
+        length,
+        volume: round2(volume),
+        difficulty: round2(difficulty),
+        effort: round2(volume * difficulty),
+        bugs: round2(volume / 3000),
+    };
+}
+
+/** Maintainability Index (0–100; higher is better). */
+function maintainabilityIndex(halstead: HalsteadMetrics, cyclomatic: number, lines: number): number {
+    if (halstead.volume <= 0 || lines <= 0) return 100;
+    const raw = 171
+        - 3.42 * Math.log(halstead.volume)
+        - 0.23 * cyclomatic
+        - 16.2 * Math.log(lines);
+    return Math.round(Math.max(0, Math.min(100, raw * 100 / 171)) * 10) / 10;
+}
+
+function metricsForFunctionNode(node: Parser.SyntaxNode, profile: FlowProfile): FunctionMetrics {
+    const ctx: MeasureContext = {
+        profile,
+        cognitive: 0,
+        cyclomatic: 1,
+        operators: new Set<string>(),
+        operands: new Set<string>(),
+        totalOperators: 0,
+        totalOperands: 0,
+    };
+    const body = bodyNode(node, profile.bodyField, profile);
+    if (body) walkMeasuredBody(body, 0, ctx);
+    const halstead = finalizeHalstead(ctx);
+    const lines = node.endPosition.row - node.startPosition.row + 1;
+    return {
+        cognitive: ctx.cognitive,
+        cyclomatic: ctx.cyclomatic,
+        lines,
+        halstead,
+        maintainability: maintainabilityIndex(halstead, ctx.cyclomatic, lines),
+    };
+}
+
+/** Cognitive / Halstead / MI for one function-like AST node. */
+export function computeFunctionMetrics(node: Parser.SyntaxNode, language: string): FunctionMetrics | null {
+    const profile = flowProfile(normalizeFlowLanguage(language));
+    return profile ? metricsForFunctionNode(node, profile) : null;
+}
+
+/** Every function-like node in a tree, with its metrics (single AST pass). */
+export function collectFunctionMetrics(tree: Parser.Tree, language: string): FunctionMetricEntry[] {
+    const profile = flowProfile(normalizeFlowLanguage(language));
+    if (!profile) return [];
+    const out: FunctionMetricEntry[] = [];
+    const visit = (node: Parser.SyntaxNode): void => {
+        if (profile.functions.includes(node.type)) {
+            out.push({
+                name: functionName(node, profile),
+                line: line1(node),
+                endLine: node.endPosition.row + 1,
+                metrics: metricsForFunctionNode(node, profile),
+            });
+        }
+        for (let i = 0; i < node.namedChildCount; i++) {
+            const child = node.namedChild(i);
+            if (child) visit(child);
+        }
+    };
+    visit(tree.rootNode);
+    return out;
 }
 
 // ============================================================
@@ -639,7 +1063,7 @@ export function findFunctionAtLine(
     language: string,
     line: number,
 ): Parser.SyntaxNode | null {
-    const profile = flowProfile(language);
+    const profile = flowProfile(normalizeFlowLanguage(language));
     if (!profile) return null;
 
     let best: Parser.SyntaxNode | null = null;
@@ -699,7 +1123,7 @@ export function functionName(node: Parser.SyntaxNode, profile: FlowProfile): str
 
 /** Build the flow tree for a function node (or any statement list node). */
 export function buildFunctionFlow(node: Parser.SyntaxNode, language: string): FunctionFlow | null {
-    const profile = flowProfile(language);
+    const profile = flowProfile(normalizeFlowLanguage(language));
     if (!profile) return null;
 
     const body = bodyNode(node, profile.bodyField, profile);
@@ -713,6 +1137,7 @@ export function buildFunctionFlow(node: Parser.SyntaxNode, language: string): Fu
         language,
         decisions: 1 + ctx.decisions,
         nodes,
+        metrics: metricsForFunctionNode(node, profile),
         truncated: ctx.truncated || undefined,
     };
 }

@@ -12,7 +12,8 @@ Read a function's logic at a glance — every branch, loop and call, laid out as
 - Loops show a framed body with a **back edge** carrying the loop label
 - `switch` cases line up as columns; `try` / `catch` / `finally` stack as labelled frames
 - **Red dashed** boxes are **dead code** — unreachable after a `return` / `throw`
-- The badge in the header shows the function's **complexity** (its number of decision points)
+- The badge in the header shows the function's **cognitive complexity**, **maintainability index** and number of decision points
+- In the detail panel, each supported function also carries a **`cog N · MI N`** chip — hover it for cyclomatic complexity, approximate Halstead volume and function length
 
 **Actions:**
 - **Click a step** → open the file at that exact line

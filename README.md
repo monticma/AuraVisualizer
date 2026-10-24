@@ -267,7 +267,8 @@ Turn any function into a readable **control-flow chart** — without tracing `if
 
 - Click the **⑂ button** next to a function in the Explorer symbols list (JS/TS/TSX, Python, C and C++)
 - The chart is built on demand from the AST: conditions fork into `T` / `F` branches that re-join, loops get a framed body with their **back edge**, `switch` cases line up as columns, and `try` / `catch` / `finally` stack as labelled frames
-- **Dead code** after a `return` / `throw` is drawn as red dashed boxes; the header badge shows the function's decision count
+- **Dead code** after a `return` / `throw` is drawn as red dashed boxes; the header badge shows the function's **cognitive complexity**, **maintainability index** and decision count
+- **Function metrics** — for JS/TS/TSX, Python, C and C++, each function also reports Sonar-style **cognitive complexity** (nesting + boolean sequences), McCabe cyclomatic complexity, approximate Halstead volume and a 0–100 **Maintainability Index**. The detail panel shows a `cog N · MI N` chip (hover for the full breakdown), and the **📋 Table** has a sortable **Cog. max** column
 - **Click any step** to open the file at that exact line, and click an underlined **call chip** (`↳ validate()`) to drill into the called function — the breadcrumb walks back
 - **⤓ SVG** exports the chart as a standalone vector file
 - The window is **draggable and resizable**; `Esc` closes it
@@ -394,6 +395,8 @@ Files in the side Explorer panel that contain functions or methods show a **chev
 
 Each function row also carries two action buttons: **▶** traces its outgoing call chain across files, and **⑂** opens its **function flowchart** — the branching structure of the function rendered as an explorable SVG diagram.
 
+In the detail panel, functions supported by the static metric engine (JS/TS/TSX, Python, C, C++) show a **`cog N · MI N`** chip: Sonar-style cognitive complexity and Maintainability Index, with cyclomatic complexity, Halstead volume and function length in the tooltip.
+
 This turns the Explorer into a fast outline / go-to-symbol navigator across your whole project.
 
 ### Tabbed Views
@@ -408,7 +411,7 @@ Switch between **9 visualization tabs** for different perspectives on your codeb
 | **🎵 Chord** | Chord diagram showing dependency flows between groups (directories, languages, or communities). Ribbon thickness reflects flow volume. Hover to highlight a group and its connections. |
 | **📊 Metrics** | Dashboard with bar charts: LOC, complexity, fan-in, fan-out by language and top files. |
 | **📈 Timeline** | Line chart showing metric evolution over git history (LOC, file count, avg complexity, total complexity). Requires Time Travel scan. |
-| **📋 Table** | Sortable, filterable spreadsheet of all files with LOC, complexity, fan-in/out, symbols, and folder. |
+| **📋 Table** | Sortable, filterable spreadsheet of all files with LOC, complexity, cognitive max, fan-in/out, symbols, and folder. |
 | **🛡️ Risk** | Codebase risk dashboard — health score, risk distribution, churn × complexity matrix, bus factor, and an exportable report |
 | **🔗 Co-change** | Temporal co-change — files that change together in git commits without a direct dependency (Jaccard score, support, virtual links) |
 

@@ -530,6 +530,11 @@
         bodyEl.appendChild(svg);
         if (badgeEl) {
             var badge = 'complexity ' + flow.decisions;
+            if (flow.metrics) {
+                badge = 'cognitive ' + flow.metrics.cognitive +
+                    ' · MI ' + Math.round(flow.metrics.maintainability) +
+                    ' · decisions ' + flow.decisions;
+            }
             if (flow.truncated) badge += ' · truncated';
             badgeEl.textContent = badge;
         }

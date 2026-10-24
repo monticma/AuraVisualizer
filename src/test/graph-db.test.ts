@@ -274,7 +274,7 @@ function makeEnrichedGraph(): GraphData {
                 complexityDetails: {},
                 symbols: {
                     functions: [
-                        { name: 'init', returnType: 'void', params: '()', line: 5, type: 'function', visibility: 'public', isStatic: false, isAsync: true },
+                        { name: 'init', returnType: 'void', params: '()', line: 5, type: 'function', visibility: 'public', isStatic: false, isAsync: true, cognitive: 4, cyclomatic: 5, functionLines: 18, halsteadVolume: 120.5, maintainability: 72.3 },
                     ],
                     structs: [], enums: [], macros: [], exports: [],
                     classes: [{ name: 'BaseService', type: 'class', line: 1 }],
@@ -282,7 +282,7 @@ function makeEnrichedGraph(): GraphData {
                     traits: [],
                     typeAliases: [{ name: 'ServiceConfig', type: 'type_alias', line: 10 }],
                     methods: [
-                        { name: 'start', returnType: 'Promise<void>', params: '(port: number)', line: 15, type: 'method', visibility: 'public', isStatic: false, isAsync: true },
+                        { name: 'start', returnType: 'Promise<void>', params: '(port: number)', line: 15, type: 'method', visibility: 'public', isStatic: false, isAsync: true, cognitive: 2, cyclomatic: 3, functionLines: 9, halsteadVolume: 88.2, maintainability: 81.4 },
                         { name: 'getInstance', returnType: 'BaseService', params: '()', line: 20, type: 'method', visibility: 'public', isStatic: true, isAsync: false },
                         { name: 'configure', returnType: 'void', params: '(config: ServiceConfig)', line: 25, type: 'method', visibility: 'protected', isStatic: false, isAsync: false },
                     ],
@@ -435,6 +435,9 @@ describe('GraphDB — enriched schema (Phase 1b)', () => {
         expect(kinds).toContain('interface');
         expect(kinds).toContain('type_alias');
         expect(kinds).toContain('method');
+        const init = detail!.symbols.find(s => s.name === 'init')!;
+        expect(init.cognitive).toBe(4);
+        expect(init.maintainability).toBe(72.3);
     });
 
     it('searchSymbols returns all new fields', async () => {
@@ -446,6 +449,23 @@ describe('GraphDB — enriched schema (Phase 1b)', () => {
         expect(start!).toHaveProperty('visibility');
         expect(start!).toHaveProperty('isStatic');
         expect(start!).toHaveProperty('isAsync');
+        expect(start!.cognitive).toBe(2);
+        expect(start!.maintainability).toBe(81.4);
+    });
+
+    it('exports function metrics without inventing them for legacy rows', async () => {
+        db.importGraphData(makeEnrichedGraph());
+        const exported = db.exportGraphData()!;
+        const base = exported.nodes.find(n => n.id === 'base.ts')!;
+        const init = base.symbols!.functions.find(f => f.name === 'init')!;
+        expect(init.cognitive).toBe(4);
+        expect(init.cyclomatic).toBe(5);
+        expect(init.functionLines).toBe(18);
+        expect(init.halsteadVolume).toBe(120.5);
+        expect(init.maintainability).toBe(72.3);
+
+        const getInstance = base.symbols!.methods.find(m => m.name === 'getInstance')!;
+        expect(getInstance.cognitive).toBeUndefined();
     });
 });
 

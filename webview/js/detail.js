@@ -189,6 +189,19 @@
                 nameSpan.className = 'symbol-name';
                 nameSpan.textContent = fn.name;
                 item.appendChild(nameSpan);
+                if (typeof fn.cognitive === 'number') {
+                    var metricsSpan = document.createElement('span');
+                    metricsSpan.className = 'symbol-metrics';
+                    metricsSpan.textContent = 'cog ' + fn.cognitive +
+                        (typeof fn.maintainability === 'number' ? ' · MI ' + Math.round(fn.maintainability) : '');
+                    metricsSpan.title =
+                        'Cognitive complexity: ' + fn.cognitive +
+                        (typeof fn.cyclomatic === 'number' ? ' · cyclomatic: ' + fn.cyclomatic : '') +
+                        (typeof fn.halsteadVolume === 'number' ? ' · Halstead volume: ' + fn.halsteadVolume : '') +
+                        (typeof fn.maintainability === 'number' ? ' · maintainability: ' + fn.maintainability : '') +
+                        (typeof fn.functionLines === 'number' ? ' · ' + fn.functionLines + ' lines' : '');
+                    item.appendChild(metricsSpan);
+                }
                 var metaSpan = document.createElement('span');
                 metaSpan.className = 'symbol-meta';
                 metaSpan.textContent = fn.returnType + '(' + shortenParams(fn.params) + ') L' + fn.line;

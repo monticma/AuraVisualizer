@@ -859,6 +859,15 @@ html, body {
 .symbol-icon { font-size: 12px; }
 .symbol-name { font-weight: 500; }
 .symbol-meta { margin-left: auto; font-size: 10px; opacity: 0.4; }
+.symbol-metrics {
+    font-size: 9px;
+    color: #c084fc;
+    background: rgba(163, 113, 247, 0.12);
+    border: 1px solid rgba(163, 113, 247, 0.3);
+    border-radius: 999px;
+    padding: 0 6px;
+    white-space: nowrap;
+}
 
 .explode-btn {
     display: block;

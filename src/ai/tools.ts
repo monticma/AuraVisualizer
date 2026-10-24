@@ -98,7 +98,7 @@ export const AURA_TOOLS: AuraTool[] = [
     },
     {
         name: 'aura_search_symbols',
-        description: 'Search for functions, classes, interfaces, methods or other symbols by name.',
+        description: 'Search for functions, classes, interfaces, methods or other symbols by name. Function results include cognitive complexity and maintainability when the language supports it.',
         inputSchema: {
             type: 'object',
             properties: {
@@ -304,7 +304,7 @@ export function runAuraTool(db: GraphDB, name: string, input: Record<string, unk
         case 'aura_search_symbols': {
             const results = db.searchSymbols(input.query as string, input.kind as string | undefined);
             return {
-                results: results.map(r => ({ file: r.nodeId, symbol: r.name, kind: r.kind, line: r.line, visibility: r.visibility, is_static: r.isStatic, is_async: r.isAsync })),
+                results: results.map(r => ({ file: r.nodeId, symbol: r.name, kind: r.kind, line: r.line, visibility: r.visibility, is_static: r.isStatic, is_async: r.isAsync, cognitive: r.cognitive, maintainability: r.maintainability })),
                 total: results.length,
             };
         }

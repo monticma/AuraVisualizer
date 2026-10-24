@@ -1298,6 +1298,7 @@ export class WebviewProvider {
                         <th data-col="language">Lang</th>
                         <th data-col="loc" class="num">LOC</th>
                         <th data-col="complexity" class="num">Complexity</th>
+                        <th data-col="cognitive" class="num" title="Highest Sonar cognitive complexity among this file's functions">Cog. max</th>
                         <th data-col="fanIn" class="num">Fan-in</th>
                         <th data-col="fanOut" class="num">Fan-out</th>
                         <th data-col="symbols" class="num">Symbols</th>
@@ -1721,8 +1722,16 @@ export class WebviewProvider {
                 <h3>▶ Flow Trace</h3>
                 <p>In the detail panel, click the <strong>▶</strong> button next to a function to trace its outgoing call chain across files. Files light up progressively by call depth.</p>
 
+                <h3>🧠 Function Metrics</h3>
+                <p>For <strong>JavaScript/TypeScript/TSX, Python, C and C++</strong>, Aura computes metrics per function from the AST. The detail panel shows a <code>cog N · MI N</code> chip next to each function; hover it for cyclomatic complexity, Halstead volume and function length. The <strong>📋 Table</strong> has a sortable <strong>Cog. max</strong> column (highest cognitive score among the file's functions).</p>
+                <ul>
+                    <li><strong>Cognitive complexity</strong> follows the Sonar model: each flow break adds 1, nested structures add their nesting level, <code>else</code>/<code>else if</code> add 1 without an extra nesting penalty, and each change in a boolean sequence (<code>a &amp;&amp; b || c</code>) adds 1. Empty <code>else</code> blocks are ignored.</li>
+                    <li><strong>Cyclomatic complexity</strong> is McCabe's count (branches, loops, cases, catch, logical operators).</li>
+                    <li><strong>Halstead volume</strong> counts approximate operator/operand tokens in the function body; <strong>MI</strong> is the Maintainability Index (0–100, higher is better) derived from volume, cyclomatic complexity and length.</li>
+                </ul>
+
                 <h3>⑂ Function Flowcharts</h3>
-                <p>Click the <strong>⑂</strong> button next to a function to open its <strong>flowchart</strong> — built on demand from the source AST (JS/TS/TSX, Python, C, C++). Conditions fork into <strong>T</strong>/<strong>F</strong> branches that re-join, loops get a framed body with a <strong>back edge</strong>, <code>switch</code> cases line up as columns, and <code>try</code>/<code>catch</code>/<code>finally</code> stack as labelled frames. <strong>Red dashed</strong> boxes are <strong>dead code</strong> (unreachable after a return/throw); the badge shows the function's <strong>complexity</strong> (decision points).</p>
+                <p>Click the <strong>⑂</strong> button next to a function to open its <strong>flowchart</strong> — built on demand from the source AST (JS/TS/TSX, Python, C, C++). Conditions fork into <strong>T</strong>/<strong>F</strong> branches that re-join, loops get a framed body with a <strong>back edge</strong>, <code>switch</code> cases line up as columns, and <code>try</code>/<code>catch</code>/<code>finally</code> stack as labelled frames. <strong>Red dashed</strong> boxes are <strong>dead code</strong> (unreachable after a return/throw); the badge shows the function's <strong>cognitive complexity</strong>, <strong>maintainability index</strong> and <strong>decision count</strong>.</p>
                 <p><strong>Click a step</strong> to open the file at its line, and click an underlined <strong>call chip</strong> (<code>↳ fn()</code>) to drill into the called function — the breadcrumb at the top walks back. <strong>⤓ SVG</strong> exports a standalone vector file, the window drags by its header and resizes from any edge or corner, and <kbd>Esc</kbd> closes it.</p>
 
                 <h3>⏳ Time Travel</h3>
@@ -1793,7 +1802,7 @@ export class WebviewProvider {
                     <tr><td><strong>🎵 Chord</strong></td><td>Dependency flows between groups (directories/languages/communities)</td></tr>
                     <tr><td><strong>📊 Metrics</strong></td><td>Bar charts of LOC, complexity, fan-in/out</td></tr>
                     <tr><td><strong>📈 Timeline</strong></td><td>Metric evolution over git history</td></tr>
-                    <tr><td><strong>📋 Table</strong></td><td>Sortable, filterable file spreadsheet</td></tr>
+                    <tr><td><strong>📋 Table</strong></td><td>Sortable, filterable file spreadsheet (LOC, complexity, cognitive max, fan-in/out, symbols)</td></tr>
                     <tr><td><strong>🛡️ Risk</strong></td><td>Codebase risk dashboard (health score, churn, bus factor)</td></tr>
                     <tr><td><strong>🔗 Co-change</strong></td><td>Temporal co-change pairs — files changing together without a direct dependency, with virtual graph links</td></tr>
                 </table>

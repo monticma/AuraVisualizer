@@ -26,6 +26,11 @@ export function buildFileFacts(db: GraphDB, fileArg: string): FileFacts | undefi
     lines.push('');
     lines.push(`- ${detail.language || 'unknown'} · ${detail.lines || 0} lines · complexity ${detail.complexity || 0}`);
     lines.push(`- fan-in ${detail.fan_in || 0} · fan-out ${detail.fan_out || 0}`);
+    const measured = detail.symbols.filter(s => (s.kind === 'function' || s.kind === 'method') && typeof s.cognitive === 'number');
+    if (measured.length > 0) {
+        const worst = measured.reduce((a, b) => (b.cognitive! > a.cognitive! ? b : a));
+        lines.push(`- highest cognitive complexity: \`${worst.name}\` (${worst.cognitive}${typeof worst.maintainability === 'number' ? `, MI ${worst.maintainability}` : ''})`);
+    }
 
     if (detail.dependencies.length > 0) {
         lines.push('', `**Depends on (${detail.dependencies.length})**`);

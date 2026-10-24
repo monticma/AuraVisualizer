@@ -47,6 +47,11 @@ export interface SymbolRow {
     visibility: string;
     is_static: number;
     is_async: number;
+    cognitive: number | null;
+    cyclomatic: number | null;
+    function_lines: number | null;
+    halstead_volume: number | null;
+    maintainability: number | null;
 }
 
 export interface DepRow {
@@ -120,6 +125,11 @@ CREATE TABLE IF NOT EXISTS symbols (
     visibility  TEXT DEFAULT 'public',
     is_static   INTEGER DEFAULT 0,
     is_async    INTEGER DEFAULT 0,
+    cognitive   INTEGER,
+    cyclomatic  INTEGER,
+    function_lines INTEGER,
+    halstead_volume REAL,
+    maintainability REAL,
     PRIMARY KEY (node_id, name, kind)
 );
 
@@ -351,26 +361,26 @@ export class GraphDB {
             }
 
             // Insert symbols
-            const insertSymbol = 'INSERT OR IGNORE INTO symbols (node_id, name, kind, return_type, params, line, is_dead, visibility, is_static, is_async) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+            const insertSymbol = 'INSERT OR IGNORE INTO symbols (node_id, name, kind, return_type, params, line, is_dead, visibility, is_static, is_async, cognitive, cyclomatic, function_lines, halstead_volume, maintainability) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
             for (const n of data.nodes) {
                 if (!n.symbols) continue;
                 const deadSet = new Set(n.deadExports || []);
                 for (const fn of n.symbols.functions) {
                     db.run(insertSymbol,
-                        [n.id, fn.name, fn.type || 'function', fn.returnType || '', fn.params || '', fn.line || 0, deadSet.has(fn.name) ? 1 : 0, fn.visibility || 'public', fn.isStatic ? 1 : 0, fn.isAsync ? 1 : 0]);
+                        [n.id, fn.name, fn.type || 'function', fn.returnType || '', fn.params || '', fn.line || 0, deadSet.has(fn.name) ? 1 : 0, fn.visibility || 'public', fn.isStatic ? 1 : 0, fn.isAsync ? 1 : 0, fn.cognitive ?? null, fn.cyclomatic ?? null, fn.functionLines ?? null, fn.halsteadVolume ?? null, fn.maintainability ?? null]);
                 }
                 for (const m of n.symbols.methods || []) {
                     db.run(insertSymbol,
-                        [n.id, m.name, m.type || 'method', m.returnType || '', m.params || '', m.line || 0, deadSet.has(m.name) ? 1 : 0, m.visibility || 'public', m.isStatic ? 1 : 0, m.isAsync ? 1 : 0]);
+                        [n.id, m.name, m.type || 'method', m.returnType || '', m.params || '', m.line || 0, deadSet.has(m.name) ? 1 : 0, m.visibility || 'public', m.isStatic ? 1 : 0, m.isAsync ? 1 : 0, m.cognitive ?? null, m.cyclomatic ?? null, m.functionLines ?? null, m.halsteadVolume ?? null, m.maintainability ?? null]);
                 }
-                for (const s of n.symbols.structs)  db.run(insertSymbol, [n.id, s.name, s.type || 'struct', '', '', s.line || 0, 0, 'public', 0, 0]);
-                for (const e of n.symbols.enums)    db.run(insertSymbol, [n.id, e.name, e.type || 'enum', '', '', e.line || 0, 0, 'public', 0, 0]);
-                for (const m of n.symbols.macros)   db.run(insertSymbol, [n.id, m.name, m.type || 'macro', '', '', m.line || 0, 0, 'public', 0, 0]);
-                for (const c of n.symbols.classes)  db.run(insertSymbol, [n.id, c.name, c.type || 'class', '', '', c.line || 0, deadSet.has(c.name) ? 1 : 0, 'public', 0, 0]);
-                for (const ex of n.symbols.exports) db.run(insertSymbol, [n.id, ex.name, ex.type || 'export', '', '', ex.line || 0, deadSet.has(ex.name) ? 1 : 0, 'public', 0, 0]);
-                for (const i of n.symbols.interfaces || [])  db.run(insertSymbol, [n.id, i.name, i.type || 'interface', '', '', i.line || 0, 0, i.visibility || 'public', 0, 0]);
-                for (const t of n.symbols.traits || [])      db.run(insertSymbol, [n.id, t.name, t.type || 'trait', '', '', t.line || 0, 0, t.visibility || 'public', 0, 0]);
-                for (const ta of n.symbols.typeAliases || []) db.run(insertSymbol, [n.id, ta.name, ta.type || 'type_alias', '', '', ta.line || 0, 0, ta.visibility || 'public', 0, 0]);
+                for (const s of n.symbols.structs)  db.run(insertSymbol, [n.id, s.name, s.type || 'struct', '', '', s.line || 0, 0, 'public', 0, 0, null, null, null, null, null]);
+                for (const e of n.symbols.enums)    db.run(insertSymbol, [n.id, e.name, e.type || 'enum', '', '', e.line || 0, 0, 'public', 0, 0, null, null, null, null, null]);
+                for (const m of n.symbols.macros)   db.run(insertSymbol, [n.id, m.name, m.type || 'macro', '', '', m.line || 0, 0, 'public', 0, 0, null, null, null, null, null]);
+                for (const c of n.symbols.classes)  db.run(insertSymbol, [n.id, c.name, c.type || 'class', '', '', c.line || 0, deadSet.has(c.name) ? 1 : 0, 'public', 0, 0, null, null, null, null, null]);
+                for (const ex of n.symbols.exports) db.run(insertSymbol, [n.id, ex.name, ex.type || 'export', '', '', ex.line || 0, deadSet.has(ex.name) ? 1 : 0, 'public', 0, 0, null, null, null, null, null]);
+                for (const i of n.symbols.interfaces || [])  db.run(insertSymbol, [n.id, i.name, i.type || 'interface', '', '', i.line || 0, 0, i.visibility || 'public', 0, 0, null, null, null, null, null]);
+                for (const t of n.symbols.traits || [])      db.run(insertSymbol, [n.id, t.name, t.type || 'trait', '', '', t.line || 0, 0, t.visibility || 'public', 0, 0, null, null, null, null, null]);
+                for (const ta of n.symbols.typeAliases || []) db.run(insertSymbol, [n.id, ta.name, ta.type || 'type_alias', '', '', ta.line || 0, 0, ta.visibility || 'public', 0, 0, null, null, null, null, null]);
             }
 
             // Insert cycles
@@ -481,21 +491,21 @@ export class GraphDB {
             db.run('DELETE FROM symbols WHERE node_id = ?', [fileId]);
             if (node.symbols) {
                 const deadSet = new Set(node.deadExports || []);
-                const ins = 'INSERT OR IGNORE INTO symbols (node_id, name, kind, return_type, params, line, is_dead, visibility, is_static, is_async) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+                const ins = 'INSERT OR IGNORE INTO symbols (node_id, name, kind, return_type, params, line, is_dead, visibility, is_static, is_async, cognitive, cyclomatic, function_lines, halstead_volume, maintainability) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
                 for (const fn of node.symbols.functions) {
-                    db.run(ins, [fileId, fn.name, fn.type || 'function', fn.returnType || '', fn.params || '', fn.line || 0, deadSet.has(fn.name) ? 1 : 0, fn.visibility || 'public', fn.isStatic ? 1 : 0, fn.isAsync ? 1 : 0]);
+                    db.run(ins, [fileId, fn.name, fn.type || 'function', fn.returnType || '', fn.params || '', fn.line || 0, deadSet.has(fn.name) ? 1 : 0, fn.visibility || 'public', fn.isStatic ? 1 : 0, fn.isAsync ? 1 : 0, fn.cognitive ?? null, fn.cyclomatic ?? null, fn.functionLines ?? null, fn.halsteadVolume ?? null, fn.maintainability ?? null]);
                 }
                 for (const m of node.symbols.methods || []) {
-                    db.run(ins, [fileId, m.name, m.type || 'method', m.returnType || '', m.params || '', m.line || 0, deadSet.has(m.name) ? 1 : 0, m.visibility || 'public', m.isStatic ? 1 : 0, m.isAsync ? 1 : 0]);
+                    db.run(ins, [fileId, m.name, m.type || 'method', m.returnType || '', m.params || '', m.line || 0, deadSet.has(m.name) ? 1 : 0, m.visibility || 'public', m.isStatic ? 1 : 0, m.isAsync ? 1 : 0, m.cognitive ?? null, m.cyclomatic ?? null, m.functionLines ?? null, m.halsteadVolume ?? null, m.maintainability ?? null]);
                 }
-                for (const s of node.symbols.structs)  db.run(ins, [fileId, s.name, s.type || 'struct', '', '', s.line || 0, 0, 'public', 0, 0]);
-                for (const e of node.symbols.enums)     db.run(ins, [fileId, e.name, e.type || 'enum', '', '', e.line || 0, 0, 'public', 0, 0]);
-                for (const m of node.symbols.macros)    db.run(ins, [fileId, m.name, m.type || 'macro', '', '', m.line || 0, 0, 'public', 0, 0]);
-                for (const c of node.symbols.classes)   db.run(ins, [fileId, c.name, c.type || 'class', '', '', c.line || 0, deadSet.has(c.name) ? 1 : 0, 'public', 0, 0]);
-                for (const ex of node.symbols.exports)  db.run(ins, [fileId, ex.name, ex.type || 'export', '', '', ex.line || 0, deadSet.has(ex.name) ? 1 : 0, 'public', 0, 0]);
-                for (const i of node.symbols.interfaces || [])  db.run(ins, [fileId, i.name, i.type || 'interface', '', '', i.line || 0, 0, i.visibility || 'public', 0, 0]);
-                for (const t of node.symbols.traits || [])      db.run(ins, [fileId, t.name, t.type || 'trait', '', '', t.line || 0, 0, t.visibility || 'public', 0, 0]);
-                for (const ta of node.symbols.typeAliases || []) db.run(ins, [fileId, ta.name, ta.type || 'type_alias', '', '', ta.line || 0, 0, ta.visibility || 'public', 0, 0]);
+                for (const s of node.symbols.structs)  db.run(ins, [fileId, s.name, s.type || 'struct', '', '', s.line || 0, 0, 'public', 0, 0, null, null, null, null, null]);
+                for (const e of node.symbols.enums)     db.run(ins, [fileId, e.name, e.type || 'enum', '', '', e.line || 0, 0, 'public', 0, 0, null, null, null, null, null]);
+                for (const m of node.symbols.macros)    db.run(ins, [fileId, m.name, m.type || 'macro', '', '', m.line || 0, 0, 'public', 0, 0, null, null, null, null, null]);
+                for (const c of node.symbols.classes)   db.run(ins, [fileId, c.name, c.type || 'class', '', '', c.line || 0, deadSet.has(c.name) ? 1 : 0, 'public', 0, 0, null, null, null, null, null]);
+                for (const ex of node.symbols.exports)  db.run(ins, [fileId, ex.name, ex.type || 'export', '', '', ex.line || 0, deadSet.has(ex.name) ? 1 : 0, 'public', 0, 0, null, null, null, null, null]);
+                for (const i of node.symbols.interfaces || [])  db.run(ins, [fileId, i.name, i.type || 'interface', '', '', i.line || 0, 0, i.visibility || 'public', 0, 0, null, null, null, null, null]);
+                for (const t of node.symbols.traits || [])      db.run(ins, [fileId, t.name, t.type || 'trait', '', '', t.line || 0, 0, t.visibility || 'public', 0, 0, null, null, null, null, null]);
+                for (const ta of node.symbols.typeAliases || []) db.run(ins, [fileId, ta.name, ta.type || 'type_alias', '', '', ta.line || 0, 0, ta.visibility || 'public', 0, 0, null, null, null, null, null]);
             }
 
             // Replace call sites from this file
@@ -564,10 +574,24 @@ export class GraphDB {
             const functions = syms.filter(s => s.kind === 'function').map(s => ({
                 name: s.name, returnType: s.return_type, params: s.params,
                 line: s.line, type: s.kind, visibility: s.visibility, isStatic: !!s.is_static, isAsync: !!s.is_async,
+                ...(s.cognitive === null ? {} : {
+                    cognitive: s.cognitive,
+                    cyclomatic: s.cyclomatic ?? undefined,
+                    functionLines: s.function_lines ?? undefined,
+                    halsteadVolume: s.halstead_volume ?? undefined,
+                    maintainability: s.maintainability ?? undefined,
+                }),
             }));
             const methods = syms.filter(s => s.kind === 'method').map(s => ({
                 name: s.name, returnType: s.return_type, params: s.params,
                 line: s.line, type: s.kind, visibility: s.visibility, isStatic: !!s.is_static, isAsync: !!s.is_async,
+                ...(s.cognitive === null ? {} : {
+                    cognitive: s.cognitive,
+                    cyclomatic: s.cyclomatic ?? undefined,
+                    functionLines: s.function_lines ?? undefined,
+                    halsteadVolume: s.halstead_volume ?? undefined,
+                    maintainability: s.maintainability ?? undefined,
+                }),
             }));
             const structs = syms.filter(s => s.kind === 'struct').map(s => ({ name: s.name, type: s.kind, line: s.line }));
             const enums = syms.filter(s => s.kind === 'enum').map(s => ({ name: s.name, type: s.kind, line: s.line }));
@@ -813,12 +837,12 @@ export class GraphDB {
     }
 
     /** Search symbols by name (LIKE match). */
-    searchSymbols(query: string, kind?: string): { nodeId: string; name: string; kind: string; line: number; visibility: string; isStatic: boolean; isAsync: boolean }[] {
+    searchSymbols(query: string, kind?: string): { nodeId: string; name: string; kind: string; line: number; visibility: string; isStatic: boolean; isAsync: boolean; cognitive: number | null; maintainability: number | null }[] {
         const db = this.ensureDb();
-        const sql = 'SELECT node_id AS nodeId, name, kind, line, visibility, is_static AS isStatic, is_async AS isAsync FROM symbols WHERE name LIKE ?' +
+        const sql = 'SELECT node_id AS nodeId, name, kind, line, visibility, is_static AS isStatic, is_async AS isAsync, cognitive, maintainability FROM symbols WHERE name LIKE ?' +
             (kind ? ' AND kind = ?' : '') + ' ORDER BY name LIMIT 100';
         const params = kind ? [`%${query}%`, kind] : [`%${query}%`];
-        const rows = queryAll<{ nodeId: string; name: string; kind: string; line: number; visibility: string; isStatic: number; isAsync: number }>(db, sql, params);
+        const rows = queryAll<{ nodeId: string; name: string; kind: string; line: number; visibility: string; isStatic: number; isAsync: number; cognitive: number | null; maintainability: number | null }>(db, sql, params);
         return rows.map(r => ({ ...r, isStatic: !!r.isStatic, isAsync: !!r.isAsync, visibility: r.visibility || 'public' }));
     }
 
@@ -1092,6 +1116,11 @@ export class GraphDB {
             ['visibility', "ALTER TABLE symbols ADD COLUMN visibility TEXT DEFAULT 'public'"],
             ['is_static',  'ALTER TABLE symbols ADD COLUMN is_static INTEGER DEFAULT 0'],
             ['is_async',   'ALTER TABLE symbols ADD COLUMN is_async INTEGER DEFAULT 0'],
+            ['cognitive',  'ALTER TABLE symbols ADD COLUMN cognitive INTEGER'],
+            ['cyclomatic', 'ALTER TABLE symbols ADD COLUMN cyclomatic INTEGER'],
+            ['function_lines', 'ALTER TABLE symbols ADD COLUMN function_lines INTEGER'],
+            ['halstead_volume', 'ALTER TABLE symbols ADD COLUMN halstead_volume REAL'],
+            ['maintainability', 'ALTER TABLE symbols ADD COLUMN maintainability REAL'],
         ];
         for (const [col, sql] of migrations) {
             if (!cols.includes(col)) {

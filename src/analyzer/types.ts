@@ -41,6 +41,12 @@ export interface SymbolInfo {
     visibility?: 'public' | 'private' | 'protected' | 'internal';
     isStatic?: boolean;
     isAsync?: boolean;
+    /** Function metrics (supported Tree-sitter languages only). */
+    cognitive?: number;
+    cyclomatic?: number;
+    functionLines?: number;
+    halsteadVolume?: number;
+    maintainability?: number;
 }
 
 export interface FileSymbols {
@@ -58,7 +64,7 @@ export interface FileSymbols {
 }
 
 export interface NodeSymbols {
-    functions: { name: string; returnType: string; params: string; line: number; type: string; visibility?: string; isStatic?: boolean; isAsync?: boolean }[];
+    functions: { name: string; returnType: string; params: string; line: number; type: string; visibility?: string; isStatic?: boolean; isAsync?: boolean; cognitive?: number; cyclomatic?: number; functionLines?: number; halsteadVolume?: number; maintainability?: number }[];
     structs: { name: string; type: string; line: number }[];
     enums: { name: string; type: string; line: number }[];
     macros: { name: string; type: string; line: number }[];
@@ -67,7 +73,7 @@ export interface NodeSymbols {
     interfaces: { name: string; type: string; line?: number; visibility?: string }[];
     traits: { name: string; type: string; line?: number; visibility?: string }[];
     typeAliases: { name: string; type: string; line?: number; visibility?: string }[];
-    methods: { name: string; returnType: string; params: string; line: number; type: string; visibility?: string; isStatic?: boolean; isAsync?: boolean }[];
+    methods: { name: string; returnType: string; params: string; line: number; type: string; visibility?: string; isStatic?: boolean; isAsync?: boolean; cognitive?: number; cyclomatic?: number; functionLines?: number; halsteadVolume?: number; maintainability?: number }[];
     totalSymbols: number;
 }
 

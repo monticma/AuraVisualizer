@@ -297,6 +297,7 @@ export class TreeSitterJSParser extends BaseParser {
             const sym: SymbolInfo = {
                 name,
                 type: isGetter ? 'getter' : isSetter ? 'setter' : 'method',
+                line: member.startPosition.row + 1,
             };
             if (isAsync) { sym.isAsync = true; }
             if (isStatic) { sym.isStatic = true; }

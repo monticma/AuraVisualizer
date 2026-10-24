@@ -16,7 +16,7 @@ Click any tab in the **tab bar** below the toolbar. The 3D graph pauses when you
 | **🎵 Chord** | Chord diagram — ribbons show dependency flows between groups. Thicker ribbon = more dependencies |
 | **📊 Metrics** | Bar charts: LOC, complexity, fan-in, fan-out broken down by language and top files |
 | **📈 Timeline** | Line chart of metric evolution over git history. Choose between LOC, file count, avg complexity, or total complexity |
-| **📋 Table** | Sortable, filterable spreadsheet of all files with their metrics |
+| **📋 Table** | Sortable, filterable spreadsheet of all files with their metrics, including **Cog. max** (highest function cognitive complexity) |
 | **🛡️ Risk** | Codebase health dashboard — risk score, distribution, churn × complexity matrix, bus factor, exportable report |
 | **🔗 Co-change** | Temporal co-change — files changing together without a direct dependency. Rows show co-changes, Jaccard, support; **Show on graph** adds virtual links |
 

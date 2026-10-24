@@ -138,7 +138,7 @@ const TOOLS = [
     },
     {
         name: 'search_symbols',
-        description: 'Search for functions, classes, interfaces, methods, or other symbols by name (substring match). Returns visibility, static/async flags.',
+        description: 'Search for functions, classes, interfaces, methods, or other symbols by name (substring match). Returns visibility, static/async flags, and cognitive complexity / maintainability for supported functions.',
         inputSchema: {
             type: 'object' as const,
             properties: {

@@ -22,6 +22,7 @@ import { VueParser } from './parsers/vue-parser';
 import { HTMLParser } from './parsers/html-parser';
 import { CSSParser } from './parsers/css-parser';
 import { computeComplexity } from './complexity';
+import { collectFunctionMetrics, type FunctionMetricEntry } from '../flow/flow-core';
 import { hasGrammar, parseSource } from './tree-sitter-loader';
 import type { BaseParser } from './parsers/base-parser';
 import type Parser from 'web-tree-sitter';
@@ -65,6 +66,50 @@ const HEADER_EXTS = new Set(['.h', '.hpp', '.hxx', '.hh', '.d.ts']);
  */
 function getParser(language: string): BaseParser | undefined {
     return PARSERS[language];
+}
+
+/**
+ * Attach cognitive / Halstead / maintainability metrics to extracted functions.
+ * The metric walker is language-profile driven (JS/TS/TSX, Python, C, C++); other
+ * languages simply keep the fields undefined instead of showing bogus zeroes.
+ */
+function attachFunctionMetrics(symbols: FileSymbols, tree: Parser.Tree, language: string): void {
+    const entries = collectFunctionMetrics(tree, language);
+    if (entries.length === 0) return;
+    const byLine = new Map<number, FunctionMetricEntry>();
+    const byName = new Map<string, FunctionMetricEntry>();
+    for (const entry of entries) {
+        byLine.set(entry.line, entry);
+        if (!byName.has(entry.name)) byName.set(entry.name, entry);
+    }
+    const apply = (sym: SymbolInfo): void => {
+        let entry = sym.line ? byLine.get(sym.line) : undefined;
+        if (!entry || entry.name !== sym.name) {
+            entry = byName.get(sym.name) || entry;
+        }
+        if (!entry) return;
+        sym.cognitive = entry.metrics.cognitive;
+        sym.cyclomatic = entry.metrics.cyclomatic;
+        sym.functionLines = entry.metrics.lines;
+        sym.halsteadVolume = entry.metrics.halstead.volume;
+        sym.maintainability = entry.metrics.maintainability;
+    };
+    for (const fn of symbols.functions) apply(fn);
+    for (const method of symbols.methods || []) apply(method);
+}
+
+/** Copy optional function metrics from a symbol into its graph payload. */
+function functionMetricFields(fn: SymbolInfo): {
+    cognitive?: number; cyclomatic?: number; functionLines?: number;
+    halsteadVolume?: number; maintainability?: number;
+} {
+    return {
+        cognitive: fn.cognitive,
+        cyclomatic: fn.cyclomatic,
+        functionLines: fn.functionLines,
+        halsteadVolume: fn.halsteadVolume,
+        maintainability: fn.maintainability,
+    };
 }
 
 /**
@@ -321,6 +366,7 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
             ? parser.extractSymbolsAST(tree, file)
             : (parser as unknown as { extractSymbols(f: FileInfo): FileSymbols }).extractSymbols?.(file);
         if (!symbols) continue;
+        if (tree) attachFunctionMetrics(symbols, tree, file.language);
         fileSymbols.set(file.id, symbols);
 
         const family = LANG_FAMILY[file.language] || file.language;
@@ -647,7 +693,8 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
                     type: fn.type,
                     visibility: fn.visibility,
                     isStatic: fn.isStatic,
-                    isAsync: fn.isAsync
+                    isAsync: fn.isAsync,
+                    ...functionMetricFields(fn),
                 })),
                 structs: symbols.structs.map(s => ({ name: s.name, type: s.type, line: s.line || 0 })),
                 enums: symbols.enums.map(e => ({ name: e.name, type: e.type, line: e.line || 0 })),
@@ -665,7 +712,8 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
                     type: m.type,
                     visibility: m.visibility,
                     isStatic: m.isStatic,
-                    isAsync: m.isAsync
+                    isAsync: m.isAsync,
+                    ...functionMetricFields(m),
                 })),
                 totalSymbols:
                     symbols.functions.length +
@@ -780,6 +828,7 @@ export function buildIncrementalContext(files: FileInfo[], astTrees?: Map<string
             ? parser.extractSymbolsAST(tree, file)
             : (parser as unknown as { extractSymbols(f: FileInfo): FileSymbols }).extractSymbols?.(file);
         if (!symbols) continue;
+        if (tree) attachFunctionMetrics(symbols, tree, file.language);
         fileSymbols.set(file.id, symbols);
 
         const family = LANG_FAMILY[file.language] || file.language;
@@ -833,8 +882,8 @@ export function restoreIncrementalContext(files: FileInfo[], graphData: GraphDat
         // Reconstruct FileSymbols from NodeSymbols
         const ns = node.symbols;
         const symbols: FileSymbols = {
-            functions: ns.functions.map(f => ({ name: f.name, type: f.type, returnType: f.returnType, params: f.params, line: f.line, visibility: f.visibility as SymbolInfo['visibility'], isStatic: f.isStatic, isAsync: f.isAsync })),
-            methods: (ns.methods || []).map(m => ({ name: m.name, type: m.type, returnType: m.returnType, params: m.params, line: m.line, visibility: m.visibility as SymbolInfo['visibility'], isStatic: m.isStatic, isAsync: m.isAsync })),
+            functions: ns.functions.map(f => ({ name: f.name, type: f.type, returnType: f.returnType, params: f.params, line: f.line, visibility: f.visibility as SymbolInfo['visibility'], isStatic: f.isStatic, isAsync: f.isAsync, cognitive: f.cognitive, cyclomatic: f.cyclomatic, functionLines: f.functionLines, halsteadVolume: f.halsteadVolume, maintainability: f.maintainability })),
+            methods: (ns.methods || []).map(m => ({ name: m.name, type: m.type, returnType: m.returnType, params: m.params, line: m.line, visibility: m.visibility as SymbolInfo['visibility'], isStatic: m.isStatic, isAsync: m.isAsync, cognitive: m.cognitive, cyclomatic: m.cyclomatic, functionLines: m.functionLines, halsteadVolume: m.halsteadVolume, maintainability: m.maintainability })),
             structs: ns.structs.map(s => ({ name: s.name, type: s.type, line: s.line })),
             enums: ns.enums.map(e => ({ name: e.name, type: e.type, line: e.line })),
             macros: (ns.macros || []).map(m => ({ name: m.name, type: m.type, line: m.line })),
@@ -918,6 +967,7 @@ export function rebuildSingleFile(
         symbols = astTree && parser.usesTreeSitter
             ? parser.extractSymbolsAST(astTree, file)
             : (parser as unknown as { extractSymbols(f: FileInfo): FileSymbols }).extractSymbols?.(file);
+        if (symbols && astTree) attachFunctionMetrics(symbols, astTree, file.language);
     }
 
     if (symbols) {
@@ -1077,7 +1127,7 @@ export function rebuildSingleFile(
             functions: symbols.functions.map(fn => ({
                 name: fn.name, returnType: fn.returnType || '', params: fn.params || '',
                 line: fn.line || 0, type: fn.type, visibility: fn.visibility,
-                isStatic: fn.isStatic, isAsync: fn.isAsync,
+                isStatic: fn.isStatic, isAsync: fn.isAsync, ...functionMetricFields(fn),
             })),
             structs: symbols.structs.map(s => ({ name: s.name, type: s.type, line: s.line || 0 })),
             enums: symbols.enums.map(e => ({ name: e.name, type: e.type, line: e.line || 0 })),
@@ -1090,7 +1140,7 @@ export function rebuildSingleFile(
             methods: (symbols.methods || []).map(m => ({
                 name: m.name, returnType: m.returnType || '', params: m.params || '',
                 line: m.line || 0, type: m.type, visibility: m.visibility,
-                isStatic: m.isStatic, isAsync: m.isAsync,
+                isStatic: m.isStatic, isAsync: m.isAsync, ...functionMetricFields(m),
             })),
             totalSymbols:
                 symbols.functions.length + symbols.structs.length + symbols.enums.length +
