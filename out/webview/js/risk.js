@@ -183,6 +183,48 @@
         renderRiskScatter();
         renderBusFactor();
         renderSymbolCycles();
+        renderComplexityTrends();
+    }
+
+    /** Per-file complexity slope + sparkline (V2-05). */
+    function renderComplexityTrends() {
+        var section = document.getElementById('risk-complexity-trends');
+        var list = document.getElementById('risk-list-complexity-trends');
+        var badge = document.getElementById('risk-complexity-trends-badge');
+        if (!section || !list) return;
+        var trends = window.AuraTrendUI ? AuraTrendUI.getTrends() : {};
+        var ranked = Object.keys(trends)
+            .map(function(id) { return trends[id]; })
+            .filter(function(trend) { return trend.samples >= 2; })
+            .sort(function(a, b) {
+                if (a.degrading !== b.degrading) return a.degrading ? -1 : 1;
+                return b.slopePer30Days - a.slopePer30Days;
+            })
+            .slice(0, 20);
+        if (badge) badge.textContent = ranked.length;
+        section.style.display = ranked.length ? '' : 'none';
+        list.innerHTML = '';
+        for (var i = 0; i < ranked.length; i++) {
+            var trend = ranked[i];
+            var row = document.createElement('div');
+            row.className = 'risk-trend-row';
+            row.title = AuraTrendUI.tooltip(trend);
+            row.innerHTML =
+                '<div class="risk-trend-main">' +
+                    AuraTrendUI.sparklineHTML(trend, 70, 18) +
+                    '<span class="risk-trend-file">' + escapeHtml(trend.file) + '</span>' +
+                    AuraTrendUI.badgeHTML(trend) +
+                '</div>' +
+                '<div class="risk-trend-detail">' +
+                    '<span>Δ ' + (trend.delta >= 0 ? '+' : '') + trend.delta + ' complexity</span>' +
+                    '<span>R² ' + trend.r2.toFixed(2) + '</span>' +
+                    '<span>' + trend.samples + ' changes</span>' +
+                '</div>';
+            (function(id) {
+                row.addEventListener('click', function() { focusRiskFile(id); });
+            })(trend.file);
+            list.appendChild(row);
+        }
     }
 
     /** Function-level recursion / mutual recursion (V2-03). */
@@ -751,7 +793,7 @@
                 hooks.postMessage({ type: 'updateSetting', payload: { key: 'riskWindow', value: v } });
             });
         }
-        var kinds = ['high', 'medium', 'low', 'rising', 'bus', 'symbol-cycles'];
+        var kinds = ['high', 'medium', 'low', 'rising', 'bus', 'symbol-cycles', 'complexity-trends'];
         for (var i = 0; i < kinds.length; i++) {
             (function(kind) {
                 var btn = $('#risk-toggle-' + kind);

@@ -16,6 +16,7 @@
     var graphData = null;
     var timelineCommits = [];
     var timelineDeltas = {};
+    var fileTrends = {};
     var timelineScannedCount = 0;
     var communityMap = {};
     var communityNames = {};
@@ -33,6 +34,7 @@
         graphData = hooks.getGraphData();
         timelineCommits = hooks.getTimelineCommits();
         timelineDeltas = hooks.getTimelineDeltas();
+        fileTrends = window.AuraTrendUI ? AuraTrendUI.getTrends() : {};
         timelineScannedCount = hooks.getTimelineScannedCount();
         communityMap = hooks.getCommunityMap();
         communityNames = hooks.getCommunityNames();
@@ -1831,6 +1833,10 @@
                 case 'fanOut': va = a.fanOut || 0; vb = b.fanOut || 0; break;
                 case 'symbols': va = (a.symbols ? a.symbols.totalSymbols : 0); vb = (b.symbols ? b.symbols.totalSymbols : 0); break;
                 case 'group': va = (a.group || '').toLowerCase(); vb = (b.group || '').toLowerCase(); break;
+                case 'trend':
+                    va = fileTrends[a.id] ? fileTrends[a.id].slopePer30Days : -Infinity;
+                    vb = fileTrends[b.id] ? fileTrends[b.id].slopePer30Days : -Infinity;
+                    break;
                 default: va = a.linesOfCode || 0; vb = b.linesOfCode || 0;
             }
             if (va < vb) return tableSortAsc ? -1 : 1;
@@ -1854,6 +1860,7 @@
             var color = LANGUAGE_COLORS[n.language] || '#888';
             var symCount = n.symbols ? n.symbols.totalSymbols : 0;
             var cognitive = fileCognitiveMax(n);
+            var trend = fileTrends[n.id];
             html += '<tr data-id="' + escapeHtml(n.id) + '"' +
                 (selectedNode && selectedNode.id === n.id ? ' class="selected"' : '') + '>' +
                 '<td title="' + escapeHtml(n.id) + '">' + escapeHtml(n.id) + '</td>' +
@@ -1865,6 +1872,9 @@
                 '<td class="num">' + (n.fanOut || 0) + '</td>' +
                 '<td class="num">' + symCount + '</td>' +
                 '<td>' + escapeHtml(n.group || '—') + '</td>' +
+                '<td class="trend-cell" title="' + escapeHtml(window.AuraTrendUI ? AuraTrendUI.tooltip(trend) : '') + '">' +
+                    (window.AuraTrendUI ? AuraTrendUI.sparklineHTML(trend, 64, 18) + AuraTrendUI.badgeHTML(trend) : '—') +
+                '</td>' +
                 '</tr>';
         }
         tbody.innerHTML = html;

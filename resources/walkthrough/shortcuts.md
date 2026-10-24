@@ -48,6 +48,7 @@ Quick access to every feature without leaving the keyboard.
 The **⚙️ button** (next to 🔍 Query) opens an in-app settings modal — changes apply instantly and are saved to your workspace settings:
 
 - **Risk history window** — 30 / 90 / 365 days (Risk Map, status bar and hotspots)
+- **Complexity trend threshold** — complexity points per 30 days that flag a file as degrading (default 0.5)
 - **Mouse rotation speed** — 1–5 slider, live value shown on the right
 - **Link style & curvature** — straight or curved dependency edges
 - **Selected node effect** — glow halo or bloom post-processing (intensity / radius / threshold)

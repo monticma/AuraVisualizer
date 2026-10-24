@@ -187,6 +187,17 @@ Complexity, fan-in, fan-out and churn are **percentile ranks inside your reposit
 
 Risk buckets: **High ≥ 66**, **Medium 33–65**, **Low < 33**. Churn is measured as commits per file and requires the git **Time Travel** scan.
 
+### Complexity Trends 📈
+
+The **Risk** dashboard and the **Table** tab add a per-file **complexity trend** derived from the commit deltas already collected by **Time Travel**:
+
+- **Sparkline** — complexity across the file's changed commits, colored red when degrading and green when improving
+- **Slope + R²** — linear regression of complexity over time; the badge shows the slope **per 30 days**
+- **Degrading badge** — shown when the slope crosses `auraVisualizer.complexityTrendThreshold` (default `0.5`) and the fit is meaningful (`R² ≥ 0.3`)
+- **Risk dashboard** — a collapsible **📈 COMPLEXITY TREND** section ranks the top files by slope; click a row to focus it in the graph
+- **Table** — sortable **Trend** column with the same sparkline/badge
+- Short histories are safe: one sample gives `—`, never `NaN`; removed files are dropped and a re-add starts a fresh series
+
 ### Temporal Co-change 🔗
 
 Open the **🔗 Co-change** tab after a **Time Travel** scan to find files that keep changing in the same commits **without a direct dependency** — implicit contracts (API + client, test + implementation, shared configuration…).
@@ -553,7 +564,7 @@ The MCP server exposes your codebase graph to AI tools via stdio transport. It r
 | `find_dependencies` | `file`, `depth` | Transitive dependency tree |
 | `find_dependents` | `file`, `depth` | Impact analysis — blast radius with risk levels |
 | `find_path` | `from`, `to` | Shortest dependency path between two files |
-| `find_cycles` | — | All circular dependency cycles |
+| `find_cycles` | — | Circular dependencies — file-level cycles plus function-level `symbol_cycles` (recursion/mutual recursion with call lines) |
 | `find_orphan_files` | `limit` | Files that nothing imports |
 | `find_dead_code` | — | Unused exports across the codebase |
 | `find_unused_functions` | `file`, `include_methods` | Functions/methods never called anywhere |
@@ -581,6 +592,7 @@ All settings live under `auraVisualizer.*` — the most common ones are also edi
 | `auraVisualizer.autoRefresh` | `true` | Auto-refresh on file save |
 | `auraVisualizer.followEditor` | `true` | Fly the 3D camera to the active editor file; manual camera movement pauses following until the 👁 toolbar button is clicked again |
 | `auraVisualizer.riskWindow` | `90` | Git history window (30 / 90 / 365 days) used by the Risk Map, the status bar and `get_hotspots` |
+| `auraVisualizer.complexityTrendThreshold` | `0.5` | Complexity points per 30 days that flag a file as degrading in the Trend column / Risk dashboard |
 | `auraVisualizer.rotateSpeed` | `1` | Rotation speed when dragging the 3D graph (1–5, 5 = fastest) |
 | `auraVisualizer.linkStyle` | `"straight"` | Edge style in the 3D graph (`straight` / `curved`) |
 | `auraVisualizer.linkCurvature` | `0.25` | Curvature amount when `linkStyle` is `curved` (0–1) |

@@ -3088,6 +3088,22 @@ html, body {
     vertical-align: middle;
 }
 
+.trend-cell { white-space: nowrap; }
+.trend-spark { display: inline-block; vertical-align: middle; overflow: visible; }
+.trend-spark-empty { opacity: 0.35; font-size: 10px; }
+.trend-badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 5px;
+    border-radius: 999px;
+    font-size: 9px;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+.trend-degrading { color: #ff8a80; background: rgba(248, 81, 73, 0.14); border: 1px solid rgba(248, 81, 73, 0.3); }
+.trend-improving { color: #7ee787; background: rgba(63, 185, 80, 0.12); border: 1px solid rgba(63, 185, 80, 0.28); }
+.trend-flat, .trend-unknown { color: #9aa4b2; background: rgba(154, 164, 178, 0.1); border: 1px solid rgba(154, 164, 178, 0.2); }
+
 /* ============================================================
    Chat Panel (Aura Assistant)
    ============================================================ */
@@ -3444,6 +3460,37 @@ body.chat-open #detail-panel.collapsed { display: none; }
     opacity: 1;
     text-transform: uppercase;
     letter-spacing: 0.4px;
+}
+
+.risk-trend-row {
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.risk-trend-row:hover { background: rgba(96, 165, 250, 0.08); }
+.risk-trend-main {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+.risk-trend-file {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 11px;
+}
+.risk-trend-detail {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 3px;
+    font-size: 10px;
+    opacity: 0.5;
 }
 
 /* ============================================================

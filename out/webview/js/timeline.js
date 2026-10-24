@@ -279,6 +279,18 @@
         timelineDeltas[delta.hash] = delta;
         if (window.AuraViews) window.AuraViews.invalidateTimelineSnapshots(); // invalidate timeline chart cache
         updateTimelineButtons();
+        scheduleHistoryViewRefresh();
+    }
+
+    var historyViewRefresh = null;
+    function scheduleHistoryViewRefresh() {
+        if (historyViewRefresh) clearTimeout(historyViewRefresh);
+        historyViewRefresh = setTimeout(function() {
+            historyViewRefresh = null;
+            var tab = hooks.getActiveTab ? hooks.getActiveTab() : '';
+            if (tab === 'table' && window.AuraViews) window.AuraViews.renderTable();
+            if (tab === 'risk' && window.AuraRiskMap) window.AuraRiskMap.renderRiskDashboard();
+        }, 250);
     }
 
     function navigateToCommit(sliderPos) {

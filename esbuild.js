@@ -138,6 +138,17 @@ async function copyWebviewAssets() {
         tsconfig: 'tsconfig.json',
     });
 
+    // Trend core — complexity trends, bundled as window.AuraTrend.
+    await esbuild.build({
+        entryPoints: [path.join(__dirname, 'src', 'analysis', 'trend.ts')],
+        bundle: true,
+        format: 'iife',
+        globalName: 'AuraTrend',
+        outfile: path.join(webviewDest, 'js', 'trend-core.js'),
+        logLevel: 'silent',
+        tsconfig: 'tsconfig.json',
+    });
+
     console.log('Webview assets copied.');
 }
 

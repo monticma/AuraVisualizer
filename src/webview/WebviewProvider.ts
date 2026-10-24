@@ -24,6 +24,7 @@ const SETTING_NORMALIZERS: Record<string, (v: unknown) => unknown> = {
     bloomRadius: (v) => clampNumber(v, 0, 2, 0.6),
     bloomThreshold: (v) => clampNumber(v, 0, 1, 0),
     riskWindow: (v) => normalizeRiskWindow(v),
+    complexityTrendThreshold: (v) => clampNumber(v, 0, 20, 0.5),
     rotateSpeed: (v) => clampNumber(v, 1, 5, 1),
     flightSpeed: (v) => clampNumber(v, 0.25, 4, 1),
     flightSmoothing: (v) => clampNumber(v, 0.02, 0.5, 0.12),
@@ -676,6 +677,7 @@ export class WebviewProvider {
                     bloomRadius: config.get<number>('bloomRadius', 0.6),
                     bloomThreshold: config.get<number>('bloomThreshold', 0.0),
                     riskWindow: normalizeRiskWindow(config.get<number>('riskWindow', 90)),
+                    complexityTrendThreshold: clampNumber(config.get<number>('complexityTrendThreshold', 0.5), 0, 20, 0.5),
                     rotateSpeed: normalizeRotateSpeed(config.get<number>('rotateSpeed', 1)),
                     flightSpeed: clampNumber(config.get<number>('flightSpeed', 1), 0.25, 4, 1),
                     flightSmoothing: clampNumber(config.get<number>('flightSmoothing', 0.12), 0.02, 0.5, 0.12),
@@ -740,6 +742,7 @@ export class WebviewProvider {
                 bloomRadius: config.get<number>('bloomRadius', 0.6),
                 bloomThreshold: config.get<number>('bloomThreshold', 0.0),
                 riskWindow: normalizeRiskWindow(config.get<number>('riskWindow', 90)),
+                complexityTrendThreshold: clampNumber(config.get<number>('complexityTrendThreshold', 0.5), 0, 20, 0.5),
                 rotateSpeed: normalizeRotateSpeed(config.get<number>('rotateSpeed', 1)),
                 flightSpeed: clampNumber(config.get<number>('flightSpeed', 1), 0.25, 4, 1),
                 flightSmoothing: clampNumber(config.get<number>('flightSmoothing', 0.12), 0.02, 0.5, 0.12),
@@ -785,6 +788,12 @@ export class WebviewProvider {
         );
         const cochangeCoreUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'cochange-core.js')
+        );
+        const trendCoreUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'trend-core.js')
+        );
+        const trendUiUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'trend-ui.js')
         );
         const flightUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'flight.js')
@@ -1154,6 +1163,15 @@ export class WebviewProvider {
                 <div id="risk-scatter-chart" class="risk-scatter-chart"></div>
             </div>
 
+            <div class="risk-section risk-collapsible" id="risk-complexity-trends">
+                <button type="button" class="risk-section-header risk-collapsed" id="risk-toggle-complexity-trends">
+                    <span class="risk-arrow" aria-hidden="true"></span>
+                    <span class="risk-header-label">📈 COMPLEXITY TREND</span>
+                    <span class="risk-count-badge" id="risk-complexity-trends-badge">0</span>
+                </button>
+                <div id="risk-list-complexity-trends" class="risk-files-list risk-collapsed"></div>
+            </div>
+
             <div class="risk-section risk-collapsible" id="risk-symbol-cycles">
                 <button type="button" class="risk-section-header risk-collapsed" id="risk-toggle-symbol-cycles">
                     <span class="risk-arrow" aria-hidden="true"></span>
@@ -1341,6 +1359,7 @@ export class WebviewProvider {
                         <th data-col="fanOut" class="num">Fan-out</th>
                         <th data-col="symbols" class="num">Symbols</th>
                         <th data-col="group">Folder</th>
+                        <th data-col="trend" class="num" title="Complexity slope per 30 days from git history">Trend</th>
                     </tr>
                 </thead>
                 <tbody id="table-body"></tbody>
@@ -1639,6 +1658,10 @@ export class WebviewProvider {
                     </select>
                 </div>
                 <div class="settings-row">
+                    <label for="set-complexityTrendThreshold">Complexity trend threshold<span class="settings-hint">Complexity points per 30 days that flag a file as degrading</span></label>
+                    <input id="set-complexityTrendThreshold" data-setting="complexityTrendThreshold" type="number" min="0" max="20" step="0.1" />
+                </div>
+                <div class="settings-row">
                     <label for="set-rotateSpeed">Mouse rotation speed<span class="settings-hint">Speed when dragging the 3D graph (1 = default)</span></label>
                     <span class="settings-slider-wrap">
                         <input type="range" id="set-rotateSpeed" data-setting="rotateSpeed" min="1" max="5" step="0.1" value="1">
@@ -1828,6 +1851,7 @@ export class WebviewProvider {
                 <p>The <strong>⚙️ button</strong> in the tab bar (next to 🔍 Query) opens a settings modal — changes apply instantly and are saved to your workspace settings:</p>
                 <table class="help-table">
                     <tr><td><strong>Risk history window</strong></td><td>30 / 90 / 365 days — drives the Risk Map, the status bar and hotspots</td></tr>
+                    <tr><td><strong>Complexity trend threshold</strong></td><td>Complexity points per 30 days that flag a file as degrading</td></tr>
                     <tr><td><strong>Mouse rotation speed</strong></td><td>Slider 1–5 — speed when dragging the 3D graph</td></tr>
                     <tr><td><strong>Link style</strong></td><td>Straight or curved dependency edges (+ curvature)</td></tr>
                     <tr><td><strong>Selected node effect</strong></td><td>Glow halo or bloom post-processing (+ intensity / radius / threshold)</td></tr>
@@ -1876,7 +1900,8 @@ export class WebviewProvider {
                 <h3>🛡️ Risk Map</h3>
                 <p>Open the <strong>🛡️ Risk</strong> tab for a codebase health dashboard. It uses a transparent risk score: <code>100 × (0.30·complexity + 0.20·fan-in + 0.10·fan-out + 0.15·cycle + 0.15·dead-code + 0.10·churn)</code>.</p>
                 <p>Complexity, fan-in, fan-out and churn are <strong>percentile ranks inside your repository</strong> (0 = lowest file, 1 = highest), so the score is a standing relative to this codebase. A <strong>History window</strong> selector (30 / 90 / 365 days) drives churn, scoring and explanations. Churn is <strong>rename-aware</strong>: files moved with <code>git mv</code> keep their history across the rename.</p>
-                <p>High / Medium / Low file lists are collapsible, each row explains <em>why</em> a file scores that way, and clicking a file selects it in the 3D graph. Also included: <strong>📈 Risk Trend</strong>, <strong>🔥 Recently Hot</strong> (last 30 days), <strong>📊 Churn × Complexity</strong> scatter (log scale), and <strong>👤 Bus Factor</strong> (files with a single author). Use <strong>📤 Export Report</strong> to write <code>.aura/risk-report.md</code>.</p>
+                <p>High / Medium / Low file lists are collapsible, each row explains <em>why</em> a file scores that way, and clicking a file selects it in the 3D graph. Also included: <strong>📈 Risk Trend</strong>, <strong>� Complexity Trend</strong> (per-file sparklines + slope), <strong>🔥 Recently Hot</strong> (last 30 days), <strong>📊 Churn × Complexity</strong> scatter (log scale), and <strong>👤 Bus Factor</strong> (files with a single author). Use <strong>📤 Export Report</strong> to write <code>.aura/risk-report.md</code>.</p>
+                <p><strong>Complexity Trend</strong> is rebuilt from Time Travel commit deltas: a least-squares slope per 30 days plus R² flags files whose complexity keeps growing. The <strong>Trend</strong> column in the Table is sortable; adjust the threshold with <code>auraVisualizer.complexityTrendThreshold</code> (default 0.5 point / 30 days).</p>
 
                 <h3>🔗 Temporal Co-change</h3>
                 <p>The <strong>🔗 Co-change</strong> tab finds files that keep changing in the same commits <em>without</em> a direct import/dependency — an implicit contract (API + client, test + implementation, shared config…). Run Time Travel (⏱️) first so git history is available.</p>
@@ -1913,6 +1938,8 @@ export class WebviewProvider {
     <!-- App Logic -->
     <script nonce="${nonce}" src="${configUri}"></script>
     <script nonce="${nonce}" src="${cochangeCoreUri}"></script>
+    <script nonce="${nonce}" src="${trendCoreUri}"></script>
+    <script nonce="${nonce}" src="${trendUiUri}"></script>
     <script nonce="${nonce}" src="${queryUri}"></script>
     <script nonce="${nonce}" src="${structureUri}"></script>
     <script nonce="${nonce}" src="${riskUri}"></script>

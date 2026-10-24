@@ -16,8 +16,8 @@ Click any tab in the **tab bar** below the toolbar. The 3D graph pauses when you
 | **🎵 Chord** | Chord diagram — ribbons show dependency flows between groups. Thicker ribbon = more dependencies |
 | **📊 Metrics** | Bar charts: LOC, complexity, fan-in, fan-out broken down by language and top files |
 | **📈 Timeline** | Line chart of metric evolution over git history. Choose between LOC, file count, avg complexity, or total complexity |
-| **📋 Table** | Sortable, filterable spreadsheet of all files with their metrics, including **Cog. max** (highest function cognitive complexity) |
-| **🛡️ Risk** | Codebase health dashboard — risk score, distribution, churn × complexity matrix, bus factor, exportable report |
+| **📋 Table** | Sortable, filterable spreadsheet of all files with their metrics, including **Cog. max** (highest function cognitive complexity) and a **Trend** sparkline column |
+| **🛡️ Risk** | Codebase health dashboard — risk score, distribution, churn × complexity matrix, complexity trends, bus factor, exportable report |
 | **🔗 Co-change** | Temporal co-change — files changing together without a direct dependency. Rows show co-changes, Jaccard, support; **Show on graph** adds virtual links |
 
 ### Treemap tips
@@ -49,6 +49,7 @@ Click any tab in the **tab bar** below the toolbar. The 3D graph pauses when you
 - Complexity, fan-in, fan-out and churn are **percentile ranks inside your repository** — a score is a standing relative to *this* codebase
 - Every row explains itself in plain words ("changed 29 times in 90 days (top 1%)"); hover for the full breakdown
 - **History window**: pick 30 / 90 / 365 days — it drives churn, scoring and the explanations (also editable in the ⚙️ Settings modal / `auraVisualizer.riskWindow` setting)
+- **📈 Complexity Trend** — per-file sparkline + least-squares slope per 30 days (R²). Files above `auraVisualizer.complexityTrendThreshold` (default 0.5) get a degrading badge; the Table has the same sortable **Trend** column
 - The VS Code **status bar** mirrors the risk of the file you are editing and warns with `⚠ N hotspots in your changes` when your working tree touches high-risk files — click it to jump to that file here
 - Buckets: High ≥ 66, Medium 33–65, Low < 33
 - Click any file in a list to select it and focus it in the 3D graph

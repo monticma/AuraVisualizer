@@ -408,6 +408,13 @@
           "default": 90,
           "description": "Git history window (in days) used by the Risk Map: churn, scoring and written explanations"
         },
+        "auraVisualizer.complexityTrendThreshold": {
+          "type": "number",
+          "default": 0.5,
+          "minimum": 0,
+          "maximum": 20,
+          "description": "Complexity points per 30 days that flag a file as degrading in the Trend column / Risk dashboard"
+        },
         "auraVisualizer.rotateSpeed": {
           "type": "number",
           "default": 1,
