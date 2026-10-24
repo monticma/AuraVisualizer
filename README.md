@@ -305,6 +305,7 @@ Aura also detects **function→function recursion**, not just file-level import 
 - **Mutual recursion** — `parse() → validate() → parse()` — is reported with the full function chain
 - Every step keeps the **call line** (`file.ts:42`), and cycles through same-name candidates are marked **ambiguous** with a 0.5 confidence
 - The **🔄 Symbol cycles** section in the detail panel lists cycles involving the selected file; the function **flowchart badge** adds **🔁 recursive** / **🔁 mutual recursion**
+- The **Risk** dashboard adds a collapsible **🔁 Symbol cycles** list with the chain, kind, confidence and ambiguous marker
 - Cycles are persisted in `.aura/graph.db` (`symbol_cycles` / `symbol_cycle_steps`) and recomputed after incremental edits
 - The MCP / `@aura` **`find_cycles`** tool returns both file cycles and `symbol_cycles`
 

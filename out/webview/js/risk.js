@@ -182,6 +182,42 @@
         renderRisingRisk();
         renderRiskScatter();
         renderBusFactor();
+        renderSymbolCycles();
+    }
+
+    /** Function-level recursion / mutual recursion (V2-03). */
+    function renderSymbolCycles() {
+        var section = document.getElementById('risk-symbol-cycles');
+        var list = document.getElementById('risk-list-symbol-cycles');
+        var badge = document.getElementById('risk-symbol-cycles-badge');
+        if (!section || !list) return;
+        var cycles = (hooks.getGraphData().meta && hooks.getGraphData().meta.symbolCycles) || [];
+        if (badge) badge.textContent = cycles.length;
+        section.style.display = cycles.length ? '' : 'none';
+        list.innerHTML = '';
+        for (var i = 0; i < cycles.length; i++) {
+            var cycle = cycles[i];
+            var names = (cycle.nodes || []).map(function(n) { return n.name + '()'; });
+            if (names.length) names.push(names[0]);
+            var chain = names.join(' → ');
+            var steps = (cycle.edges || []).map(function(edge) {
+                return edge.callerFile + ':' + edge.callLine + '  ' + edge.callerName + '() → ' + edge.calleeName + '()';
+            }).join('\n');
+            var row = document.createElement('div');
+            row.className = 'risk-cycle-row';
+            row.title = steps;
+            row.innerHTML =
+                '<div class="risk-cycle-chain">' + escapeHtml(chain) + '</div>' +
+                '<div class="risk-cycle-meta">' +
+                    '<span>' + (cycle.kind === 'recursive' ? 'direct recursion' : 'mutual recursion · ' + (cycle.nodes || []).length + ' functions') + '</span>' +
+                    '<span>confidence ' + cycle.confidence.toFixed(1) + '</span>' +
+                    (cycle.ambiguous ? '<span class="risk-cycle-ambiguous">ambiguous</span>' : '') +
+                '</div>';
+            (function(fileId) {
+                row.addEventListener('click', function() { focusRiskFile(fileId); });
+            })(cycle.nodes && cycle.nodes[0] ? cycle.nodes[0].file : '');
+            list.appendChild(row);
+        }
     }
 
     function renderRiskList(selector, items, bucket) {
@@ -715,7 +751,7 @@
                 hooks.postMessage({ type: 'updateSetting', payload: { key: 'riskWindow', value: v } });
             });
         }
-        var kinds = ['high', 'medium', 'low', 'rising', 'bus'];
+        var kinds = ['high', 'medium', 'low', 'rising', 'bus', 'symbol-cycles'];
         for (var i = 0; i < kinds.length; i++) {
             (function(kind) {
                 var btn = $('#risk-toggle-' + kind);

@@ -1154,6 +1154,15 @@ export class WebviewProvider {
                 <div id="risk-scatter-chart" class="risk-scatter-chart"></div>
             </div>
 
+            <div class="risk-section risk-collapsible" id="risk-symbol-cycles">
+                <button type="button" class="risk-section-header risk-collapsed" id="risk-toggle-symbol-cycles">
+                    <span class="risk-arrow" aria-hidden="true"></span>
+                    <span class="risk-header-label">🔁 SYMBOL CYCLES</span>
+                    <span class="risk-count-badge" id="risk-symbol-cycles-badge">0</span>
+                </button>
+                <div id="risk-list-symbol-cycles" class="risk-files-list risk-collapsed"></div>
+            </div>
+
             <div class="risk-section risk-collapsible" id="risk-rising">
                 <button type="button" class="risk-section-header risk-collapsed" id="risk-toggle-rising">
                     <span class="risk-arrow" aria-hidden="true"></span>

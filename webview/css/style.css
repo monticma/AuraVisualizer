@@ -3418,6 +3418,34 @@ body.chat-open #detail-panel.collapsed { display: none; }
 .risk-file-row { transition: background 0.35s ease; }
 .risk-file-row.risk-row-flash { background: rgba(255, 193, 7, 0.22); }
 
+.risk-cycle-row {
+    padding: 8px 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.risk-cycle-row:hover { background: rgba(255, 183, 77, 0.08); }
+.risk-cycle-chain {
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 12px;
+    color: #ffb74d;
+    overflow-wrap: anywhere;
+}
+.risk-cycle-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 3px;
+    font-size: 10px;
+    opacity: 0.55;
+}
+.risk-cycle-ambiguous {
+    color: #ffcc80;
+    opacity: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
 /* ============================================================
    Settings Modal
    ============================================================ */
