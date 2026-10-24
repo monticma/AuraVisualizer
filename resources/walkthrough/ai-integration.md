@@ -18,7 +18,7 @@ Contextual **Ask Aura** actions are also available in the file detail panel, clu
 
 The MCP server starts automatically and registers itself in `.vscode/mcp.json`. AI assistants (like GitHub Copilot) can then query your codebase graph.
 
-**Available tools (16):**
+**Available tools (17):**
 
 | Tool | What it does |
 |------|-------------|
@@ -31,6 +31,7 @@ The MCP server starts automatically and registers itself in `.vscode/mcp.json`. 
 | `find_unused_functions` | Functions/methods never called anywhere — even within their own file |
 | `get_hotspots` | Most at-risk files, ranked by the repository-relative risk score (percentile-based) with written reasons — optional `window_days`, raw sorts via `sort_by` |
 | `get_largest_files` | Largest files by lines of code |
+| `get_cochange` | Temporal-coupling pairs — files changing together without a direct dependency (Jaccard score) |
 | `search_symbols` | Find functions, classes, exports by name |
 | `find_heritage` | Inheritance and implementation relationships (extends/implements) |
 | `get_architecture` | High-level overview by language |

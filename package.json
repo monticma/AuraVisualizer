@@ -499,7 +499,7 @@
           {
             "id": "tabbed-views",
             "title": "Switch Between Views",
-            "description": "Use the **tab bar** to switch between 8 views: 3D Graph, Treemap, Matrix (DSM), Chord Diagram, Metrics Dashboard, Timeline Chart, File Table, and the Risk Dashboard.\n\nEach view offers a different perspective on your architecture.",
+            "description": "Use the **tab bar** to switch between 9 views: 3D Graph, Treemap, Matrix (DSM), Chord Diagram, Metrics Dashboard, Timeline Chart, File Table, Risk Dashboard and Temporal Coupling.\n\nEach view offers a different perspective on your architecture.",
             "media": {
               "markdown": "resources/walkthrough/views.md"
             }
@@ -547,7 +547,7 @@
           {
             "id": "ai-integration",
             "title": "AI Integration (@aura, MCP, Export)",
-            "description": "Mention **@aura** in VS Code Chat, query the built-in **MCP server** (16 deterministic tools), or use **📤 Export** for a guided Markdown/JSON AI context with selectable sections and a token budget.\n\nWorks with GitHub Copilot and other MCP clients.",
+            "description": "Mention **@aura** in VS Code Chat, query the built-in **MCP server** (17 deterministic tools), or use **📤 Export** for a guided Markdown/JSON AI context with selectable sections and a token budget.\n\nWorks with GitHub Copilot and other MCP clients.",
             "media": {
               "markdown": "resources/walkthrough/ai-integration.md"
             }

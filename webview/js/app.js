@@ -60,6 +60,13 @@
     var groupMeshes = [];
     var metricRanges = {};
 
+    // Temporal coupling (co-change) — computed from the timeline commits.
+    var cochangeResult = { pairs: [], windowDays: 365, commitsConsidered: 0, totalCommitsInWindow: 0, maxJaccard: 0 };
+    var cochangeByNode = {};
+    var cochangeWindowDays = 365;
+    var cochangeMinScore = 0.2;
+    var showCochangeLinks = false;
+
     // Path Mode
     var pathMode = false;
     var pathNodes = [];
@@ -156,6 +163,11 @@
         return (window.AuraRiskMap && window.AuraRiskMap.getChurn(id)) || 0;
     }
 
+    /** Strongest co-change Jaccard score for a file (0 outside a coupling pair). */
+    function getCochangeScore(id) {
+        return cochangeByNode[id] || 0;
+    }
+
     // ============================================================
     // VSCode Message Handling
     // ============================================================
@@ -217,6 +229,7 @@
                 break;
             case 'historyIndex':
                 if (window.AuraTimeline) window.AuraTimeline.handleHistoryIndex(message.payload);
+                refreshCochange();
                 break;
             case 'historyProgress':
                 if (window.AuraTimeline) window.AuraTimeline.handleHistoryProgress(message.payload);
@@ -440,6 +453,7 @@
                 getCycleNodeIds: function () { return cycleNodeIds; },
                 getMultiSelectedNodes: function () { return multiSelectedNodes; },
                 getPinnedNodes: function () { return pinnedNodes; },
+                getCochangeScore: getCochangeScore,
                 postMessage: function (msg) { vscode.postMessage(msg); }
             });
             AuraQueryBar.setup();
@@ -515,6 +529,9 @@
         // Refresh saved queries now that DB is definitely open
         try { vscode.postMessage({ type: 'requestSavedQueries' }); } catch (_) { /* noop */ }
         updateStaleNotesUI();
+        // Temporal coupling depends on both the graph (files + links) and the
+        // timeline commits; either message can arrive second.
+        refreshCochange();
         // Request saved view state from extension (pull model — guarantees graph is ready)
         vscode.postMessage({ type: 'requestViewState' });
         // Safety net: if no state is stored (fresh workspace) or the host never
@@ -774,7 +791,8 @@
             fanOut:     { min: Infinity, max: -Infinity },
             loc:        { min: Infinity, max: -Infinity },
             churn:      { min: Infinity, max: -Infinity },
-            lastModified: { min: Infinity, max: -Infinity }
+            lastModified: { min: Infinity, max: -Infinity },
+            cochange:   { min: 0, max: 0 }
         };
 
         for (var i = 0; i < nodes.length; i++) {
@@ -793,6 +811,9 @@
             var ch = getChurn(n.id) || getChurn(n.path);
             metricRanges.churn.min = Math.min(metricRanges.churn.min, ch);
             metricRanges.churn.max = Math.max(metricRanges.churn.max, ch);
+            var cc = getCochangeScore(n.id);
+            metricRanges.cochange.min = Math.min(metricRanges.cochange.min, cc);
+            metricRanges.cochange.max = Math.max(metricRanges.cochange.max, cc);
         }
     }
 
@@ -810,6 +831,67 @@
             var n = nodes[i];
             linkWidthNodeIndex[n.id] = { fanIn: n.fanIn || 0, fanOut: n.fanOut || 0 };
         }
+    }
+
+    /**
+     * Recompute temporal coupling from the timeline commits. The pure engine
+     * (cochange.ts) is bundled as window.AuraCochange, so the host, MCP and
+     * webview share exactly the same pair/Jaccard logic.
+     */
+    function refreshCochange() {
+        cochangeByNode = {};
+        if (!graphData || !window.AuraCochange) {
+            cochangeResult = { pairs: [], windowDays: cochangeWindowDays, commitsConsidered: 0, totalCommitsInWindow: 0, maxJaccard: 0 };
+            return;
+        }
+        var linkedPairs = [];
+        for (var i = 0; i < graphData.links.length; i++) {
+            var l = graphData.links[i];
+            var source = typeof l.source === 'object' ? l.source.id : l.source;
+            var target = typeof l.target === 'object' ? l.target.id : l.target;
+            if (source && target) linkedPairs.push([source, target]);
+        }
+        cochangeResult = AuraCochange.computeCochange(timelineCommitsList(), {
+            windowDays: cochangeWindowDays,
+            now: Date.now(),
+            minCochanges: 2,
+            minJaccard: cochangeMinScore,
+            maxFilesPerCommit: 50,
+            maxPairs: 400,
+            linkedPairs: linkedPairs,
+            allowedPaths: graphData.nodes.map(function(node) { return node.id; })
+        });
+        for (var p = 0; p < cochangeResult.pairs.length; p++) {
+            var pair = cochangeResult.pairs[p];
+            cochangeByNode[pair.a] = Math.max(cochangeByNode[pair.a] || 0, pair.jaccard);
+            cochangeByNode[pair.b] = Math.max(cochangeByNode[pair.b] || 0, pair.jaccard);
+        }
+        computeMetricRanges();
+        if (heatmapMode === 'cochange' && graph) graph.nodeColor(graph.nodeColor());
+        if (showCochangeLinks && graph) applyFilters();
+        if (activeTab === 'coupling' && window.AuraViews) AuraViews.renderCoupling();
+    }
+
+    function setCochangeOptions(options) {
+        if (options && typeof options.windowDays === 'number' && options.windowDays > 0) {
+            cochangeWindowDays = options.windowDays;
+        }
+        if (options && typeof options.minScore === 'number') {
+            cochangeMinScore = Math.max(0, Math.min(1, options.minScore));
+        }
+        refreshCochange();
+        saveViewState();
+    }
+
+    /** Show the top co-change pairs as virtual links on the 3D graph. */
+    function showCochangeOnGraph() {
+        if (!cochangeResult.pairs.length) return;
+        showCochangeLinks = true;
+        var btn = $('#btn-cochange-links');
+        if (btn) btn.classList.add('active');
+        applyFilters();
+        switchTab('graph');
+        saveViewState();
     }
 
     // ============================================================
@@ -1379,7 +1461,8 @@
                 return 3;
             })
             .linkDirectionalArrowRelPos(1)
-            .linkDirectionalParticles(function(link) { 
+            .linkDirectionalParticles(function(link) {
+                if (link && link._cochange) return 4;
                 var ts = ttState();
                 if (link._isCallEdge) {
                     if (!hoveredSymbolId) return 0;
@@ -1746,6 +1829,7 @@
                 case 'fanOut':     value = node.fanOut; break;
                 case 'loc':        value = node.linesOfCode; break;
                 case 'churn':      value = getChurn(node.id) || getChurn(node.path); break;
+                case 'cochange':   value = getCochangeScore(node.id); break;
                 case 'lastModified': value = node.lastModified || 0; break;
                 default:           value = 0;
             }
@@ -1818,6 +1902,7 @@
     }
 
     function getLinkColor(link) {
+        if (link && link._cochange) return '#e879f9';
         if (showOrphans) return '#ffffff02';
         if (showDeadCode) return '#ffffff08';
 
@@ -1901,6 +1986,7 @@
     }
 
     function getLinkWidth(link) {
+        if (link && link._cochange) return 2.2;
         if (link._isCallEdge) {
             if (!hoveredSymbolId) return 0;
             var cwSrc = typeof link.source === 'object' ? link.source.id : link.source;
@@ -2933,6 +3019,9 @@
             pathMode: pathMode,
             showLabels: showLabels,
             followEditor: followEditorEnabled,
+            cochangeWindow: cochangeWindowDays,
+            cochangeMinScore: cochangeMinScore,
+            showCochangeLinks: showCochangeLinks,
             heatmapMode: heatmapMode,
             nodeSizeMultiplier: nodeSizeMultiplier,
             spreadMultiplier: spreadMultiplier,
@@ -2996,6 +3085,17 @@
             followEditorEnabled = state.followEditor;
             if (!followEditorEnabled) followEditorPaused = false;
             updateFollowEditorButton();
+        }
+        if (typeof state.cochangeWindow === 'number' && state.cochangeWindow > 0) {
+            cochangeWindowDays = state.cochangeWindow;
+        }
+        if (typeof state.cochangeMinScore === 'number') {
+            cochangeMinScore = Math.max(0, Math.min(1, state.cochangeMinScore));
+        }
+        if (typeof state.showCochangeLinks === 'boolean') {
+            showCochangeLinks = state.showCochangeLinks;
+            var cochangeBtn = $('#btn-cochange-links');
+            if (cochangeBtn) cochangeBtn.classList.toggle('active', showCochangeLinks);
         }
 
         $('#btn-dag-mode').classList.toggle('active', dagMode);
@@ -3104,6 +3204,9 @@
             graph.linkColor(graph.linkColor());
             graph.nodeThreeObject(graph.nodeThreeObject());
         }
+
+        // Restored coupling options may differ from the boot defaults.
+        if (graphData && window.AuraCochange) refreshCochange();
     }
 
     function setupFilters() {
@@ -3201,6 +3304,16 @@
                     graph.nodeVisibility(graph.nodeVisibility());
                     graph.linkVisibility(graph.linkVisibility());
                 }
+                saveViewState();
+            });
+        }
+
+        var cochangeLinksBtn = $('#btn-cochange-links');
+        if (cochangeLinksBtn) {
+            cochangeLinksBtn.addEventListener('click', function() {
+                showCochangeLinks = !showCochangeLinks;
+                cochangeLinksBtn.classList.toggle('active', showCochangeLinks);
+                applyFilters();
                 saveViewState();
             });
         }
@@ -3656,7 +3769,7 @@
         // ============================================================
         // Keyboard shortcuts
         // ============================================================
-        var HEATMAP_MODES = ['off', 'complexity', 'fanIn', 'fanOut', 'loc', 'churn', 'lastModified', 'community'];
+        var HEATMAP_MODES = ['off', 'complexity', 'fanIn', 'fanOut', 'loc', 'churn', 'cochange', 'lastModified', 'community'];
 
         document.addEventListener('keydown', function(e) {
             // Ignore when typing in an input
@@ -3849,6 +3962,24 @@
             var sourceId = typeof l.source === 'object' ? l.source.id : l.source;
             var targetId = typeof l.target === 'object' ? l.target.id : l.target;
             if (nodeIds.has(sourceId) && nodeIds.has(targetId)) filteredLinks.push(l);
+        }
+
+        // Temporal-coupling links are virtual: they exist only while the
+        // Coupling overlay is enabled and never pollute graphData/DB edges.
+        if (showCochangeLinks && !showGroups && cochangeResult.pairs.length > 0) {
+            var virtualLimit = Math.min(80, cochangeResult.pairs.length);
+            for (var cp = 0; cp < virtualLimit; cp++) {
+                var pair = cochangeResult.pairs[cp];
+                if (!nodeIds.has(pair.a) || !nodeIds.has(pair.b)) continue;
+                filteredLinks.push({
+                    source: pair.a,
+                    target: pair.b,
+                    type: 'co-change',
+                    label: 'co-change ' + pair.jaccard.toFixed(2),
+                    _cochange: pair.jaccard,
+                    _cochangeCount: pair.cochanges
+                });
+            }
         }
 
         var result = { nodes: filteredNodes, links: filteredLinks };
@@ -4142,10 +4273,16 @@
                 getSelectedNode: function () { return selectedNode; },
                 setSelectedNode: function (n) { selectedNode = n; },
                 getActiveTab: function () { return activeTab; },
+                getCochangeResult: function () { return cochangeResult; },
+                getCochangeOptions: function () { return { windowDays: cochangeWindowDays, minScore: cochangeMinScore }; },
+                setCochangeOptions: setCochangeOptions,
+                showCochangeOnGraph: showCochangeOnGraph,
+                focusNode: focusNodeById,
                 findNode: findNode,
                 postMessage: function (msg) { vscode.postMessage(msg); }
             });
             AuraViews.setupTableInteractions();
+            AuraViews.setupCoupling();
             AuraViews.setupTreemap();
             AuraViews.setupDSM();
             AuraViews.setupChord();
@@ -4226,6 +4363,7 @@
         // Render tab content (the view renderers live in views.js)
         if (window.AuraViews) {
             if (tabName === 'metrics') AuraViews.renderMetrics();
+            if (tabName === 'coupling') AuraViews.renderCoupling();
             if (tabName === 'treemap') AuraViews.renderTreemap();
             if (tabName === 'dsm') AuraViews.renderDSM();
             if (tabName === 'chord') AuraViews.renderChord();

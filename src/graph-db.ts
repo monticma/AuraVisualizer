@@ -11,6 +11,7 @@ import initSqlJs, { type Database as SqlJsDatabase } from 'sql.js';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import type { GraphData, GraphNode, GraphLink } from './analyzer/types';
+import type { CochangePair } from './analysis/cochange';
 
 // ── Row types returned by queries ──────────────────────────────
 
@@ -68,6 +69,19 @@ export interface OverviewRow {
     count: number;
     total_loc: number;
     avg_complexity: number;
+}
+
+export interface CochangeRow {
+    file_a: string;
+    file_b: string;
+    cochanges: number;
+    a_commits: number;
+    b_commits: number;
+    union_commits: number;
+    jaccard: number;
+    support: number;
+    linked: number;
+    window_days: number;
 }
 
 // ── Schema ─────────────────────────────────────────────────────
@@ -130,6 +144,20 @@ CREATE TABLE IF NOT EXISTS function_calls (
     PRIMARY KEY (caller_file, caller_name, callee_file, callee_name, call_line)
 );
 
+CREATE TABLE IF NOT EXISTS cochange_pairs (
+    file_a        TEXT NOT NULL,
+    file_b        TEXT NOT NULL,
+    cochanges     INTEGER NOT NULL,
+    a_commits     INTEGER NOT NULL,
+    b_commits     INTEGER NOT NULL,
+    union_commits INTEGER NOT NULL,
+    jaccard       REAL NOT NULL,
+    support       REAL NOT NULL,
+    linked        INTEGER NOT NULL DEFAULT 0,
+    window_days   INTEGER NOT NULL DEFAULT 365,
+    PRIMARY KEY (file_a, file_b)
+);
+
 CREATE TABLE IF NOT EXISTS saved_queries (
     id         TEXT PRIMARY KEY,
     name       TEXT NOT NULL,
@@ -146,6 +174,7 @@ CREATE INDEX IF NOT EXISTS idx_nodes_language ON nodes(language);
 CREATE INDEX IF NOT EXISTS idx_nodes_group ON nodes(group_name);
 CREATE INDEX IF NOT EXISTS idx_fcalls_caller ON function_calls(caller_file, caller_name);
 CREATE INDEX IF NOT EXISTS idx_fcalls_callee ON function_calls(callee_file, callee_name);
+CREATE INDEX IF NOT EXISTS idx_cochange_score ON cochange_pairs(jaccard DESC, cochanges DESC);
 
 CREATE VIRTUAL TABLE IF NOT EXISTS doc_chunks USING fts4(
     file_id, section, content, line_start, tokenize=porter
@@ -698,6 +727,39 @@ export class GraphDB {
         return queryAll<NodeRow>(this.ensureDb(),
             'SELECT * FROM nodes WHERE fan_in = 0 ORDER BY fan_out, name LIMIT ?',
             [limit]
+        );
+    }
+
+    /** Replace all persisted co-change pairs (history scan / analysis refresh). */
+    replaceCochange(pairs: CochangePair[], windowDays: number): void {
+        const db = this.ensureDb();
+        const days = Number.isFinite(windowDays) ? Math.round(windowDays) : 365;
+        db.run('BEGIN TRANSACTION');
+        try {
+            db.run('DELETE FROM cochange_pairs');
+            for (const pair of pairs) {
+                const a = pair.a < pair.b ? pair.a : pair.b;
+                const b = pair.a < pair.b ? pair.b : pair.a;
+                db.run(
+                    'INSERT OR REPLACE INTO cochange_pairs (file_a, file_b, cochanges, a_commits, b_commits, union_commits, jaccard, support, linked, window_days) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    [a, b, pair.cochanges, pair.aCommits, pair.bCommits, pair.aCommits + pair.bCommits - pair.cochanges, pair.jaccard, pair.support, pair.linked ? 1 : 0, days]
+                );
+            }
+            db.run('COMMIT');
+            this.save();
+        } catch (err) {
+            try { db.run('ROLLBACK'); } catch { /* ignore */ }
+            throw err;
+        }
+    }
+
+    /** Strongest co-change pairs, optionally above a Jaccard threshold. */
+    getCochange(limit: number = 50, minScore: number = 0): CochangeRow[] {
+        const capped = Math.max(1, Math.min(500, Math.round(limit)));
+        const threshold = Number.isFinite(minScore) ? Math.max(0, Math.min(1, minScore)) : 0;
+        return queryAll<CochangeRow>(this.ensureDb(),
+            'SELECT file_a, file_b, cochanges, a_commits, b_commits, union_commits, jaccard, support, linked, window_days FROM cochange_pairs WHERE jaccard >= ? ORDER BY jaccard DESC, cochanges DESC, file_a, file_b LIMIT ?',
+            [threshold, capped]
         );
     }
 

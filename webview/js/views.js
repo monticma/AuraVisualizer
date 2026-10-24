@@ -21,6 +21,8 @@
     var communityNames = {};
     var selectedNode = null;
     var activeTab = 'graph';
+    var cochangeResult = { pairs: [], windowDays: 365, commitsConsidered: 0, totalCommitsInWindow: 0, maxJaccard: 0 };
+    var cochangeOptions = { windowDays: 365, minScore: 0.2 };
 
     var $ = function(sel) { return document.querySelector(sel); };
     var tooltip = document.getElementById('tooltip');
@@ -35,6 +37,86 @@
         communityNames = hooks.getCommunityNames();
         selectedNode = hooks.getSelectedNode();
         activeTab = hooks.getActiveTab();
+        cochangeResult = hooks.getCochangeResult ? hooks.getCochangeResult() : cochangeResult;
+        cochangeOptions = hooks.getCochangeOptions ? hooks.getCochangeOptions() : cochangeOptions;
+    }
+
+    // ============================================================
+    // Temporal Coupling View
+    // ============================================================
+    function renderCoupling() {
+        syncCtx();
+        var body = $('#coupling-body');
+        var summary = $('#coupling-summary');
+        if (!body) return;
+
+        var windowSelect = $('#coupling-window');
+        var minSelect = $('#coupling-min');
+        if (windowSelect) windowSelect.value = String(cochangeOptions.windowDays || 365);
+        if (minSelect) minSelect.value = String(cochangeOptions.minScore != null ? cochangeOptions.minScore : 0.2);
+
+        var pairs = cochangeResult && cochangeResult.pairs ? cochangeResult.pairs : [];
+        if (summary) {
+            if (pairs.length === 0) {
+                summary.textContent = timelineCommits.length === 0
+                    ? 'No git history yet — run Time Travel (⏱️) to load commits.'
+                    : 'No implicit coupling detected in this window. Lower the minimum score or widen the window.';
+            } else {
+                summary.textContent = pairs.length + ' implicit pairs · ' +
+                    (cochangeResult.commitsConsidered || 0) + ' multi-file commits · window ' +
+                    (cochangeResult.windowDays || cochangeOptions.windowDays) + ' days · min Jaccard ' +
+                    cochangeOptions.minScore;
+            }
+        }
+
+        if (pairs.length === 0) {
+            body.innerHTML = '<tr><td colspan="6" class="coupling-empty">No pairs to display.</td></tr>';
+            return;
+        }
+
+        var html = '';
+        for (var i = 0; i < pairs.length && i < 200; i++) {
+            var pair = pairs[i];
+            html += '<tr>' +
+                '<td><span class="coupling-file" data-node-id="' + escapeHtml(pair.a) + '">' + escapeHtml(pair.a) + '</span>' +
+                ' ↔ ' +
+                '<span class="coupling-file" data-node-id="' + escapeHtml(pair.b) + '">' + escapeHtml(pair.b) + '</span></td>' +
+                '<td class="num">' + pair.cochanges + '</td>' +
+                '<td class="num"><span class="coupling-score">' + pair.jaccard.toFixed(3) + '</span></td>' +
+                '<td class="num">' + (pair.support * 100).toFixed(1) + '%</td>' +
+                '<td class="num">' + pair.aCommits + '</td>' +
+                '<td class="num">' + pair.bCommits + '</td>' +
+                '</tr>';
+        }
+        body.innerHTML = html;
+    }
+
+    function setupCoupling() {
+        var windowSelect = $('#coupling-window');
+        var minSelect = $('#coupling-min');
+        var showBtn = $('#coupling-show-graph');
+        var body = $('#coupling-body');
+        if (windowSelect) {
+            windowSelect.addEventListener('change', function() {
+                if (hooks.setCochangeOptions) hooks.setCochangeOptions({ windowDays: parseFloat(this.value) });
+            });
+        }
+        if (minSelect) {
+            minSelect.addEventListener('change', function() {
+                if (hooks.setCochangeOptions) hooks.setCochangeOptions({ minScore: parseFloat(this.value) });
+            });
+        }
+        if (showBtn) {
+            showBtn.addEventListener('click', function() {
+                if (hooks.showCochangeOnGraph) hooks.showCochangeOnGraph();
+            });
+        }
+        if (body) {
+            body.addEventListener('click', function(e) {
+                var target = e.target && e.target.closest ? e.target.closest('.coupling-file') : null;
+                if (target && hooks.focusNode) hooks.focusNode(target.dataset.nodeId);
+            });
+        }
     }
 
     // ============================================================
@@ -1786,6 +1868,7 @@
         init: init,
         // Tab renderers — called by switchTab()
         renderMetrics: renderMetrics,
+        renderCoupling: renderCoupling,
         renderTreemap: renderTreemap,
         renderChord: renderChord,
         renderTimelineChart: renderTimelineChart,
@@ -1797,6 +1880,7 @@
         setupDSM: setupDSM,
         setupTimelineChart: setupTimelineChart,
         setupTableInteractions: setupTableInteractions,
+        setupCoupling: setupCoupling,
         // Shared with the Risk dashboard / time-travel invalidation
         computeTimelineSnapshots: computeTimelineSnapshots,
         invalidateTimelineSnapshots: function () { tchartCachedSnapshots = null; }

@@ -25,6 +25,7 @@ import { metricsToCsv, metricsToJson, type MetricsRow } from './report/metrics-e
 import { buildAiExportInput, generateAiExport, type AiExportSection } from './export/ai-export';
 import { saveOrCopyText, saveText } from './export/save';
 import { chunkDocument, type DocChunk } from './analyzer/parsers/doc-parser';
+import { computeCochange } from './analysis/cochange';
 
 let webviewProvider: WebviewProvider | undefined;
 let cachedGraphData: GraphData | undefined;
@@ -390,6 +391,10 @@ async function refreshAnalysis(context: vscode.ExtensionContext): Promise<void> 
             }
             graphDb.importGraphData(cachedGraphData);
             graphDb.importDocChunks(result.docChunks);
+
+            // History may already be cached — recompute temporal coupling now that
+            // the current graph (allowed paths + structural links) is available.
+            refreshCochangeFromHistory();
 
             // Auto-register MCP server config
             await registerMcpServer(context, rootPath);
@@ -807,6 +812,50 @@ function invalidateRisk(): void {
     updateRiskStatusBar();
 }
 
+/**
+ * Recompute temporal coupling from the current commit index and graph.
+ * Persists to the DB (MCP tools) and `.aura/history/cochange.json` (portable
+ * snapshot for external agents). Non-critical: failures are logged only.
+ */
+function refreshCochangeFromHistory(): void {
+    if (!commitIndex || !cachedGraphData) return;
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) return;
+    try {
+        const linkedPairs: [string, string][] = [];
+        for (const link of cachedGraphData.links) {
+            const source = typeof link.source === 'object' ? (link.source as GraphNode).id : link.source;
+            const target = typeof link.target === 'object' ? (link.target as GraphNode).id : link.target;
+            if (source && target) linkedPairs.push([source, target]);
+        }
+        const result = computeCochange(commitIndex.commits, {
+            windowDays: 365,
+            minCochanges: 2,
+            minJaccard: 0.2,
+            maxFilesPerCommit: 50,
+            maxPairs: 500,
+            linkedPairs,
+            allowedPaths: cachedGraphData.nodes.map(node => node.id),
+        });
+        if (graphDb) graphDb.replaceCochange(result.pairs, result.windowDays);
+
+        const payload = {
+            windowDays: result.windowDays,
+            generatedAt: new Date().toISOString(),
+            commitsConsidered: result.commitsConsidered,
+            totalCommitsInWindow: result.totalCommitsInWindow,
+            maxJaccard: result.maxJaccard,
+            pairs: result.pairs,
+        };
+        const historyDir = path.join(workspaceFolder.uri.fsPath, '.aura', 'history');
+        void fs.mkdir(historyDir, { recursive: true })
+            .then(() => fs.writeFile(path.join(historyDir, 'cochange.json'), JSON.stringify(payload, null, 2), 'utf-8'))
+            .catch(err => console.warn('[aura] cochange snapshot write failed:', err));
+    } catch (err) {
+        console.warn('[aura] cochange computation failed:', err);
+    }
+}
+
 function ensureRiskSnapshot(): RiskSnapshot | undefined {
     if (!cachedGraphData || cachedGraphData.nodes.length === 0) return undefined;
     if (!riskSnapshotDirty && riskSnapshot) return riskSnapshot;
@@ -1027,6 +1076,7 @@ async function startHistoryScan(
             case 'index':
                 commitIndex = msg.payload as CommitIndex;
                 invalidateRisk();
+                refreshCochangeFromHistory();
                 // Send to webview so it can show the timeline
                 if (webviewProvider) {
                     webviewProvider.sendHistoryIndex(commitIndex);

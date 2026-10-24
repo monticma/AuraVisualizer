@@ -783,6 +783,9 @@ export class WebviewProvider {
         const flightCoreUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'flight-core.js')
         );
+        const cochangeCoreUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'cochange-core.js')
+        );
         const flightUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'flight.js')
         );
@@ -886,6 +889,7 @@ export class WebviewProvider {
             <button class="tab-btn" data-tab="timeline">📈 Timeline</button>
             <button class="tab-btn" data-tab="table">📋 Table</button>
             <button class="tab-btn" data-tab="risk">🛡️ Risk</button>
+            <button class="tab-btn" data-tab="coupling">🔗 Coupling</button>
             <button id="qb-toggle" class="qb-toggle" title="Toggle query bar (Ctrl+K)">🔍</button>
             <button id="settings-toggle" type="button" class="qb-toggle" title="Aura settings">⚙️</button>
             <button id="chat-toggle" type="button" class="qb-toggle chat-toggle" title="Toggle Aura Assistant (AI chat)" hidden>✨</button>
@@ -1241,9 +1245,48 @@ export class WebviewProvider {
         <div id="dsm-container"></div>
     </div>
 
+    <!-- Coupling View -->
+    <div id="coupling-view" class="tab-content" data-tab="coupling">
+        <div class="coupling-toolbar">
+            <div class="coupling-title">🔗 Temporal Coupling</div>
+            <div class="coupling-actions">
+                <label class="coupling-label">Window
+                    <select id="coupling-window" class="filter-select">
+                        <option value="90">90 days</option>
+                        <option value="365" selected>365 days</option>
+                        <option value="730">2 years</option>
+                    </select>
+                </label>
+                <label class="coupling-label">Min score
+                    <select id="coupling-min" class="filter-select">
+                        <option value="0.2" selected>0.2</option>
+                        <option value="0.4">0.4</option>
+                        <option value="0.6">0.6</option>
+                    </select>
+                </label>
+                <button id="coupling-show-graph" class="risk-export-btn" title="Show the top pairs as virtual links in the 3D graph">Show on graph</button>
+            </div>
+        </div>
+        <p id="coupling-summary" class="coupling-summary"></p>
+        <div class="table-scroll">
+            <table class="aura-table">
+                <thead>
+                    <tr>
+                        <th>Pair</th>
+                        <th class="num">Co-changes</th>
+                        <th class="num">Jaccard</th>
+                        <th class="num">Support</th>
+                        <th class="num">A</th>
+                        <th class="num">B</th>
+                    </tr>
+                </thead>
+                <tbody id="coupling-body"></tbody>
+            </table>
+        </div>
+    </div>
+
     <!-- Table View -->
-    <div id="table-view" class="tab-content" data-tab="table">
-        <div class="table-toolbar">
+    <div id="table-view" class="tab-content" data-tab="table">        <div class="table-toolbar">
             <span class="search-icon">⌕</span>
             <input type="text" id="table-search" placeholder="Filter files..." autocomplete="off">
         </div>
@@ -1359,6 +1402,7 @@ export class WebviewProvider {
             <button class="filter-btn" id="btn-dirty-only" title="Only files with uncommitted changes (git working tree)">✏️ Dirty</button>
             <button class="filter-btn active" id="btn-notes" title="Show note indicators on annotated files">📝 Notes<span id="notes-stale-count" class="filter-count" style="display:none">0</span></button>
             <button class="filter-btn" id="btn-stale-notes" title="No stale notes" disabled>⚠️ Stale</button>
+            <button class="filter-btn" id="btn-cochange-links" title="Show virtual temporal-coupling links (co-change without a direct dependency)">🔗 Co-change</button>
             <button class="filter-btn" id="btn-warps-panel" title="Warp points — named camera bookmarks">🌀 Warps</button>
             <button class="filter-btn" id="btn-group-dirs" title="Group by directory">📁 Groups</button>
             <button class="filter-btn" id="btn-path-mode" title="Find path between 2 nodes">🔗 Path</button>
@@ -1375,6 +1419,7 @@ export class WebviewProvider {
                 <option value="fanOut">📤 Fan-out</option>
                 <option value="loc">📏 Lines of code</option>
                 <option value="churn">⏱ Churn (commits)</option>
+                <option value="cochange">🔗 Co-change</option>
                 <option value="lastModified">📆 Last update</option>
                 <option value="community">🧩 Communities</option>
             </select>
@@ -1662,6 +1707,7 @@ export class WebviewProvider {
                     <tr><td><strong>Fan-out</strong></td><td>How many files this file depends on</td></tr>
                     <tr><td><strong>Lines of Code</strong></td><td>File size</td></tr>
                     <tr><td><strong>Churn (commits)</strong></td><td>Git commit count per file (needs Time Travel scan)</td></tr>
+                    <tr><td><strong>Co-change</strong></td><td>Strongest temporal-coupling score per file (needs Time Travel scan)</td></tr>
                     <tr><td><strong>Last Modified</strong></td><td>File modification time</td></tr>
                     <tr><td><strong>Communities</strong></td><td>Architectural modules (Louvain algorithm)</td></tr>
                 </table>
@@ -1705,7 +1751,7 @@ export class WebviewProvider {
 
                 <h3>🔍 Query Filter</h3>
                 <p>Open the query bar with the <strong>🔍 button</strong> (far right of the tab bar) or <kbd>Ctrl+K</kbd> / <kbd>Cmd+K</kbd> — it stays hidden until you need it. Type a boolean expression over node metrics, e.g. <code>complexity &gt; 20 AND fanIn &gt; 5</code>.</p>
-                <p><strong>Fields:</strong> <code>complexity</code>, <code>loc</code>, <code>fanin</code> / <code>fanout</code>, <code>size</code>, <code>mtime</code> / <code>lastmodified</code>, <code>symbols</code>, <code>deadexports</code>, <code>language</code>, <code>name</code>, <code>path</code>, <code>group</code>, <code>extension</code>, <code>community</code>, and flags <code>isorphan</code> / <code>isdead</code> / <code>incycle</code> / <code>ispinned</code> / <code>dirty</code> / <code>hasnote</code> / <code>stalenote</code>.</p>
+                <p><strong>Fields:</strong> <code>complexity</code>, <code>loc</code>, <code>fanin</code> / <code>fanout</code>, <code>size</code>, <code>mtime</code> / <code>lastmodified</code>, <code>symbols</code>, <code>deadexports</code>, <code>cochange</code>, <code>language</code>, <code>name</code>, <code>path</code>, <code>group</code>, <code>extension</code>, <code>community</code>, and flags <code>isorphan</code> / <code>isdead</code> / <code>incycle</code> / <code>ispinned</code> / <code>dirty</code> / <code>hasnote</code> / <code>stalenote</code>.</p>
                 <p><strong>Operators:</strong> <code>==</code>, <code>!=</code>, <code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, <code>&lt;=</code>, <code>~</code> (regex), <code>!~</code>, <code>in [ ... ]</code>, plus <code>AND</code> / <code>OR</code> / <code>NOT</code>.</p>
                 <p><strong>Modes:</strong> <strong>Highlight</strong> (dim non-matching), <strong>Filter</strong> (hide non-matching), <strong>Select</strong> (multi-select). Press <strong>⭐</strong> to save a query and <strong>📚</strong> to reopen saved ones.</p>
 
@@ -1739,7 +1785,7 @@ export class WebviewProvider {
                 <p>Toggle with the <strong>🗺️ Map</strong> button. Shows a top-down overview of all nodes. The white rectangle indicates the camera viewport. Click on the minimap to navigate. Drag the header to reposition.</p>
 
                 <h3>📑 Tabbed Views</h3>
-                <p>Switch between <strong>8 tabs</strong> in the tab bar for different perspectives:</p>
+                <p>Switch between <strong>9 tabs</strong> in the tab bar for different perspectives:</p>
                 <table class="help-table">
                     <tr><td><strong>✦ 3D Graph</strong></td><td>Interactive 3D force-directed dependency graph</td></tr>
                     <tr><td><strong>🗺️ Treemap</strong></td><td>Files nested by directory, sized by LOC/complexity</td></tr>
@@ -1749,12 +1795,17 @@ export class WebviewProvider {
                     <tr><td><strong>📈 Timeline</strong></td><td>Metric evolution over git history</td></tr>
                     <tr><td><strong>📋 Table</strong></td><td>Sortable, filterable file spreadsheet</td></tr>
                     <tr><td><strong>🛡️ Risk</strong></td><td>Codebase risk dashboard (health score, churn, bus factor)</td></tr>
+                    <tr><td><strong>🔗 Coupling</strong></td><td>Temporal coupling pairs — co-change without a direct dependency, with virtual graph links</td></tr>
                 </table>
 
                 <h3>🛡️ Risk Map</h3>
                 <p>Open the <strong>🛡️ Risk</strong> tab for a codebase health dashboard. It uses a transparent risk score: <code>100 × (0.30·complexity + 0.20·fan-in + 0.10·fan-out + 0.15·cycle + 0.15·dead-code + 0.10·churn)</code>.</p>
                 <p>Complexity, fan-in, fan-out and churn are <strong>percentile ranks inside your repository</strong> (0 = lowest file, 1 = highest), so the score is a standing relative to this codebase. A <strong>History window</strong> selector (30 / 90 / 365 days) drives churn, scoring and explanations. Churn is <strong>rename-aware</strong>: files moved with <code>git mv</code> keep their history across the rename.</p>
                 <p>High / Medium / Low file lists are collapsible, each row explains <em>why</em> a file scores that way, and clicking a file selects it in the 3D graph. Also included: <strong>📈 Risk Trend</strong>, <strong>🔥 Recently Hot</strong> (last 30 days), <strong>📊 Churn × Complexity</strong> scatter (log scale), and <strong>👤 Bus Factor</strong> (files with a single author). Use <strong>📤 Export Report</strong> to write <code>.aura/risk-report.md</code>.</p>
+
+                <h3>🔗 Temporal Coupling (co-change)</h3>
+                <p>The <strong>🔗 Coupling</strong> tab finds files that keep changing in the same commits <em>without</em> a direct import/dependency — an implicit contract (API + client, test + implementation, shared config…). Run Time Travel (⏱️) first so git history is available.</p>
+                <p>Pairs are ranked by <strong>Jaccard</strong> = <code>cochanges / (A commits + B commits − cochanges)</code>; <strong>support</strong> is the share of analysed multi-file commits touching both files. Renames are followed, deletions and giant commits (&gt;50 files) are ignored. <strong>Show on graph</strong> adds virtual magenta links for the strongest pairs; the <strong>🔗 Co-change</strong> filter toggles them and the heatmap mode colors files by their strongest coupling score. Queries can use <code>cochange &gt; 0.6</code>.</p>
 
                 <h3>🔗 Edge Colors</h3>
                 <table class="help-table">
@@ -1769,6 +1820,7 @@ export class WebviewProvider {
                     <tr><td><span style="color:#ff8a65">━━</span> <strong>script</strong></td><td>HTML <code>&lt;script src&gt;</code> / script path built with <code>join()</code> or <code>joinPath()</code></td></tr>
                     <tr><td><span style="color:#ce93d8">━━</span> <strong>stylesheet</strong></td><td>HTML <code>&lt;link rel="stylesheet"&gt;</code> / CSS <code>@import</code> / stylesheet path built with <code>join()</code></td></tr>
                     <tr><td><span style="color:#b0bec5">┈┈</span> <strong>doc-reference</strong></td><td>Symbol / filename mention inside a <code>.md</code> / <code>.txt</code> / <code>.rst</code> file</td></tr>
+                    <tr><td><span style="color:#e879f9">━━</span> <strong>co-change</strong></td><td>Virtual temporal-coupling link (not a code dependency)</td></tr>
                 </table>
 
                 <h3>📄 Documentation in the Graph</h3>
@@ -1785,6 +1837,7 @@ export class WebviewProvider {
     <script nonce="${nonce}" src="${forceGraphUri}"></script>
     <!-- App Logic -->
     <script nonce="${nonce}" src="${configUri}"></script>
+    <script nonce="${nonce}" src="${cochangeCoreUri}"></script>
     <script nonce="${nonce}" src="${queryUri}"></script>
     <script nonce="${nonce}" src="${structureUri}"></script>
     <script nonce="${nonce}" src="${riskUri}"></script>

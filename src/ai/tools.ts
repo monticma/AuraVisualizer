@@ -74,6 +74,17 @@ export const AURA_TOOLS: AuraTool[] = [
         },
     },
     {
+        name: 'aura_get_cochange',
+        description: 'Return the strongest temporal-coupling pairs: files that keep changing in the same commits without a direct dependency. Jaccard score = cochanges / union of commits.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                limit: { type: 'number', description: 'Maximum pairs (default 50)' },
+                min_score: { type: 'number', description: 'Minimum Jaccard score 0–1 (default 0)' },
+            },
+        },
+    },
+    {
         name: 'aura_find_path',
         description: 'Find the shortest dependency path between two files.',
         inputSchema: {
@@ -259,6 +270,24 @@ export function runAuraTool(db: GraphDB, name: string, input: Record<string, unk
             return {
                 files: files.map(f => ({ file: f.id, lines: f.lines, complexity: f.complexity, fan_in: f.fan_in, fan_out: f.fan_out })),
                 total: files.length,
+            };
+        }
+        case 'aura_get_cochange': {
+            const pairs = db.getCochange((input.limit as number) || 50, (input.min_score as number) || 0);
+            return {
+                pairs: pairs.map(p => ({
+                    a: p.file_a,
+                    b: p.file_b,
+                    cochanges: p.cochanges,
+                    jaccard: p.jaccard,
+                    support: p.support,
+                    a_commits: p.a_commits,
+                    b_commits: p.b_commits,
+                    linked: !!p.linked,
+                })),
+                total: pairs.length,
+                window_days: pairs[0]?.window_days ?? 365,
+                note: 'Temporal coupling without a direct structural edge — implicit contracts worth reviewing together.',
             };
         }
         case 'aura_find_path': {

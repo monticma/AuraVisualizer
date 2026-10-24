@@ -6,7 +6,7 @@
  *
  * Reads the SQLite database at AURA_DB_PATH (env var) and serves:
  *   - 3 resources  (overview, nodes, node detail)
- *   - 14 tools     (find_dependencies, find_dependents, find_path, resolve_context, etc.)
+ *   - 17 tools     (find_dependencies, find_dependents, find_path, get_cochange, etc.)
  *
  * Transport: stdio (standard for local MCP servers).
  * Launched by VS Code's MCP configuration (.vscode/mcp.json).
@@ -83,6 +83,37 @@ const TOOLS = [
         inputSchema: {
             type: 'object' as const,
             properties: {},
+        },
+    },
+    {
+        name: 'find_orphan_files',
+        description: 'Find files that nothing imports (fan_in = 0) — orphan or entry-point files.',
+        inputSchema: {
+            type: 'object' as const,
+            properties: {
+                limit: { type: 'number', description: 'Maximum files (default 100)' },
+            },
+        },
+    },
+    {
+        name: 'get_largest_files',
+        description: 'Find the largest files by lines of code, with complexity.',
+        inputSchema: {
+            type: 'object' as const,
+            properties: {
+                limit: { type: 'number', description: 'Maximum files (default 20)' },
+            },
+        },
+    },
+    {
+        name: 'get_cochange',
+        description: 'Find temporal-coupling pairs: files that keep changing in the same commits without a direct structural dependency. Jaccard = cochanges / union commits.',
+        inputSchema: {
+            type: 'object' as const,
+            properties: {
+                limit: { type: 'number', description: 'Maximum pairs (default 50)' },
+                min_score: { type: 'number', description: 'Minimum Jaccard score 0–1 (default 0)' },
+            },
         },
     },
     {
@@ -216,6 +247,9 @@ const AURA_TOOL_BY_MCP: Record<string, string> = {
     find_dependents: 'aura_find_dependents',
     find_path: 'aura_find_path',
     find_cycles: 'aura_find_cycles',
+    find_orphan_files: 'aura_find_orphan_files',
+    get_largest_files: 'aura_get_largest_files',
+    get_cochange: 'aura_get_cochange',
     find_dead_code: 'aura_find_dead_code',
     get_hotspots: 'aura_get_hotspots',
     search_symbols: 'aura_search_symbols',
@@ -330,6 +364,9 @@ function handleTool(db: GraphDB, name: string, args: Record<string, unknown>): u
         case 'resolve_context':
         case 'get_hotspots':
         case 'find_cycles':
+        case 'find_orphan_files':
+        case 'get_largest_files':
+        case 'get_cochange':
         case 'find_heritage':
         case 'get_architecture':
         case 'generate_documentation':

@@ -31,6 +31,8 @@
         fanout: 'fanOut',
         size: 'size',
         mtime: 'lastModified',
+        churn: 'churn',
+        cochange: '_cochange',
         lastmodified: 'lastModified',
         deadexports: '_deadCount',
         symbolscount: '_symbolsCount',
@@ -68,6 +70,7 @@
         var note = ctx.notes ? (ctx.notes[node.id] || (node.path ? ctx.notes[node.path] : null)) : null;
         node._hasNote = !!note;
         node._staleNote = !!(note && window.AuraNotes && window.AuraNotes.isStale(note, node.lastModified));
+        node._cochange = ctx.cochangeScore ? (ctx.cochangeScore(node.id) || 0) : 0;
         return node;
     }
 

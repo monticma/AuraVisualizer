@@ -127,6 +127,17 @@ async function copyWebviewAssets() {
         tsconfig: 'tsconfig.json',
     });
 
+    // Co-change core — temporal coupling, bundled as window.AuraCochange.
+    await esbuild.build({
+        entryPoints: [path.join(__dirname, 'src', 'analysis', 'cochange.ts')],
+        bundle: true,
+        format: 'iife',
+        globalName: 'AuraCochange',
+        outfile: path.join(webviewDest, 'js', 'cochange-core.js'),
+        logLevel: 'silent',
+        tsconfig: 'tsconfig.json',
+    });
+
     console.log('Webview assets copied.');
 }
 

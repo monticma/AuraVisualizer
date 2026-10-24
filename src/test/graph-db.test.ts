@@ -652,4 +652,17 @@ describe('GraphDB — granular updates', () => {
         expect(b.fan_in).toBe(1);
         expect(b.fan_out).toBe(0);
     });
+
+    it('replaces and queries temporal-coupling pairs', () => {
+        db.replaceCochange([
+            { a: 'src/b.ts', b: 'src/a.ts', cochanges: 4, aCommits: 6, bCommits: 5, jaccard: 0.57, support: 0.2, linked: false },
+            { a: 'src/a.ts', b: 'src/c.ts', cochanges: 2, aCommits: 6, bCommits: 6, jaccard: 0.2, support: 0.1, linked: false },
+        ], 365);
+        const all = db.getCochange();
+        expect(all).toHaveLength(2);
+        expect(all[0]).toMatchObject({ file_a: 'src/a.ts', file_b: 'src/b.ts', cochanges: 4, jaccard: 0.57, window_days: 365 });
+        expect(db.getCochange(10, 0.5)).toHaveLength(1);
+        db.replaceCochange([], 365);
+        expect(db.getCochange()).toEqual([]);
+    });
 });

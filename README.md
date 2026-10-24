@@ -95,6 +95,7 @@ Color every node by a metric to spot hotspots at a glance. Press `H` to cycle th
 | **Fan-out** | How many files this file depends on |
 | **Lines of Code** | File size |
 | **Churn (commits)** | Git commit count per file — requires Time Travel scan |
+| **Co-change** | Strongest temporal-coupling Jaccard score per file — requires Time Travel scan |
 | **Last Modified** | File modification time (most recently changed = red) |
 | **Communities** | Architectural modules detected by Louvain algorithm |
 
@@ -161,6 +162,17 @@ Complexity, fan-in, fan-out and churn are **percentile ranks inside your reposit
 - **📷 PNG** — exports the 3D graph at ×1/×2/×4 with current or transparent background, optional watermark, and a unified save dialog
 
 Risk buckets: **High ≥ 66**, **Medium 33–65**, **Low < 33**. Churn is measured as commits per file and requires the git **Time Travel** scan.
+
+### Temporal Coupling 🔗
+
+Open the **🔗 Coupling** tab after a **Time Travel** scan to find files that keep changing in the same commits **without a direct dependency** — implicit contracts (API + client, test + implementation, shared configuration…).
+
+- **Jaccard score** — `cochanges / (A commits + B commits − cochanges)`, plus support (share of analysed multi-file commits touching both)
+- **Window & threshold** — 90 days / 365 days / 2 years, minimum score 0.2–0.6
+- **Rename-aware** — `git mv` history follows the current path; deletions and giant commits (>50 files) are ignored
+- **Show on graph** — adds virtual magenta co-change links for the strongest pairs; the **🔗 Co-change** filter toggles them
+- **Heatmap + query** — color files by their strongest coupling score or run `cochange > 0.6`
+- **MCP / AI** — the `get_cochange` tool exposes the same persisted pairs
 
 ### Git Working Tree ✏️
 
@@ -298,6 +310,7 @@ Filter, highlight, or select files with the built-in **Aura Query Language** —
 | `mtime` / `lastmodified` | Last modification time |
 | `symbols` / `symbolscount` | Number of extracted symbols |
 | `deadexports` | Number of unused (dead) exports |
+| `cochange` | Strongest temporal-coupling Jaccard score (0–1) |
 | `language`, `name`, `path`, `group`, `extension` | String metadata |
 | `community` | Detected community name |
 | `isorphan`, `isdead`, `incycle`, `ispinned`, `dirty`, `hasnote` | Boolean flags (`dirty` = uncommitted git changes, `hasnote` = annotated file) |
@@ -310,6 +323,7 @@ Filter, highlight, or select files with the built-in **Aura Query Language** —
 - `fanIn > 10 AND complexity > 20`
 - `isorphan`
 - `dirty AND complexity > 20` — files being edited right now
+- `cochange > 0.6` — strongly coupled files (run Time Travel first)
 - `hasnote` — every annotated file
 - `path ~ /src\/.*/`
 
@@ -384,7 +398,7 @@ This turns the Explorer into a fast outline / go-to-symbol navigator across your
 
 ### Tabbed Views
 
-Switch between **8 visualization tabs** for different perspectives on your codebase:
+Switch between **9 visualization tabs** for different perspectives on your codebase:
 
 | Tab | Description |
 |-----|-------------|
@@ -396,6 +410,7 @@ Switch between **8 visualization tabs** for different perspectives on your codeb
 | **📈 Timeline** | Line chart showing metric evolution over git history (LOC, file count, avg complexity, total complexity). Requires Time Travel scan. |
 | **📋 Table** | Sortable, filterable spreadsheet of all files with LOC, complexity, fan-in/out, symbols, and folder. |
 | **🛡️ Risk** | Codebase risk dashboard — health score, risk distribution, churn × complexity matrix, bus factor, and an exportable report |
+| **🔗 Coupling** | Temporal coupling — files that change together in git commits without a direct dependency (Jaccard score, support, virtual links) |
 
 All tabs share the same live data and update when the graph is refreshed.
 
@@ -489,7 +504,7 @@ The MCP server exposes your codebase graph to AI tools via stdio transport. It r
 | `aura://nodes` | All files with full metrics |
 | `aura://node/{id}` | Detail for a specific file — symbols, dependencies, dependents |
 
-**Tools (16):**
+**Tools (17):**
 
 | Tool | Parameters | Description |
 |------|-----------|-------------|
@@ -502,6 +517,7 @@ The MCP server exposes your codebase graph to AI tools via stdio transport. It r
 | `find_unused_functions` | `file`, `include_methods` | Functions/methods never called anywhere |
 | `get_hotspots` | `limit`, `sort_by`, `window_days` | At-risk files ranked by the repository-relative risk score (percentile-based) with written reasons; raw metric sorts still available via `sort_by` |
 | `get_largest_files` | `limit` | Largest files by lines of code |
+| `get_cochange` | `limit`, `min_score` | Temporal-coupling pairs — files changing together without a direct dependency (Jaccard score) |
 | `search_symbols` | `query`, `kind` | Find functions, classes, exports by name |
 | `find_heritage` | `file` | Inheritance and implementation relationships (extends/implements) |
 | `get_architecture` | — | High-level overview by language |

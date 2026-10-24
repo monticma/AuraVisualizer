@@ -30,6 +30,7 @@ Quick access to every feature without leaving the keyboard.
 | **� Follow** | Fly the camera to the active editor file; manual camera movement pauses it || **📤 Export** | Guided AI context export — Markdown/JSON, sections and token budget || **�🗺️ Map** | Toggle the minimap — real-time overview that rotates with the camera |
 | **✏️ Dirty** | Show only files with uncommitted changes (git working tree) |
 | **📝 Notes** | Show/hide the note indicators — annotated files wear a pulsing note-colored ring + dot |
+| **🔗 Co-change** | Show virtual temporal-coupling links for the strongest co-change pairs |
 | **🌀 Warps** | Warp points panel — capture the current view (📌), fly back to any saved pose, quick slots |
 | **🚀 Pilot** | Free flight — WASD/QE to move, mouse to look, hold left/right click to advance/retreat (`Space` toggles) |
 | **⚙️ Settings** | Open the in-app settings modal — rotation speed, link style, node effect, risk window, follow editor, auto-refresh |

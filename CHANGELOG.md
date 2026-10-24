@@ -5,6 +5,14 @@ All notable changes to Aura Visualizer are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Temporal coupling (co-change)** — new **🔗 Coupling** tab finds files that change together in git commits without a direct dependency. Computes Jaccard and support over a selectable 90-day / 365-day / 2-year window, follows renames, ignores giant commits, and shows virtual magenta links on the 3D graph. Includes a **Co-change** heatmap, the `cochange` query field, and the `get_cochange` MCP tool.
+
+### Changed
+- MCP now exposes 17 tools, including `find_orphan_files`, `get_largest_files` and `get_cochange` from the shared registry.
+
 ## [1.4.0] - 2026-10-23
 
 ### Added

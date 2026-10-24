@@ -8,6 +8,7 @@ Color every node by a metric to spot hotspots instantly.
 - 🟢→🔴 **Fan-out** — How many files this file depends on
 - 🟢→🔴 **Lines of Code** — File size
 - ⏱→🔴 **Churn (commits)** — Git commit count per file (requires Time Travel scan)
+- 🔗 **Co-change** — strongest temporal-coupling Jaccard score per file (requires Time Travel scan)
 - 🟢→🔴 **Last Modified** — File modification time (most recently changed = red)
 - 🧩 **Communities** — Architectural modules detected by Louvain algorithm
 

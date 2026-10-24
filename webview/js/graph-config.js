@@ -85,6 +85,7 @@ var HEATMAP_SCALES = {
     callVolume: ['#1a237e', '#1565c0', '#2e7d32', '#f9a825', '#e65100', '#b71c1c'],
     loc:        ['#1a237e', '#1565c0', '#2e7d32', '#f9a825', '#e65100', '#b71c1c'],
     churn:      ['#263238', '#546e7a', '#fbc02d', '#f57c00', '#d32f2f', '#7f0000'],
+    cochange:   ['#1a0b2e', '#3b0f5c', '#6b21a8', '#a855f7', '#d946ef', '#f0abfc'],
     lastModified: ['#0d47a1', '#1976d2', '#64b5f6', '#ffb74d', '#e53935', '#b71c1c']
 };
 
@@ -96,6 +97,7 @@ var HEATMAP_LABELS = {
     callVolume: 'Call volume',
     loc:        'Lines of code',
     churn:      'Churn (commits)',
+    cochange:   'Temporal coupling (co-change)',
     lastModified: 'Last modified',
     community:  'Communities'
 };
