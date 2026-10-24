@@ -954,87 +954,107 @@ export class WebviewProvider {
             </div>
             <button id="panel-close" class="panel-close">✕</button>
         </div>
-        <div class="panel-section">
-            <div class="panel-grid">
-                <div class="panel-metric">
-                    <span class="metric-label">Language</span>
-                    <span class="metric-value" id="panel-language">—</span>
+        <details class="panel-section panel-collapsible" id="overview-section" open>
+            <summary class="panel-section-header">
+                <span class="panel-section-heading">📋 File details</span>
+            </summary>
+            <div class="panel-section-body">
+                <div class="panel-grid">
+                    <div class="panel-metric">
+                        <span class="metric-label">Language</span>
+                        <span class="metric-value" id="panel-language">—</span>
+                    </div>
+                    <div class="panel-metric">
+                        <span class="metric-label">Folder</span>
+                        <span class="metric-value" id="panel-group">—</span>
+                    </div>
+                    <div class="panel-metric">
+                        <span class="metric-label">Community</span>
+                        <span class="metric-value" id="panel-community">—</span>
+                    </div>
+                    <div class="panel-metric">
+                        <span class="metric-label">Lines</span>
+                        <span class="metric-value" id="panel-loc">—</span>
+                    </div>
+                    <div class="panel-metric">
+                        <span class="metric-label">Size</span>
+                        <span class="metric-value" id="panel-size">—</span>
+                    </div>
+                    <div class="panel-metric">
+                        <span class="metric-label">Modified</span>
+                        <span class="metric-value" id="panel-mtime">—</span>
+                    </div>
+                    <div class="panel-metric">
+                        <span class="metric-label">Git</span>
+                        <span class="metric-value" id="panel-git">—</span>
+                    </div>
+                    <div class="panel-metric">
+                        <span class="metric-label">Fan-out</span>
+                        <span class="metric-value" id="panel-fanout">—</span>
+                    </div>
+                    <div class="panel-metric">
+                        <span class="metric-label">Fan-in</span>
+                        <span class="metric-value" id="panel-fanin">—</span>
+                    </div>
+                    <div class="panel-metric">
+                        <span class="metric-label">Complexity</span>
+                        <span class="metric-value" id="panel-complexity">—</span>
+                    </div>
+                    <div class="panel-metric">
+                        <span class="metric-label">Symbols</span>
+                        <span class="metric-value" id="panel-symbols-count">—</span>
+                    </div>
                 </div>
-                <div class="panel-metric">
-                    <span class="metric-label">Folder</span>
-                    <span class="metric-value" id="panel-group">—</span>
+                <div class="section-subblock" id="ai-actions-section">
+                    <h4>✨ Ask Aura</h4>
+                    <div class="ai-actions">
+                        <button id="ai-explain" type="button" class="ai-action-btn">Explain file</button>
+                        <button id="ai-impact" type="button" class="ai-action-btn">Impact</button>
+                        <button id="ai-plan" type="button" class="ai-action-btn">Refactor plan</button>
+                        <button id="ai-tests" type="button" class="ai-action-btn">Tests first</button>
+                    </div>
                 </div>
-                <div class="panel-metric">
-                    <span class="metric-label">Community</span>
-                    <span class="metric-value" id="panel-community">—</span>
-                </div>
-                <div class="panel-metric">
-                    <span class="metric-label">Lines</span>
-                    <span class="metric-value" id="panel-loc">—</span>
-                </div>
-                <div class="panel-metric">
-                    <span class="metric-label">Size</span>
-                    <span class="metric-value" id="panel-size">—</span>
-                </div>
-                <div class="panel-metric">
-                    <span class="metric-label">Modified</span>
-                    <span class="metric-value" id="panel-mtime">—</span>
-                </div>
-                <div class="panel-metric">
-                    <span class="metric-label">Git</span>
-                    <span class="metric-value" id="panel-git">—</span>
-                </div>
-                <div class="panel-metric">
-                    <span class="metric-label">Fan-out</span>
-                    <span class="metric-value" id="panel-fanout">—</span>
-                </div>
-                <div class="panel-metric">
-                    <span class="metric-label">Fan-in</span>
-                    <span class="metric-value" id="panel-fanin">—</span>
-                </div>
-                <div class="panel-metric">
-                    <span class="metric-label">Complexity</span>
-                    <span class="metric-value" id="panel-complexity">—</span>
-                </div>
-                <div class="panel-metric">
-                    <span class="metric-label">Symbols</span>
-                    <span class="metric-value" id="panel-symbols-count">—</span>
+                <div class="section-subblock" id="note-section">
+                    <h4>📝 Note <span id="note-stale-badge" class="note-stale-badge" style="display:none">⚠️ À revoir</span></h4>
+                    <textarea id="note-input" rows="2" placeholder="Add a note for this file…" maxlength="2000"></textarea>
+                    <div class="note-actions">
+                        <span id="note-colors" class="note-colors"></span>
+                        <span class="note-buttons">
+                            <button id="note-review" class="note-btn note-btn-review" style="display:none" title="Mark this note as reviewed (keeps its text)">✓ Mark reviewed</button>
+                            <button id="note-save" class="note-btn">Save</button>
+                            <button id="note-delete" class="note-btn note-btn-delete" style="display:none">🗑 Delete</button>
+                        </span>
+                    </div>
                 </div>
             </div>
-        </div>
-        <div class="panel-section" id="ai-actions-section">
-            <h3>✨ Ask Aura</h3>
-            <div class="ai-actions">
-                <button id="ai-explain" type="button" class="ai-action-btn">Explain file</button>
-                <button id="ai-impact" type="button" class="ai-action-btn">Impact</button>
-                <button id="ai-plan" type="button" class="ai-action-btn">Refactor plan</button>
-                <button id="ai-tests" type="button" class="ai-action-btn">Tests first</button>
+        </details>
+        <details class="panel-section panel-collapsible" id="symbols-section" style="display:none" open>
+            <summary class="panel-section-header">
+                <span class="panel-section-heading">Symbols</span>
+                <span id="symbols-total" class="count-badge">0</span>
+            </summary>
+            <div class="panel-section-body">
+                <div id="symbols-list" class="symbols-list"></div>
             </div>
-        </div>
-        <div class="panel-section" id="note-section">
-            <h3>📝 Note <span id="note-stale-badge" class="note-stale-badge" style="display:none">⚠️ À revoir</span></h3>
-            <textarea id="note-input" rows="2" placeholder="Add a note for this file…" maxlength="2000"></textarea>
-            <div class="note-actions">
-                <span id="note-colors" class="note-colors"></span>
-                <span class="note-buttons">
-                    <button id="note-review" class="note-btn note-btn-review" style="display:none" title="Mark this note as reviewed (keeps its text)">✓ Mark reviewed</button>
-                    <button id="note-save" class="note-btn">Save</button>
-                    <button id="note-delete" class="note-btn note-btn-delete" style="display:none">🗑 Delete</button>
-                </span>
+        </details>
+        <details class="panel-section panel-collapsible" id="deps-section" open>
+            <summary class="panel-section-header">
+                <span class="panel-section-heading">Dependencies</span>
+                <span id="deps-count" class="count-badge">0</span>
+            </summary>
+            <div class="panel-section-body">
+                <ul id="panel-deps" class="panel-list"></ul>
             </div>
-        </div>
-        <div class="panel-section" id="symbols-section" style="display:none">
-            <h3>Symbols <span id="symbols-total" class="count-badge">0</span></h3>
-            <div id="symbols-list" class="symbols-list"></div>
-        </div>
-        <div class="panel-section">
-            <h3>Dependencies <span id="deps-count" class="count-badge">0</span></h3>
-            <ul id="panel-deps" class="panel-list"></ul>
-        </div>
-        <div class="panel-section">
-            <h3>Dependents <span id="dependents-count" class="count-badge">0</span></h3>
-            <ul id="panel-dependents" class="panel-list"></ul>
-        </div>
+        </details>
+        <details class="panel-section panel-collapsible" id="dependents-section" open>
+            <summary class="panel-section-header">
+                <span class="panel-section-heading">Dependents</span>
+                <span id="dependents-count" class="count-badge">0</span>
+            </summary>
+            <div class="panel-section-body">
+                <ul id="panel-dependents" class="panel-list"></ul>
+            </div>
+        </details>
     </aside>
 
     <!-- Chat Panel (Aura Assistant) -->
@@ -1693,6 +1713,9 @@ export class WebviewProvider {
                     <tr><td><kbd>Hold LMB / RMB</kbd></td><td>Pilot mode — fly forward / backward while looking around</td></tr>
                     <tr><td><kbd>Background click</kbd></td><td>Clear all selections</td></tr>
                 </table>
+
+                <h3>🗂️ Detail Panel</h3>
+                <p>The detail panel is organized into collapsible sections: <strong>📋 File details</strong> groups metrics, <strong>Ask Aura</strong> actions and <strong>📝 Note</strong>; <strong>Symbols</strong>, <strong>Dependencies</strong> and <strong>Dependents</strong> use readable cards. Empty sections (no symbols, no dependency, no dependent) are hidden automatically, and every section can be folded from its header.</p>
 
                 <h3>🎹 Keyboard Shortcuts</h3>
                 <table class="help-table">

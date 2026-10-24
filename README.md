@@ -97,6 +97,15 @@ Every edge carries a confidence score: **1.0** exact/relative/alias, **0.9** ext
 | **Drag** | Rotate the 3D view |
 | **Background click** | Clear all selections |
 
+### Detail Panel 🗂️
+
+Click a file node to open a collapsible detail panel:
+
+- **📋 File details** groups the file metrics, **Ask Aura** actions and the **📝 Note** editor in one foldable section
+- **Symbols**, **Dependencies** and **Dependents** are collapsible too, and render as readable cards (name/signature/metrics on separate lines, path + type + confidence for edges)
+- Empty sections are hidden automatically — no empty Dependents block, no Symbols block for a file without symbols
+- Section open/closed state is kept while the webview stays open
+
 ### Heatmap Modes
 
 Color every node by a metric to spot hotspots at a glance. Press `H` to cycle through:

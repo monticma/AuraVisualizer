@@ -13,6 +13,11 @@
     var $ = function (sel) { return document.querySelector(sel); };
     var detailPanel = document.getElementById('detail-panel');
 
+    function setSectionVisible(id, visible) {
+        var section = document.getElementById(id);
+        if (section) section.style.display = visible ? '' : 'none';
+    }
+
     function noteTimestamp(value) {
         if (value === null || value === undefined || value === '') return undefined;
         if (value instanceof Date) {
@@ -67,7 +72,8 @@
             // Show member files in deps section
             var depsUl = $('#panel-deps');
             depsUl.innerHTML = '';
-            $('#deps-count').textContent = node._memberIds ? node._memberIds.length : 0;
+            var memberCount = node._memberIds ? node._memberIds.length : 0;
+            $('#deps-count').textContent = memberCount;
             if (node._memberIds) {
                 for (var mi = 0; mi < node._memberIds.length; mi++) {
                     var memberId = node._memberIds[mi];
@@ -76,12 +82,18 @@
                         if (hooks.getGraphData().nodes[x].id === memberId) { memberNode = hooks.getGraphData().nodes[x]; break; }
                     }
                     var li = document.createElement('li');
+                    li.className = 'dep-card';
                     li.innerHTML =
-                        '<span class="dep-arrow">📄</span>' +
-                        '<span>' + (memberNode ? memberNode.name : memberId) + '</span>';
+                        '<div class="dep-card-main">' +
+                            '<span class="dep-arrow">📄</span>' +
+                            '<span class="dep-target">' + (memberNode ? memberNode.name : memberId) + '</span>' +
+                        '</div>' +
+                        '<div class="dep-card-detail"><span class="dep-path">' + memberId + '</span></div>';
                     depsUl.appendChild(li);
                 }
             }
+            setSectionVisible('deps-section', memberCount > 0);
+            setSectionVisible('dependents-section', false);
 
             // Clusters have no note editor
             var noteSection = $('#note-section');
@@ -138,7 +150,7 @@
         symbolsList.innerHTML = '';
 
         if (node.symbols && node.symbols.totalSymbols > 0) {
-            symbolsSection.style.display = 'block';
+            symbolsSection.style.display = '';
             $('#symbols-total').textContent = node.symbols.totalSymbols;
 
             // Explode button
@@ -159,6 +171,8 @@
                 var fn = node.symbols.functions[i];
                 var item = document.createElement('div');
                 item.className = 'symbol-item symbol-item-clickable';
+                var cardMain = document.createElement('div');
+                cardMain.className = 'symbol-card-main';
                 var flowBtn = document.createElement('button');
                 flowBtn.className = 'flow-trace-btn';
                 flowBtn.textContent = '⑂';
@@ -169,7 +183,7 @@
                         if (window.AuraFlowView) window.AuraFlowView.open(fileId, funcLine, lang, funcName);
                     });
                 })(fn.name, node.id, fn.line, node.language);
-                item.appendChild(flowBtn);
+                cardMain.appendChild(flowBtn);
                 var traceBtn = document.createElement('button');
                 traceBtn.className = 'flow-trace-btn';
                 traceBtn.textContent = '▶';
@@ -180,15 +194,17 @@
                         hooks.startFlowTrace(fileId, funcName);
                     });
                 })(fn.name, node.id);
-                item.appendChild(traceBtn);
+                cardMain.appendChild(traceBtn);
                 var iconSpan = document.createElement('span');
                 iconSpan.className = 'symbol-icon';
                 iconSpan.textContent = SYMBOL_ICONS['function'] || '⚡';
-                item.appendChild(iconSpan);
+                cardMain.appendChild(iconSpan);
                 var nameSpan = document.createElement('span');
                 nameSpan.className = 'symbol-name';
                 nameSpan.textContent = fn.name;
-                item.appendChild(nameSpan);
+                cardMain.appendChild(nameSpan);
+                var cardDetail = document.createElement('div');
+                cardDetail.className = 'symbol-card-detail';
                 if (typeof fn.cognitive === 'number') {
                     var metricsSpan = document.createElement('span');
                     metricsSpan.className = 'symbol-metrics';
@@ -200,12 +216,14 @@
                         (typeof fn.halsteadVolume === 'number' ? ' · Halstead volume: ' + fn.halsteadVolume : '') +
                         (typeof fn.maintainability === 'number' ? ' · maintainability: ' + fn.maintainability : '') +
                         (typeof fn.functionLines === 'number' ? ' · ' + fn.functionLines + ' lines' : '');
-                    item.appendChild(metricsSpan);
+                    cardDetail.appendChild(metricsSpan);
                 }
                 var metaSpan = document.createElement('span');
                 metaSpan.className = 'symbol-meta';
                 metaSpan.textContent = fn.returnType + '(' + shortenParams(fn.params) + ') L' + fn.line;
-                item.appendChild(metaSpan);
+                cardDetail.appendChild(metaSpan);
+                item.appendChild(cardMain);
+                item.appendChild(cardDetail);
                 (function(line) {
                     item.addEventListener('dblclick', function() {
                         hooks.postMessage({ type: 'openFile', payload: { path: node.path, line: line } });
@@ -220,9 +238,11 @@
                 var sItem = document.createElement('div');
                 sItem.className = 'symbol-item';
                 sItem.innerHTML =
-                    '<span class="symbol-icon">' + (SYMBOL_ICONS[s.type] || '📦') + '</span>' +
-                    '<span class="symbol-name">' + s.name + '</span>' +
-                    '<span class="symbol-meta">' + s.type + '</span>';
+                    '<div class="symbol-card-main">' +
+                        '<span class="symbol-icon">' + (SYMBOL_ICONS[s.type] || '📦') + '</span>' +
+                        '<span class="symbol-name">' + s.name + '</span>' +
+                    '</div>' +
+                    '<div class="symbol-card-detail"><span class="symbol-meta">' + s.type + '</span></div>';
                 symbolsList.appendChild(sItem);
             }
 
@@ -232,9 +252,11 @@
                 var eItem = document.createElement('div');
                 eItem.className = 'symbol-item';
                 eItem.innerHTML =
-                    '<span class="symbol-icon">' + (SYMBOL_ICONS['enum'] || '🏷️') + '</span>' +
-                    '<span class="symbol-name">' + en.name + '</span>' +
-                    '<span class="symbol-meta">enum</span>';
+                    '<div class="symbol-card-main">' +
+                        '<span class="symbol-icon">' + (SYMBOL_ICONS['enum'] || '🏷️') + '</span>' +
+                        '<span class="symbol-name">' + en.name + '</span>' +
+                    '</div>' +
+                    '<div class="symbol-card-detail"><span class="symbol-meta">enum</span></div>';
                 symbolsList.appendChild(eItem);
             }
 
@@ -245,9 +267,11 @@
                 var mItem = document.createElement('div');
                 mItem.className = 'symbol-item';
                 mItem.innerHTML =
-                    '<span class="symbol-icon">' + (SYMBOL_ICONS[mac.type] || '⚙️') + '</span>' +
-                    '<span class="symbol-name">' + mac.name + '</span>' +
-                    '<span class="symbol-meta">' + mac.type + '</span>';
+                    '<div class="symbol-card-main">' +
+                        '<span class="symbol-icon">' + (SYMBOL_ICONS[mac.type] || '⚙️') + '</span>' +
+                        '<span class="symbol-name">' + mac.name + '</span>' +
+                    '</div>' +
+                    '<div class="symbol-card-detail"><span class="symbol-meta">' + mac.type + '</span></div>';
                 symbolsList.appendChild(mItem);
             }
         } else {
@@ -267,9 +291,11 @@
                 dItem.className = 'symbol-item dead-export-item symbol-item-clickable';
                 dItem.title = 'Double-click to open in the editor';
                 dItem.innerHTML =
-                    '<span class="symbol-icon">⚠️</span>' +
-                    '<span class="symbol-name dead-name">' + deadName + '</span>' +
-                    '<span class="symbol-meta">unused</span>';
+                    '<div class="symbol-card-main">' +
+                        '<span class="symbol-icon">⚠️</span>' +
+                        '<span class="symbol-name dead-name">' + deadName + '</span>' +
+                    '</div>' +
+                    '<div class="symbol-card-detail"><span class="symbol-meta">unused</span></div>';
                 (function(line) {
                     dItem.addEventListener('dblclick', function() {
                         hooks.postMessage({ type: 'openFile', payload: { path: node.path, line: line } });
@@ -278,7 +304,7 @@
                 deadSection.appendChild(dItem);
             }
             symbolsList.appendChild(deadSection);
-            symbolsSection.style.display = 'block';
+            symbolsSection.style.display = '';
         }
 
         // Cycles section
@@ -299,12 +325,14 @@
                 var cycItem = document.createElement('div');
                 cycItem.className = 'symbol-item';
                 cycItem.innerHTML =
-                    '<span class="symbol-icon">🔄</span>' +
-                    '<span class="symbol-name" style="color:#ff9800;font-size:10px">' + cNames.join(' → ') + ' → ' + cNames[0] + '</span>';
+                    '<div class="symbol-card-main">' +
+                        '<span class="symbol-icon">🔄</span>' +
+                        '<span class="symbol-name" style="color:#ff9800;font-size:10px">' + cNames.join(' → ') + ' → ' + cNames[0] + '</span>' +
+                    '</div>';
                 cycleSection.appendChild(cycItem);
             }
             symbolsList.appendChild(cycleSection);
-            symbolsSection.style.display = 'block';
+            symbolsSection.style.display = '';
         }
 
         // Dependencies (outgoing)
@@ -318,6 +346,7 @@
         var depsUl = $('#panel-deps');
         depsUl.innerHTML = '';
         $('#deps-count').textContent = deps.length;
+        setSectionVisible('deps-section', deps.length > 0);
         for (var dd = 0; dd < deps.length; dd++) {
             (function(d) {
                 var targetId = typeof d.target === 'object' ? d.target.id : d.target;
@@ -325,16 +354,28 @@
                 for (var x = 0; x < hooks.getGraphData().nodes.length; x++) {
                     if (hooks.getGraphData().nodes[x].id === targetId) { targetNode = hooks.getGraphData().nodes[x]; break; }
                 }
+                var targetName = targetNode ? targetNode.name : targetId;
+                var targetPath = targetNode ? (targetNode.path || targetNode.id) : targetId;
+                var targetIcon = targetNode ? (LANGUAGE_ICONS[targetNode.language] || '📄') : '📄';
                 var li = document.createElement('li');
+                li.className = 'dep-card';
+                li.title = targetPath;
                 var typeClass = d.type === 'function-call' ? 'dep-type dep-type-call' : 'dep-type';
-                var labelStr = d.label ? ' <span class="dep-label">' + d.label + '</span>' : '';
+                var labelStr = d.label ? '<span class="dep-label">' + d.label + '</span>' : '';
+                var relationType = d.type || 'link';
                 var conf = typeof d.confidence === 'number' ? d.confidence : 1;
                 li.innerHTML =
-                    '<span class="dep-arrow">→</span>' +
-                    '<span>' + (targetNode ? targetNode.name : targetId) + '</span>' +
-                    labelStr +
-                    '<span class="' + typeClass + '">' + d.type + '</span>' +
-                    '<span class="dep-confidence" title="Resolution confidence">' + conf.toFixed(1) + '</span>';
+                    '<div class="dep-card-main">' +
+                        '<span class="dep-arrow">→</span>' +
+                        '<span class="dep-file-icon">' + targetIcon + '</span>' +
+                        '<span class="dep-target">' + targetName + '</span>' +
+                        '<span class="dep-confidence" title="Resolution confidence">' + conf.toFixed(1) + '</span>' +
+                    '</div>' +
+                    '<div class="dep-card-detail">' +
+                        '<span class="dep-path">' + targetPath + '</span>' +
+                        labelStr +
+                        '<span class="' + typeClass + '">' + relationType + '</span>' +
+                    '</div>';
                 li.addEventListener('click', function() {
                     if (targetNode) hooks.selectNode(targetNode);
                 });
@@ -352,6 +393,7 @@
         var depUl = $('#panel-dependents');
         depUl.innerHTML = '';
         $('#dependents-count').textContent = dependents.length;
+        setSectionVisible('dependents-section', dependents.length > 0);
         for (var rr = 0; rr < dependents.length; rr++) {
             (function(d) {
                 var sourceId = typeof d.source === 'object' ? d.source.id : d.source;
@@ -359,16 +401,28 @@
                 for (var x = 0; x < hooks.getGraphData().nodes.length; x++) {
                     if (hooks.getGraphData().nodes[x].id === sourceId) { sourceNode = hooks.getGraphData().nodes[x]; break; }
                 }
+                var sourceName = sourceNode ? sourceNode.name : sourceId;
+                var sourcePath = sourceNode ? (sourceNode.path || sourceNode.id) : sourceId;
+                var sourceIcon = sourceNode ? (LANGUAGE_ICONS[sourceNode.language] || '📄') : '📄';
                 var li = document.createElement('li');
+                li.className = 'dep-card';
+                li.title = sourcePath;
                 var typeClass = d.type === 'function-call' ? 'dep-type dep-type-call' : 'dep-type';
-                var labelStr = d.label ? ' <span class="dep-label">' + d.label + '</span>' : '';
+                var labelStr = d.label ? '<span class="dep-label">' + d.label + '</span>' : '';
+                var relationType = d.type || 'link';
                 var conf = typeof d.confidence === 'number' ? d.confidence : 1;
                 li.innerHTML =
-                    '<span class="dep-arrow">←</span>' +
-                    '<span>' + (sourceNode ? sourceNode.name : sourceId) + '</span>' +
-                    labelStr +
-                    '<span class="' + typeClass + '">' + d.type + '</span>' +
-                    '<span class="dep-confidence" title="Resolution confidence">' + conf.toFixed(1) + '</span>';
+                    '<div class="dep-card-main">' +
+                        '<span class="dep-arrow">←</span>' +
+                        '<span class="dep-file-icon">' + sourceIcon + '</span>' +
+                        '<span class="dep-target">' + sourceName + '</span>' +
+                        '<span class="dep-confidence" title="Resolution confidence">' + conf.toFixed(1) + '</span>' +
+                    '</div>' +
+                    '<div class="dep-card-detail">' +
+                        '<span class="dep-path">' + sourcePath + '</span>' +
+                        labelStr +
+                        '<span class="' + typeClass + '">' + relationType + '</span>' +
+                    '</div>';
                 li.addEventListener('click', function() {
                     if (sourceNode) hooks.selectNode(sourceNode);
                 });
@@ -425,7 +479,7 @@
         symbolsList.innerHTML = '';
 
         // Language breakdown
-        symbolsSection.style.display = 'block';
+        symbolsSection.style.display = '';
         $('#symbols-total').textContent = nodes.length;
 
         var langKeys = Object.keys(languages);
@@ -433,9 +487,11 @@
             var langItem = document.createElement('div');
             langItem.className = 'symbol-item';
             langItem.innerHTML =
-                '<span class="symbol-icon">' + (LANGUAGE_ICONS[langKeys[li]] || '📄') + '</span>' +
-                '<span class="symbol-name">' + langKeys[li] + '</span>' +
-                '<span class="symbol-meta">' + languages[langKeys[li]] + ' files</span>';
+                '<div class="symbol-card-main">' +
+                    '<span class="symbol-icon">' + (LANGUAGE_ICONS[langKeys[li]] || '📄') + '</span>' +
+                    '<span class="symbol-name">' + langKeys[li] + '</span>' +
+                '</div>' +
+                '<div class="symbol-card-detail"><span class="symbol-meta">' + languages[langKeys[li]] + ' files</span></div>';
             symbolsList.appendChild(langItem);
         }
 
@@ -450,9 +506,11 @@
                 var fItem = document.createElement('div');
                 fItem.className = 'symbol-item symbol-item-clickable';
                 fItem.innerHTML =
-                    '<span class="symbol-icon">' + (LANGUAGE_ICONS[node.language] || '📄') + '</span>' +
-                    '<span class="symbol-name">' + node.name + '</span>' +
-                    '<span class="symbol-meta">' + node.linesOfCode + ' lines</span>';
+                    '<div class="symbol-card-main">' +
+                        '<span class="symbol-icon">' + (LANGUAGE_ICONS[node.language] || '📄') + '</span>' +
+                        '<span class="symbol-name">' + node.name + '</span>' +
+                    '</div>' +
+                    '<div class="symbol-card-detail"><span class="symbol-meta">' + node.linesOfCode + ' lines</span></div>';
                 fItem.addEventListener('click', function() {
                     hooks.selectNode(node);
                 });
@@ -465,6 +523,7 @@
         var depsUl = $('#panel-deps');
         depsUl.innerHTML = '';
         $('#deps-count').textContent = hooks.getMultiSelectedLinks().size;
+        setSectionVisible('deps-section', hooks.getMultiSelectedLinks().size > 0);
         hooks.getMultiSelectedLinks().forEach(function(link) {
             var srcId = typeof link.source === 'object' ? link.source.id : link.source;
             var tgtId = typeof link.target === 'object' ? link.target.id : link.target;
@@ -474,19 +533,33 @@
                 if (hooks.getGraphData().nodes[x].id === tgtId) tgtNode = hooks.getGraphData().nodes[x];
             }
             var liEl = document.createElement('li');
+            liEl.className = 'dep-card';
+            var srcName = srcNode ? srcNode.name : srcId;
+            var tgtName = tgtNode ? tgtNode.name : tgtId;
             var typeClass = link.type === 'function-call' ? 'dep-type dep-type-call' : 'dep-type';
-            var labelStr = link.label ? ' <span class="dep-label">' + link.label + '</span>' : '';
+            var labelStr = link.label ? '<span class="dep-label">' + link.label + '</span>' : '';
+            var relationType = link.type || 'link';
+            var conf = typeof link.confidence === 'number'
+                ? '<span class="dep-confidence" title="Resolution confidence">' + link.confidence.toFixed(1) + '</span>'
+                : '';
             liEl.innerHTML =
-                '<span class="dep-arrow">→</span>' +
-                '<span>' + (srcNode ? srcNode.name : srcId) + ' → ' + (tgtNode ? tgtNode.name : tgtId) + '</span>' +
-                labelStr +
-                '<span class="' + typeClass + '">' + link.type + '</span>';
+                '<div class="dep-card-main">' +
+                    '<span class="dep-arrow">→</span>' +
+                    '<span class="dep-target">' + srcName + ' → ' + tgtName + '</span>' +
+                    conf +
+                '</div>' +
+                '<div class="dep-card-detail">' +
+                    '<span class="dep-path">' + srcId + ' → ' + tgtId + '</span>' +
+                    labelStr +
+                    '<span class="' + typeClass + '">' + relationType + '</span>' +
+                '</div>';
             depsUl.appendChild(liEl);
         });
 
         var depUl = $('#panel-dependents');
         depUl.innerHTML = '';
         $('#dependents-count').textContent = '0';
+        setSectionVisible('dependents-section', false);
     }
 
     function shortenParams(params) {

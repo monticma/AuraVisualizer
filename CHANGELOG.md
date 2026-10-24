@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - MCP now exposes 17 tools, including `find_orphan_files`, `get_largest_files` and `get_cochange` from the shared registry.
 - The Co-change view is consistently named **Co-change** (tab, filter button, heatmap, docs), replacing the previous Coupling/Co-change mix.
+- **Detail panel redesign** — file metrics, **Ask Aura** and **Notes** are grouped in one collapsible **File details** section; **Symbols**, **Dependencies** and **Dependents** are collapsible cards with separate name/signature/metrics and path/type/confidence rows. Empty sections are hidden automatically.
 
 ### Fixed
 - The Co-change table headers now sort every column (pair, co-changes, Jaccard, support, A/B commits) with ascending/descending indicators.
