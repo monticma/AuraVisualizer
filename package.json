@@ -499,7 +499,7 @@
           {
             "id": "tabbed-views",
             "title": "Switch Between Views",
-            "description": "Use the **tab bar** to switch between 9 views: 3D Graph, Treemap, Matrix (DSM), Chord Diagram, Metrics Dashboard, Timeline Chart, File Table, Risk Dashboard and Temporal Coupling.\n\nEach view offers a different perspective on your architecture.",
+            "description": "Use the **tab bar** to switch between 9 views: 3D Graph, Treemap, Matrix (DSM), Chord Diagram, Metrics Dashboard, Timeline Chart, File Table, Risk Dashboard and Temporal Co-change.\n\nEach view offers a different perspective on your architecture.",
             "media": {
               "markdown": "resources/walkthrough/views.md"
             }

@@ -70,7 +70,7 @@ USER QUESTION: `+e,u=[Se.LanguageModelChatMessage.User(l)],h=fn.map(f=>({name:f.
             <button class="tab-btn" data-tab="timeline">\u{1F4C8} Timeline</button>
             <button class="tab-btn" data-tab="table">\u{1F4CB} Table</button>
             <button class="tab-btn" data-tab="risk">\u{1F6E1}\uFE0F Risk</button>
-            <button class="tab-btn" data-tab="coupling">\u{1F517} Coupling</button>
+            <button class="tab-btn" data-tab="coupling">\u{1F517} Co-change</button>
             <button id="qb-toggle" class="qb-toggle" title="Toggle query bar (Ctrl+K)">\u{1F50D}</button>
             <button id="settings-toggle" type="button" class="qb-toggle" title="Aura settings">\u2699\uFE0F</button>
             <button id="chat-toggle" type="button" class="qb-toggle chat-toggle" title="Toggle Aura Assistant (AI chat)" hidden>\u2728</button>
@@ -429,7 +429,7 @@ USER QUESTION: `+e,u=[Se.LanguageModelChatMessage.User(l)],h=fn.map(f=>({name:f.
     <!-- Coupling View -->
     <div id="coupling-view" class="tab-content" data-tab="coupling">
         <div class="coupling-toolbar">
-            <div class="coupling-title">\u{1F517} Temporal Coupling</div>
+            <div class="coupling-title">\u{1F517} Temporal Co-change</div>
             <div class="coupling-actions">
                 <label class="coupling-label">Window
                     <select id="coupling-window" class="filter-select">
@@ -453,12 +453,12 @@ USER QUESTION: `+e,u=[Se.LanguageModelChatMessage.User(l)],h=fn.map(f=>({name:f.
             <table class="aura-table">
                 <thead>
                     <tr>
-                        <th>Pair</th>
-                        <th class="num">Co-changes</th>
-                        <th class="num">Jaccard</th>
-                        <th class="num">Support</th>
-                        <th class="num">A</th>
-                        <th class="num">B</th>
+                        <th data-col="pair">Pair</th>
+                        <th data-col="cochanges" class="num">Co-changes</th>
+                        <th data-col="jaccard" class="num">Jaccard</th>
+                        <th data-col="support" class="num">Support</th>
+                        <th data-col="aCommits" class="num">A</th>
+                        <th data-col="bCommits" class="num">B</th>
                     </tr>
                 </thead>
                 <tbody id="coupling-body"></tbody>
@@ -976,7 +976,7 @@ USER QUESTION: `+e,u=[Se.LanguageModelChatMessage.User(l)],h=fn.map(f=>({name:f.
                     <tr><td><strong>\u{1F4C8} Timeline</strong></td><td>Metric evolution over git history</td></tr>
                     <tr><td><strong>\u{1F4CB} Table</strong></td><td>Sortable, filterable file spreadsheet</td></tr>
                     <tr><td><strong>\u{1F6E1}\uFE0F Risk</strong></td><td>Codebase risk dashboard (health score, churn, bus factor)</td></tr>
-                    <tr><td><strong>\u{1F517} Coupling</strong></td><td>Temporal coupling pairs \u2014 co-change without a direct dependency, with virtual graph links</td></tr>
+                    <tr><td><strong>\u{1F517} Co-change</strong></td><td>Temporal co-change pairs \u2014 files changing together without a direct dependency, with virtual graph links</td></tr>
                 </table>
 
                 <h3>\u{1F6E1}\uFE0F Risk Map</h3>
@@ -984,8 +984,8 @@ USER QUESTION: `+e,u=[Se.LanguageModelChatMessage.User(l)],h=fn.map(f=>({name:f.
                 <p>Complexity, fan-in, fan-out and churn are <strong>percentile ranks inside your repository</strong> (0 = lowest file, 1 = highest), so the score is a standing relative to this codebase. A <strong>History window</strong> selector (30 / 90 / 365 days) drives churn, scoring and explanations. Churn is <strong>rename-aware</strong>: files moved with <code>git mv</code> keep their history across the rename.</p>
                 <p>High / Medium / Low file lists are collapsible, each row explains <em>why</em> a file scores that way, and clicking a file selects it in the 3D graph. Also included: <strong>\u{1F4C8} Risk Trend</strong>, <strong>\u{1F525} Recently Hot</strong> (last 30 days), <strong>\u{1F4CA} Churn \xD7 Complexity</strong> scatter (log scale), and <strong>\u{1F464} Bus Factor</strong> (files with a single author). Use <strong>\u{1F4E4} Export Report</strong> to write <code>.aura/risk-report.md</code>.</p>
 
-                <h3>\u{1F517} Temporal Coupling (co-change)</h3>
-                <p>The <strong>\u{1F517} Coupling</strong> tab finds files that keep changing in the same commits <em>without</em> a direct import/dependency \u2014 an implicit contract (API + client, test + implementation, shared config\u2026). Run Time Travel (\u23F1\uFE0F) first so git history is available.</p>
+                <h3>\u{1F517} Temporal Co-change</h3>
+                <p>The <strong>\u{1F517} Co-change</strong> tab finds files that keep changing in the same commits <em>without</em> a direct import/dependency \u2014 an implicit contract (API + client, test + implementation, shared config\u2026). Run Time Travel (\u23F1\uFE0F) first so git history is available.</p>
                 <p>Pairs are ranked by <strong>Jaccard</strong> = <code>cochanges / (A commits + B commits \u2212 cochanges)</code>; <strong>support</strong> is the share of analysed multi-file commits touching both files. Renames are followed, deletions and giant commits (&gt;50 files) are ignored. <strong>Show on graph</strong> adds virtual magenta links for the strongest pairs; the <strong>\u{1F517} Co-change</strong> filter toggles them and the heatmap mode colors files by their strongest coupling score. Queries can use <code>cochange &gt; 0.6</code>.</p>
 
                 <h3>\u{1F517} Edge Colors</h3>

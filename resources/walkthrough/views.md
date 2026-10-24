@@ -18,7 +18,7 @@ Click any tab in the **tab bar** below the toolbar. The 3D graph pauses when you
 | **📈 Timeline** | Line chart of metric evolution over git history. Choose between LOC, file count, avg complexity, or total complexity |
 | **📋 Table** | Sortable, filterable spreadsheet of all files with their metrics |
 | **🛡️ Risk** | Codebase health dashboard — risk score, distribution, churn × complexity matrix, bus factor, exportable report |
-| **🔗 Coupling** | Temporal coupling — files changing together without a direct dependency. Rows show co-changes, Jaccard, support; **Show on graph** adds virtual links |
+| **🔗 Co-change** | Temporal co-change — files changing together without a direct dependency. Rows show co-changes, Jaccard, support; **Show on graph** adds virtual links |
 
 ### Treemap tips
 - Use the **Size** dropdown to choose what determines rectangle size (LOC, complexity, fan-in, fan-out)
@@ -55,8 +55,8 @@ Click any tab in the **tab bar** below the toolbar. The 3D graph pauses when you
 - 📤 Export Report writes `.aura/risk-report.md` (reasons included)
 - Churn, Recently Hot, and Bus Factor require the git **Time Travel** scan
 
-### Coupling tips
-- Run **Time Travel** first — temporal coupling is computed from git commits.
+### Co-change tips
+- Run **Time Travel** first — temporal co-change is computed from git commits.
 - **Jaccard** = cochanges / (A commits + B commits − cochanges); **support** = share of analysed multi-file commits touching both.
 - Select a 90-day, 365-day or 2-year window and a minimum score; renames are followed, giant commits (>50 files) are ignored.
 - Click a file name to focus it. **Show on graph** adds virtual magenta links; the **🔗 Co-change** toolbar filter toggles them.

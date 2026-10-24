@@ -23,6 +23,7 @@
     var activeTab = 'graph';
     var cochangeResult = { pairs: [], windowDays: 365, commitsConsidered: 0, totalCommitsInWindow: 0, maxJaccard: 0 };
     var cochangeOptions = { windowDays: 365, minScore: 0.2 };
+    var couplingSort = { col: 'jaccard', dir: 'desc' };
 
     var $ = function(sel) { return document.querySelector(sel); };
     var tooltip = document.getElementById('tooltip');
@@ -44,6 +45,30 @@
     // ============================================================
     // Temporal Coupling View
     // ============================================================
+    function compareCoupling(left, right) {
+        var direction = couplingSort.dir === 'asc' ? 1 : -1;
+        if (couplingSort.col === 'pair') {
+            return direction * (left.a + ' ↔ ' + left.b).localeCompare(right.a + ' ↔ ' + right.b);
+        }
+        var av = left[couplingSort.col];
+        var bv = right[couplingSort.col];
+        if (typeof av === 'number' && typeof bv === 'number') {
+            return direction * (av - bv) || left.a.localeCompare(right.a) || left.b.localeCompare(right.b);
+        }
+        return direction * String(av).localeCompare(String(bv));
+    }
+
+    function updateCouplingSortIndicators() {
+        var headers = document.querySelectorAll('#coupling-view th[data-col]');
+        for (var i = 0; i < headers.length; i++) {
+            var header = headers[i];
+            var active = header.dataset.col === couplingSort.col;
+            header.classList.toggle('sorted', active);
+            if (active) header.dataset.sortDir = couplingSort.dir;
+            else header.removeAttribute('data-sort-dir');
+        }
+    }
+
     function renderCoupling() {
         syncCtx();
         var body = $('#coupling-body');
@@ -55,7 +80,9 @@
         if (windowSelect) windowSelect.value = String(cochangeOptions.windowDays || 365);
         if (minSelect) minSelect.value = String(cochangeOptions.minScore != null ? cochangeOptions.minScore : 0.2);
 
-        var pairs = cochangeResult && cochangeResult.pairs ? cochangeResult.pairs : [];
+        var pairs = cochangeResult && cochangeResult.pairs ? cochangeResult.pairs.slice() : [];
+        pairs.sort(compareCoupling);
+        updateCouplingSortIndicators();
         if (summary) {
             if (pairs.length === 0) {
                 summary.textContent = timelineCommits.length === 0
@@ -96,6 +123,19 @@
         var minSelect = $('#coupling-min');
         var showBtn = $('#coupling-show-graph');
         var body = $('#coupling-body');
+        var headers = document.querySelectorAll('#coupling-view th[data-col]');
+        for (var h = 0; h < headers.length; h++) {
+            headers[h].addEventListener('click', function() {
+                var col = this.dataset.col;
+                if (couplingSort.col === col) {
+                    couplingSort.dir = couplingSort.dir === 'desc' ? 'asc' : 'desc';
+                } else {
+                    couplingSort.col = col;
+                    couplingSort.dir = col === 'pair' ? 'asc' : 'desc';
+                }
+                renderCoupling();
+            });
+        }
         if (windowSelect) {
             windowSelect.addEventListener('change', function() {
                 if (hooks.setCochangeOptions) hooks.setCochangeOptions({ windowDays: parseFloat(this.value) });

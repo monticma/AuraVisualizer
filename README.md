@@ -163,9 +163,9 @@ Complexity, fan-in, fan-out and churn are **percentile ranks inside your reposit
 
 Risk buckets: **High ≥ 66**, **Medium 33–65**, **Low < 33**. Churn is measured as commits per file and requires the git **Time Travel** scan.
 
-### Temporal Coupling 🔗
+### Temporal Co-change 🔗
 
-Open the **🔗 Coupling** tab after a **Time Travel** scan to find files that keep changing in the same commits **without a direct dependency** — implicit contracts (API + client, test + implementation, shared configuration…).
+Open the **🔗 Co-change** tab after a **Time Travel** scan to find files that keep changing in the same commits **without a direct dependency** — implicit contracts (API + client, test + implementation, shared configuration…).
 
 - **Jaccard score** — `cochanges / (A commits + B commits − cochanges)`, plus support (share of analysed multi-file commits touching both)
 - **Window & threshold** — 90 days / 365 days / 2 years, minimum score 0.2–0.6
@@ -410,7 +410,7 @@ Switch between **9 visualization tabs** for different perspectives on your codeb
 | **📈 Timeline** | Line chart showing metric evolution over git history (LOC, file count, avg complexity, total complexity). Requires Time Travel scan. |
 | **📋 Table** | Sortable, filterable spreadsheet of all files with LOC, complexity, fan-in/out, symbols, and folder. |
 | **🛡️ Risk** | Codebase risk dashboard — health score, risk distribution, churn × complexity matrix, bus factor, and an exportable report |
-| **🔗 Coupling** | Temporal coupling — files that change together in git commits without a direct dependency (Jaccard score, support, virtual links) |
+| **🔗 Co-change** | Temporal co-change — files that change together in git commits without a direct dependency (Jaccard score, support, virtual links) |
 
 All tabs share the same live data and update when the graph is refreshed.
 

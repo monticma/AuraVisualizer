@@ -889,7 +889,7 @@ export class WebviewProvider {
             <button class="tab-btn" data-tab="timeline">📈 Timeline</button>
             <button class="tab-btn" data-tab="table">📋 Table</button>
             <button class="tab-btn" data-tab="risk">🛡️ Risk</button>
-            <button class="tab-btn" data-tab="coupling">🔗 Coupling</button>
+            <button class="tab-btn" data-tab="coupling">🔗 Co-change</button>
             <button id="qb-toggle" class="qb-toggle" title="Toggle query bar (Ctrl+K)">🔍</button>
             <button id="settings-toggle" type="button" class="qb-toggle" title="Aura settings">⚙️</button>
             <button id="chat-toggle" type="button" class="qb-toggle chat-toggle" title="Toggle Aura Assistant (AI chat)" hidden>✨</button>
@@ -1248,7 +1248,7 @@ export class WebviewProvider {
     <!-- Coupling View -->
     <div id="coupling-view" class="tab-content" data-tab="coupling">
         <div class="coupling-toolbar">
-            <div class="coupling-title">🔗 Temporal Coupling</div>
+            <div class="coupling-title">🔗 Temporal Co-change</div>
             <div class="coupling-actions">
                 <label class="coupling-label">Window
                     <select id="coupling-window" class="filter-select">
@@ -1272,12 +1272,12 @@ export class WebviewProvider {
             <table class="aura-table">
                 <thead>
                     <tr>
-                        <th>Pair</th>
-                        <th class="num">Co-changes</th>
-                        <th class="num">Jaccard</th>
-                        <th class="num">Support</th>
-                        <th class="num">A</th>
-                        <th class="num">B</th>
+                        <th data-col="pair">Pair</th>
+                        <th data-col="cochanges" class="num">Co-changes</th>
+                        <th data-col="jaccard" class="num">Jaccard</th>
+                        <th data-col="support" class="num">Support</th>
+                        <th data-col="aCommits" class="num">A</th>
+                        <th data-col="bCommits" class="num">B</th>
                     </tr>
                 </thead>
                 <tbody id="coupling-body"></tbody>
@@ -1795,7 +1795,7 @@ export class WebviewProvider {
                     <tr><td><strong>📈 Timeline</strong></td><td>Metric evolution over git history</td></tr>
                     <tr><td><strong>📋 Table</strong></td><td>Sortable, filterable file spreadsheet</td></tr>
                     <tr><td><strong>🛡️ Risk</strong></td><td>Codebase risk dashboard (health score, churn, bus factor)</td></tr>
-                    <tr><td><strong>🔗 Coupling</strong></td><td>Temporal coupling pairs — co-change without a direct dependency, with virtual graph links</td></tr>
+                    <tr><td><strong>🔗 Co-change</strong></td><td>Temporal co-change pairs — files changing together without a direct dependency, with virtual graph links</td></tr>
                 </table>
 
                 <h3>🛡️ Risk Map</h3>
@@ -1803,8 +1803,8 @@ export class WebviewProvider {
                 <p>Complexity, fan-in, fan-out and churn are <strong>percentile ranks inside your repository</strong> (0 = lowest file, 1 = highest), so the score is a standing relative to this codebase. A <strong>History window</strong> selector (30 / 90 / 365 days) drives churn, scoring and explanations. Churn is <strong>rename-aware</strong>: files moved with <code>git mv</code> keep their history across the rename.</p>
                 <p>High / Medium / Low file lists are collapsible, each row explains <em>why</em> a file scores that way, and clicking a file selects it in the 3D graph. Also included: <strong>📈 Risk Trend</strong>, <strong>🔥 Recently Hot</strong> (last 30 days), <strong>📊 Churn × Complexity</strong> scatter (log scale), and <strong>👤 Bus Factor</strong> (files with a single author). Use <strong>📤 Export Report</strong> to write <code>.aura/risk-report.md</code>.</p>
 
-                <h3>🔗 Temporal Coupling (co-change)</h3>
-                <p>The <strong>🔗 Coupling</strong> tab finds files that keep changing in the same commits <em>without</em> a direct import/dependency — an implicit contract (API + client, test + implementation, shared config…). Run Time Travel (⏱️) first so git history is available.</p>
+                <h3>🔗 Temporal Co-change</h3>
+                <p>The <strong>🔗 Co-change</strong> tab finds files that keep changing in the same commits <em>without</em> a direct import/dependency — an implicit contract (API + client, test + implementation, shared config…). Run Time Travel (⏱️) first so git history is available.</p>
                 <p>Pairs are ranked by <strong>Jaccard</strong> = <code>cochanges / (A commits + B commits − cochanges)</code>; <strong>support</strong> is the share of analysed multi-file commits touching both files. Renames are followed, deletions and giant commits (&gt;50 files) are ignored. <strong>Show on graph</strong> adds virtual magenta links for the strongest pairs; the <strong>🔗 Co-change</strong> filter toggles them and the heatmap mode colors files by their strongest coupling score. Queries can use <code>cochange &gt; 0.6</code>.</p>
 
                 <h3>🔗 Edge Colors</h3>

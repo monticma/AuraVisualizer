@@ -2614,6 +2614,17 @@
         }
     }
 
+    /** Focus a file from a secondary view (Co-change table, etc.). */
+    function focusNodeFromView(nodeId) {
+        if (!graph || !graphData || !findGraphNode(nodeId)) return;
+        if (activeTab !== 'graph') {
+            switchTab('graph');
+            requestAnimationFrame(function() { focusNodeById(nodeId, true); });
+        } else {
+            focusNodeById(nodeId, true);
+        }
+    }
+
     /** Update the 👁 button so the toggle state and the auto-pause are visible. */
     function updateFollowEditorButton() {
         var btn = $('#btn-follow-editor');
@@ -4277,7 +4288,7 @@
                 getCochangeOptions: function () { return { windowDays: cochangeWindowDays, minScore: cochangeMinScore }; },
                 setCochangeOptions: setCochangeOptions,
                 showCochangeOnGraph: showCochangeOnGraph,
-                focusNode: focusNodeById,
+                focusNode: focusNodeFromView,
                 findNode: findNode,
                 postMessage: function (msg) { vscode.postMessage(msg); }
             });

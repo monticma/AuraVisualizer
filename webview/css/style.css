@@ -2823,6 +2823,21 @@ html, body {
     color: #e879f9;
     font-weight: 700;
 }
+#coupling-view th[data-col] {
+    cursor: pointer;
+}
+#coupling-view th.sorted {
+    color: var(--aura-accent);
+    opacity: 1;
+}
+#coupling-view th[data-sort-dir="asc"]::after {
+    content: ' ▲';
+    font-size: 9px;
+}
+#coupling-view th[data-sort-dir="desc"]::after {
+    content: ' ▼';
+    font-size: 9px;
+}
 .coupling-empty {
     padding: 24px;
     text-align: center;
