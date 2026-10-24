@@ -1173,6 +1173,7 @@ async function exportMetrics(): Promise<void> {
             group: node.group,
             lines: node.linesOfCode,
             complexity: node.complexity,
+            cognitive: node.cognitive,
             fanIn: node.fanIn,
             fanOut: node.fanOut,
             churn: risk?.churn ?? 0,

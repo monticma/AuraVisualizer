@@ -25,6 +25,7 @@
 
     var NUMBER_FIELDS = {
         complexity: 'complexity',
+        cognitive: 'cognitive',
         linesofcode: 'linesOfCode',
         loc: 'linesOfCode',
         fanin: 'fanIn',

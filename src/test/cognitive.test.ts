@@ -7,6 +7,7 @@ import {
     findFunctionAtLine,
 } from '../flow/flow-core';
 import { buildGraph, preParseFiles } from '../analyzer/graph-builder';
+import { LANGUAGE_MAP, SUPPORTED_EXTENSIONS } from '../analyzer/scanner';
 import { makeFileInfo } from './helpers';
 
 beforeAll(async () => {
@@ -223,6 +224,7 @@ export function plain() { return 1; }`,
         expect(fn.functionLines).toBe(5);
         expect(fn.halsteadVolume).toBeGreaterThan(0);
         expect(fn.maintainability).toBeGreaterThan(0);
+        expect(graph.nodes[0].cognitive).toBe(2); // file-level max
     });
 
     it('exposes the same metrics on the function flowchart', async () => {
@@ -231,5 +233,122 @@ export function plain() { return 1; }`,
         expect(flow.decisions).toBe(2);
         expect(flow.metrics.cognitive).toBe(1);
         expect(flow.metrics.cyclomatic).toBe(2);
+    });
+
+    it('scans TSX files with the dedicated grammar and attaches metrics', async () => {
+        expect(SUPPORTED_EXTENSIONS.has('.tsx')).toBe(true);
+        expect(SUPPORTED_EXTENSIONS.has('.jsx')).toBe(true);
+        expect(LANGUAGE_MAP['.tsx']).toBe('tsx');
+        expect(LANGUAGE_MAP['.jsx']).toBe('javascript');
+        const file = makeFileInfo({
+            id: 'src/App.tsx',
+            name: 'App.tsx',
+            language: 'tsx',
+            extension: '.tsx',
+            content: `export function App({ ready }: { ready: boolean }) {
+  if (!ready) return <div>Loading</div>;
+  return <main>{ready ? 'ok' : 'no'}</main>;
+}`,
+        });
+        const trees = await preParseFiles([file]);
+        const graph = buildGraph([file], 'fixture', {}, trees);
+        const fn = graph.nodes[0].symbols!.functions.find(f => f.name === 'App')!;
+        expect(fn.cognitive).toBe(2); // if + JSX ternary
+        expect(fn.cyclomatic).toBe(3);
+        expect(graph.nodes[0].cognitive).toBe(2);
+    });
+});
+
+describe('extended language coverage (cognitive profiles)', () => {
+    const chains: Record<string, string> = {
+        java: `class A {
+  int f(int x) {
+    if (x > 0) { return 1; }
+    else if (x == 0) { return 2; }
+    else { return 3; }
+  }
+}`,
+        go: `package main
+func f(x int) int {
+  if x > 0 { return 1 } else if x == 0 { return 2 } else { return 3 }
+}`,
+        rust: `fn f(x: i32) -> i32 {
+  if x > 0 { return 1 } else if x == 0 { return 2 } else { return 3 }
+}`,
+        kotlin: `fun f(x: Int): Int {
+  if (x > 0) { return 1 } else if (x == 0) { return 2 } else { return 3 }
+}`,
+        swift: `func f(_ x: Int) -> Int {
+  if x > 0 { return 1 } else if x == 0 { return 2 } else { return 3 }
+}`,
+        csharp: `class A {
+  int F(int x) {
+    if (x > 0) { return 1; }
+    else if (x == 0) { return 2; }
+    else { return 3; }
+  }
+}`,
+        php: `<?php
+function f($x) {
+  if ($x > 0) { return 1; } elseif ($x == 0) { return 2; } else { return 3; }
+}`,
+        lua: `function f(x)
+  if x > 0 then
+    return 1
+  elseif x == 0 then
+    return 2
+  else
+    return 3
+  end
+end`,
+        bash: `f() {
+  if [ "$1" -gt 0 ]; then
+    return 1
+  elif [ "$1" -eq 0 ]; then
+    return 2
+  else
+    return 3
+  fi
+}`,
+    };
+
+    it('counts if / else-if / else chains in every supported language', async () => {
+        for (const [language, code] of Object.entries(chains)) {
+            const tree = await parseSource(language, code);
+            const entries = collectFunctionMetrics(tree, language);
+            expect(entries.length, language).toBeGreaterThan(0);
+            expect(entries[0].metrics.cognitive, language).toBe(3);
+            expect(entries[0].metrics.cyclomatic, language).toBe(3);
+        }
+    });
+
+    it('adds nesting for loops and ifs in JVM/.NET/Go/Rust-like grammars', async () => {
+        const samples: Record<string, string> = {
+            java: `class A { int f(int x) { for (int i=0;i<x;i++) { if (i > 1) { return i; } } return 0; } }`,
+            csharp: `class A { int F(int x) { for (int i=0;i<x;i++) { if (i > 1) { return i; } } return 0; } }`,
+            go: `package main
+func f(x int) int { for i := 0; i < x; i++ { if i > 1 { return i } }; return 0 }`,
+            rust: `fn f(x: i32) -> i32 { for i in 0..x { if i > 1 { return i; } } 0 }`,
+        };
+        for (const [language, code] of Object.entries(samples)) {
+            const tree = await parseSource(language, code);
+            const entries = collectFunctionMetrics(tree, language);
+            expect(entries[0].metrics.cognitive, language).toBe(3); // loop + nested if (1+1)
+        }
+    });
+
+    it('counts boolean sequences once per run in the extended profiles', async () => {
+        const samples: Record<string, string> = {
+            java: `class A { boolean f(boolean a, boolean b, boolean c) { if (a && b && c) { return true; } return false; } }`,
+            kotlin: `fun f(a: Boolean, b: Boolean, c: Boolean): Boolean { if (a && b && c) return true; return false }`,
+            swift: `func f(_ a: Bool, _ b: Bool, _ c: Bool) -> Bool { if a && b && c { return true }; return false }`,
+            go: `package main
+func f(a, b, c bool) bool { if a && b && c { return true }; return false }`,
+        };
+        for (const [language, code] of Object.entries(samples)) {
+            const tree = await parseSource(language, code);
+            const entries = collectFunctionMetrics(tree, language);
+            expect(entries[0].metrics.cognitive, language).toBe(2); // if + one && sequence
+        }
     });
 });

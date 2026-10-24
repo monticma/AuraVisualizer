@@ -24,6 +24,7 @@ export interface NodeRow {
     size: number;
     lines: number;
     complexity: number;
+    cognitive: number | null;
     fan_in: number;
     fan_out: number;
     last_modified: number;
@@ -101,6 +102,7 @@ CREATE TABLE IF NOT EXISTS nodes (
     size          INTEGER NOT NULL,
     lines         INTEGER NOT NULL,
     complexity    INTEGER NOT NULL,
+    cognitive     INTEGER,
     fan_in        INTEGER NOT NULL DEFAULT 0,
     fan_out       INTEGER NOT NULL DEFAULT 0,
     last_modified INTEGER NOT NULL DEFAULT 0
@@ -345,8 +347,8 @@ export class GraphDB {
             // Insert nodes
             for (const n of data.nodes) {
                 db.run(
-                    'INSERT INTO nodes (id, name, language, extension, group_name, size, lines, complexity, fan_in, fan_out, last_modified) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                    [n.id, n.name, n.language, n.extension, n.group, n.size, n.linesOfCode, n.complexity, n.fanIn, n.fanOut, n.lastModified]
+                    'INSERT INTO nodes (id, name, language, extension, group_name, size, lines, complexity, cognitive, fan_in, fan_out, last_modified) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    [n.id, n.name, n.language, n.extension, n.group, n.size, n.linesOfCode, n.complexity, n.cognitive ?? null, n.fanIn, n.fanOut, n.lastModified]
                 );
             }
 
@@ -435,9 +437,9 @@ export class GraphDB {
     upsertNode(node: GraphNode): void {
         const db = this.ensureDb();
         db.run(
-            `INSERT OR REPLACE INTO nodes (id, name, language, extension, group_name, size, lines, complexity, fan_in, fan_out, last_modified)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [node.id, node.name, node.language, node.extension, node.group, node.size, node.linesOfCode, node.complexity, node.fanIn, node.fanOut, node.lastModified]
+            `INSERT OR REPLACE INTO nodes (id, name, language, extension, group_name, size, lines, complexity, cognitive, fan_in, fan_out, last_modified)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [node.id, node.name, node.language, node.extension, node.group, node.size, node.linesOfCode, node.complexity, node.cognitive ?? null, node.fanIn, node.fanOut, node.lastModified]
         );
     }
 
@@ -473,9 +475,9 @@ export class GraphDB {
         try {
             // Upsert the node
             db.run(
-                `INSERT OR REPLACE INTO nodes (id, name, language, extension, group_name, size, lines, complexity, fan_in, fan_out, last_modified)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [node.id, node.name, node.language, node.extension, node.group, node.size, node.linesOfCode, node.complexity, node.fanIn, node.fanOut, node.lastModified]
+                `INSERT OR REPLACE INTO nodes (id, name, language, extension, group_name, size, lines, complexity, cognitive, fan_in, fan_out, last_modified)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [node.id, node.name, node.language, node.extension, node.group, node.size, node.linesOfCode, node.complexity, node.cognitive ?? null, node.fanIn, node.fanOut, node.lastModified]
             );
 
             // Replace outgoing edges
@@ -610,6 +612,7 @@ export class GraphDB {
                 fanOut: n.fan_out, fanIn: n.fan_in,
                 complexity: n.complexity, complexityDetails: {},
             };
+            if (n.cognitive !== null) node.cognitive = n.cognitive;
 
             if (syms.length > 0) {
                 node.symbols = {
@@ -1126,6 +1129,11 @@ export class GraphDB {
             if (!cols.includes(col)) {
                 db.run(sql);
             }
+        }
+
+        const nodeCols = queryAll<{ name: string }>(db, "PRAGMA table_info('nodes')").map(c => c.name);
+        if (!nodeCols.includes('cognitive')) {
+            db.run('ALTER TABLE nodes ADD COLUMN cognitive INTEGER');
         }
 
         // Migrate: add function_calls table if missing

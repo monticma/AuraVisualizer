@@ -8,7 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Function metrics (V2-04)** — Sonar-style **cognitive complexity** per function (nesting, else-if and boolean-sequence rules, empty else ignored) for JS/TS/TSX, Python, C and C++, plus McCabe cyclomatic complexity, approximate Halstead volume and a 0–100 **Maintainability Index**. The detail panel shows a `cog N · MI N` chip with a full tooltip, the Table has a sortable **Cog. max** column, the flowchart badge includes cognitive + MI, and the metrics are persisted in `.aura/graph.db` and exposed through the symbol search MCP/AI tools.
+- **Function metrics (V2-04)** — Sonar-style **cognitive complexity** per function (nesting, else-if and boolean-sequence rules, empty else ignored) for JS/TS/TSX, Python, C/C++, Java, Go, Rust, Kotlin, Swift, C#, PHP, Lua and Bash, plus McCabe cyclomatic complexity, approximate Halstead volume and a 0–100 **Maintainability Index**. The detail panel shows a `cog N · MI N` chip with a full tooltip, the Table has a sortable **Cog. max** column, the flowchart badge includes cognitive + MI, and the metrics are persisted in `.aura/graph.db` and exposed through the symbol search MCP/AI tools.
+- **Cognitive heatmap** — new **🧠 Cognitive** coloring mode uses the highest function cognitive complexity in each file, with its own gradient and legend. The `cognitive` field is also available in AuraQL queries.
+- **TSX/JSX scanning** — `.tsx` files now use the dedicated TSX grammar and `.jsx` files are scanned as JavaScript, so React components get symbols, metrics and flowcharts.
 - **Temporal co-change** — new **🔗 Co-change** tab finds files that change together in git commits without a direct dependency. Computes Jaccard and support over a selectable 90-day / 365-day / 2-year window, follows renames, ignores giant commits, and shows virtual magenta links on the 3D graph. Includes a **Co-change** heatmap, the `cochange` query field, and the `get_cochange` MCP tool.
 
 ### Changed

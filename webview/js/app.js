@@ -787,6 +787,7 @@
 
         metricRanges = {
             complexity: { min: Infinity, max: -Infinity },
+            cognitive:  { min: Infinity, max: -Infinity },
             fanIn:      { min: Infinity, max: -Infinity },
             fanOut:     { min: Infinity, max: -Infinity },
             loc:        { min: Infinity, max: -Infinity },
@@ -799,6 +800,9 @@
             var n = nodes[i];
             metricRanges.complexity.min = Math.min(metricRanges.complexity.min, n.complexity || 1);
             metricRanges.complexity.max = Math.max(metricRanges.complexity.max, n.complexity || 1);
+            var cog = typeof n.cognitive === 'number' ? n.cognitive : 0;
+            metricRanges.cognitive.min = Math.min(metricRanges.cognitive.min, cog);
+            metricRanges.cognitive.max = Math.max(metricRanges.cognitive.max, cog);
             metricRanges.fanIn.min = Math.min(metricRanges.fanIn.min, n.fanIn);
             metricRanges.fanIn.max = Math.max(metricRanges.fanIn.max, n.fanIn);
             metricRanges.fanOut.min = Math.min(metricRanges.fanOut.min, n.fanOut);
@@ -1825,6 +1829,7 @@
             var value;
             switch (heatmapMode) {
                 case 'complexity': value = node.complexity || 1; break;
+                case 'cognitive':  value = typeof node.cognitive === 'number' ? node.cognitive : 0; break;
                 case 'fanIn':      value = node.fanIn; break;
                 case 'fanOut':     value = node.fanOut; break;
                 case 'loc':        value = node.linesOfCode; break;
@@ -3780,7 +3785,7 @@
         // ============================================================
         // Keyboard shortcuts
         // ============================================================
-        var HEATMAP_MODES = ['off', 'complexity', 'fanIn', 'fanOut', 'loc', 'churn', 'cochange', 'lastModified', 'community'];
+        var HEATMAP_MODES = ['off', 'complexity', 'cognitive', 'fanIn', 'fanOut', 'loc', 'churn', 'cochange', 'lastModified', 'community'];
 
         document.addEventListener('keydown', function(e) {
             // Ignore when typing in an input

@@ -91,6 +91,7 @@ Color every node by a metric to spot hotspots at a glance. Press `H` to cycle th
 |------|-------------|
 | **Off** | Color by programming language |
 | **Complexity** | Cyclomatic complexity (branching, loops) |
+| **Cognitive** | Highest per-function cognitive complexity in the file — supported for JS/TS/TSX, Python, C/C++, Java, Go, Rust, Kotlin, Swift, C#, PHP, Lua and Bash |
 | **Fan-in** | How many files depend on this file |
 | **Fan-out** | How many files this file depends on |
 | **Lines of Code** | File size |
@@ -268,7 +269,7 @@ Turn any function into a readable **control-flow chart** — without tracing `if
 - Click the **⑂ button** next to a function in the Explorer symbols list (JS/TS/TSX, Python, C and C++)
 - The chart is built on demand from the AST: conditions fork into `T` / `F` branches that re-join, loops get a framed body with their **back edge**, `switch` cases line up as columns, and `try` / `catch` / `finally` stack as labelled frames
 - **Dead code** after a `return` / `throw` is drawn as red dashed boxes; the header badge shows the function's **cognitive complexity**, **maintainability index** and decision count
-- **Function metrics** — for JS/TS/TSX, Python, C and C++, each function also reports Sonar-style **cognitive complexity** (nesting + boolean sequences), McCabe cyclomatic complexity, approximate Halstead volume and a 0–100 **Maintainability Index**. The detail panel shows a `cog N · MI N` chip (hover for the full breakdown), and the **📋 Table** has a sortable **Cog. max** column
+- **Function metrics** — for JS/TS/TSX, Python, C/C++, Java, Go, Rust, Kotlin, Swift, C#, PHP, Lua and Bash, each function also reports Sonar-style **cognitive complexity** (nesting + boolean sequences), McCabe cyclomatic complexity, approximate Halstead volume and a 0–100 **Maintainability Index**. The detail panel shows a `cog N · MI N` chip (hover for the full breakdown), and the **📋 Table** has a sortable **Cog. max** column
 - **Click any step** to open the file at that exact line, and click an underlined **call chip** (`↳ validate()`) to drill into the called function — the breadcrumb walks back
 - **⤓ SVG** exports the chart as a standalone vector file
 - The window is **draggable and resizable**; `Esc` closes it
@@ -305,6 +306,7 @@ Filter, highlight, or select files with the built-in **Aura Query Language** —
 | Field | Description |
 |-------|-------------|
 | `complexity` | Cyclomatic complexity |
+| `cognitive` | Highest per-function cognitive complexity in the file |
 | `loc` / `linesofcode` | Lines of code |
 | `fanin` / `fanout` | Incoming / outgoing dependency counts |
 | `size` | File size in bytes |
@@ -395,7 +397,7 @@ Files in the side Explorer panel that contain functions or methods show a **chev
 
 Each function row also carries two action buttons: **▶** traces its outgoing call chain across files, and **⑂** opens its **function flowchart** — the branching structure of the function rendered as an explorable SVG diagram.
 
-In the detail panel, functions supported by the static metric engine (JS/TS/TSX, Python, C, C++) show a **`cog N · MI N`** chip: Sonar-style cognitive complexity and Maintainability Index, with cyclomatic complexity, Halstead volume and function length in the tooltip.
+In the detail panel, functions supported by the static metric engine (JS/TS/TSX, Python, C/C++, Java, Go, Rust, Kotlin, Swift, C#, PHP, Lua and Bash) show a **`cog N · MI N`** chip: Sonar-style cognitive complexity and Maintainability Index, with cyclomatic complexity, Halstead volume and function length in the tooltip.
 
 This turns the Explorer into a fast outline / go-to-symbol navigator across your whole project.
 
@@ -442,7 +444,7 @@ You can also open the visualizer from the **Aura** icon in the Activity Bar or v
 | Aura: Export Graph as PNG | — | Capture the 3D graph at ×1/×2/×4 |
 | Aura: Export Architecture Report | — | Markdown + Mermaid architecture report |
 | Aura: Export Architecture Report with AI Narrative | — | Same report plus an AI-written architecture explanation |
-| Aura: Export Metrics (CSV/JSON) | — | Per-file LOC, complexity, fan-in/out, churn, authors and risk |
+| Aura: Export Metrics (CSV/JSON) | — | Per-file LOC, complexity, cognitive max, fan-in/out, churn, authors and risk |
 
 ## Keyboard Shortcuts (in graph)
 

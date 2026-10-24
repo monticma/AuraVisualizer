@@ -95,6 +95,8 @@ export interface GraphNode {
     fanOut: number;
     fanIn: number;
     complexity: number;
+    /** Highest cognitive complexity among this file's functions/methods (supported languages). */
+    cognitive?: number;
     complexityDetails: Record<string, unknown>;
     symbols?: NodeSymbols;
     deadExports?: string[];

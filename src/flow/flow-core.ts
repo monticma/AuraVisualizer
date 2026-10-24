@@ -167,6 +167,10 @@ export interface FlowProfile {
     elseIfTypes?: string[];
     /** Else wrappers to unwrap (e.g. Python `else_clause`). */
     elseWrapperTypes?: string[];
+    /** Some grammars expose no fields on if/else branches; use child positions. */
+    ifPositional?: boolean;
+    /** Statement containers used to find a positional if body. */
+    ifBodyTypes?: string[];
     loops: LoopSpec[];
     loopBodyField: string;
     switchNode?: string;
@@ -346,6 +350,308 @@ const FLOW_PROFILES: Record<string, FlowProfile> = {
     cpp: CPP_PROFILE,
 };
 
+const JAVA_COGNITIVE_PROFILE: FlowProfile = {
+    ifNode: 'if_statement',
+    ifCondField: 'condition',
+    ifThenField: 'consequence',
+    ifElseField: 'alternative',
+    loops: [
+        { node: 'for_statement', label: 'for', headerFields: ['init', 'condition', 'update'] },
+        { node: 'enhanced_for_statement', label: 'foreach' },
+        { node: 'while_statement', label: 'while', headerFields: ['condition'] },
+        { node: 'do_statement', label: 'do', headerFields: ['condition'] },
+    ],
+    loopBodyField: 'body',
+    switchNode: 'switch_expression',
+    switchValueField: 'condition',
+    switchCaseTypes: ['switch_block_statement_group', 'switch_rule'],
+    tryNode: 'try_statement',
+    tryBodyField: 'body',
+    catchTypes: ['catch_clause'],
+    finallyTypes: ['finally_clause'],
+    finallyBodyField: 'body',
+    jumps: {
+        return_statement: 'return', throw_statement: 'throw',
+        break_statement: 'break', continue_statement: 'continue', yield_statement: 'yield',
+    },
+    callNode: 'method_invocation',
+    callFuncField: 'name',
+    ternaryNode: 'ternary_expression',
+    logicalNodeTypes: ['binary_expression'],
+    logicalOperators: ['&&', '||'],
+    operatorField: 'operator',
+    functions: ['method_declaration', 'constructor_declaration'],
+    scopeOnly: ['class_declaration', 'interface_declaration', 'enum_declaration', 'record_declaration', 'lambda_expression'],
+    commentTypes: ['line_comment', 'block_comment'],
+    bodyField: 'body',
+    nameField: 'name',
+    blockTypes: ['block', 'constructor_body', 'switch_block'],
+};
+
+const GO_COGNITIVE_PROFILE: FlowProfile = {
+    ifNode: 'if_statement',
+    ifCondField: 'condition',
+    ifThenField: 'consequence',
+    ifElseField: 'alternative',
+    loops: [{ node: 'for_statement', label: 'for' }],
+    loopBodyField: 'body',
+    switchNode: 'expression_switch_statement',
+    switchValueField: 'value',
+    switchCaseTypes: ['expression_case', 'default_case'],
+    jumps: {
+        return_statement: 'return', break_statement: 'break',
+        continue_statement: 'continue', goto_statement: 'goto',
+    },
+    callNode: 'call_expression',
+    callFuncField: 'function',
+    logicalNodeTypes: ['binary_expression'],
+    logicalOperators: ['&&', '||'],
+    operatorField: 'operator',
+    functions: ['function_declaration', 'method_declaration'],
+    scopeOnly: ['func_literal'],
+    commentTypes: ['comment'],
+    bodyField: 'body',
+    nameField: 'name',
+    blockTypes: ['block'],
+};
+
+const RUST_COGNITIVE_PROFILE: FlowProfile = {
+    ifNode: 'if_expression',
+    ifCondField: 'condition',
+    ifThenField: 'consequence',
+    ifElseField: 'alternative',
+    elseWrapperTypes: ['else_clause'],
+    loops: [
+        { node: 'for_expression', label: 'for', headerFields: ['pattern', 'value'] },
+        { node: 'while_expression', label: 'while', headerFields: ['condition'] },
+        { node: 'loop_expression', label: 'loop' },
+    ],
+    loopBodyField: 'body',
+    switchNode: 'match_expression',
+    switchValueField: 'value',
+    switchCaseTypes: ['match_arm'],
+    jumps: {
+        return_expression: 'return', break_expression: 'break',
+        continue_expression: 'continue',
+    },
+    callNode: 'call_expression',
+    callFuncField: 'function',
+    logicalNodeTypes: ['binary_expression'],
+    logicalOperators: ['&&', '||'],
+    operatorField: 'operator',
+    functions: ['function_item'],
+    scopeOnly: ['closure_expression', 'impl_item'],
+    commentTypes: ['line_comment', 'block_comment'],
+    bodyField: 'body',
+    nameField: 'name',
+    blockTypes: ['block', 'match_block'],
+};
+
+const CSHARP_COGNITIVE_PROFILE: FlowProfile = {
+    ifNode: 'if_statement',
+    ifCondField: 'condition',
+    ifThenField: 'consequence',
+    ifElseField: 'alternative',
+    loops: [
+        { node: 'for_statement', label: 'for', headerFields: ['initializer', 'condition', 'update'] },
+        { node: 'foreach_statement', label: 'foreach' },
+        { node: 'while_statement', label: 'while', headerFields: ['condition'] },
+        { node: 'do_statement', label: 'do', headerFields: ['condition'] },
+    ],
+    loopBodyField: 'body',
+    switchNode: 'switch_statement',
+    switchValueField: 'value',
+    switchCaseTypes: ['switch_section'],
+    tryNode: 'try_statement',
+    tryBodyField: 'body',
+    catchTypes: ['catch_clause'],
+    finallyTypes: ['finally_clause'],
+    finallyBodyField: 'body',
+    jumps: {
+        return_statement: 'return', throw_statement: 'throw',
+        break_statement: 'break', continue_statement: 'continue', goto_statement: 'goto',
+    },
+    callNode: 'invocation_expression',
+    callFuncField: 'function',
+    ternaryNode: 'conditional_expression',
+    logicalNodeTypes: ['binary_expression'],
+    logicalOperators: ['&&', '||'],
+    operatorField: 'operator',
+    functions: ['method_declaration', 'local_function_statement', 'constructor_declaration'],
+    scopeOnly: ['class_declaration', 'struct_declaration', 'interface_declaration', 'lambda_expression'],
+    commentTypes: ['comment', 'line_comment', 'block_comment'],
+    bodyField: 'body',
+    nameField: 'name',
+    blockTypes: ['block', 'switch_body'],
+};
+
+const PHP_COGNITIVE_PROFILE: FlowProfile = {
+    ifNode: 'if_statement',
+    ifCondField: 'condition',
+    ifThenField: 'body',
+    ifElseField: 'alternative',
+    elseIfTypes: ['else_if_clause'],
+    elseWrapperTypes: ['else_clause'],
+    loops: [
+        { node: 'for_statement', label: 'for', headerFields: ['initialize', 'condition', 'update'] },
+        { node: 'foreach_statement', label: 'foreach' },
+        { node: 'while_statement', label: 'while', headerFields: ['condition'] },
+        { node: 'do_statement', label: 'do', headerFields: ['condition'] },
+    ],
+    loopBodyField: 'body',
+    switchNode: 'switch_statement',
+    switchValueField: 'condition',
+    switchCaseTypes: ['case_statement', 'default_statement'],
+    tryNode: 'try_statement',
+    tryBodyField: 'body',
+    catchTypes: ['catch_clause'],
+    finallyTypes: ['finally_clause'],
+    finallyBodyField: 'body',
+    jumps: {
+        return_statement: 'return', throw_expression: 'throw',
+        break_statement: 'break', continue_statement: 'continue',
+    },
+    callNode: 'function_call_expression',
+    callFuncField: 'function',
+    ternaryNode: 'conditional_expression',
+    logicalNodeTypes: ['binary_expression'],
+    logicalOperators: ['&&', '||', 'and', 'or'],
+    operatorField: 'operator',
+    functions: ['function_definition', 'method_declaration'],
+    scopeOnly: ['class_declaration', 'anonymous_function_creation_expression', 'arrow_function'],
+    commentTypes: ['comment'],
+    bodyField: 'body',
+    nameField: 'name',
+    blockTypes: ['compound_statement', 'switch_block'],
+};
+
+const KOTLIN_COGNITIVE_PROFILE: FlowProfile = {
+    ifNode: 'if_expression',
+    ifCondField: '',
+    ifThenField: '',
+    ifElseField: '',
+    ifPositional: true,
+    ifBodyTypes: ['control_structure_body'],
+    loops: [
+        { node: 'for_statement', label: 'for' },
+        { node: 'while_statement', label: 'while' },
+        { node: 'do_while_statement', label: 'do' },
+    ],
+    loopBodyField: 'body',
+    switchNode: 'when_expression',
+    switchCaseTypes: ['when_entry'],
+    tryNode: 'try_expression',
+    catchTypes: ['catch_block'],
+    finallyTypes: ['finally_block'],
+    jumps: { jump_expression: 'jump' },
+    callNode: 'call_expression',
+    logicalNodeTypes: ['conjunction_expression', 'disjunction_expression'],
+    logicalOperators: ['&&', '||'],
+    functions: ['function_declaration'],
+    scopeOnly: ['class_declaration', 'object_declaration', 'lambda_literal', 'anonymous_function'],
+    commentTypes: ['line_comment', 'multiline_comment'],
+    bodyField: 'body',
+    nameField: 'name',
+    blockTypes: ['statements', 'control_structure_body', 'function_body', 'block'],
+};
+
+const SWIFT_COGNITIVE_PROFILE: FlowProfile = {
+    ifNode: 'if_statement',
+    ifCondField: 'condition',
+    ifThenField: '',
+    ifElseField: '',
+    ifPositional: true,
+    ifBodyTypes: ['statements'],
+    loops: [
+        { node: 'for_statement', label: 'for', headerFields: ['item', 'collection'] },
+        { node: 'while_statement', label: 'while', headerFields: ['condition'] },
+        { node: 'repeat_while_statement', label: 'repeat', headerFields: ['condition'] },
+    ],
+    loopBodyField: 'body',
+    switchNode: 'switch_statement',
+    switchValueField: 'expr',
+    switchCaseTypes: ['switch_entry'],
+    tryNode: 'do_statement',
+    catchTypes: ['catch_block'],
+    jumps: { control_transfer_statement: 'jump' },
+    callNode: 'call_expression',
+    ternaryNode: 'ternary_expression',
+    logicalNodeTypes: ['conjunction_expression', 'disjunction_expression'],
+    logicalOperators: ['&&', '||'],
+    functions: ['function_declaration'],
+    scopeOnly: ['class_declaration', 'struct_declaration', 'closure_expression', 'lambda_literal'],
+    commentTypes: ['line_comment', 'block_comment', 'multiline_comment'],
+    bodyField: 'body',
+    nameField: 'name',
+    blockTypes: ['statements', 'function_body'],
+};
+
+const LUA_COGNITIVE_PROFILE: FlowProfile = {
+    ifNode: 'if_statement',
+    ifCondField: 'condition',
+    ifThenField: 'consequence',
+    ifElseField: 'alternative',
+    elseIfTypes: ['elseif_clause'],
+    elseWrapperTypes: ['else_clause'],
+    loops: [
+        { node: 'for_statement', label: 'for' },
+        { node: 'while_statement', label: 'while' },
+        { node: 'repeat_statement', label: 'repeat' },
+    ],
+    loopBodyField: 'body',
+    jumps: {
+        return_statement: 'return', break_statement: 'break', goto_statement: 'goto',
+    },
+    callNode: 'function_call',
+    logicalNodeTypes: ['binary_expression'],
+    logicalOperators: ['and', 'or'],
+    operatorField: 'operator',
+    functions: ['function_definition_statement', 'local_function_definition_statement'],
+    scopeOnly: ['function_definition'],
+    commentTypes: ['comment'],
+    bodyField: 'body',
+    nameField: 'name',
+    blockTypes: ['block'],
+};
+
+const BASH_COGNITIVE_PROFILE: FlowProfile = {
+    ifNode: 'if_statement',
+    ifCondField: 'condition',
+    ifThenField: '',
+    ifElseField: '',
+    ifPositional: true,
+    ifBodyTypes: [],
+    elseIfTypes: ['elif_clause'],
+    elseWrapperTypes: ['else_clause'],
+    loops: [
+        { node: 'for_statement', label: 'for' },
+        { node: 'c_style_for_statement', label: 'for' },
+        { node: 'while_statement', label: 'while' },
+    ],
+    loopBodyField: 'body',
+    jumps: {},
+    logicalNodeTypes: ['list'],
+    logicalOperators: ['&&', '||'],
+    functions: ['function_definition'],
+    commentTypes: ['comment'],
+    bodyField: 'body',
+    nameField: 'name',
+    blockTypes: ['compound_statement'],
+};
+
+const COGNITIVE_PROFILES: Record<string, FlowProfile> = {
+    ...FLOW_PROFILES,
+    java: JAVA_COGNITIVE_PROFILE,
+    go: GO_COGNITIVE_PROFILE,
+    rust: RUST_COGNITIVE_PROFILE,
+    csharp: CSHARP_COGNITIVE_PROFILE,
+    php: PHP_COGNITIVE_PROFILE,
+    kotlin: KOTLIN_COGNITIVE_PROFILE,
+    swift: SWIFT_COGNITIVE_PROFILE,
+    lua: LUA_COGNITIVE_PROFILE,
+    bash: BASH_COGNITIVE_PROFILE,
+};
+
 /** Languages with a flow profile (MVP set). */
 export function flowLanguages(): string[] {
     return Object.keys(FLOW_PROFILES);
@@ -353,6 +659,16 @@ export function flowLanguages(): string[] {
 
 export function flowProfile(language: string): FlowProfile | undefined {
     return FLOW_PROFILES[language];
+}
+
+/** Language profile used by the per-function metric engine (broader than flowcharts). */
+export function cognitiveProfile(language: string): FlowProfile | undefined {
+    return COGNITIVE_PROFILES[normalizeFlowLanguage(language)];
+}
+
+/** Languages with a cognitive/function-metric profile. */
+export function cognitiveLanguages(): string[] {
+    return Object.keys(COGNITIVE_PROFILES);
 }
 
 /** Map Aura language ids (`c-source`, `cpp-header`…) to a flow grammar id. */
@@ -369,10 +685,15 @@ export function normalizeFlowLanguage(language: string): string {
 /** Leaf-like node types counted as Halstead operands (approximate). */
 const OPERAND_NODE_TYPES = new Set([
     'identifier', 'property_identifier', 'field_identifier', 'type_identifier',
+    'simple_identifier', 'scoped_identifier', 'variable_name', 'name', 'word',
     'shorthand_property_identifier', 'shorthand_property_identifier_pattern',
     'number', 'integer', 'float', 'number_literal', 'integer_literal', 'float_literal',
-    'string', 'string_literal', 'template_string',
-    'char_literal', 'true', 'false', 'null', 'none', 'nil', 'undefined',
+    'int_literal', 'decimal_integer_literal', 'hex_integer_literal', 'octal_integer_literal',
+    'binary_integer_literal', 'real_literal', 'character_literal', 'char_literal',
+    'string', 'string_literal', 'template_string', 'raw_string_literal',
+    'interpreted_string_literal', 'line_string_literal', 'multi_line_string_literal',
+    'string_content', 'encapsed_string', 'boolean_literal', 'true', 'false',
+    'null', 'null_literal', 'none', 'nil', 'undefined', 'unit',
     'this', 'self', 'super',
 ]);
 
@@ -406,11 +727,26 @@ function isLogicalNode(node: Parser.SyntaxNode, profile: FlowProfile): boolean {
     return !profile.logicalOperators || profile.logicalOperators.includes(op);
 }
 
-/** Operator token of a logical expression, with a text fallback for grammars without the field. */
-function logicalOperator(node: Parser.SyntaxNode, profile: FlowProfile): string {
+/** Operator token of an expression: named field first, then an anonymous token child. */
+function directOperator(node: Parser.SyntaxNode, profile: FlowProfile): string {
     const field = profile.operatorField || 'operator';
     const op = node.childForFieldName(field);
     if (op) return op.text.trim();
+    for (let i = 0; i < node.childCount; i++) {
+        const child = node.child(i);
+        if (!child || child.isNamed()) continue;
+        const text = child.text.trim();
+        if (!text || text.length > 4) continue;
+        if (/^[(){}[\],;.]$/.test(text)) continue;
+        return text;
+    }
+    return '';
+}
+
+/** Operator token of a logical expression, with a text fallback for grammars without the field. */
+function logicalOperator(node: Parser.SyntaxNode, profile: FlowProfile): string {
+    const direct = directOperator(node, profile);
+    if (direct) return direct;
     const match = node.text.match(/&&|\|\||\b(?:and|or)\b/);
     return match ? match[0] : '';
 }
@@ -457,8 +793,117 @@ function walkMeasuredBody(body: Parser.SyntaxNode | null, nesting: number, ctx: 
     for (const statement of statements) measureNode(statement, nesting, false, ctx);
 }
 
+function walkMeasuredStatements(statements: Parser.SyntaxNode[], nesting: number, ctx: MeasureContext): void {
+    for (const statement of statements) measureNode(statement, nesting, false, ctx);
+}
+
+function namedChildren(node: Parser.SyntaxNode): Parser.SyntaxNode[] {
+    const out: Parser.SyntaxNode[] = [];
+    for (let i = 0; i < node.namedChildCount; i++) {
+        const child = node.namedChild(i);
+        if (child) out.push(child);
+    }
+    return out;
+}
+
+function isIfLike(node: Parser.SyntaxNode, profile: FlowProfile): boolean {
+    return node.type === profile.ifNode
+        || !!(profile.elseIfTypes && profile.elseIfTypes.includes(node.type));
+}
+
+/** Unwrap `else` containers (statements/control_structure_body) around a single if. */
+function findSingleIf(node: Parser.SyntaxNode, profile: FlowProfile, depth = 0): Parser.SyntaxNode | null {
+    if (isIfLike(node, profile)) return node;
+    if (depth >= 4) return null;
+    const children = namedChildren(node);
+    if (children.length === 1) return findSingleIf(children[0], profile, depth + 1);
+    return null;
+}
+
+interface PositionalIfParts {
+    condition: Parser.SyntaxNode | null;
+    thenNodes: Parser.SyntaxNode[];
+    alternatives: Parser.SyntaxNode[];
+}
+
+/** Tokens that some grammars expose as named children but are not statements. */
+const IF_KEYWORDS = new Set(['else', 'else_keyword', 'elseif', 'elif', 'then', 'do']);
+
+/** Fallback for grammars that expose if/else branches by position (Kotlin, Swift, Bash). */
+function positionalIfParts(node: Parser.SyntaxNode, profile: FlowProfile): PositionalIfParts {
+    const children = namedChildren(node).filter((c) => !IF_KEYWORDS.has(c.type));
+    let condition = profile.ifCondField ? node.childForFieldName(profile.ifCondField) : null;
+    if (!condition) {
+        condition = children.find((c) => !isIfLike(c, profile)
+            && !(profile.ifBodyTypes && profile.ifBodyTypes.includes(c.type))
+            && !profile.blockTypes.includes(c.type)
+            && !(profile.elseWrapperTypes && profile.elseWrapperTypes.includes(c.type))) || null;
+    }
+    const start = condition ? children.indexOf(condition) + 1 : 0;
+    let thenNode: Parser.SyntaxNode | null = null;
+    if (profile.ifThenField) thenNode = node.childForFieldName(profile.ifThenField);
+    if (!thenNode) {
+        const bodyTypes = profile.ifBodyTypes && profile.ifBodyTypes.length > 0
+            ? profile.ifBodyTypes
+            : profile.blockTypes;
+        for (let i = start; i < children.length; i++) {
+            if (bodyTypes.includes(children[i].type)) { thenNode = children[i]; break; }
+        }
+    }
+    if (thenNode) {
+        return {
+            condition,
+            thenNodes: statementNodes(thenNode, profile),
+            alternatives: children.slice(children.indexOf(thenNode) + 1),
+        };
+    }
+    // Bash has no statement block: statements sit directly between the condition and elif/else.
+    let altStart = -1;
+    for (let i = start; i < children.length; i++) {
+        if (isIfLike(children[i], profile)
+            || (profile.elseWrapperTypes && profile.elseWrapperTypes.includes(children[i].type))) {
+            altStart = i;
+            break;
+        }
+    }
+    return {
+        condition,
+        thenNodes: children.slice(start, altStart < 0 ? children.length : altStart),
+        alternatives: altStart < 0 ? [] : children.slice(altStart),
+    };
+}
+
+function measurePositionalIf(node: Parser.SyntaxNode, nesting: number, elseIf: boolean, ctx: MeasureContext): void {
+    const p = ctx.profile;
+    ctx.cognitive += elseIf ? 1 : 1 + nesting;
+    ctx.cyclomatic += 1;
+    recordOperator(ctx, elseIf ? 'else if' : 'if');
+
+    const parts = positionalIfParts(node, p);
+    if (parts.condition) measureNode(parts.condition, nesting, false, ctx);
+    walkMeasuredStatements(parts.thenNodes, nesting + 1, ctx);
+
+    for (const alt of parts.alternatives) {
+        const innerIf = findSingleIf(alt, p);
+        if (innerIf) {
+            measurePositionalIf(innerIf, nesting, true, ctx);
+            continue;
+        }
+        if (bodyIsMeaningful(alt, p)) {
+            ctx.cognitive += 1;
+            recordOperator(ctx, 'else');
+        }
+        const body = bodyNode(alt, p.bodyField, p) || alt;
+        walkMeasuredBody(body, nesting + 1, ctx);
+    }
+}
+
 function measureIf(node: Parser.SyntaxNode, nesting: number, elseIf: boolean, ctx: MeasureContext): void {
     const p = ctx.profile;
+    if (p.ifPositional) {
+        measurePositionalIf(node, nesting, elseIf, ctx);
+        return;
+    }
     ctx.cognitive += elseIf ? 1 : 1 + nesting;
     ctx.cyclomatic += 1;
     recordOperator(ctx, elseIf ? 'else if' : 'if');
@@ -541,10 +986,11 @@ function measureNode(node: Parser.SyntaxNode, nesting: number, inLogical: boolea
         recordOperator(ctx, 'switch');
         const value = p.switchValueField ? node.childForFieldName(p.switchValueField) : null;
         if (value) measureNode(value, nesting, false, ctx);
-        const body = bodyNode(node, 'body', p);
-        if (body && p.switchCaseTypes) {
-            for (let i = 0; i < body.namedChildCount; i++) {
-                const child = body.namedChild(i);
+        if (p.switchCaseTypes) {
+            const body = bodyNode(node, 'body', p);
+            const container = body || node;
+            for (let i = 0; i < container.namedChildCount; i++) {
+                const child = container.namedChild(i);
                 if (!child || !p.switchCaseTypes.includes(child.type)) continue;
                 ctx.cognitive += 1;
                 ctx.cyclomatic += 1;
@@ -557,7 +1003,13 @@ function measureNode(node: Parser.SyntaxNode, nesting: number, inLogical: boolea
 
     if (p.tryNode && node.type === p.tryNode) {
         recordOperator(ctx, 'try');
-        walkMeasuredBody(bodyNode(node, p.tryBodyField || 'body', p), nesting, ctx);
+        let tryBody = p.tryBodyField ? node.childForFieldName(p.tryBodyField) : null;
+        if (!tryBody) {
+            for (const child of namedChildren(node)) {
+                if (p.blockTypes.includes(child.type)) { tryBody = child; break; }
+            }
+        }
+        walkMeasuredBody(tryBody, nesting, ctx);
         for (let i = 0; i < node.namedChildCount; i++) {
             const child = node.namedChild(i);
             if (!child) continue;
@@ -611,9 +1063,8 @@ function measureNode(node: Parser.SyntaxNode, nesting: number, inLogical: boolea
     }
 
     // Generic token accounting for Halstead / McCabe.
-    const operatorField = p.operatorField || 'operator';
-    const operator = node.childForFieldName(operatorField);
-    if (operator) recordOperator(ctx, operator.text);
+    const operator = directOperator(node, p);
+    if (operator) recordOperator(ctx, operator);
     else if (node.type.indexOf('assignment') !== -1) recordOperator(ctx, '=');
     if (p.callNode && node.type === p.callNode) recordOperator(ctx, '()');
     if (node.type.indexOf('member_expression') !== -1 || node.type.indexOf('field_expression') !== -1) {
@@ -697,13 +1148,13 @@ function metricsForFunctionNode(node: Parser.SyntaxNode, profile: FlowProfile): 
 
 /** Cognitive / Halstead / MI for one function-like AST node. */
 export function computeFunctionMetrics(node: Parser.SyntaxNode, language: string): FunctionMetrics | null {
-    const profile = flowProfile(normalizeFlowLanguage(language));
+    const profile = cognitiveProfile(language);
     return profile ? metricsForFunctionNode(node, profile) : null;
 }
 
 /** Every function-like node in a tree, with its metrics (single AST pass). */
 export function collectFunctionMetrics(tree: Parser.Tree, language: string): FunctionMetricEntry[] {
-    const profile = flowProfile(normalizeFlowLanguage(language));
+    const profile = cognitiveProfile(language);
     if (!profile) return [];
     const out: FunctionMetricEntry[] = [];
     const visit = (node: Parser.SyntaxNode): void => {
@@ -1108,7 +1559,8 @@ export function functionName(node: Parser.SyntaxNode, profile: FlowProfile): str
     const visit = (n: Parser.SyntaxNode): void => {
         if (found || visited > 40) return;
         visited++;
-        if (n.type === 'identifier' || n.type === 'field_identifier' || n.type === 'property_identifier') {
+        if (n.type === 'identifier' || n.type === 'field_identifier' || n.type === 'property_identifier'
+            || n.type === 'simple_identifier') {
             found = n.text;
             return;
         }

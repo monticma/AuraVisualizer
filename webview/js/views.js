@@ -1786,6 +1786,7 @@
 
     /** Highest cognitive complexity among a file's functions/methods; null when unsupported. */
     function fileCognitiveMax(node) {
+        if (typeof node.cognitive === 'number') return node.cognitive;
         if (!node.symbols) return null;
         var lists = [node.symbols.functions || [], node.symbols.methods || []];
         var max = null;

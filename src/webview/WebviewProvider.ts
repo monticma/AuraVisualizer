@@ -1416,6 +1416,7 @@ export class WebviewProvider {
             <select id="heatmap-select" class="filter-select" title="Coloring mode">
                 <option value="off">🎨 By language</option>
                 <option value="complexity">🔥 Complexity</option>
+                <option value="cognitive">🧠 Cognitive</option>
                 <option value="fanIn">📥 Fan-in</option>
                 <option value="fanOut">📤 Fan-out</option>
                 <option value="loc">📏 Lines of code</option>
@@ -1704,6 +1705,7 @@ export class WebviewProvider {
                 <table class="help-table">
                     <tr><td><strong>Off</strong></td><td>Color by programming language</td></tr>
                     <tr><td><strong>Complexity</strong></td><td>Cyclomatic complexity (branching, loops)</td></tr>
+                    <tr><td><strong>Cognitive</strong></td><td>Highest per-function cognitive complexity in the file (JS/TS/TSX, Python, C/C++, Java, Go, Rust, Kotlin, Swift, C#, PHP, Lua, Bash)</td></tr>
                     <tr><td><strong>Fan-in</strong></td><td>How many files depend on this file</td></tr>
                     <tr><td><strong>Fan-out</strong></td><td>How many files this file depends on</td></tr>
                     <tr><td><strong>Lines of Code</strong></td><td>File size</td></tr>
@@ -1723,7 +1725,7 @@ export class WebviewProvider {
                 <p>In the detail panel, click the <strong>▶</strong> button next to a function to trace its outgoing call chain across files. Files light up progressively by call depth.</p>
 
                 <h3>🧠 Function Metrics</h3>
-                <p>For <strong>JavaScript/TypeScript/TSX, Python, C and C++</strong>, Aura computes metrics per function from the AST. The detail panel shows a <code>cog N · MI N</code> chip next to each function; hover it for cyclomatic complexity, Halstead volume and function length. The <strong>📋 Table</strong> has a sortable <strong>Cog. max</strong> column (highest cognitive score among the file's functions).</p>
+                <p>For <strong>JavaScript/TypeScript/TSX, Python, C/C++, Java, Go, Rust, Kotlin, Swift, C#, PHP, Lua and Bash</strong>, Aura computes metrics per function from the AST. The detail panel shows a <code>cog N · MI N</code> chip next to each function; hover it for cyclomatic complexity, Halstead volume and function length. The <strong>📋 Table</strong> has a sortable <strong>Cog. max</strong> column (highest cognitive score among the file's functions), and the <strong>🧠 Cognitive</strong> heatmap colors files by that maximum.</p>
                 <ul>
                     <li><strong>Cognitive complexity</strong> follows the Sonar model: each flow break adds 1, nested structures add their nesting level, <code>else</code>/<code>else if</code> add 1 without an extra nesting penalty, and each change in a boolean sequence (<code>a &amp;&amp; b || c</code>) adds 1. Empty <code>else</code> blocks are ignored.</li>
                     <li><strong>Cyclomatic complexity</strong> is McCabe's count (branches, loops, cases, catch, logical operators).</li>
@@ -1760,7 +1762,7 @@ export class WebviewProvider {
 
                 <h3>🔍 Query Filter</h3>
                 <p>Open the query bar with the <strong>🔍 button</strong> (far right of the tab bar) or <kbd>Ctrl+K</kbd> / <kbd>Cmd+K</kbd> — it stays hidden until you need it. Type a boolean expression over node metrics, e.g. <code>complexity &gt; 20 AND fanIn &gt; 5</code>.</p>
-                <p><strong>Fields:</strong> <code>complexity</code>, <code>loc</code>, <code>fanin</code> / <code>fanout</code>, <code>size</code>, <code>mtime</code> / <code>lastmodified</code>, <code>symbols</code>, <code>deadexports</code>, <code>cochange</code>, <code>language</code>, <code>name</code>, <code>path</code>, <code>group</code>, <code>extension</code>, <code>community</code>, and flags <code>isorphan</code> / <code>isdead</code> / <code>incycle</code> / <code>ispinned</code> / <code>dirty</code> / <code>hasnote</code> / <code>stalenote</code>.</p>
+                <p><strong>Fields:</strong> <code>complexity</code>, <code>cognitive</code>, <code>loc</code>, <code>fanin</code> / <code>fanout</code>, <code>size</code>, <code>mtime</code> / <code>lastmodified</code>, <code>symbols</code>, <code>deadexports</code>, <code>cochange</code>, <code>language</code>, <code>name</code>, <code>path</code>, <code>group</code>, <code>extension</code>, <code>community</code>, and flags <code>isorphan</code> / <code>isdead</code> / <code>incycle</code> / <code>ispinned</code> / <code>dirty</code> / <code>hasnote</code> / <code>stalenote</code>.</p>
                 <p><strong>Operators:</strong> <code>==</code>, <code>!=</code>, <code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, <code>&lt;=</code>, <code>~</code> (regex), <code>!~</code>, <code>in [ ... ]</code>, plus <code>AND</code> / <code>OR</code> / <code>NOT</code>.</p>
                 <p><strong>Modes:</strong> <strong>Highlight</strong> (dim non-matching), <strong>Filter</strong> (hide non-matching), <strong>Select</strong> (multi-select). Press <strong>⭐</strong> to save a query and <strong>📚</strong> to reopen saved ones.</p>
 
@@ -1788,7 +1790,7 @@ export class WebviewProvider {
                 <p>The <strong>📤 Export</strong> button opens a guided export: choose <strong>Markdown</strong> or <strong>JSON</strong>, pick the sections (modules, contracts, hotspots, cycles, dead code) and a token budget (2k / 4k / 8k / 16k / no limit). The export estimates tokens at ~4 chars/token and reports any truncation explicitly. Save it or copy it straight into a prompt.</p>
                 <p>Aura also includes a built-in MCP server and the <strong>@aura</strong> chat participant for direct AI integration.</p>
                 <p>Use <strong>Aura: Export Architecture Report</strong> from the Command Palette to generate a Markdown document with a Mermaid module graph, top dependencies, hotspots, cycles and dead exports. Documentation files are excluded by default. <strong>Aura: Export Architecture Report with AI Narrative</strong> adds a written explanation generated from that deterministic report by the selected VS Code model.</p>
-                <p><strong>Aura: Export Metrics (CSV/JSON)</strong> exports one row per file with LOC, complexity, fan-in/out, churn, authors and risk score, ready for a spreadsheet or a dashboard.</p>
+                <p><strong>Aura: Export Metrics (CSV/JSON)</strong> exports one row per file with LOC, complexity, cognitive max, fan-in/out, churn, authors and risk score, ready for a spreadsheet or a dashboard.</p>
 
                 <h3>🗺️ Minimap</h3>
                 <p>Toggle with the <strong>🗺️ Map</strong> button. Shows a top-down overview of all nodes. The white rectangle indicates the camera viewport. Click on the minimap to navigate. Drag the header to reposition.</p>

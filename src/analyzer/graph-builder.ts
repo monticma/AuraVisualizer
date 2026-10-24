@@ -7,6 +7,7 @@ import { TreeSitterCParser } from './parsers/ts-c-parser';
 import { TreeSitterCppParser } from './parsers/ts-cpp-parser';
 import { TreeSitterJSParser } from './parsers/ts-js-parser';
 import { TreeSitterTSParser } from './parsers/ts-ts-parser';
+import { TreeSitterTsxParser } from './parsers/ts-tsx-parser';
 import { TreeSitterPyParser } from './parsers/ts-py-parser';
 import { TreeSitterJavaParser } from './parsers/ts-java-parser';
 import { TreeSitterGoParser } from './parsers/ts-go-parser';
@@ -34,6 +35,7 @@ const PARSERS: Record<string, BaseParser> = {
     'cpp': new TreeSitterCppParser(),
     'javascript': new TreeSitterJSParser(),
     'typescript': new TreeSitterTSParser(),
+    'tsx': new TreeSitterTsxParser(),
     'python': new TreeSitterPyParser(),
     'java': new TreeSitterJavaParser(),
     'go': new TreeSitterGoParser(),
@@ -52,13 +54,13 @@ const PARSERS: Record<string, BaseParser> = {
 
 /** Language family scoping: match calls within compatible language groups. */
 const LANG_FAMILY: Record<string, string> = {
-    'c': 'c', 'cpp': 'c', 'javascript': 'js', 'typescript': 'js', 'python': 'py',
+    'c': 'c', 'cpp': 'c', 'javascript': 'js', 'typescript': 'js', 'tsx': 'js', 'python': 'py',
     'java': 'java', 'go': 'go', 'rust': 'rust',
     'kotlin': 'kotlin', 'ruby': 'ruby', 'swift': 'swift',
     'csharp': 'csharp', 'php': 'php', 'bash': 'bash', 'lua': 'lua'
 };
 
-const SYMBOL_LANGUAGES = new Set(['c', 'cpp', 'javascript', 'typescript', 'python', 'java', 'go', 'rust', 'kotlin', 'ruby', 'swift', 'csharp', 'php', 'bash', 'lua']);
+const SYMBOL_LANGUAGES = new Set(['c', 'cpp', 'javascript', 'typescript', 'tsx', 'python', 'java', 'go', 'rust', 'kotlin', 'ruby', 'swift', 'csharp', 'php', 'bash', 'lua']);
 const HEADER_EXTS = new Set(['.h', '.hpp', '.hxx', '.hh', '.d.ts']);
 
 /**
@@ -110,6 +112,17 @@ function functionMetricFields(fn: SymbolInfo): {
         halsteadVolume: fn.halsteadVolume,
         maintainability: fn.maintainability,
     };
+}
+
+/** Highest cognitive score in a file, used by the Table column and heatmap. */
+function maxCognitive(symbols: FileSymbols | undefined): number | undefined {
+    if (!symbols) return undefined;
+    let max: number | undefined;
+    for (const fn of [...symbols.functions, ...(symbols.methods || [])]) {
+        if (typeof fn.cognitive !== 'number') continue;
+        if (max === undefined || fn.cognitive > max) max = fn.cognitive;
+    }
+    return max;
 }
 
 /**
@@ -684,6 +697,8 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
         };
 
         if (symbols) {
+            const cognitive = maxCognitive(symbols);
+            if (cognitive !== undefined) node.cognitive = cognitive;
             node.symbols = {
                 functions: symbols.functions.map(fn => ({
                     name: fn.name,
@@ -1123,6 +1138,8 @@ export function rebuildSingleFile(
     };
 
     if (symbols) {
+        const cognitive = maxCognitive(symbols);
+        if (cognitive !== undefined) node.cognitive = cognitive;
         node.symbols = {
             functions: symbols.functions.map(fn => ({
                 name: fn.name, returnType: fn.returnType || '', params: fn.params || '',

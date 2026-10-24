@@ -12,6 +12,7 @@ var LANGUAGE_COLORS = {
     'cpp-header':  '#4fc3f7',
     'javascript': '#ffd54f',
     'typescript': '#64b5f6',
+    'tsx': '#64b5f6',
     'python':     '#81c784',
     'css':        '#ce93d8',
     'html':       '#ff8a65',
@@ -56,6 +57,7 @@ var LANGUAGE_ICONS = {
     'cpp-header':  '📗',
     'javascript': '🟡',
     'typescript': '🔵',
+    'tsx': '🔵',
     'python':     '🟢',
     'css':        '🟣',
     'html':       '🟠',
@@ -80,6 +82,7 @@ var FLOW_COLORS = ['#00e5ff', '#76ff03', '#ffea00', '#ff9100', '#ff3d00', '#d500
 
 var HEATMAP_SCALES = {
     complexity: ['#1a237e', '#1565c0', '#2e7d32', '#f9a825', '#e65100', '#b71c1c'],
+    cognitive:  ['#1e1b4b', '#4c1d95', '#7c3aed', '#c026d3', '#f43f5e', '#facc15'],
     fanIn:      ['#1a237e', '#1565c0', '#2e7d32', '#f9a825', '#e65100', '#b71c1c'],
     fanOut:     ['#1a237e', '#1565c0', '#2e7d32', '#f9a825', '#e65100', '#b71c1c'],
     callVolume: ['#1a237e', '#1565c0', '#2e7d32', '#f9a825', '#e65100', '#b71c1c'],
@@ -92,6 +95,7 @@ var HEATMAP_SCALES = {
 var HEATMAP_LABELS = {
     off:        'By language',
     complexity: 'Complexity',
+    cognitive:  'Cognitive complexity',
     fanIn:      'Fan-in',
     fanOut:     'Fan-out',
     callVolume: 'Call volume',

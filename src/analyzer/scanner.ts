@@ -7,7 +7,7 @@ import { readdir, stat, readFile } from 'fs/promises';
 import { join, extname, relative } from 'path';
 import type { FileInfo, ScanOptions } from './types';
 
-export const SUPPORTED_EXTENSIONS = new Set(['.c', '.h', '.cpp', '.cc', '.cxx', '.hpp', '.hxx', '.hh', '.js', '.ts', '.py', '.css', '.html', '.htm', '.java', '.go', '.rs', '.kt', '.kts', '.rb', '.swift', '.cs', '.php', '.vue', '.sh', '.bash', '.lua', '.md', '.markdown', '.txt', '.rst']);
+export const SUPPORTED_EXTENSIONS = new Set(['.c', '.h', '.cpp', '.cc', '.cxx', '.hpp', '.hxx', '.hh', '.js', '.jsx', '.ts', '.tsx', '.py', '.css', '.html', '.htm', '.java', '.go', '.rs', '.kt', '.kts', '.rb', '.swift', '.cs', '.php', '.vue', '.sh', '.bash', '.lua', '.md', '.markdown', '.txt', '.rst']);
 
 export const DOC_EXTENSIONS = new Set(['.md', '.markdown', '.txt', '.rst']);
 
@@ -21,7 +21,9 @@ export const LANGUAGE_MAP: Record<string, string> = {
     '.hxx': 'cpp',
     '.hh': 'cpp',
     '.js': 'javascript',
+    '.jsx': 'javascript',
     '.ts': 'typescript',
+    '.tsx': 'tsx',
     '.py': 'python',
     '.css': 'css',
     '.html': 'html',

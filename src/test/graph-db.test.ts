@@ -271,6 +271,7 @@ function makeEnrichedGraph(): GraphData {
                 id: 'base.ts', name: 'base.ts', path: 'base.ts',
                 language: 'typescript', extension: '.ts', size: 500, linesOfCode: 30,
                 lastModified: 0, group: 'src', fanOut: 0, fanIn: 1, complexity: 2,
+                cognitive: 4,
                 complexityDetails: {},
                 symbols: {
                     functions: [
@@ -293,6 +294,7 @@ function makeEnrichedGraph(): GraphData {
                 id: 'child.ts', name: 'child.ts', path: 'child.ts',
                 language: 'typescript', extension: '.ts', size: 400, linesOfCode: 20,
                 lastModified: 0, group: 'src', fanOut: 1, fanIn: 0, complexity: 1,
+                cognitive: 0,
                 complexityDetails: {},
                 symbols: {
                     functions: [], structs: [], enums: [], macros: [], exports: [],
@@ -457,6 +459,7 @@ describe('GraphDB — enriched schema (Phase 1b)', () => {
         db.importGraphData(makeEnrichedGraph());
         const exported = db.exportGraphData()!;
         const base = exported.nodes.find(n => n.id === 'base.ts')!;
+        expect(base.cognitive).toBe(4);
         const init = base.symbols!.functions.find(f => f.name === 'init')!;
         expect(init.cognitive).toBe(4);
         expect(init.cyclomatic).toBe(5);
