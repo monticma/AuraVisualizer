@@ -82,7 +82,7 @@ var FLOW_COLORS = ['#00e5ff', '#76ff03', '#ffea00', '#ff9100', '#ff3d00', '#d500
 
 var HEATMAP_SCALES = {
     complexity: ['#1a237e', '#1565c0', '#2e7d32', '#f9a825', '#e65100', '#b71c1c'],
-    cognitive:  ['#1e1b4b', '#4c1d95', '#7c3aed', '#c026d3', '#f43f5e', '#facc15'],
+    cognitive:  ['#1a237e', '#1565c0', '#2e7d32', '#f9a825', '#e65100', '#b71c1c'],
     fanIn:      ['#1a237e', '#1565c0', '#2e7d32', '#f9a825', '#e65100', '#b71c1c'],
     fanOut:     ['#1a237e', '#1565c0', '#2e7d32', '#f9a825', '#e65100', '#b71c1c'],
     callVolume: ['#1a237e', '#1565c0', '#2e7d32', '#f9a825', '#e65100', '#b71c1c'],

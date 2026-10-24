@@ -4,7 +4,7 @@ Color every node by a metric to spot hotspots instantly.
 
 **Available modes:**
 - 🟢→🔴 **Complexity** — Cyclomatic complexity (branching, loops)
-- 🟣→🟡 **Cognitive** — Highest per-function cognitive complexity in the file (nesting + boolean sequences)
+- �→🔴 **Cognitive** — Highest per-function cognitive complexity in the file (nesting + boolean sequences)
 - 🟢→🔴 **Fan-in** — How many files depend on this file
 - 🟢→🔴 **Fan-out** — How many files this file depends on
 - 🟢→🔴 **Lines of Code** — File size
