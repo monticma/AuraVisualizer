@@ -14,8 +14,9 @@
 
 import { parentPort, workerData } from 'worker_threads';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
-import { join, extname, dirname, normalize } from 'path';
+import { join, extname } from 'path';
 import { getCommitIndex, getFileAtCommit, isGitRepo } from './analyzer/git-history';
+import { createImportResolver, loadImportAliases, type ImportResolver } from './analyzer/path-resolver';
 import { computeComplexity } from './analyzer/complexity';
 import { initTreeSitter, parseSource, hasGrammar } from './analyzer/tree-sitter-loader';
 import { TreeSitterCParser } from './analyzer/parsers/ts-c-parser';
@@ -126,8 +127,7 @@ function buildFileInfoFromContent(
  */
 async function analyzeFileForDelta(
     fileInfo: FileInfo,
-    existingFiles: Set<string>,
-    fileMap: Map<string, FileInfo>
+    resolver: ImportResolver,
 ): Promise<DeltaNodeState> {
     const parser = PARSER_REGISTRY[fileInfo.language];
 
@@ -148,7 +148,7 @@ async function analyzeFileForDelta(
             ? parser.parseAST(tree, fileInfo, {})
             : parser.parse(fileInfo, {});
         for (const rel of relations) {
-            const resolved = resolveTarget(rel.target, fileInfo.id, existingFiles, fileMap);
+            const resolved = resolver.resolve(rel.target, fileInfo.id)?.id ?? null;
             if (resolved && resolved !== fileInfo.id) {
                 linksOut.push({ target: resolved, type: rel.type });
             }
@@ -209,50 +209,9 @@ async function analyzeFileForDelta(
     };
 }
 
-/**
- * Simplified target resolution (same logic as graph-builder but without full fileMap lookups).
- */
-function resolveTarget(
-    target: string,
-    sourceId: string,
-    existingFiles: Set<string>,
-    fileMap: Map<string, FileInfo>
-): string | null {
-    if (existingFiles.has(target)) return target;
-
-    const sourceDir = dirname(sourceId);
-    const relativePath = normalize(join(sourceDir, target));
-    if (existingFiles.has(relativePath)) return relativePath;
-
-    // Try extensions
-    const tryExts = ['.js', '.ts', '.py', '.c', '.h', '.cpp', '.hpp', '.css', '.html', '.java', '.go', '.rs', '.kt', '.rb', '.swift', '.md'];
-    for (const ext of tryExts) {
-        if (existingFiles.has(relativePath + ext)) return relativePath + ext;
-    }
-
-    // Try index files for directories
-    const indexFiles = ['index.js', 'index.ts', '__init__.py'];
-    for (const idx of indexFiles) {
-        const indexPath = join(relativePath, idx);
-        if (existingFiles.has(indexPath)) return indexPath;
-    }
-
-    // Match by basename
-    const targetBase = target.split('/').pop() || target;
-    for (const filePath of existingFiles) {
-        const fileBase = filePath.split('/').pop() || filePath;
-        if (fileBase === targetBase) return filePath;
-        // Try with extensions
-        for (const ext of tryExts) {
-            if (fileBase === targetBase + ext) return filePath;
-        }
-    }
-
-    return null;
-}
-
 async function run(): Promise<void> {
     const { rootPath, skipDirs, historyDir } = workerData as HistoryWorkerInput;
+    const importAliases = loadImportAliases(rootPath);
 
     // Initialize Tree-sitter WASM runtime
     await initTreeSitter();
@@ -315,7 +274,7 @@ async function run(): Promise<void> {
         if (cachedHashes.has(commit.hash)) continue;
 
         try {
-            const delta = await scanCommit(commit, rootPath, skipDirsLower);
+            const delta = await scanCommit(commit, rootPath, skipDirsLower, importAliases);
             
             // Save delta to cache
             const deltaPath = join(historyDir, `${commit.hash}.json`);
@@ -341,7 +300,8 @@ async function run(): Promise<void> {
 async function scanCommit(
     commit: { hash: string; date: string; author: string; message: string; files: { status: string; path: string; oldPath?: string }[] },
     rootPath: string,
-    skipDirsLower: Set<string>
+    skipDirsLower: Set<string>,
+    importAliases: ReturnType<typeof loadImportAliases>,
 ): Promise<CommitDelta> {
     const delta: CommitDelta = {
         hash: commit.hash,
@@ -366,7 +326,6 @@ async function scanCommit(
 
     // Get all files existing at this commit for resolution context
     // (We'll build a minimal set from the changed files for efficiency)
-    const existingFiles = new Set<string>();
     const fileMap = new Map<string, FileInfo>();
 
     for (const f of relevantFiles) {
@@ -386,13 +345,13 @@ async function scanCommit(
         if (content === null) continue;
 
         const fileInfo = buildFileInfoFromContent(f.path, content);
-        existingFiles.add(f.path);
         fileMap.set(f.path, fileInfo);
     }
 
     // Analyze each non-deleted file
+    const resolver = createImportResolver(rootPath, fileMap.keys(), importAliases);
     for (const [filePath, fileInfo] of fileMap) {
-        const state = await analyzeFileForDelta(fileInfo, existingFiles, fileMap);
+        const state = await analyzeFileForDelta(fileInfo, resolver);
         delta.modified[filePath] = state;
     }
 

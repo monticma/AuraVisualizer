@@ -1783,6 +1783,9 @@ export class WebviewProvider {
                 <h3>🔗 Function Call Labels</h3>
                 <p>In the detail panel, <code>function-call</code> links display the actual function name (e.g. <code>helper()</code>). For C/C++, function-call links are only created between files connected via <code>#include</code> — no false positives.</p>
 
+                <h3>🧭 Import Aliases</h3>
+                <p>Aura resolves imports through your project configuration: <code>tsconfig.json</code>/<code>jsconfig.json</code> <strong>baseUrl + paths</strong> (including simple relative <code>extends</code>), static Vite/webpack <code>resolve.alias</code> entries, and Python <code>src/</code> layouts. Relative imports, extension/index probing, vendored suffix matches and basename fallbacks remain available. Aliased imports therefore create real edges instead of false orphan files, and the history worker uses the same resolver for consistent deltas.</p>
+
                 <h3>⚡ Instant Startup</h3>
                 <p>The graph is cached in a local SQLite database (<code>.aura/graph.db</code>). On next launch, the cached graph loads instantly. A fingerprint (<code>git HEAD</code> + settings + parser version + file size/mtime list) skips analysis entirely when nothing changed; otherwise only added/modified/deleted files are re-parsed and sent as a delta. File saves still trigger incremental O(1) updates.</p>
 

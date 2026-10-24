@@ -2,7 +2,7 @@
  * graph-builder.ts — Aggregates scanner results and parser output into a graph.
  */
 
-import { basename, dirname, join, normalize } from 'path';
+import { join } from 'path';
 import { TreeSitterCParser } from './parsers/ts-c-parser';
 import { TreeSitterCppParser } from './parsers/ts-cpp-parser';
 import { TreeSitterJSParser } from './parsers/ts-js-parser';
@@ -24,6 +24,7 @@ import { HTMLParser } from './parsers/html-parser';
 import { CSSParser } from './parsers/css-parser';
 import { computeComplexity } from './complexity';
 import { collectFunctionMetrics, type FunctionMetricEntry } from '../flow/flow-core';
+import { createImportResolver, type ImportResolver } from './path-resolver';
 import { hasGrammar, parseSource } from './tree-sitter-loader';
 import type { BaseParser } from './parsers/base-parser';
 import type Parser from 'web-tree-sitter';
@@ -144,45 +145,19 @@ export async function preParseFiles(files: FileInfo[]): Promise<Map<string, Pars
     return trees;
 }
 
-function resolveTarget(target: string, sourceId: string, fileMap: Map<string, FileInfo>): string | null {
-    if (fileMap.has(target)) return target;
+function resolveTarget(target: string, sourceId: string, resolver: ImportResolver): string | null {
+    return resolver.resolve(target, sourceId)?.id ?? null;
+}
 
-    const sourceDir = dirname(sourceId);
-    const relativePath = normalize(join(sourceDir, target));
-    if (fileMap.has(relativePath)) return relativePath;
-
-    const extensions = ['.js', '.ts', '.py', '.c', '.h', '.css', '.html', '.cs', '.php', '.sh', '.lua'];
-    for (const ext of extensions) {
-        if (fileMap.has(relativePath + ext)) return relativePath + ext;
-        if (fileMap.has(target + ext)) return target + ext;
+/** Derive the project root from scanned FileInfo (fullPath − graph id). */
+function projectRootFromFiles(files: FileInfo[]): string {
+    for (const file of files) {
+        if (!file.fullPath || !file.id) continue;
+        const suffix = file.id.replace(/\\/g, '/');
+        const full = file.fullPath.replace(/\\/g, '/');
+        if (full.endsWith(suffix)) return full.slice(0, full.length - suffix.length).replace(/\/$/, '') || '.';
     }
-
-    const indexPath = join(relativePath, 'index.js');
-    if (fileMap.has(indexPath)) return indexPath;
-
-    // Suffix match for vendored header include paths: "#include <sol/sol.hpp>"
-    // should resolve to "Vendor/sol2/sol/sol.hpp" even when several files share
-    // the same basename.
-    if (target.includes('/')) {
-        const suffix = '/' + target.replace(/\\/g, '/');
-        for (const [id] of fileMap) {
-            if (id.endsWith(suffix)) return id;
-        }
-    }
-
-    const targetBasename = basename(target);
-    for (const [id, file] of fileMap) {
-        if (file.name === targetBasename) return id;
-    }
-
-    for (const ext of extensions) {
-        const nameWithExt = targetBasename + ext;
-        for (const [id, file] of fileMap) {
-            if (file.name === nameWithExt) return id;
-        }
-    }
-
-    return null;
+    return process.cwd();
 }
 
 /**
@@ -350,6 +325,7 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
     for (const file of files) {
         fileMap.set(file.id, file);
     }
+    const resolver = createImportResolver(projectRootFromFiles(files), fileMap.keys());
 
     // Phase 1: Parse relations
     const allRelations: Relation[] = [];
@@ -398,7 +374,7 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
     // definition file (or a header that exposes it) through the import graph.
     const importGraph = new Map<string, Set<string>>();
     for (const rel of allRelations) {
-        const resolved = resolveTarget(rel.target, rel.source, fileMap);
+        const resolved = resolveTarget(rel.target, rel.source, resolver);
         if (!resolved || resolved === rel.source) continue;
         if (!importGraph.has(rel.source)) importGraph.set(rel.source, new Set());
         importGraph.get(rel.source)!.add(resolved);
@@ -569,7 +545,7 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
     const unresolvedCount = { count: 0, targets: [] as { from: string; ref: string }[] };
 
     for (const relation of allRelations) {
-        const resolvedTarget = resolveTarget(relation.target, relation.source, fileMap);
+        const resolvedTarget = resolveTarget(relation.target, relation.source, resolver);
         if (resolvedTarget && resolvedTarget !== relation.source) {
             // A "system-include" (#include <...>) that resolves to a local file is
             // actually a vendored local header (e.g. <sol/sol.hpp> → Vendor/sol2/sol/sol.hpp).
@@ -858,8 +834,9 @@ export function buildIncrementalContext(files: FileInfo[], astTrees?: Map<string
 }
 
 /** Build import graph: fileId → set of resolved import targets (used for C/C++ reachability). */
-function buildImportGraph(files: FileInfo[], fileMap: Map<string, FileInfo>, astTrees?: Map<string, Parser.Tree>): Map<string, Set<string>> {
+function buildImportGraph(files: FileInfo[], fileMap: Map<string, FileInfo>, astTrees?: Map<string, Parser.Tree>, resolver?: ImportResolver): Map<string, Set<string>> {
     const importGraph = new Map<string, Set<string>>();
+    const importResolver = resolver || createImportResolver(projectRootFromFiles(files), fileMap.keys());
     for (const file of files) {
         const tree = astTrees?.get(file.id);
         const parser = getParser(file.language);
@@ -868,7 +845,7 @@ function buildImportGraph(files: FileInfo[], fileMap: Map<string, FileInfo>, ast
             ? parser.parseAST(tree, file, {})
             : parser.parse(file, {});
         for (const rel of rels) {
-            const resolved = resolveTarget(rel.target, rel.source, fileMap);
+            const resolved = resolveTarget(rel.target, rel.source, importResolver);
             if (resolved && resolved !== rel.source) {
                 if (!importGraph.has(rel.source)) importGraph.set(rel.source, new Set());
                 importGraph.get(rel.source)!.add(resolved);
@@ -950,6 +927,7 @@ export function rebuildSingleFile(
 
     // Update fileMap
     fileMap.set(file.id, file);
+    const resolver = createImportResolver(projectRootFromFiles([file, ...fileMap.values()]), fileMap.keys());
 
     // Remove old entries for this file from globalFunctionIndex
     const oldSymbols = allFileSymbols.get(file.id);
@@ -1001,7 +979,7 @@ export function rebuildSingleFile(
     // Update import graph for this file
     const localImportTargets = new Set<string>();
     for (const rel of relations) {
-        const resolved = resolveTarget(rel.target, rel.source, fileMap);
+        const resolved = resolveTarget(rel.target, rel.source, resolver);
         if (resolved && resolved !== rel.source) localImportTargets.add(resolved);
     }
     ctx.importGraph.set(file.id, localImportTargets);
@@ -1098,7 +1076,7 @@ export function rebuildSingleFile(
     // Phase 5: Resolve targets and build outEdges
     const outEdges: GraphLink[] = [];
     for (const rel of relations) {
-        const resolved = resolveTarget(rel.target, rel.source, fileMap);
+        const resolved = resolveTarget(rel.target, rel.source, resolver);
         if (resolved && resolved !== rel.source) {
             // Promote resolved local angle-bracket includes to visible links
             // (same rationale as buildGraph Phase 5).

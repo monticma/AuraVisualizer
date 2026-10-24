@@ -70,6 +70,16 @@ Cross-file **function calls** are detected for C, C++, JS/TS, Python, Java, Go, 
 **Inheritance edges** (`extends` / `implements`) are detected for JS/TS, Python, Java, Go (struct embedding), Rust (trait impl), Kotlin, Swift (protocol conformance), C#, and PHP.
 Language filter buttons are **dynamic** — only languages present in the current analysis are shown.
 
+### Import Resolution & Aliases
+
+Imports are resolved through the project's real configuration, not just relative paths:
+- **`tsconfig.json` / `jsconfig.json`** — `compilerOptions.baseUrl` and `paths` (including `@/*`, `~/lib/*`, `@app/*` and simple relative `extends` chains)
+- **Vite / webpack** — static `resolve.alias` entries such as `'@': path.resolve(__dirname, './src')`
+- **Python `src/` layout** — `app.models.user` → `src/app/models/user.py` (or `__init__.py`)
+- Historical fallbacks stay available: relative imports, extension/index probing, vendored suffix matches and basename matching.
+
+This removes the false “orphan” nodes that aliased imports used to create. The same resolver is used by the history worker, so temporal deltas stay consistent with the current graph.
+
 ### Interactive Exploration
 
 | Action | Effect |

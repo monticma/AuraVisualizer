@@ -6,6 +6,8 @@ Node size reflects lines of code. Edge color reflects dependency type.
 Aura supports **19 languages**: C, C++, JavaScript, TypeScript, Python, Java, Go, Rust, Kotlin, Ruby, Swift, C#, PHP, Vue, Bash, Lua, CSS, HTML, and Markdown / plain-text docs. Code files are parsed with Tree-sitter AST analysis; Vue single-file components are scanned for their `<script>` / `<style>` imports.
 Filter buttons at the bottom show only languages present in your project.
 
+**Import aliases** — Aura reads `tsconfig.json`/`jsconfig.json` (`baseUrl` + `paths`), static Vite/webpack `resolve.alias` entries and Python `src/` layouts, so `@/components`, `~/lib` and `@app/*` imports resolve to real files instead of creating false orphans.
+
 **Mouse controls:**
 - 🖱️ **Click** — Select a node, see details in the side panel
 - 🖱️ **Double-click** — Open the file in VS Code
