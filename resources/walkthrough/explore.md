@@ -8,6 +8,8 @@ Filter buttons at the bottom show only languages present in your project.
 
 **Import aliases** — Aura reads `tsconfig.json`/`jsconfig.json` (`baseUrl` + `paths`), static Vite/webpack `resolve.alias` entries and Python `src/` layouts, so `@/components`, `~/lib` and `@app/*` imports resolve to real files instead of creating false orphans.
 
+**Edge confidence** — every resolved edge carries a 0–1 score (1.0 exact/alias, 0.9 extension, 0.8 suffix, 0.6 basename, 0.5 ambiguous). Filter weaker links with the **Edge confidence** selector and check the badge in the detail panel.
+
 **Mouse controls:**
 - 🖱️ **Click** — Select a node, see details in the side panel
 - 🖱️ **Double-click** — Open the file in VS Code

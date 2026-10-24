@@ -1428,6 +1428,20 @@ export class WebviewProvider {
         </div>
         <div class="filter-separator graph-only"></div>
         <div class="filter-group graph-only">
+            <label class="filter-label" title="Hide edges whose resolution confidence is below this threshold">
+                Edge confidence
+                <select id="confidence-filter" class="filter-select">
+                    <option value="0">All edges</option>
+                    <option value="0.5">≥ 0.5</option>
+                    <option value="0.6">≥ 0.6</option>
+                    <option value="0.8">≥ 0.8</option>
+                    <option value="0.9">≥ 0.9</option>
+                    <option value="1">Exact only</option>
+                </select>
+            </label>
+        </div>
+        <div class="filter-separator graph-only"></div>
+        <div class="filter-group graph-only">
             <label class="filter-label">
                 Node size
                 <input type="range" id="node-size-slider" min="1" max="10" value="4" step="0.5">
@@ -1785,6 +1799,9 @@ export class WebviewProvider {
 
                 <h3>🧭 Import Aliases</h3>
                 <p>Aura resolves imports through your project configuration: <code>tsconfig.json</code>/<code>jsconfig.json</code> <strong>baseUrl + paths</strong> (including simple relative <code>extends</code>), static Vite/webpack <code>resolve.alias</code> entries, and Python <code>src/</code> layouts. Relative imports, extension/index probing, vendored suffix matches and basename fallbacks remain available. Aliased imports therefore create real edges instead of false orphan files, and the history worker uses the same resolver for consistent deltas.</p>
+
+                <h3>🎯 Edge Confidence</h3>
+                <p>Each edge carries a resolution confidence: <strong>1.0</strong> exact/relative/alias, <strong>0.9</strong> extension/index, <strong>0.8</strong> suffix, <strong>0.6</strong> basename, <strong>0.5</strong> ambiguous (several candidates). Function calls score <strong>0.8</strong> for a unique target and <strong>0.5</strong> when ambiguous; inheritance is <strong>0.9</strong>. Use the <strong>Edge confidence</strong> toolbar selector to hide weaker links, and read the badge next to each dependency in the detail panel. Old databases default to <strong>1.0</strong>.</p>
 
                 <h3>⚡ Instant Startup</h3>
                 <p>The graph is cached in a local SQLite database (<code>.aura/graph.db</code>). On next launch, the cached graph loads instantly. A fingerprint (<code>git HEAD</code> + settings + parser version + file size/mtime list) skips analysis entirely when nothing changed; otherwise only added/modified/deleted files are re-parsed and sent as a delta. File saves still trigger incremental O(1) updates.</p>

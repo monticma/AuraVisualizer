@@ -108,6 +108,8 @@ export interface GraphLink {
     target: string;
     type: string;
     label: string;
+    /** Edge confidence: 1.0 exact, 0.9 extension, 0.8 suffix, 0.6 basename, 0.5 ambiguous. */
+    confidence?: number;
 }
 
 export interface LanguageStat {
@@ -187,7 +189,7 @@ export interface DeltaNodeState {
     complexity: number;
     language: string;
     symbols?: NodeSymbols;
-    linksOut: { target: string; type: string }[];
+    linksOut: { target: string; type: string; confidence?: number }[];
 }
 
 /** Delta for a single commit (stored in .aura/history/<hash>.json) */

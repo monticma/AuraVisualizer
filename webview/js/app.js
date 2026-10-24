@@ -55,6 +55,7 @@
     var spreadMultiplier = 1;
     var focusDepth = 1;
     var heatmapMode = 'off';
+    var linkConfidenceMin = 0;
     var showGroups = false;
     var expandedGroups = new Set();
     var groupMeshes = [];
@@ -3038,6 +3039,7 @@
             cochangeWindow: cochangeWindowDays,
             cochangeMinScore: cochangeMinScore,
             showCochangeLinks: showCochangeLinks,
+            confidenceMin: linkConfidenceMin,
             heatmapMode: heatmapMode,
             nodeSizeMultiplier: nodeSizeMultiplier,
             spreadMultiplier: spreadMultiplier,
@@ -3112,6 +3114,11 @@
             showCochangeLinks = state.showCochangeLinks;
             var cochangeBtn = $('#btn-cochange-links');
             if (cochangeBtn) cochangeBtn.classList.toggle('active', showCochangeLinks);
+        }
+        if (typeof state.confidenceMin === 'number') {
+            linkConfidenceMin = Math.max(0, Math.min(1, state.confidenceMin));
+            var cfs = $('#confidence-filter');
+            if (cfs) cfs.value = String(linkConfidenceMin);
         }
 
         $('#btn-dag-mode').classList.toggle('active', dagMode);
@@ -3468,6 +3475,15 @@
             setHeatmapMode(e.target.value);
             saveViewState();
         });
+
+        var confidenceFilter = $('#confidence-filter');
+        if (confidenceFilter) {
+            confidenceFilter.addEventListener('change', function(e) {
+                linkConfidenceMin = Math.max(0, Math.min(1, parseFloat(e.target.value) || 0));
+                applyFilters();
+                saveViewState();
+            });
+        }
 
         // Community palette buttons
         var cpSelectAll = $('#community-select-all');
@@ -3975,6 +3991,7 @@
         var filteredLinks = [];
         for (var k = 0; k < data.links.length; k++) {
             var l = data.links[k];
+            if (linkConfidenceMin > 0 && !l._cochange && typeof l.confidence === 'number' && l.confidence < linkConfidenceMin) continue;
             var sourceId = typeof l.source === 'object' ? l.source.id : l.source;
             var targetId = typeof l.target === 'object' ? l.target.id : l.target;
             if (nodeIds.has(sourceId) && nodeIds.has(targetId)) filteredLinks.push(l);

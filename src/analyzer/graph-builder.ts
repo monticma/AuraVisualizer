@@ -24,7 +24,7 @@ import { HTMLParser } from './parsers/html-parser';
 import { CSSParser } from './parsers/css-parser';
 import { computeComplexity } from './complexity';
 import { collectFunctionMetrics, type FunctionMetricEntry } from '../flow/flow-core';
-import { createImportResolver, type ImportResolver } from './path-resolver';
+import { createImportResolver, confidenceScore, type ImportResolver } from './path-resolver';
 import { hasGrammar, parseSource } from './tree-sitter-loader';
 import type { BaseParser } from './parsers/base-parser';
 import type Parser from 'web-tree-sitter';
@@ -314,6 +314,7 @@ function buildDocReferenceLinks(
                 target,
                 type: 'doc-reference',
                 label: '',
+                confidence: 0.6,
             });
         }
     }
@@ -443,6 +444,7 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
             const key = `${family}:${callName}`;
             const definedIn = globalFunctionIndex.get(key);
             if (definedIn) {
+                const callConfidence = definedIn.length > 1 ? 0.5 : 0.8;
                 for (const defFileId of definedIn) {
                     if (defFileId === file.id) continue;
                     // For C/C++, only link if files are connected via imports
@@ -451,7 +453,8 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
                         source: file.id,
                         target: defFileId,
                         type: 'function-call',
-                        label: `${callName}()`
+                        label: `${callName}()`,
+                        confidence: callConfidence,
                     });
                 }
             }
@@ -527,7 +530,8 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
                     source: file.id,
                     target: targetFileId,
                     type: rel.type,
-                    label: rel.label
+                    label: rel.label,
+                    confidence: 0.9,
                 });
             }
         }
@@ -545,8 +549,9 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
     const unresolvedCount = { count: 0, targets: [] as { from: string; ref: string }[] };
 
     for (const relation of allRelations) {
-        const resolvedTarget = resolveTarget(relation.target, relation.source, resolver);
-        if (resolvedTarget && resolvedTarget !== relation.source) {
+        const resolution = resolver.resolve(relation.target, relation.source);
+        if (resolution && resolution.id !== relation.source) {
+            const resolvedTarget = resolution.id;
             // A "system-include" (#include <...>) that resolves to a local file is
             // actually a vendored local header (e.g. <sol/sol.hpp> → Vendor/sol2/sol/sol.hpp).
             // Promote it to a visible "include" link. Genuine stdlib headers never resolve
@@ -559,7 +564,8 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
                 source: relation.source,
                 target: resolvedTarget,
                 type: linkType,
-                label: relation.label
+                label: relation.label,
+                confidence: confidenceScore(resolution),
             });
         } else if (relation.type !== 'system-include') {
             // Don't count unresolved system includes (stdlib) as missing references.
@@ -1019,10 +1025,11 @@ export function rebuildSingleFile(
             const key = `${family}:${callName}`;
             const definedIn = globalFunctionIndex.get(key);
             if (definedIn) {
+                const callConfidence = definedIn.length > 1 ? 0.5 : 0.8;
                 for (const defFileId of definedIn) {
                     if (defFileId === file.id) continue;
                     if (hasHeaders && !isReachableFromFile(defFileId)) continue;
-                    functionCallLinks.push({ source: file.id, target: defFileId, type: 'function-call', label: `${callName}()` });
+                    functionCallLinks.push({ source: file.id, target: defFileId, type: 'function-call', label: `${callName}()`, confidence: callConfidence });
                 }
             }
         }
@@ -1065,7 +1072,7 @@ export function rebuildSingleFile(
         for (const rel of heritageRels) {
             const targetFileId = symbolFileIndex.get(rel.target);
             if (targetFileId && targetFileId !== file.id) {
-                heritageLinks.push({ source: file.id, target: targetFileId, type: rel.type, label: rel.label });
+                heritageLinks.push({ source: file.id, target: targetFileId, type: rel.type, label: rel.label, confidence: 0.9 });
             }
         }
     }
@@ -1076,14 +1083,14 @@ export function rebuildSingleFile(
     // Phase 5: Resolve targets and build outEdges
     const outEdges: GraphLink[] = [];
     for (const rel of relations) {
-        const resolved = resolveTarget(rel.target, rel.source, resolver);
-        if (resolved && resolved !== rel.source) {
+        const resolution = resolver.resolve(rel.target, rel.source);
+        if (resolution && resolution.id !== rel.source) {
             // Promote resolved local angle-bracket includes to visible links
             // (same rationale as buildGraph Phase 5).
             const linkType = rel.type === 'system-include' && !options.includeSystemHeaders
                 ? 'include'
                 : rel.type;
-            outEdges.push({ source: rel.source, target: resolved, type: linkType, label: rel.label });
+            outEdges.push({ source: rel.source, target: resolution.id, type: linkType, label: rel.label, confidence: confidenceScore(resolution) });
         }
     }
     outEdges.push(...functionCallLinks);

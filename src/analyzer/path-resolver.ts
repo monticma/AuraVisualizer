@@ -30,7 +30,8 @@ export type ResolveMethod =
     | 'extension'
     | 'index'
     | 'suffix'
-    | 'basename';
+    | 'basename'
+    | 'ambiguous';
 
 export interface ResolveResult {
     id: string;
@@ -49,6 +50,29 @@ export interface ImportResolver {
     rootDir: string;
     aliases: AliasConfig;
     resolve(target: string, sourceId: string): ResolveResult | null;
+}
+
+/** Numeric edge confidence: exact 1.0 → ambiguous 0.5. */
+export function confidenceScore(result: ResolveResult): number {
+    switch (result.method) {
+        case 'exact':
+        case 'relative':
+        case 'alias':
+        case 'paths':
+        case 'baseUrl':
+            return 1;
+        case 'extension':
+        case 'index':
+        case 'python-src':
+            return 0.9;
+        case 'suffix':
+            return 0.8;
+        case 'basename':
+            return 0.6;
+        case 'ambiguous':
+        default:
+            return 0.5;
+    }
 }
 
 const IMPORT_EXTENSIONS = [
@@ -260,17 +284,20 @@ export function createImportResolver(rootDir: string, files: Iterable<string>, a
         else byBase.set(base, [id]);
     }
 
+    function ambiguous(ids: string[]): ResolveResult {
+        return { id: ids[0], confidence: 'low', method: 'ambiguous' };
+    }
+
     function tryCandidate(candidate: string, method: ResolveMethod, confidence: ResolveConfidence): ResolveResult | null {
         const id = normalizeId(candidate);
         if (!id || id === '.') return null;
         if (ids.has(id)) return { id, confidence, method };
-        for (const ext of IMPORT_EXTENSIONS) {
-            if (ids.has(id + ext)) return { id: id + ext, confidence: confidence === 'low' ? 'low' : 'medium', method: 'extension' };
-        }
-        for (const index of INDEX_FILES) {
-            const indexPath = normalizeId(join(id, index));
-            if (ids.has(indexPath)) return { id: indexPath, confidence: 'medium', method: 'index' };
-        }
+        const withExts = IMPORT_EXTENSIONS.map((ext) => id + ext).filter((p) => ids.has(p));
+        if (withExts.length === 1) return { id: withExts[0], confidence: 'medium', method: 'extension' };
+        if (withExts.length > 1) return ambiguous(withExts);
+        const withIndex = INDEX_FILES.map((index) => normalizeId(join(id, index))).filter((p) => ids.has(p));
+        if (withIndex.length === 1) return { id: withIndex[0], confidence: 'medium', method: 'index' };
+        if (withIndex.length > 1) return ambiguous(withIndex);
         return null;
     }
 
@@ -319,21 +346,24 @@ export function createImportResolver(rootDir: string, files: Iterable<string>, a
 
         if (cleanTarget.includes('/')) {
             const suffix = '/' + cleanTarget.replace(/^\/+/, '');
+            const matches: string[] = [];
             for (const id of ids) {
-                if (id.endsWith(suffix)) return { id, confidence: 'low', method: 'suffix' };
+                if (id.endsWith(suffix)) matches.push(id);
             }
+            if (matches.length === 1) return { id: matches[0], confidence: 'low', method: 'suffix' };
+            if (matches.length > 1) return ambiguous(matches);
         }
 
         const targetBase = basename(cleanTarget);
-        const sameBase = byBase.get(targetBase);
-        if (sameBase && sameBase.length > 0) {
+        const sameBase = byBase.get(targetBase) || [];
+        if (sameBase.length === 1) {
             return { id: sameBase[0], confidence: 'low', method: 'basename' };
         }
+        if (sameBase.length > 1) return ambiguous(sameBase);
         for (const ext of IMPORT_EXTENSIONS) {
-            const withExt = byBase.get(targetBase + ext);
-            if (withExt && withExt.length > 0) {
-                return { id: withExt[0], confidence: 'low', method: 'basename' };
-            }
+            const withExt = byBase.get(targetBase + ext) || [];
+            if (withExt.length === 1) return { id: withExt[0], confidence: 'low', method: 'basename' };
+            if (withExt.length > 1) return ambiguous(withExt);
         }
 
         return null;

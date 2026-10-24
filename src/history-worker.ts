@@ -16,7 +16,7 @@ import { parentPort, workerData } from 'worker_threads';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { join, extname } from 'path';
 import { getCommitIndex, getFileAtCommit, isGitRepo } from './analyzer/git-history';
-import { createImportResolver, loadImportAliases, type ImportResolver } from './analyzer/path-resolver';
+import { createImportResolver, confidenceScore, loadImportAliases, type ImportResolver } from './analyzer/path-resolver';
 import { computeComplexity } from './analyzer/complexity';
 import { initTreeSitter, parseSource, hasGrammar } from './analyzer/tree-sitter-loader';
 import { TreeSitterCParser } from './analyzer/parsers/ts-c-parser';
@@ -142,15 +142,15 @@ async function analyzeFileForDelta(
     }
 
     // Parse relations (imports/includes/requires)
-    const linksOut: { target: string; type: string }[] = [];
+    const linksOut: { target: string; type: string; confidence?: number }[] = [];
     if (parser) {
         const relations = tree
             ? parser.parseAST(tree, fileInfo, {})
             : parser.parse(fileInfo, {});
         for (const rel of relations) {
-            const resolved = resolver.resolve(rel.target, fileInfo.id)?.id ?? null;
-            if (resolved && resolved !== fileInfo.id) {
-                linksOut.push({ target: resolved, type: rel.type });
+            const resolution = resolver.resolve(rel.target, fileInfo.id);
+            if (resolution && resolution.id !== fileInfo.id) {
+                linksOut.push({ target: resolution.id, type: rel.type, confidence: confidenceScore(resolution) });
             }
         }
     }

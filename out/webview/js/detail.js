@@ -328,11 +328,13 @@
                 var li = document.createElement('li');
                 var typeClass = d.type === 'function-call' ? 'dep-type dep-type-call' : 'dep-type';
                 var labelStr = d.label ? ' <span class="dep-label">' + d.label + '</span>' : '';
+                var conf = typeof d.confidence === 'number' ? d.confidence : 1;
                 li.innerHTML =
                     '<span class="dep-arrow">→</span>' +
                     '<span>' + (targetNode ? targetNode.name : targetId) + '</span>' +
                     labelStr +
-                    '<span class="' + typeClass + '">' + d.type + '</span>';
+                    '<span class="' + typeClass + '">' + d.type + '</span>' +
+                    '<span class="dep-confidence" title="Resolution confidence">' + conf.toFixed(1) + '</span>';
                 li.addEventListener('click', function() {
                     if (targetNode) hooks.selectNode(targetNode);
                 });
@@ -360,11 +362,13 @@
                 var li = document.createElement('li');
                 var typeClass = d.type === 'function-call' ? 'dep-type dep-type-call' : 'dep-type';
                 var labelStr = d.label ? ' <span class="dep-label">' + d.label + '</span>' : '';
+                var conf = typeof d.confidence === 'number' ? d.confidence : 1;
                 li.innerHTML =
                     '<span class="dep-arrow">←</span>' +
                     '<span>' + (sourceNode ? sourceNode.name : sourceId) + '</span>' +
                     labelStr +
-                    '<span class="' + typeClass + '">' + d.type + '</span>';
+                    '<span class="' + typeClass + '">' + d.type + '</span>' +
+                    '<span class="dep-confidence" title="Resolution confidence">' + conf.toFixed(1) + '</span>';
                 li.addEventListener('click', function() {
                     if (sourceNode) hooks.selectNode(sourceNode);
                 });

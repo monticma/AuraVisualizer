@@ -502,7 +502,7 @@
                     newLinkKeys.add(srcId + '>' + tgtId);
                     continue;
                 }
-                newLinks.push({ source: srcId, target: tgtId, type: headLink.type, label: headLink.label || '' });
+                newLinks.push({ source: srcId, target: tgtId, type: headLink.type, label: headLink.label || '', confidence: headLink.confidence });
                 newLinkKeys.add(srcId + '>' + tgtId);
             }
         }
@@ -528,7 +528,8 @@
                                 source: modFile,
                                 target: linkOut.target,
                                 type: linkOut.type,
-                                label: ''
+                                label: '',
+                                confidence: linkOut.confidence
                             });
                             // This link exists at target commit but not at HEAD → added
                             if (!headLinkKeys.has(lKey)) {
@@ -621,7 +622,7 @@
             restoredLinks.push({
                 source: typeof hl.source === 'object' ? hl.source.id : hl.source,
                 target: typeof hl.target === 'object' ? hl.target.id : hl.target,
-                type: hl.type, label: hl.label || ''
+                type: hl.type, label: hl.label || '', confidence: hl.confidence
             });
         }
 
@@ -686,7 +687,7 @@
                 !(timelineChangedNodes.has(rlSrc) && timelineChangedNodes.has(rlTgt))) continue;
             restoredLinks.push({
                 source: rlSrc, target: rlTgt,
-                type: hl.type, label: hl.label || ''
+                type: hl.type, label: hl.label || '', confidence: hl.confidence
             });
         }
 

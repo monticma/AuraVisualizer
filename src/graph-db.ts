@@ -35,6 +35,7 @@ export interface EdgeRow {
     target: string;
     type: string;
     label: string;
+    confidence: number;
 }
 
 export interface SymbolRow {
@@ -113,6 +114,7 @@ CREATE TABLE IF NOT EXISTS edges (
     target  TEXT NOT NULL,
     type    TEXT NOT NULL,
     label   TEXT NOT NULL DEFAULT '',
+    confidence REAL NOT NULL DEFAULT 1.0,
     PRIMARY KEY (source, target, type)
 );
 
@@ -357,8 +359,8 @@ export class GraphDB {
                 const src = typeof e.source === 'object' ? (e.source as unknown as GraphNode).id : e.source;
                 const tgt = typeof e.target === 'object' ? (e.target as unknown as GraphNode).id : e.target;
                 db.run(
-                    'INSERT OR IGNORE INTO edges (source, target, type, label) VALUES (?, ?, ?, ?)',
-                    [src, tgt, e.type, e.label || '']
+                    'INSERT OR IGNORE INTO edges (source, target, type, label, confidence) VALUES (?, ?, ?, ?, ?)',
+                    [src, tgt, e.type, e.label || '', e.confidence ?? 1]
                 );
             }
 
@@ -484,8 +486,8 @@ export class GraphDB {
             db.run('DELETE FROM edges WHERE source = ?', [fileId]);
             for (const e of outEdges) {
                 db.run(
-                    'INSERT OR IGNORE INTO edges (source, target, type, label) VALUES (?, ?, ?, ?)',
-                    [e.source, e.target, e.type, e.label || '']
+                    'INSERT OR IGNORE INTO edges (source, target, type, label, confidence) VALUES (?, ?, ?, ?, ?)',
+                    [e.source, e.target, e.type, e.label || '', e.confidence ?? 1]
                 );
             }
 
@@ -640,6 +642,7 @@ export class GraphDB {
 
         const links: GraphLink[] = edges.map(e => ({
             source: e.source, target: e.target, type: e.type, label: e.label,
+            confidence: e.confidence ?? 1,
         }));
 
         const langStats: Record<string, { count: number; totalLOC: number; avgComplexity: number }> =
@@ -811,7 +814,7 @@ export class GraphDB {
     }
 
     /** Full detail for a single node. */
-    getNodeDetail(fileId: string): (NodeRow & { symbols: SymbolRow[]; dependencies: string[]; dependents: string[] }) | null {
+    getNodeDetail(fileId: string): (NodeRow & { symbols: SymbolRow[]; dependencies: string[]; dependents: string[]; edges: EdgeRow[] }) | null {
         const db = this.ensureDb();
         const node = queryOne<NodeRow>(db, 'SELECT * FROM nodes WHERE id = ?', [fileId]);
         if (!node) return null;
@@ -819,12 +822,14 @@ export class GraphDB {
         const symbols = queryAll<SymbolRow>(db, 'SELECT * FROM symbols WHERE node_id = ?', [fileId]);
         const deps = queryAll<{ target: string }>(db, 'SELECT target FROM edges WHERE source = ?', [fileId]);
         const revDeps = queryAll<{ source: string }>(db, 'SELECT source FROM edges WHERE target = ?', [fileId]);
+        const edges = queryAll<EdgeRow>(db, 'SELECT * FROM edges WHERE source = ? OR target = ? ORDER BY source, target', [fileId, fileId]);
 
         return {
             ...node,
             symbols,
             dependencies: deps.map(d => d.target),
             dependents: revDeps.map(d => d.source),
+            edges,
         };
     }
 
@@ -1139,6 +1144,11 @@ export class GraphDB {
         const nodeCols = queryAll<{ name: string }>(db, "PRAGMA table_info('nodes')").map(c => c.name);
         if (!nodeCols.includes('cognitive')) {
             db.run('ALTER TABLE nodes ADD COLUMN cognitive INTEGER');
+        }
+
+        const edgeCols = queryAll<{ name: string }>(db, "PRAGMA table_info('edges')").map(c => c.name);
+        if (!edgeCols.includes('confidence')) {
+            db.run('ALTER TABLE edges ADD COLUMN confidence REAL NOT NULL DEFAULT 1.0');
         }
 
         // Migrate: add function_calls table if missing

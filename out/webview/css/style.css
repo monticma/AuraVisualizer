@@ -817,6 +817,15 @@ html, body {
     margin-left: 4px;
     font-family: var(--vscode-editor-font-family, monospace);
 }
+.dep-confidence {
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 999px;
+    background: rgba(163, 113, 247, 0.12);
+    border: 1px solid rgba(163, 113, 247, 0.3);
+    color: #c084fc;
+    white-space: nowrap;
+}
 
 /* Symbols */
 #symbols-section { padding: 16px 20px 12px; }

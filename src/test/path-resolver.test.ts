@@ -4,7 +4,7 @@ import { join } from 'path';
 import { tmpdir } from 'os';
 import { initTreeSitter } from '../analyzer/tree-sitter-loader';
 import { buildGraph, preParseFiles } from '../analyzer/graph-builder';
-import { createImportResolver, loadImportAliases } from '../analyzer/path-resolver';
+import { createImportResolver, confidenceScore, loadImportAliases } from '../analyzer/path-resolver';
 import { makeFileInfo } from './helpers';
 
 let root: string;
@@ -49,6 +49,8 @@ describe('import alias resolver (V2-12)', () => {
         'src/lib/utils.ts',
         'src/app/models/user.py',
         'vendor/sol2/sol/sol.hpp',
+        'src/a/util.ts',
+        'src/b/util.ts',
     ];
 
     it('reads tsconfig paths with comments/trailing commas and static Vite aliases', () => {
@@ -73,6 +75,16 @@ describe('import alias resolver (V2-12)', () => {
         expect(resolver.resolve('app.models.user', 'src/main.py')?.id).toBe('src/app/models/user.py');
     });
 
+    it('scores exact/extension/suffix/basename and ambiguous matches', () => {
+        const resolver = createImportResolver(root, ids);
+        expect(confidenceScore(resolver.resolve('src/lib/utils.ts', 'src/main.ts')!)).toBe(1);
+        expect(confidenceScore(resolver.resolve('@/components/Button', 'src/main.tsx')!)).toBe(0.9);
+        expect(confidenceScore(resolver.resolve('sol/sol.hpp', 'src/main.cpp')!)).toBe(0.8);
+        const ambiguous = resolver.resolve('util', 'src/main.ts')!;
+        expect(ambiguous.method).toBe('ambiguous');
+        expect(confidenceScore(ambiguous)).toBe(0.5);
+    });
+
     it('links an aliased import in the real graph builder', async () => {
         const main = makeFileInfo({
             id: 'src/main.tsx',
@@ -92,6 +104,8 @@ describe('import alias resolver (V2-12)', () => {
         });
         const trees = await preParseFiles([main, button]);
         const graph = buildGraph([main, button], 'AliasFixture', {}, trees);
-        expect(graph.links.some((l) => l.source === 'src/main.tsx' && l.target === 'src/components/Button.tsx' && l.type === 'import')).toBe(true);
+        const link = graph.links.find((l) => l.source === 'src/main.tsx' && l.target === 'src/components/Button.tsx' && l.type === 'import');
+        expect(link).toBeDefined();
+        expect(link!.confidence).toBe(0.9);
     });
 });

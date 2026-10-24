@@ -60,6 +60,7 @@ describe('GraphDB', () => {
         db.importGraphData(await makeTestGraph());
         const edges = db.getAllEdges();
         expect(edges.length).toBeGreaterThanOrEqual(3); // main→utils.h, utils.c→utils.h, helper→utils.h
+        expect(edges.every(e => e.confidence === 1)).toBe(true); // legacy links default to 1.0
     });
 
     it('stores meta', async () => {
@@ -326,9 +327,9 @@ function makeEnrichedGraph(): GraphData {
             },
         ],
         links: [
-            { source: 'child.ts', target: 'base.ts', type: 'import', label: 'BaseService' },
-            { source: 'child.ts', target: 'base.ts', type: 'extends', label: 'ChildService extends BaseService' },
-            { source: 'child.ts', target: 'base.ts', type: 'implements', label: 'ChildService implements IService' },
+            { source: 'child.ts', target: 'base.ts', type: 'import', label: 'BaseService', confidence: 0.9 },
+            { source: 'child.ts', target: 'base.ts', type: 'extends', label: 'ChildService extends BaseService', confidence: 0.9 },
+            { source: 'child.ts', target: 'base.ts', type: 'implements', label: 'ChildService implements IService', confidence: 0.5 },
         ],
     };
 }
@@ -456,6 +457,8 @@ describe('GraphDB — enriched schema (Phase 1b)', () => {
         const init = detail!.symbols.find(s => s.name === 'init')!;
         expect(init.cognitive).toBe(4);
         expect(init.maintainability).toBe(72.3);
+        expect(detail!.edges.length).toBeGreaterThan(0);
+        expect(detail!.edges.some(e => e.confidence === 0.5)).toBe(true);
     });
 
     it('searchSymbols returns all new fields', async () => {
@@ -476,6 +479,8 @@ describe('GraphDB — enriched schema (Phase 1b)', () => {
         const exported = db.exportGraphData()!;
         const base = exported.nodes.find(n => n.id === 'base.ts')!;
         expect(base.cognitive).toBe(4);
+        const impl = exported.links.find(l => l.type === 'implements')!;
+        expect(impl.confidence).toBe(0.5);
         const init = base.symbols!.functions.find(f => f.name === 'init')!;
         expect(init.cognitive).toBe(4);
         expect(init.cyclomatic).toBe(5);

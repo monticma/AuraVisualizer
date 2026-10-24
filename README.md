@@ -80,6 +80,10 @@ Imports are resolved through the project's real configuration, not just relative
 
 This removes the false “orphan” nodes that aliased imports used to create. The same resolver is used by the history worker, so temporal deltas stay consistent with the current graph.
 
+### Edge Confidence
+
+Every edge carries a confidence score: **1.0** exact/relative/alias, **0.9** extension or index, **0.8** vendored suffix, **0.6** basename, **0.5** ambiguous (multiple candidates). Function-call edges are **0.8** when the target is unique and **0.5** when several definitions match; heritage edges are **0.9**. Use the **Edge confidence** selector in the toolbar to hide low-confidence links, inspect the per-edge badge in the detail panel, or read the `edges` array (with confidence) from the `aura://node` MCP resource. Legacy databases default to **1.0**.
+
 ### Interactive Exploration
 
 | Action | Effect |
