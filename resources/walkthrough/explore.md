@@ -36,4 +36,4 @@ Filter buttons at the bottom show only languages present in your project.
 
 **📄 Documentation nodes** — Markdown, `.txt` and `.rst` files are first-class nodes, hidden by default. Click the **📄 Docs** toolbar button to show them. Thin dotted `doc-reference` edges automatically connect each doc file to the code files it mentions (by symbol name or basename) — these edges are informational and do not pollute fan-in/out metrics. AI assistants can full-text-search docs through the `search_docs` MCP tool.
 
-**Instant startup** — The graph is cached in `.aura/graph.db`. On next launch, it loads instantly from the database while a background re-scan picks up any changes.
+**Instant startup** — The graph is cached in `.aura/graph.db`. On next launch, a fingerprint (`git HEAD` + settings + parser version + file size/mtime list) skips re-parsing entirely when nothing changed; otherwise only added/modified/deleted files are re-parsed and sent as a delta.

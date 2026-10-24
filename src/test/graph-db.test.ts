@@ -68,6 +68,22 @@ describe('GraphDB', () => {
         expect(db.getMeta('totalFiles')).toBe('4');
     });
 
+    it('stores and reads custom meta (fingerprint keys)', async () => {
+        db.importGraphData(await makeTestGraph());
+        db.setMeta('fingerprint', 'abc123');
+        db.setMeta('head', 'deadbeef');
+        db.save();
+        expect(db.getMeta('fingerprint')).toBe('abc123');
+        expect(db.getMeta('head')).toBe('deadbeef');
+        expect(db.getAllMeta()).toHaveProperty('fingerprint', 'abc123');
+
+        db.close();
+        const reopened = new GraphDB();
+        await reopened.open(dbPath);
+        expect(reopened.getMeta('fingerprint')).toBe('abc123');
+        reopened.close();
+    });
+
     it('getDependencies returns direct deps', async () => {
         db.importGraphData(await makeTestGraph());
         const deps = db.getDependencies('main.c', 1);

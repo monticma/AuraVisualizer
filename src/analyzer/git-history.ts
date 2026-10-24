@@ -31,6 +31,16 @@ export async function getGitRoot(cwd: string): Promise<string> {
     return stdout.trim();
 }
 
+/** Current HEAD commit hash, or '' when the folder is not a git repository. */
+export async function getGitHead(cwd: string): Promise<string> {
+    try {
+        const { stdout } = await execFileAsync('git', ['rev-parse', 'HEAD'], { cwd });
+        return stdout.trim();
+    } catch {
+        return '';
+    }
+}
+
 /** Working-tree state of a single file, as reported by `git status`. */
 export type GitFileState = 'modified' | 'added' | 'deleted' | 'renamed' | 'untracked' | 'conflicted';
 

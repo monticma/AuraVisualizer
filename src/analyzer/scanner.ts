@@ -6,6 +6,7 @@
 import { readdir, stat, readFile } from 'fs/promises';
 import { join, extname, relative } from 'path';
 import type { FileInfo, ScanOptions } from './types';
+import type { FileSignature } from './fingerprint';
 
 export const SUPPORTED_EXTENSIONS = new Set(['.c', '.h', '.cpp', '.cc', '.cxx', '.hpp', '.hxx', '.hh', '.js', '.jsx', '.ts', '.tsx', '.py', '.css', '.html', '.htm', '.java', '.go', '.rs', '.kt', '.kts', '.rb', '.swift', '.cs', '.php', '.vue', '.sh', '.bash', '.lua', '.md', '.markdown', '.txt', '.rst']);
 
@@ -114,6 +115,51 @@ export async function scanDirectory(rootDir: string, options: ScanOptions = {}):
 
     await walk(rootDir);
     return files;
+}
+
+/**
+ * Metadata-only scan used by the fingerprint cache (V2-14).
+ * Mirrors scanDirectory's skip/extension rules but never reads file contents — a
+ * second startup without changes therefore costs only `readdir + stat` calls.
+ */
+export async function scanFileSignatures(rootDir: string, options: ScanOptions = {}): Promise<FileSignature[]> {
+    const extensions = options.extensions || SUPPORTED_EXTENSIONS;
+    const skipDirs = new Set([...SKIP_DIRS, ...(options.skipDirs || [])]);
+    const skipDirsLower = new Set([...skipDirs].map(d => d.toLowerCase()));
+    const signatures: FileSignature[] = [];
+
+    async function walk(dir: string): Promise<void> {
+        let entries;
+        try {
+            entries = await readdir(dir, { withFileTypes: true });
+        } catch {
+            return;
+        }
+
+        for (const entry of entries) {
+            const fullPath = join(dir, entry.name);
+            if (entry.isDirectory()) {
+                if (!skipDirsLower.has(entry.name.toLowerCase())) await walk(fullPath);
+                continue;
+            }
+            if (!entry.isFile()) continue;
+            const ext = extname(entry.name).toLowerCase();
+            if (!extensions.has(ext)) continue;
+            try {
+                const fileStat = await stat(fullPath);
+                signatures.push({
+                    path: relative(rootDir, fullPath),
+                    size: fileStat.size,
+                    mtimeMs: Math.floor(fileStat.mtimeMs),
+                });
+            } catch {
+                // Skip unreadable files, exactly like the content scan.
+            }
+        }
+    }
+
+    await walk(rootDir);
+    return signatures;
 }
 
 /**

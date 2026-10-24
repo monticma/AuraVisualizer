@@ -2,7 +2,7 @@
  * analyzer/index.ts — Main entry point for the code analyzer.
  */
 
-import { scanDirectory, scanSingleFile } from './scanner';
+import { scanDirectory, scanSingleFile, scanFileSignatures } from './scanner';
 import { buildGraph, preParseFiles } from './graph-builder';
 import { basename } from 'path';
 import type { GraphData, AnalyzeOptions } from './types';
@@ -15,7 +15,7 @@ export async function analyzeCodebase(targetPath: string, options: AnalyzeOption
     return graph;
 }
 
-export { scanSingleFile, buildGraph, preParseFiles };
+export { scanSingleFile, scanFileSignatures, buildGraph, preParseFiles };
 export { rebuildSingleFile, buildIncrementalContext, restoreIncrementalContext, type IncrementalContext } from './graph-builder';
 export type { GraphData, GraphNode, GraphLink, GraphMeta, FileInfo, CommitIndex, CommitDelta } from './types';
 export { isGitRepo, getCommitIndex, getFileAtCommit, getFileListAtCommit } from './git-history';

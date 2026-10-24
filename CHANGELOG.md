@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Fingerprint analysis cache (V2-14)** — a sha256 over `git HEAD`, analysis settings, parser version and the path/size/mtime list of scanned files is stored in `.aura/graph.db` meta. A second startup with no changes now skips parsing entirely; small deltas re-parse only added/modified/deleted files, and a `HEAD`-only change reuses the graph. Explicit **Refresh** (`auraVisualizer.refresh`) and `excludePaths` changes force a full analysis.
 - **Function metrics (V2-04)** — Sonar-style **cognitive complexity** per function (nesting, else-if and boolean-sequence rules, empty else ignored) for JS/TS/TSX, Python, C/C++, Java, Go, Rust, Kotlin, Swift, C#, PHP, Lua and Bash, plus McCabe cyclomatic complexity, approximate Halstead volume and a 0–100 **Maintainability Index**. The detail panel shows a `cog N · MI N` chip with a full tooltip, the Table has a sortable **Cog. max** column, the flowchart badge includes cognitive + MI, and the metrics are persisted in `.aura/graph.db` and exposed through the symbol search MCP/AI tools.
 - **Cognitive heatmap** — new **🧠 Cognitive** coloring mode uses the highest function cognitive complexity in each file, with its own gradient and legend. The `cognitive` field is also available in AuraQL queries.
 - **TSX/JSX scanning** — `.tsx` files now use the dedicated TSX grammar and `.jsx` files are scanned as JavaScript, so React components get symbols, metrics and flowcharts.

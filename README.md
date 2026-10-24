@@ -373,7 +373,7 @@ Changes apply instantly and are saved to your workspace settings. The footer lin
 
 When `autoRefresh` is enabled, the graph updates automatically whenever you save a file — no manual re-scan needed. Only the changed file is re-parsed and its edges recalculated (O(1) instead of O(N)).
 
-**Instant startup**: The graph is persisted to a local SQLite database (`.aura/graph.db`). On next launch, the cached graph loads instantly while a background re-scan picks up any changes and sends a delta update.
+**Instant startup**: The graph is persisted to a local SQLite database (`.aura/graph.db`). On next launch, the cached graph loads instantly; a fingerprint (`git HEAD` + settings + parser version + file size/mtime list) skips the analysis entirely when nothing changed, and otherwise re-parses only the modified files before sending a delta update.
 
 ### Function Call Labels
 

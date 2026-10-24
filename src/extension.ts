@@ -9,8 +9,9 @@ import { existsSync, readFileSync, readdirSync } from 'fs';
 import { Worker } from 'worker_threads';
 import { WebviewProvider } from './webview/WebviewProvider';
 import { AuraTreeProvider } from './AuraTreeProvider';
-import { analyzeCodebase, scanSingleFile, buildGraph, preParseFiles, rebuildSingleFile, buildIncrementalContext, restoreIncrementalContext, type GraphData, type GraphNode, type GraphLink, type FileInfo, type IncrementalContext } from './analyzer/index';
-import { isGitRepo, getGitRoot, getWorkingTreeFiles, type GitFileState } from './analyzer/git-history';
+import { analyzeCodebase, scanSingleFile, scanFileSignatures, buildGraph, preParseFiles, rebuildSingleFile, buildIncrementalContext, restoreIncrementalContext, type GraphData, type GraphNode, type GraphLink, type FileInfo, type IncrementalContext } from './analyzer/index';
+import { isGitRepo, getGitRoot, getGitHead, getWorkingTreeFiles, type GitFileState } from './analyzer/git-history';
+import { computeFingerprint, fingerprintFromMeta, fingerprintMetaEntries, hashAnalysisConfig, planAnalysis, type AnalysisFingerprint } from './analyzer/fingerprint';
 import type { CommitIndex, CommitDelta } from './analyzer/types';
 import { normalizeRiskWindow } from './risk/risk-core';
 import { buildRiskSnapshot, type RiskSnapshot, type RiskFileEntry } from './risk/risk-service';
@@ -79,7 +80,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // Commands
     context.subscriptions.push(
         vscode.commands.registerCommand('auraVisualizer.open', () => openVisualizer(context)),
-        vscode.commands.registerCommand('auraVisualizer.refresh', () => refreshAnalysis(context)),
+        vscode.commands.registerCommand('auraVisualizer.refresh', () => refreshAnalysis(context, true)),
         vscode.commands.registerCommand('auraVisualizer.focusFile', () => focusCurrentFile()),
         vscode.commands.registerCommand('auraVisualizer.openFileFromTree', (relativePath: string) => {
             const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -124,6 +125,9 @@ export function activate(context: vscode.ExtensionContext): void {
             }
             if (e.affectsConfiguration('auraVisualizer.riskWindow')) {
                 invalidateRisk();
+            }
+            if (e.affectsConfiguration('auraVisualizer.excludePaths')) {
+                void refreshAnalysis(context, true);
             }
         })
     );
@@ -256,7 +260,8 @@ async function loadFromDbThenRefresh(context: vscode.ExtensionContext): Promise<
         }
     }
 
-    // Always run full analysis in background to pick up changes
+    // Refresh in the background. The fingerprint cache skips parsing entirely
+    // when nothing changed, and otherwise re-parses only the changed files.
     refreshAnalysis(context);
 }
 
@@ -317,7 +322,60 @@ async function openVisualizer(context: vscode.ExtensionContext): Promise<void> {
     }
 }
 
-async function refreshAnalysis(context: vscode.ExtensionContext): Promise<void> {
+/** Cheap global fingerprint: HEAD + settings + parser version + file signatures. */
+async function currentAnalysisFingerprint(
+    rootPath: string,
+    excludePaths: string[],
+    projectName: string,
+): Promise<AnalysisFingerprint> {
+    const signatures = await scanFileSignatures(rootPath, { skipDirs: new Set(excludePaths) });
+    const head = await getGitHead(rootPath);
+    const configHash = hashAnalysisConfig({
+        excludePaths: [...excludePaths].sort(),
+        projectName,
+    });
+    return computeFingerprint({ head, configHash, files: signatures });
+}
+
+/** Rebuild FileInfo metadata for unchanged files from the cached graph (no reads). */
+function filesFromGraphData(data: GraphData, rootPath: string): FileInfo[] {
+    return data.nodes.map((node) => ({
+        id: node.id,
+        name: node.name,
+        path: node.path || node.id,
+        fullPath: path.join(rootPath, node.id),
+        language: node.language,
+        extension: node.extension,
+        size: node.size,
+        linesOfCode: node.linesOfCode,
+        lastModified: node.lastModified,
+        group: node.group,
+        content: '',
+    }));
+}
+
+/** Rebuild the in-memory incremental context after a cache hit. */
+function hydrateCachedGraphState(rootPath: string): void {
+    if (!cachedGraphData) return;
+    if (cachedFiles.length === 0) {
+        cachedFiles = filesFromGraphData(cachedGraphData, rootPath);
+    }
+    if (cachedFiles.length > 0) {
+        incrementalCtx = restoreIncrementalContext(cachedFiles, cachedGraphData);
+    }
+}
+
+function persistFingerprint(fp: AnalysisFingerprint): void {
+    if (!graphDb) return;
+    try {
+        for (const [key, value] of fingerprintMetaEntries(fp)) graphDb.setMeta(key, value);
+        graphDb.save();
+    } catch (err) {
+        console.error('[aura] Fingerprint persistence failed:', err);
+    }
+}
+
+async function refreshAnalysis(context: vscode.ExtensionContext, force = false): Promise<void> {
     if (isAnalyzing) return;
     isAnalyzing = true;
 
@@ -329,10 +387,97 @@ async function refreshAnalysis(context: vscode.ExtensionContext): Promise<void> 
     }
 
     const rootPath = workspaceFolder.uri.fsPath;
+    const dbPath = path.join(rootPath, '.aura', 'graph.db');
     const config = vscode.workspace.getConfiguration('auraVisualizer');
     const excludePaths = config.get<string[]>('excludePaths', [
         'node_modules', '.git', 'dist', 'build', 'out', '__pycache__'
     ]);
+
+    // Open the cache DB before scanning so a matching fingerprint can short-circuit
+    // the worker entirely (V2-14). A missing/unwritable DB simply falls back to a
+    // full analysis.
+    if (!graphDb) {
+        try {
+            graphDb = new GraphDB();
+            await fs.mkdir(path.join(rootPath, '.aura'), { recursive: true });
+            await graphDb.open(dbPath);
+        } catch (err) {
+            graphDb = undefined;
+            console.error('[aura] GraphDB open failed:', err);
+        }
+    }
+
+    let currentFingerprint: AnalysisFingerprint | undefined;
+    try {
+        currentFingerprint = await currentAnalysisFingerprint(rootPath, excludePaths, workspaceFolder.name);
+    } catch (err) {
+        console.error('[aura] Fingerprint computation failed:', err);
+    }
+
+    const hadCachedGraphAtStart = !!cachedGraphData;
+    const finishCacheRefresh = (): void => {
+        if (!hadCachedGraphAtStart && cachedGraphData) {
+            webviewProvider?.sendGraphData(cachedGraphData);
+        } else {
+            webviewProvider?.sendRefreshComplete();
+        }
+    };
+
+    try {
+        if (currentFingerprint && graphDb) {
+            if (!cachedGraphData) {
+                cachedGraphData = graphDb.exportGraphData() ?? undefined;
+            }
+            const previous = fingerprintFromMeta(graphDb.getAllMeta());
+            const plan = planAnalysis(previous, currentFingerprint, {
+                force,
+                hasCachedGraph: !!cachedGraphData,
+            });
+
+            if (plan.mode === 'skip') {
+                hydrateCachedGraphState(rootPath);
+                finishCacheRefresh();
+                updateStatusBar();
+                console.log(`[aura] Fingerprint unchanged (${currentFingerprint.files.length} files) — analysis skipped`);
+                void startHistoryScan(context, rootPath, excludePaths);
+                isAnalyzing = false;
+                return;
+            }
+
+            if (plan.mode === 'head-only') {
+                persistFingerprint(currentFingerprint);
+                hydrateCachedGraphState(rootPath);
+                finishCacheRefresh();
+                updateStatusBar();
+                console.log(`[aura] Fingerprint refreshed (HEAD only, ${currentFingerprint.files.length} files) — analysis skipped`);
+                void startHistoryScan(context, rootPath, excludePaths);
+                isAnalyzing = false;
+                return;
+            }
+
+            if (plan.mode === 'incremental') {
+                hydrateCachedGraphState(rootPath);
+                for (const deleted of plan.diff.deleted) {
+                    await incrementalUpdate(vscode.Uri.file(path.join(rootPath, deleted)), true);
+                }
+                for (const file of [...plan.diff.added, ...plan.diff.modified]) {
+                    await incrementalUpdate(vscode.Uri.file(path.join(rootPath, file)), false);
+                }
+                persistFingerprint(currentFingerprint);
+                finishCacheRefresh();
+                updateStatusBar();
+                console.log(`[aura] Incremental analysis: ${plan.diff.added.length + plan.diff.modified.length + plan.diff.deleted.length} file(s) changed (${plan.diff.added.length} added, ${plan.diff.modified.length} modified, ${plan.diff.deleted.length} deleted)`);
+                void startHistoryScan(context, rootPath, excludePaths);
+                isAnalyzing = false;
+                return;
+            }
+
+            console.log(`[aura] Full analysis (${plan.reason})`);
+        }
+    } catch (cacheErr) {
+        // A broken cache must never block the user: fall through to a full scan.
+        console.error('[aura] Fingerprint cache path failed, falling back to a full scan:', cacheErr);
+    }
 
     if (statusBarItem) {
         statusBarItem.text = '$(loading~spin) Aura: Analyzing...';
@@ -391,6 +536,7 @@ async function refreshAnalysis(context: vscode.ExtensionContext): Promise<void> 
             }
             graphDb.importGraphData(cachedGraphData);
             graphDb.importDocChunks(result.docChunks);
+            if (currentFingerprint) persistFingerprint(currentFingerprint);
 
             // History may already be cached — recompute temporal coupling now that
             // the current graph (allowed paths + structural links) is available.

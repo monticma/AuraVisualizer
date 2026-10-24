@@ -1018,6 +1018,11 @@ export class GraphDB {
         return row?.value ?? null;
     }
 
+    /** Set a meta value (caller decides when to save()). */
+    setMeta(key: string, value: string): void {
+        this.ensureDb().run('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)', [key, value]);
+    }
+
     /** Get all meta as a map. */
     getAllMeta(): Record<string, string> {
         const rows = queryAll<{ key: string; value: string }>(this.ensureDb(), 'SELECT key, value FROM meta');
