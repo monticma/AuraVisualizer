@@ -340,6 +340,12 @@ async function scanCommit(
             delta.added.push(f.path);
         }
 
+        // A rename removes the old path from the current graph. Keep it in the
+        // delta so trend series are not duplicated under the old path.
+        if (status === 'R' && f.oldPath && f.oldPath !== f.path) {
+            delta.removed.push(f.oldPath);
+        }
+
         // For A, M, R: fetch content and analyze
         const content = await getFileAtCommit(rootPath, commit.hash, f.path);
         if (content === null) continue;

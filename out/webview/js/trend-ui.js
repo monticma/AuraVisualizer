@@ -22,10 +22,14 @@
         var deltas = (window.AuraTimeline && window.AuraTimeline.getDeltas()) || {};
         var key = commits.length + ':' + Object.keys(deltas).length + ':' + threshold();
         if (cache && cacheKey === key) return cache;
+        var resolvePath = (window.AuraRisk && AuraRisk.buildRenameResolver)
+            ? AuraRisk.buildRenameResolver(commits)
+            : function (path) { return path; };
         cache = window.AuraTrend.buildFileTrends(commits, deltas, {
             threshold: threshold(),
             minR2: 0.3,
             maxPoints: 80,
+            resolvePath: resolvePath,
         });
         cacheKey = key;
         return cache;

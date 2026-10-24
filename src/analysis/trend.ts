@@ -59,6 +59,8 @@ export interface TrendOptions {
     minR2?: number;
     /** Maximum points kept per sparkline (regression still uses all points). */
     maxPoints?: number;
+    /** Map historical paths to their current path (rename-aware trends). */
+    resolvePath?: (path: string) => string;
 }
 
 export interface TrendSummary {
@@ -115,6 +117,7 @@ export function buildFileTrends(
     const threshold = Math.max(0, options.threshold ?? 0.5);
     const minR2 = Math.max(0, Math.min(1, options.minR2 ?? 0.3));
     const maxPoints = Math.max(2, options.maxPoints ?? 60);
+    const resolvePath = options.resolvePath || ((path: string) => path);
 
     const ordered = commits
         .map((commit, index) => ({ ...commit, index, time: toTime(commit.date) }))
@@ -126,17 +129,24 @@ export function buildFileTrends(
         const delta = deltas[commit.hash];
         if (!delta) continue;
 
-        for (const file of delta.removed || []) pointsByFile.delete(file);
+        for (const file of delta.removed || []) {
+            const resolved = resolvePath(file);
+            // A rename maps the old path to the current one: do not delete the
+            // points we just merged under the new path. A real deletion keeps
+            // the same path and is removed from the active series.
+            if (resolved === file) pointsByFile.delete(resolved);
+        }
 
         const modified = delta.modified || {};
-        for (const file of Object.keys(modified)) {
-            const state = modified[file];
+        for (const rawFile of Object.keys(modified)) {
+            const state = modified[rawFile];
             const rawComplexity = Number(state.complexity);
             const rawLines = Number(state.linesOfCode);
             if (!isFinite(rawComplexity) || !isFinite(rawLines)) continue;
             const symbols = state.symbols && isFinite(Number(state.symbols.totalSymbols))
                 ? Number(state.symbols.totalSymbols)
                 : 0;
+            const file = resolvePath(rawFile);
             const point: TrendPoint = {
                 hash: commit.hash,
                 date: commit.time,

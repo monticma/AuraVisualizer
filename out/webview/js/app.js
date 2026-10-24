@@ -467,6 +467,7 @@
                 postMessage: function (msg) { vscode.postMessage(msg); },
                 selectNode: handleNodeClick,
                 findNode: findNode,
+                focusNode: focusNodeFromView,
                 showGraphTab: function () { switchTab('graph'); },
                 showRiskTab: function () { switchTab('risk'); },
                 getHeatmapMode: function () { return heatmapMode; },

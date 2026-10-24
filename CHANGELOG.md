@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Detail panel redesign** — file metrics, **Ask Aura** and **Notes** are grouped in one collapsible **File details** section; **Symbols**, **Dependencies** and **Dependents** are collapsible cards with separate name/signature/metrics and path/type/confidence rows. Empty sections are hidden automatically.
 
 ### Fixed
+- **Complexity Trend focus** — trend rows for renamed files now follow git renames, merge their history under the current node id, and use the same raw-node focus path as other views; stale historical paths that no longer exist are no longer listed in the Risk trend section.
 - The Co-change table headers now sort every column (pair, co-changes, Jaccard, support, A/B commits) with ascending/descending indicators.
 - Clicking a file name in the Co-change table switches to the 3D graph and performs the normal full selection (close-up, detail panel).
 

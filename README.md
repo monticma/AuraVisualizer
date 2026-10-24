@@ -195,6 +195,7 @@ The **Risk** dashboard and the **Table** tab add a per-file **complexity trend**
 - **Slope + R²** — linear regression of complexity over time; the badge shows the slope **per 30 days**
 - **Degrading badge** — shown when the slope crosses `auraVisualizer.complexityTrendThreshold` (default `0.5`) and the fit is meaningful (`R² ≥ 0.3`)
 - **Risk dashboard** — a collapsible **📈 COMPLEXITY TREND** section ranks the top files by slope; click a row to focus it in the graph
+- **Rename-aware** — historical paths follow git renames and are merged under the current file id, so trend rows focus the right node
 - **Table** — sortable **Trend** column with the same sparkline/badge
 - Short histories are safe: one sample gives `—`, never `NaN`; removed files are dropped and a re-add starts a fresh series
 

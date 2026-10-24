@@ -193,9 +193,12 @@
         var badge = document.getElementById('risk-complexity-trends-badge');
         if (!section || !list) return;
         var trends = window.AuraTrendUI ? AuraTrendUI.getTrends() : {};
+        var currentIds = {};
+        var nodes = (hooks.getGraphData() && hooks.getGraphData().nodes) || [];
+        for (var n = 0; n < nodes.length; n++) currentIds[nodes[n].id] = true;
         var ranked = Object.keys(trends)
             .map(function(id) { return trends[id]; })
-            .filter(function(trend) { return trend.samples >= 2; })
+            .filter(function(trend) { return trend.samples >= 2 && currentIds[trend.file]; })
             .sort(function(a, b) {
                 if (a.degrading !== b.degrading) return a.degrading ? -1 : 1;
                 return b.slopePer30Days - a.slopePer30Days;
@@ -300,6 +303,10 @@
     }
 
     function focusRiskFile(id) {
+        if (hooks.focusNode) {
+            hooks.focusNode(id);
+            return;
+        }
         hooks.showGraphTab();
         requestAnimationFrame(function() {
             var node = hooks.findNode(id);

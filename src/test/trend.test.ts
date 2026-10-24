@@ -80,6 +80,21 @@ describe('complexity trends (V2-05)', () => {
         expect(Number.isFinite(trend.slopePer30Days)).toBe(true);
     });
 
+    it('merges renamed paths into the current path', () => {
+        const deltas: TrendDeltas = {
+            c1: { modified: { 'old.ts': delta(1, 10) } },
+            c2: { removed: ['old.ts'], modified: { 'new.ts': delta(3, 14) } },
+            c3: { modified: { 'new.ts': delta(5, 18) } },
+        };
+        const trends = buildFileTrends(commits, deltas, {
+            resolvePath: (path) => path === 'old.ts' ? 'new.ts' : path,
+        });
+        expect(trends['old.ts']).toBeUndefined();
+        expect(trends['new.ts'].samples).toBe(3);
+        expect(trends['new.ts'].delta).toBe(4);
+        expect(trends['new.ts'].points[0].complexity).toBe(1);
+    });
+
     it('drops removed files and summarizes trends', () => {
         const deltas: TrendDeltas = {
             c1: { modified: { 'a.ts': delta(1, 10), 'b.ts': delta(5, 20) } },
