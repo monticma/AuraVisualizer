@@ -73,8 +73,9 @@ describe('chat prompt helpers', () => {
                 files: ['webview/js/risk.js', 'src/risk/risk-core.ts', 'src/risk/risk-service.ts'],
             },
         });
-        expect(text).toContain('Communities palette group: "risk" (palette id 3) — 3 files');
-        expect(text).toContain('authoritative Louvain membership');
+        expect(text).toContain('Communities palette group: "risk" (palette id 3) — 3 code files');
+        expect(text).toContain('authoritative code-only Louvain membership');
+        expect(text).toContain('Documentation is excluded');
         expect(text).toContain('do not substitute another community');
         expect(text).toContain('`webview/js/risk.js`');
         expect(text).not.toContain('filters:');

@@ -1742,8 +1742,8 @@ html, body {
     position: fixed;
     top: 80px;
     right: 16px;
-    width: 220px;
-    min-width: 160px;
+    width: 310px;
+    min-width: 240px;
     min-height: 120px;
     max-height: 80vh;
     background: var(--aura-sidebar-bg);
@@ -1804,25 +1804,36 @@ html, body {
 
 #community-list {
     overflow-y: auto;
-    padding: 4px 0;
+    padding: 8px;
+    display: grid;
+    gap: 7px;
 }
 
-.community-item {
+.community-card {
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.028);
+    padding: 7px 9px 8px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+    user-select: none;
+    min-width: 0;
+}
+
+.community-card:hover {
+    background: rgba(96, 165, 250, 0.08);
+    border-color: rgba(96, 165, 250, 0.22);
+}
+
+.community-card.dimmed {
+    opacity: 0.4;
+}
+
+.community-card-head {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 5px 10px;
-    cursor: pointer;
-    transition: background 0.1s;
-    user-select: none;
-}
-
-.community-item:hover {
-    background: rgba(96, 165, 250, 0.08);
-}
-
-.community-item.dimmed {
-    opacity: 0.35;
+    gap: 7px;
+    min-width: 0;
 }
 
 .community-swatch {
@@ -1834,14 +1845,74 @@ html, body {
 
 .community-name {
     flex: 1;
+    min-width: 0;
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--aura-text);
+}
+
+.community-card-hub {
+    margin-top: 3px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-family: monospace;
+    font-size: 10px;
+    opacity: 0.48;
+}
+
+.community-card-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 5px;
+    min-width: 0;
 }
 
 .community-count {
     color: var(--aura-text-secondary);
     font-size: 10px;
+    white-space: nowrap;
+}
+
+.community-auto {
+    color: var(--aura-text-secondary);
+    font-size: 9px;
+    opacity: 0.6;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.community-edit {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    padding: 0 2px;
+    opacity: 0.45;
+    font-size: 11px;
+    flex-shrink: 0;
+}
+
+.community-edit:hover {
+    opacity: 1;
+}
+
+.community-rename {
+    flex: 1;
+    min-width: 0;
+    background: rgba(13, 17, 23, 0.85);
+    border: 1px solid rgba(96, 165, 250, 0.55);
+    border-radius: 5px;
+    color: var(--aura-text);
+    font-size: 11px;
+    padding: 3px 6px;
+    outline: none;
 }
 
 #legend-low, #legend-high { opacity: 0.6; }

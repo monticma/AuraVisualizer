@@ -72,6 +72,17 @@ describe('risk-service — buildRiskSnapshot', () => {
         expect(snap.byId.get('src/a.ts')!.reasons.map(r => r.text).join(' ')).toContain('changed 1 time in 30 days');
     });
 
+    it('excludes documentation from architecture risk', () => {
+        const nodes: RiskServiceNode[] = [
+            { id: 'src/a.ts', path: 'src/a.ts', language: 'typescript', complexity: 3 },
+            { id: 'docs/readme.md', path: 'docs/readme.md', language: 'documentation', complexity: 200, fanIn: 99 },
+        ];
+        const snap = buildRiskSnapshot(nodes, [], 90, NOW);
+        expect(snap.byId.has('src/a.ts')).toBe(true);
+        expect(snap.byId.has('docs/readme.md')).toBe(false);
+        expect(snap.byId.size).toBe(1);
+    });
+
     it('follows git renames so history under the old path counts for the new path', () => {
         const nodes: RiskServiceNode[] = [{ id: 'new/loc.ts', path: 'new/loc.ts', complexity: 1 }];
         const commits: RiskServiceCommit[] = [

@@ -8,11 +8,17 @@
 export interface AuraCommunityViewContext {
     /** Palette community id in the current webview run (not stable across recomputes). */
     id?: number;
-    /** Palette label, derived from the highest fan-in file. Not a canonical community id. */
+    /** Stable content hash of the member files. */
+    key?: string;
+    /** Display label (custom user label or hub path). */
     name: string;
-    /** Number of files in the full palette group. */
+    /** Automatic hub path, even when the user renamed the group. */
+    autoName?: string;
+    /** Hub file path (highest structural fan-in). */
+    hub?: string;
+    /** Number of code files in the full palette group. */
     fileCount?: number;
-    /** Authoritative member files from the palette's Louvain run. */
+    /** Authoritative member files from the palette's shared Louvain snapshot. */
     files: string[];
     /** True when `files` is a capped subset of the group. */
     truncated?: boolean;
@@ -60,8 +66,10 @@ export function describeAuraViewContext(ctx: AuraViewContext | undefined = curre
         const group = ctx.community;
         const total = group.fileCount ?? group.files.length;
         const id = typeof group.id === 'number' ? ` (palette id ${group.id})` : '';
-        lines.push(`- Communities palette group: "${group.name}"${id} — ${total} files`);
-        lines.push('  The palette file list below is the authoritative Louvain membership computed by the webview. Its label is derived from the highest fan-in file, not a canonical community id: `aura_get_communities` may label or order the same group differently, so do not substitute another community.');
+        const auto = group.autoName && group.autoName !== group.name ? `, auto hub path: ${group.autoName}` : '';
+        lines.push(`- Communities palette group: "${group.name}"${id} — ${total} code files${auto}`);
+        if (group.hub) lines.push(`  hub file: \`${group.hub}\``);
+        lines.push('  The palette file list below is the authoritative code-only Louvain membership shared by the webview, @aura and MCP. Documentation is excluded from communities, fan-in and centrality. Its label may be a user rename; do not substitute another community.');
         const listed = group.files.map(file => `\`${file}\``).join(', ');
         const omitted = group.truncated ? ` … (+${Math.max(0, total - group.files.length)} not listed)` : '';
         lines.push(`  palette files: ${listed}${omitted}`);

@@ -167,6 +167,8 @@ export interface GraphMeta {
     cycles: string[][];
     /** Function-level cycles (V2-03); absent on old databases until re-analysis. */
     symbolCycles?: SymbolCycle[];
+    /** Architectural communities (documentation excluded), shared by all surfaces. */
+    communities?: GraphCommunity[];
     languageStats: Record<string, LanguageStat>;
     groups: string[];
 }
@@ -176,6 +178,27 @@ export interface GraphData {
     nodes: GraphNode[];
     links: GraphLink[];
     functionCalls?: FunctionCallSite[];
+}
+
+/** An architectural community, computed once from the structural code graph. */
+export interface GraphCommunity {
+    /** Position in the current snapshot (display/order only). */
+    id: number;
+    /** Stable content hash of the sorted member files. */
+    key: string;
+    /** Display label: custom user label when present, otherwise the hub path. */
+    label: string;
+    /** Automatic label: full path of the highest structural fan-in file. */
+    autoLabel: string;
+    /** Hub file path (highest structural fan-in, deterministic tie-break). */
+    hub: string;
+    /** Code files only; documentation is deliberately excluded. */
+    files: string[];
+    size: number;
+    /** User renamed this community. */
+    custom?: boolean;
+    /** Synthetic bucket for singleton code files. */
+    isOthers?: boolean;
 }
 
 export interface ScanOptions {

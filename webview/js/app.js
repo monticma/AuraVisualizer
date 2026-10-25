@@ -184,6 +184,17 @@
             case 'updateGraph':
                 handleGraphDelta(message.payload);
                 break;
+            case 'communities':
+                if (message.payload && Array.isArray(message.payload.communities) && graphData) {
+                    graphData.meta.communities = message.payload.communities;
+                    syncCommunitiesFromMetadata(true);
+                    if (graph) {
+                        graph.nodeColor(graph.nodeColor());
+                        graph.linkColor(graph.linkColor());
+                        graph.nodeThreeObject(graph.nodeThreeObject());
+                    }
+                }
+                break;
             case 'focusNode':
                 if (message.payload && message.payload.nodeId) {
                     if (message.payload.reveal && activeTab !== 'graph') {
@@ -358,6 +369,7 @@
                 getGraphData: function () { return graphData; },
                 showCommunityPalette: showCommunityPalette,
                 hideCommunityPalette: hideCommunityPalette,
+                refreshCommunityPaletteCounts: refreshCommunityPaletteCounts,
                 selectNode: handleNodeClick
             });
             AuraPanels.setupSearch();
@@ -510,7 +522,7 @@
 
         headGraphData = JSON.parse(JSON.stringify(data));
         computeMetricRanges();
-        computeCommunities();
+        syncCommunitiesFromMetadata(false);
         updateStats(graphData.meta);
         updateLanguageButtons(graphData.nodes);
         if (window.AuraRiskMap) AuraRiskMap.renderRiskDashboard();
@@ -618,6 +630,10 @@
 
         // Update meta
         if (delta.meta) graphData.meta = delta.meta;
+
+        // Rebuild the community projection from the host snapshot. Keep the
+        // user's on/off toggles across deltas (matching by stable key).
+        syncCommunitiesFromMetadata(true);
 
         // Recompute ranges and stats
         computeMetricRanges();
@@ -835,6 +851,7 @@
         var ranked = [];
         for (var i = 0; i < graphData.nodes.length; i++) {
             var node = graphData.nodes[i];
+            if (node.language === 'documentation') continue;
             if (typeof node.pagerank === 'number' && node.pagerank > 0) ranked.push(node);
         }
         if (ranked.length === 0) return;
@@ -922,190 +939,74 @@
     }
 
     // ============================================================
-    // Community Detection (Louvain)
+    // Communities — read-only projection of the GraphDB snapshot
     // ============================================================
-    function computeCommunities() {
-        communityMap = {};
-        communityColors = {};
-        if (!graphData) return;
-
-        var nodes = graphData.nodes;
-        var links = graphData.links;
-        var n = nodes.length;
-        if (n === 0) return;
-
-        // Build index
-        var idx = {};
-        for (var i = 0; i < n; i++) idx[nodes[i].id] = i;
-
-        // Adjacency with weights (undirected)
-        var adj = [];
-        for (var a = 0; a < n; a++) adj[a] = {};
-        var totalWeight = 0;
-
-        for (var li = 0; li < links.length; li++) {
-            var lk = links[li];
-            var si = idx[typeof lk.source === 'object' ? lk.source.id : lk.source];
-            var ti = idx[typeof lk.target === 'object' ? lk.target.id : lk.target];
-            if (si === undefined || ti === undefined || si === ti) continue;
-            adj[si][ti] = (adj[si][ti] || 0) + 1;
-            adj[ti][si] = (adj[ti][si] || 0) + 1;
-            totalWeight += 1;
+    /**
+     * Apply the community snapshot computed once by GraphDB. The webview never
+     * detects communities itself: the palette, @aura tools and MCP all use the
+     * same code-only partition (documentation excluded).
+     */
+    function syncCommunitiesFromMetadata(preserveActive) {
+        var communities = graphData && graphData.meta ? graphData.meta.communities : null;
+        var previousKeys = {};
+        var previousActiveKeys = {};
+        if (preserveActive) {
+            for (var oldId in communityNames) {
+                var oldKey = communityNames[oldId].key;
+                if (!oldKey) continue;
+                previousKeys[oldKey] = true;
+                if (activeCommunities.has(Number(oldId))) previousActiveKeys[oldKey] = true;
+            }
         }
 
-        if (totalWeight === 0) {
-            for (var z = 0; z < n; z++) {
-                communityMap[nodes[z].id] = z;
-                communityColors[z] = GROUP_COLORS[z % GROUP_COLORS.length];
-            }
+        communityMap = {};
+        communityColors = {};
+        communityNames = {};
+        activeCommunities.clear();
+
+        if (!communities || !communities.length) {
+            buildCommunityList();
             return;
         }
 
-        var m2 = totalWeight * 2;
-        // Node degrees
-        var deg = [];
-        for (var di = 0; di < n; di++) {
-            var d = 0;
-            for (var k in adj[di]) d += adj[di][k];
-            deg[di] = d;
-        }
-
-        // Each node starts in its own community
-        var comm = [];
-        for (var ci = 0; ci < n; ci++) comm[ci] = ci;
-
-        // Louvain phase 1: local moves
-        var improved = true;
-        var iter = 0;
-        while (improved && iter < 20) {
-            improved = false;
-            iter++;
-            for (var ni = 0; ni < n; ni++) {
-                var curComm = comm[ni];
-                // Weights to neighboring communities
-                var cw = {};
-                for (var nb in adj[ni]) {
-                    var cn = comm[nb];
-                    cw[cn] = (cw[cn] || 0) + adj[ni][nb];
-                }
-                // Degree sum per neighboring community (excluding ni)
-                var cd = {};
-                for (var nj = 0; nj < n; nj++) {
-                    if (nj === ni) continue;
-                    var cj = comm[nj];
-                    if (cw[cj] !== undefined || cj === curComm) {
-                        cd[cj] = (cd[cj] || 0) + deg[nj];
-                    }
-                }
-
-                var ki = deg[ni];
-                var wIn = cw[curComm] || 0;
-                var sumCi = cd[curComm] || 0;
-                var removeCost = wIn / totalWeight - (ki * sumCi) / (m2 * m2) * 2;
-
-                var bestGain = 0;
-                var bestComm = curComm;
-                for (var cc in cw) {
-                    var ccNum = parseInt(cc);
-                    if (ccNum === curComm) continue;
-                    var sumCj = cd[ccNum] || 0;
-                    var gain = cw[ccNum] / totalWeight - (ki * sumCj) / (m2 * m2) * 2 - removeCost;
-                    if (gain > bestGain) {
-                        bestGain = gain;
-                        bestComm = ccNum;
-                    }
-                }
-
-                if (bestComm !== curComm) {
-                    comm[ni] = bestComm;
-                    improved = true;
-                }
+        for (var i = 0; i < communities.length; i++) {
+            var community = communities[i];
+            var cid = Number(community.id);
+            if (!isFinite(cid)) cid = i;
+            var files = Array.isArray(community.files) ? community.files.slice() : [];
+            var name = community.label || community.autoLabel || community.hub || ('Group ' + cid);
+            communityColors[cid] = GROUP_COLORS[cid % GROUP_COLORS.length];
+            communityNames[cid] = {
+                name: name,
+                autoName: community.autoLabel || community.hub || name,
+                hub: community.hub || '',
+                key: community.key || '',
+                files: files,
+                size: typeof community.size === 'number' ? community.size : files.length,
+                custom: !!community.custom,
+                isOthers: !!community.isOthers
+            };
+            // First load: all active. After a delta: preserve the user's toggles
+            // by stable community key (ids can be renumbered). New groups stay active.
+            if (!preserveActive || !previousKeys[community.key] || previousActiveKeys[community.key]) {
+                activeCommunities.add(cid);
             }
+            for (var f = 0; f < files.length; f++) communityMap[files[f]] = cid;
         }
-
-        // Renumber communities 0..k-1
-        var remap = {};
-        var nextId = 0;
-        for (var ri = 0; ri < n; ri++) {
-            var c = comm[ri];
-            if (remap[c] === undefined) remap[c] = nextId++;
-            communityMap[nodes[ri].id] = remap[c];
-        }
-
-        // Group files by community
-        var commFiles = {};
-        for (var gi = 0; gi < n; gi++) {
-            var cid = communityMap[nodes[gi].id];
-            if (!commFiles[cid]) commFiles[cid] = [];
-            commFiles[cid].push(nodes[gi]);
-        }
-
-        // Separate singleton communities (< 2 members) into "Others"
-        var singletonFiles = [];
-        for (var sc in commFiles) {
-            if (commFiles[sc].length < 2) {
-                for (var si2 = 0; si2 < commFiles[sc].length; si2++) {
-                    singletonFiles.push(commFiles[sc][si2]);
-                }
-                delete commFiles[sc];
-            }
-        }
-
-        // Renumber remaining communities 0..k-1
-        var finalRemap = {};
-        var finalId = 0;
-        var sortedKeys = Object.keys(commFiles).map(Number).sort(function(a, b) { return a - b; });
-        for (var sk = 0; sk < sortedKeys.length; sk++) {
-            finalRemap[sortedKeys[sk]] = finalId++;
-        }
-        var newCommFiles = {};
-        for (var oldK in commFiles) {
-            var newK = finalRemap[oldK];
-            newCommFiles[newK] = commFiles[oldK];
-            for (var fi2 = 0; fi2 < commFiles[oldK].length; fi2++) {
-                communityMap[commFiles[oldK][fi2].id] = newK;
-            }
-        }
-
-        // Add "Others" community for singletons
-        if (singletonFiles.length > 0) {
-            var othersId = finalId++;
-            newCommFiles[othersId] = singletonFiles;
-            for (var oi = 0; oi < singletonFiles.length; oi++) {
-                communityMap[singletonFiles[oi].id] = othersId;
-            }
-        }
-
-        // Name each community. Hub-derived labels can collide (two groups with a
-        // same-named hub file): disambiguate so the palette and Ask Aura never
-        // confuse them.
-        var usedCommunityNames = {};
-        activeCommunities.clear();
-        for (var ci2 = 0; ci2 < finalId; ci2++) {
-            communityColors[ci2] = GROUP_COLORS[ci2 % GROUP_COLORS.length];
-            activeCommunities.add(ci2);
-            var files = newCommFiles[ci2] || [];
-            var isOthers = (singletonFiles.length > 0 && ci2 === finalId - 1);
-            var baseName = isOthers ? 'Others' : nameCommunity(files);
-            var uniqueName = baseName;
-            var suffix = 2;
-            while (usedCommunityNames[uniqueName]) uniqueName = baseName + ' #' + suffix++;
-            usedCommunityNames[uniqueName] = true;
-            communityNames[ci2] = { name: uniqueName, files: files.map(function(f) { return f.id; }) };
-        }
+        buildCommunityList();
     }
 
-    function nameCommunity(files) {
-        if (files.length === 0) return '?';
-        // Hub file: highest fan-in in the community. Ties use the smallest id so
-        // the webview and the @aura tools derive the same label.
-        var hub = files[0];
-        for (var h = 1; h < files.length; h++) {
-            var score = files[h].fanIn || 0;
-            var hubScore = hub.fanIn || 0;
-            if (score > hubScore || (score === hubScore && String(files[h].id) < String(hub.id))) hub = files[h];
+    /** IDs currently rendered (language/dir filters + query/dirty/stale). */
+    function visibleCommunityIds() {
+        var visible = new Set();
+        if (!graphData) return visible;
+        for (var i = 0; i < graphData.nodes.length; i++) {
+            var node = graphData.nodes[i];
+            if (nodePassesLanguageAndDirs(node) && nodePassesVisibilityFilters(node)) {
+                visible.add(node.id);
+            }
         }
-        return String(hub.name || hub.id || '?').replace(/\.[^.]+$/, '');
+        return visible;
     }
 
     function buildCommunityList() {
@@ -1113,43 +1014,67 @@
         if (!list) return;
         list.innerHTML = '';
 
-        // Sort communities by file count descending
+        // Sort communities by file count descending.
         var ids = Object.keys(communityNames).map(Number);
         ids.sort(function(a, b) {
             return (communityNames[b].files.length) - (communityNames[a].files.length);
         });
+        var visible = visibleCommunityIds();
 
         for (var i = 0; i < ids.length; i++) {
             (function(cid) {
                 var info = communityNames[cid];
-                var item = document.createElement('div');
-                item.className = 'community-item' + (activeCommunities.has(cid) ? '' : ' dimmed');
-                item.innerHTML =
-                    '<span class="community-swatch" style="background:' + (communityColors[cid] || '#888') + '"></span>' +
-                    '<span class="community-name">' + escapeHtml(info.name) + '</span>' +
-                    '<span class="community-count">' + info.files.length + '</span>';
-                var askBtn = document.createElement('button');
-                askBtn.type = 'button';
-                askBtn.className = 'community-ask';
-                askBtn.title = 'Ask Aura about this community';
-                askBtn.textContent = '✨';
+                var visibleCount = 0;
+                for (var f = 0; f < info.files.length; f++) {
+                    if (visible.has(info.files[f])) visibleCount++;
+                }
+                var total = info.files.length;
+                var countText = total + (total === 1 ? ' file' : ' files');
+                if (visibleCount !== total) countText += ' · ' + visibleCount + ' visible';
+
+                var card = document.createElement('div');
+                card.className = 'community-card' + (activeCommunities.has(cid) ? '' : ' dimmed');
+                card.innerHTML =
+                    '<div class="community-card-head">' +
+                        '<span class="community-swatch" style="background:' + (communityColors[cid] || '#888') + '"></span>' +
+                        '<span class="community-name" title="' + escapeHtml(info.name) + '">' + escapeHtml(info.name) + '</span>' +
+                        '<button type="button" class="community-edit" title="Rename this community (empty = automatic hub path)">✏️</button>' +
+                        '<button type="button" class="community-ask" title="Ask Aura about this community">✨</button>' +
+                    '</div>' +
+                    '<div class="community-card-hub" title="' + escapeHtml(info.hub || info.autoName) + '">' + escapeHtml(info.hub || info.autoName) + '</div>' +
+                    '<div class="community-card-meta">' +
+                        '<span class="community-count">' + countText + '</span>' +
+                        (info.custom ? '<span class="community-auto">auto: ' + escapeHtml(info.autoName) + '</span>' : '') +
+                    '</div>';
+
+                var editBtn = card.querySelector('.community-edit');
+                editBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    beginCommunityRename(card, cid);
+                });
+
+                var askBtn = card.querySelector('.community-ask');
                 askBtn.addEventListener('click', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
                     // The palette is the authority on membership. Send every
                     // file (capped only for very large groups) and label the
-                    // scope explicitly: the hub-derived name is not a canonical
-                    // Louvain id and must not be re-resolved from a name.
+                    // scope explicitly: it is a code-only community, not a
+                    // documentation group and not a re-detectable label.
                     var paletteFiles = info.files.slice(0, 200);
                     vscode.postMessage({
                         type: 'askAura',
                         payload: {
-                            prompt: 'Explain the group "' + info.name + '" selected in the Communities palette (' + info.files.length + ' files). The view context contains its exact member files: treat that palette list as the authoritative Louvain membership, even if aura_get_communities labels or orders the same group differently, and do not substitute another community. Cover its architectural role, hub files, internal coupling and boundaries. Use at most 3 Aura tools, then write the answer and cite files.',
+                            prompt: 'Explain the architectural community "' + info.name + '" selected in the Communities palette (' + info.files.length + ' code files, documentation excluded). The view context contains its exact member files: treat that palette list as the authoritative community membership and do not substitute another community. Cover its architectural role, hub files, internal coupling and boundaries. Use at most 3 Aura tools, then write the answer and cite files.',
                             context: {
                                 tab: 'graph',
                                 community: {
                                     id: cid,
+                                    key: info.key,
                                     name: info.name,
+                                    autoName: info.autoName,
+                                    hub: info.hub,
                                     fileCount: info.files.length,
                                     files: paletteFiles,
                                     truncated: paletteFiles.length < info.files.length
@@ -1158,16 +1083,65 @@
                         }
                     });
                 });
-                item.appendChild(askBtn);
-                item.addEventListener('click', function() {
+                card.addEventListener('click', function() {
                     if (activeCommunities.has(cid)) activeCommunities.delete(cid);
                     else activeCommunities.add(cid);
-                    item.classList.toggle('dimmed', !activeCommunities.has(cid));
+                    card.classList.toggle('dimmed', !activeCommunities.has(cid));
                     if (graph) { graph.nodeColor(graph.nodeColor()); graph.linkColor(graph.linkColor()); graph.nodeThreeObject(graph.nodeThreeObject()); }
                 });
-                list.appendChild(item);
+                list.appendChild(card);
             })(ids[i]);
         }
+    }
+
+    /** Inline rename: Enter/blur saves, Escape cancels, empty restores the hub path. */
+    function beginCommunityRename(card, cid) {
+        var info = communityNames[cid];
+        if (!info || card.querySelector('.community-rename')) return;
+        var head = card.querySelector('.community-card-head');
+        var nameEl = card.querySelector('.community-name');
+        if (!head || !nameEl) return;
+
+        var input = document.createElement('input');
+        input.className = 'community-rename';
+        input.type = 'text';
+        input.maxLength = 80;
+        input.value = info.custom ? info.name : '';
+        input.placeholder = info.autoName;
+        input.title = 'Enter to save · Escape to cancel · leave empty for the automatic hub path';
+        nameEl.replaceWith(input);
+        input.focus();
+        input.select();
+
+        var finished = false;
+        function finish(save) {
+            if (finished) return;
+            finished = true;
+            input.removeEventListener('blur', onBlur);
+            if (!save) {
+                buildCommunityList();
+                return;
+            }
+            var label = input.value.trim();
+            vscode.postMessage({ type: 'renameCommunity', payload: { key: info.key, label: label } });
+            // Apply immediately; the host will broadcast the canonical snapshot.
+            info.custom = !!label;
+            info.name = label || info.autoName;
+            buildCommunityList();
+        }
+        function onBlur() { finish(true); }
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+            else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+        });
+        input.addEventListener('blur', onBlur);
+        input.addEventListener('click', function(e) { e.stopPropagation(); });
+    }
+
+
+    function refreshCommunityPaletteCounts() {
+        var palette = $('#community-palette');
+        if (palette && !palette.classList.contains('hidden')) buildCommunityList();
     }
 
     function showCommunityPalette() {
@@ -1320,11 +1294,7 @@
             .nodeRelSize(1)
             .nodeVal(function(node) { return getNodeSize(node); })
             .nodeVisibility(function(node) {
-                var qs = qsState();
-                if (qs.active && qs.mode === 'filter' && !qs.set.has(node.id)) return false;
-                if (showDirtyOnly && !dirtyStateOf(node)) return false;
-                if (showStaleNotesOnly && !staleNoteIds.has(node.id)) return false;
-                return true;
+                return nodePassesVisibilityFilters(node);
             })
             .nodeOpacity(0.92)
             .nodeThreeObjectExtend(true)
@@ -1873,6 +1843,8 @@
 
         if (heatmapMode !== 'off') {
             if (heatmapMode === 'community') {
+                // Documentation is outside architecture: no community, neutral color.
+                if (node.language === 'documentation') return '#ffffff12';
                 var cid = communityMap[node.id];
                 var cColor = (cid !== undefined) ? (communityColors[cid] || '#ffffff') : '#ffffff';
                 var isActive = (cid !== undefined) && activeCommunities.has(cid);
@@ -2938,6 +2910,7 @@
             graph.nodeVisibility(graph.nodeVisibility());
             graph.linkVisibility(graph.linkVisibility());
         }
+        refreshCommunityPaletteCounts();
         if (selectedNode && !selectedNode._isCluster && !selectedNode._isSymbol && window.AuraDetail) {
             if (window.AuraDetail.refreshStaleBadge) window.AuraDetail.refreshStaleBadge(selectedNode);
         }
@@ -3370,6 +3343,7 @@
                     graph.nodeVisibility(graph.nodeVisibility());
                     graph.linkVisibility(graph.linkVisibility());
                 }
+                refreshCommunityPaletteCounts();
                 saveViewState();
             });
         }
@@ -3405,6 +3379,7 @@
                     graph.nodeVisibility(graph.nodeVisibility());
                     graph.linkVisibility(graph.linkVisibility());
                 }
+                refreshCommunityPaletteCounts();
                 saveViewState();
             });
         }
@@ -4044,27 +4019,41 @@
         if (link) link.distance(30 * spreadMultiplier);
     }
 
+    function languageFilterKey(node) {
+        var langKey = node.language;
+        if (langKey === 'c') langKey = node.extension === '.h' ? 'c-header' : 'c-source';
+        else if (langKey === 'cpp') {
+            langKey = (node.extension === '.hpp' || node.extension === '.hxx' || node.extension === '.hh')
+                ? 'cpp-header' : 'cpp-source';
+        }
+        return langKey;
+    }
+
+    /** Language + directory filters (applied before the graph data is built). */
+    function nodePassesLanguageAndDirs(node) {
+        if (!activeLanguages.has(languageFilterKey(node))) return false;
+        if (activeDirs.length === 0) return false; // nothing checked = nothing shown
+        for (var d = 0; d < activeDirs.length; d++) {
+            if (node.path === activeDirs[d] || node.path.indexOf(activeDirs[d] + '/') === 0) return true;
+        }
+        // Root-level files (no directory) are always kept.
+        return node.path.indexOf('/') === -1;
+    }
+
+    /** Query / dirty / stale filters (applied by nodeVisibility). */
+    function nodePassesVisibilityFilters(node) {
+        var qs = qsState();
+        if (qs.active && qs.mode === 'filter' && !qs.set.has(node.id)) return false;
+        if (showDirtyOnly && !dirtyStateOf(node)) return false;
+        if (showStaleNotesOnly && !staleNoteIds.has(node.id)) return false;
+        return true;
+    }
+
     function filterGraphData(data) {
         var filteredNodes = [];
         for (var i = 0; i < data.nodes.length; i++) {
             var n = data.nodes[i];
-            var langKey = n.language;
-            if (langKey === 'c') langKey = n.extension === '.h' ? 'c-header' : 'c-source';
-            else if (langKey === 'cpp') langKey = (n.extension === '.hpp' || n.extension === '.hxx' || n.extension === '.hh') ? 'cpp-header' : 'cpp-source';
-            if (!activeLanguages.has(langKey)) continue;
-            // Directory filter: only keep files under checked dirs
-            if (activeDirs.length === 0) continue; // nothing checked = nothing shown
-            var inDir = false;
-            for (var d = 0; d < activeDirs.length; d++) {
-                if (n.path === activeDirs[d] || n.path.indexOf(activeDirs[d] + '/') === 0) {
-                    inDir = true;
-                    break;
-                }
-            }
-            // Root-level files (no directory) are always kept — they aren't
-            // covered by any directory checkbox.
-            if (!inDir && n.path.indexOf('/') === -1) inDir = true;
-            if (!inDir) continue;
+            if (!nodePassesLanguageAndDirs(n)) continue;
             filteredNodes.push(n);
         }
         var nodeIds = new Set();
@@ -4109,6 +4098,7 @@
     function applyFilters() {
         if (!graph || !graphData) return;
         graph.graphData(filterGraphData(graphData));
+        refreshCommunityPaletteCounts();
     }
 
     // ============================================================

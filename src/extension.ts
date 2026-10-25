@@ -29,6 +29,7 @@ import { chunkDocument, type DocChunk } from './analyzer/parsers/doc-parser';
 import { computeCochange } from './analysis/cochange';
 import { computeSymbolCycles } from './analysis/symbol-cycles';
 import { computePageRank } from './analysis/pagerank';
+import { documentationIdsOf, isStructuralLink } from './analysis/architecture';
 
 let webviewProvider: WebviewProvider | undefined;
 let cachedGraphData: GraphData | undefined;
@@ -55,7 +56,10 @@ let incrementalCtx: IncrementalContext | undefined;
 /** Recompute PageRank in place and return the nodes whose score changed. */
 function recomputePageRank(data: GraphData): GraphNode[] {
     const before = new Map(data.nodes.map(node => [node.id, node.pagerank]));
-    const scores = computePageRank(data.nodes.map(node => node.id), data.links);
+    const docIds = documentationIdsOf(data.nodes);
+    const structuralNodes = data.nodes.filter(node => !docIds.has(node.id));
+    const structuralLinks = data.links.filter(link => isStructuralLink(link, docIds));
+    const scores = computePageRank(structuralNodes.map(node => node.id), structuralLinks);
     const changed: GraphNode[] = [];
     for (const node of data.nodes) {
         node.pagerank = scores[node.id] ?? 0;
@@ -230,9 +234,17 @@ async function loadFromDbThenRefresh(context: vscode.ExtensionContext): Promise<
                 graphDb = new GraphDB();
                 await graphDb.open(dbPath);
             }
+            // Repair metrics written by older versions: fan-in now ignores
+            // documentation, and PageRank is recomputed on the code-only graph.
+            graphDb.updateFanCounts();
             const cached = graphDb.exportGraphData();
             if (cached && cached.nodes.length > 0) {
                 cachedGraphData = cached;
+                const rankChanges = recomputePageRank(cachedGraphData);
+                if (rankChanges.length > 0) {
+                    graphDb.updatePageRanks(cachedGraphData.nodes);
+                }
+                graphDb.save();
                 if (webviewProvider) {
                     webviewProvider.sendGraphData(cachedGraphData);
                 }
@@ -514,6 +526,23 @@ async function refreshAnalysis(context: vscode.ExtensionContext, force = false):
         // Restore incremental context from already-computed graph data (no re-parsing)
         incrementalCtx = restoreIncrementalContext(cachedFiles, cachedGraphData);
 
+        // Persist BEFORE notifying the webview: the provider reads the shared
+        // community snapshot from GraphDB when it sends graphData / deltas.
+        try {
+            if (!graphDb) {
+                graphDb = new GraphDB();
+                const dbDir = path.join(rootPath, '.aura');
+                await fs.mkdir(dbDir, { recursive: true });
+                await graphDb.open(path.join(dbDir, 'graph.db'));
+            }
+            graphDb.importGraphData(cachedGraphData);
+            graphDb.importDocChunks(result.docChunks);
+            if (currentFingerprint) persistFingerprint(currentFingerprint);
+        } catch (dbErr) {
+            // Non-critical — log and continue
+            console.error('[aura] GraphDB import error:', dbErr);
+        }
+
         if (webviewProvider) {
             if (oldGraphData && oldGraphData.nodes.length > 0) {
                 // Already showing data from DB cache — send only the delta
@@ -540,18 +569,9 @@ async function refreshAnalysis(context: vscode.ExtensionContext, force = false):
         updateStatusBar();
         void notifyScanComplete(context);
 
-        // Persist graph to SQLite
+        // Persist graph to SQLite — already imported before the webview update so
+        // the shared community snapshot is consistent with the graph on screen.
         try {
-            if (!graphDb) {
-                graphDb = new GraphDB();
-                const dbDir = path.join(rootPath, '.aura');
-                await fs.mkdir(dbDir, { recursive: true });
-                await graphDb.open(path.join(dbDir, 'graph.db'));
-            }
-            graphDb.importGraphData(cachedGraphData);
-            graphDb.importDocChunks(result.docChunks);
-            if (currentFingerprint) persistFingerprint(currentFingerprint);
-
             // History may already be cached — recompute temporal coupling now that
             // the current graph (allowed paths + structural links) is available.
             refreshCochangeFromHistory();
@@ -560,7 +580,7 @@ async function refreshAnalysis(context: vscode.ExtensionContext, force = false):
             await registerMcpServer(context, rootPath);
         } catch (dbErr) {
             // Non-critical — log and continue
-            console.error('[aura] GraphDB import error:', dbErr);
+            console.error('[aura] GraphDB post-import error:', dbErr);
         }
 
         // Launch Time Travel history scan in background
@@ -1042,7 +1062,7 @@ function ensureRiskSnapshot(): RiskSnapshot | undefined {
         vscode.workspace.getConfiguration('auraVisualizer').get<number>('riskWindow', 90)
     );
     riskSnapshot = buildRiskSnapshot(
-        cachedGraphData.nodes,
+        cachedGraphData.nodes.filter(node => node.language !== 'documentation'),
         commitIndex?.commits ?? [],
         days,
         Date.now(),

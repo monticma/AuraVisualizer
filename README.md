@@ -86,10 +86,10 @@ Every edge carries a confidence score: **1.0** exact/relative/alias, **0.9** ext
 
 ### PageRank Centrality 💠
 
-Aura computes a **PageRank** centrality over the structural file graph (`source → target` = "depends on"; damping `0.85`, 40 iterations, normalized scores): a file is central when the files that depend on it are themselves central, not just numerous.
+Aura computes a **PageRank** centrality over the structural **code** graph (`source → target` = "depends on"; damping `0.85`, 40 iterations, normalized scores): a file is central when the files that depend on it are themselves central, not just numerous. Documentation and `doc-reference` links are excluded from this graph and from fan-in.
 
 - **Detail panel** — the **Centrality** metric shows the PageRank score (`0.0042`, hover for context)
-- **💠 Centrality** toolbar button — shows a soft violet halo around the **top 10%** most central files; off by default and persisted in the view state
+- **💠 Centrality** toolbar button — shows a soft violet halo around the **top 10%** most central code files; off by default and persisted in the view state
 - **Risk score** — optional `auraVisualizer.riskCentrality` setting replaces the fan-in percentile with the PageRank centrality percentile (same `0.20` weight); disabled by default so existing scores are unchanged
 - **MCP / `resolve_context`** — ranking uses PageRank when available, falling back to fan-in for older databases
 - Halos are deliberately subtle: dirty rings, note rings, selection glow and labels keep their existing visual priority
@@ -137,16 +137,16 @@ Blue = low, Red = high. A legend displays the value range.
 
 ### Community Detection
 
-The **Communities** heatmap mode uses the Louvain algorithm to detect architectural modules by dependency coupling — not directory structure. Each community gets a unique color and is named after its hub file (highest fan-in); duplicate hub names get a `#2` suffix.
+The **Communities** heatmap mode uses a single shared **code-only Louvain snapshot** computed by the extension and reused by the webview, `@aura` and MCP. Documentation nodes and `doc-reference` edges remain visible in the graph for exploration, but they are excluded from communities, fan-in, PageRank and risk: documentation is not architecture.
 
-A **floating palette** appears on the right, listing all communities with:
-- Color swatch and hub name
-- File count per community
-- Click to toggle individual communities on/off
-- **✨ Ask Aura** on each row sends the palette's exact member files as the authoritative scope (the hub-derived label is not a canonical community id), so `@aura` does not re-map the group to a different Louvain community
+Each community gets a unique color and an automatic label equal to the **full path of its hub file** (highest structural fan-in, deterministic tie-break). The palette uses readable cards showing:
+- color swatch, label and hub path
+- code file count, plus the currently visible count when filters hide members (`31 files · 18 visible`)
+- **✏️ Rename** — a custom label persisted by member-set hash; empty restores the hub path
+- **✨ Ask Aura** — sends the exact member files as the authoritative scope
 - **All** / **None** buttons for batch selection
 
-Unselected communities are grayed out (nodes + links), just like pin focus.
+Unselected communities are grayed out (nodes + links), just like pin focus. `Others` collects isolated code files.
 
 ### Blast Radius
 
@@ -180,6 +180,8 @@ Press `X` or click the **Dead Code** button. Files with unused exports are highl
 Open the **🛡️ Risk** tab for a codebase health dashboard built on a transparent, explainable risk score:
 
 `risk = 100 × (0.30·complexity + 0.20·fan-in + 0.10·fan-out + 0.15·cycle + 0.15·dead-code + 0.10·churn)`
+
+Documentation files are outside the architectural risk model: they are not scored, and `doc-reference` links do not inflate fan-in or PageRank. The doc links remain visible in the graph for exploration.
 
 Complexity, fan-in, fan-out and churn are **percentile ranks inside your repository** (0 = lowest file, 1 = highest), so a score is a standing relative to *your* codebase rather than an absolute threshold — a 72 means the same thing in a 50-file project and in a 5 000-file one. Cycle and dead-code are ratios by nature.
 

@@ -27,6 +27,7 @@ import { collectFunctionMetrics, type FunctionMetricEntry } from '../flow/flow-c
 import { createImportResolver, confidenceScore, type ImportResolver } from './path-resolver';
 import { computeSymbolCycles } from '../analysis/symbol-cycles';
 import { computePageRank } from '../analysis/pagerank';
+import { documentationIdsOf, isStructuralLink } from '../analysis/architecture';
 import { hasGrammar, parseSource } from './tree-sitter-loader';
 import type { BaseParser } from './parsers/base-parser';
 import type Parser from 'web-tree-sitter';
@@ -737,7 +738,11 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
     });
 
     // PageRank centrality (V2-16) — source → target means "depends on".
-    const pageRank = computePageRank(nodes.map(node => node.id), uniqueLinks);
+    // Documentation and doc-reference links stay out of architectural metrics.
+    const docIds = documentationIdsOf(nodes);
+    const structuralNodes = nodes.filter(node => !docIds.has(node.id));
+    const structuralLinks = uniqueLinks.filter(link => isStructuralLink(link, docIds));
+    const pageRank = computePageRank(structuralNodes.map(node => node.id), structuralLinks);
     for (const node of nodes) node.pagerank = pageRank[node.id] ?? 0;
 
     // Language stats

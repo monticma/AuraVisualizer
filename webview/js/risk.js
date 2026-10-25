@@ -31,6 +31,16 @@
     var RECENT_DAYS = 30;      // fixed window for the "Recently Hot" section
     var CHURN_CAP = 20;        // churn scale used for the scatter axis
     var riskCore = window.AuraRisk; // shared scoring — see src/risk/risk-core.ts
+
+    /** Documentation is outside the architectural risk model. */
+    function architectureNodes() {
+        var all = (hooks.getGraphData() && hooks.getGraphData().nodes) || [];
+        var result = [];
+        for (var i = 0; i < all.length; i++) {
+            if (all[i].language !== 'documentation') result.push(all[i]);
+        }
+        return result;
+    }
     var RISK_WINDOWS = riskCore.RISK_WINDOWS;
     var riskWindowDays = riskCore.normalizeRiskWindow((window.AURA_CONFIG || {}).riskWindow);
     var riskPercentiles = null; // { complexity, fanIn, fanOut, churn } → lookup(v) → 0..1
@@ -114,7 +124,7 @@
 
     function renderRiskDashboard() {
         if (!hooks.getGraphData() || !hooks.getGraphData().nodes) return;
-        var nodes = hooks.getGraphData().nodes;
+        var nodes = architectureNodes();
         riskPercentiles = buildRiskPercentiles(nodes);
         var scored = [];
         var maxFanInNode = null;
@@ -197,7 +207,7 @@
         if (!section || !list) return;
         var trends = window.AuraTrendUI ? AuraTrendUI.getTrends() : {};
         var currentIds = {};
-        var nodes = (hooks.getGraphData() && hooks.getGraphData().nodes) || [];
+        var nodes = architectureNodes();
         for (var n = 0; n < nodes.length; n++) currentIds[nodes[n].id] = true;
         var ranked = Object.keys(trends)
             .map(function(id) { return trends[id]; })
@@ -495,7 +505,7 @@
         }
 
         var rows = [];
-        var nodes = hooks.getGraphData().nodes || [];
+        var nodes = architectureNodes();
         for (var i = 0; i < nodes.length; i++) {
             var n = nodes[i];
             var c = churnByFile[n.id] || churnByFile[n.path];
@@ -540,7 +550,7 @@
             return;
         }
         var rows = [];
-        var nodes = hooks.getGraphData().nodes || [];
+        var nodes = architectureNodes();
         for (var i = 0; i < nodes.length; i++) {
             var n = nodes[i];
             var c = churnByFile[n.id] || churnByFile[n.path];
@@ -567,7 +577,7 @@
             return;
         }
 
-        var nodes = hooks.getGraphData().nodes || [];
+        var nodes = architectureNodes();
         var points = [];
         for (var i = 0; i < nodes.length; i++) {
             var n = nodes[i];
@@ -697,7 +707,7 @@
         }
 
         var rows = [];
-        var nodes = hooks.getGraphData().nodes || [];
+        var nodes = architectureNodes();
         for (var i = 0; i < nodes.length; i++) {
             var n = nodes[i];
             var c = churnByFile[n.id] || churnByFile[n.path];
@@ -746,7 +756,7 @@
             return;
         }
         var rows = [];
-        var nodes = hooks.getGraphData().nodes || [];
+        var nodes = architectureNodes();
         for (var i = 0; i < nodes.length; i++) {
             var n = nodes[i];
             var c = churnByFile[n.id] || churnByFile[n.path];

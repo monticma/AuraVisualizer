@@ -22,6 +22,7 @@ import {
 export interface RiskServiceNode extends RiskNode {
     id: string;
     path?: string;
+    language?: string;
 }
 
 export interface RiskServiceCommit {
@@ -112,10 +113,12 @@ export function buildRiskSnapshot(
     const statsOf = (node: RiskServiceNode): ChurnStats | undefined =>
         (node.id ? churn.get(node.id) : undefined) || (node.path ? churn.get(node.path) : undefined);
 
-    const pct = buildRiskPercentiles(nodes, churnOf);
+    // Documentation is not architecture: keep it out of percentiles and rankings.
+    const architecturalNodes = nodes.filter(node => node.language !== 'documentation');
+    const pct = buildRiskPercentiles(architecturalNodes, churnOf);
 
     const raw: { node: RiskServiceNode; score: number }[] = [];
-    for (const n of nodes) {
+    for (const n of architecturalNodes) {
         raw.push({ node: n, score: computeRiskScore(n, pct, churnOf(n), { centrality }) });
     }
 

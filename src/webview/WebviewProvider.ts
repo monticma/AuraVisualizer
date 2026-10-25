@@ -5,7 +5,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { Worker } from 'worker_threads';
-import type { GraphData } from '../analyzer/index';
+import type { GraphData, GraphMeta } from '../analyzer/index';
 import type { GraphDB } from '../graph-db';
 import { runChatStream } from '../chat';
 import { normalizeRiskWindow } from '../risk/risk-core';
@@ -233,6 +233,17 @@ export class WebviewProvider {
                             this.workspaceState.update(WebviewProvider.VIEW_STATE_KEY, message.payload);
                         }
                         break;
+                    case 'renameCommunity': {
+                        const p = (message.payload || {}) as { key?: string; label?: string };
+                        const db = this.getGraphDB();
+                        if (db && p.key) {
+                            db.setCommunityLabel(p.key, typeof p.label === 'string' ? p.label : '');
+                            const communities = db.getCommunitySnapshot();
+                            if (this.pendingData) this.pendingData.meta.communities = communities;
+                            this.panel?.webview.postMessage({ type: 'communities', payload: { communities } });
+                        }
+                        break;
+                    }
                     case 'requestViewState':
                         this.sendSavedViewState();
                         break;
@@ -563,9 +574,33 @@ export class WebviewProvider {
     }
 
     public sendGraphData(data: GraphData): void {
+        this.attachCommunities(data);
         this.pendingData = data;
         if (this.webviewReady) {
             this.panel?.webview.postMessage({ type: 'graphData', payload: data });
+        }
+    }
+
+    /** Every graph snapshot sent to the webview carries the DB's community snapshot. */
+    private attachCommunities(data: GraphData): void {
+        const db = this.getGraphDB();
+        if (!db) return;
+        try {
+            data.meta.communities = db.getCommunitySnapshot();
+        } catch (err) {
+            console.warn('[aura] community snapshot failed:', err);
+        }
+    }
+
+    private attachDeltaCommunities(delta: Record<string, unknown>): void {
+        const meta = delta.meta as GraphMeta | undefined;
+        if (!meta) return;
+        const db = this.getGraphDB();
+        if (!db) return;
+        try {
+            meta.communities = db.getCommunitySnapshot();
+        } catch (err) {
+            console.warn('[aura] community snapshot failed:', err);
         }
     }
 
@@ -577,6 +612,7 @@ export class WebviewProvider {
     }
 
     public sendGraphDelta(delta: Record<string, unknown>): void {
+        this.attachDeltaCommunities(delta);
         if (this.webviewReady) {
             this.panel?.webview.postMessage({ type: 'updateGraph', payload: delta });
         }
@@ -1543,7 +1579,7 @@ export class WebviewProvider {
     <!-- Community Palette (overlay) -->
     <div id="community-palette" class="hidden">
         <div class="community-palette-header">
-            <span>🧩 Communities</span>
+            <span title="Code-only Louvain communities: documentation and doc-reference edges are excluded">🧩 Communities</span>
             <div class="community-palette-actions">
                 <button id="community-select-all" title="Select all">All</button>
                 <button id="community-select-none" title="Unselect all">None</button>
@@ -1806,7 +1842,7 @@ export class WebviewProvider {
                 </table>
 
                 <h3>🧩 Community Detection</h3>
-                <p>The Louvain algorithm detects architectural modules by dependency coupling. Each community is named after its hub file (highest fan-in), with a <code>#2</code> suffix when hub names collide. Use the floating palette to toggle communities on/off. The <strong>✨ Ask Aura</strong> button on a row sends that palette group's exact member files as the authoritative scope, so the answer cannot drift to another community that happens to have a similar label.</p>
+                <p>Communities are computed once from the <strong>code-only</strong> Louvain snapshot and shared by the palette, <code>@aura</code> and MCP. Documentation nodes and <code>doc-reference</code> edges stay visible in the graph but are excluded from communities, fan-in, PageRank and risk. Each card shows the full <strong>hub path</strong>, the code file count and the number of files currently visible after filters. Use <strong>✏️</strong> to rename a community (persisted; empty restores the hub path) and <strong>✨</strong> to ask Aura with that exact membership. Use the floating palette to toggle communities on/off.</p>
 
                 <h3>💥 Blast Radius</h3>
                 <p><kbd>Shift+Right-click</kbd> on a file to see all files that transitively depend on it. Nodes are colored by depth of impact: White (source) → Red → Orange → Yellow → Green.</p>
@@ -1841,7 +1877,7 @@ export class WebviewProvider {
                 <p>The <strong>📝 Notes</strong> toolbar button (next to ✏️ Dirty) shows / hides the indicators; the <code>hasnote</code> query flag finds annotated files. When a file is modified after its note was written, the note header shows <strong>⚠️ À revoir</strong>, the badge counts stale notes and <strong>✓ Mark reviewed</strong> refreshes the note timestamp. The <strong>⚠️ Stale</strong> filter isolates those files; <code>stalenote</code> does the same in queries. Notes are stored in <code>.aura/annotations.json</code> — local to your workspace, never committed.</p>
 
                 <h3>💠 PageRank Centrality</h3>
-                <p>Aura computes a PageRank score over the structural file graph: a file is central when the files depending on it are themselves central. The detail panel shows the score, and the <strong>💠 Centrality</strong> toolbar button draws a soft violet halo around the <strong>top 10%</strong> most central files. It is off by default to keep the graph readable and is saved with the view state.</p>
+                <p>Aura computes a PageRank score over the structural <strong>code</strong> graph: a file is central when the files depending on it are themselves central. Documentation and <code>doc-reference</code> links are excluded. The detail panel shows the score, and the <strong>💠 Centrality</strong> toolbar button draws a soft violet halo around the <strong>top 10%</strong> most central code files. It is off by default to keep the graph readable and is saved with the view state.</p>
                 <p>The optional <code>auraVisualizer.riskCentrality</code> setting replaces the fan-in percentile with the PageRank centrality percentile in the risk score (same 0.20 weight); the default is <code>false</code>, so existing scores are unchanged. <code>resolve_context</code> uses PageRank when the database provides it, falling back to fan-in otherwise.</p>
 
                 <h3>🌀 Warp Points</h3>

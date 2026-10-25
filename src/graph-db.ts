@@ -10,10 +10,13 @@
 import initSqlJs, { type Database as SqlJsDatabase } from 'sql.js';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
-import type { GraphData, GraphNode, GraphLink, SymbolCycle, SymbolCycleStep } from './analyzer/types';
+import type { GraphData, GraphNode, GraphLink, GraphCommunity, SymbolCycle, SymbolCycleStep } from './analyzer/types';
 import type { CochangePair } from './analysis/cochange';
+import { detectCommunities } from './analysis/communities';
 
 // ── Row types returned by queries ──────────────────────────────
+
+type CommunityNodeRow = Pick<NodeRow, 'id' | 'language' | 'fan_in'>;
 
 export interface NodeRow {
     id: string;
@@ -168,6 +171,11 @@ CREATE TABLE IF NOT EXISTS symbol_cycle_steps (
 CREATE TABLE IF NOT EXISTS meta (
     key   TEXT PRIMARY KEY,
     value TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS community_labels (
+    key   TEXT PRIMARY KEY,
+    label TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS function_calls (
@@ -640,21 +648,31 @@ export class GraphDB {
         }
     }
 
-    /** Recompute fan_in / fan_out from the edges table for given node IDs (or all nodes). */
+    /** Recompute structural fan_in / fan_out from the edges table for given node IDs (or all nodes). */
     updateFanCounts(nodeIds?: string[]): void {
         const db = this.ensureDb();
+        // Documentation and doc-reference links are not architectural edges.
+        const structuralTarget = "edges.type <> 'doc-reference' AND EXISTS (SELECT 1 FROM nodes t WHERE t.id = edges.target AND t.language <> 'documentation')";
+        const structuralSource = "edges.type <> 'doc-reference' AND EXISTS (SELECT 1 FROM nodes s WHERE s.id = edges.source AND s.language <> 'documentation')";
         if (nodeIds && nodeIds.length > 0) {
             for (const id of nodeIds) {
-                const fanOut = queryOne<{ c: number }>(db, 'SELECT COUNT(*) AS c FROM edges WHERE source = ?', [id]);
-                const fanIn = queryOne<{ c: number }>(db, 'SELECT COUNT(*) AS c FROM edges WHERE target = ?', [id]);
+                const isDoc = queryOne<{ c: number }>(db, "SELECT COUNT(*) AS c FROM nodes WHERE id = ? AND language = 'documentation'", [id]);
+                if (isDoc && isDoc.c > 0) {
+                    db.run('UPDATE nodes SET fan_in = 0, fan_out = 0 WHERE id = ?', [id]);
+                    continue;
+                }
+                const fanOut = queryOne<{ c: number }>(db, `SELECT COUNT(*) AS c FROM edges WHERE edges.source = ? AND ${structuralTarget}`, [id]);
+                const fanIn = queryOne<{ c: number }>(db, `SELECT COUNT(*) AS c FROM edges WHERE edges.target = ? AND ${structuralSource}`, [id]);
                 db.run('UPDATE nodes SET fan_in = ?, fan_out = ? WHERE id = ?', [fanIn?.c ?? 0, fanOut?.c ?? 0, id]);
             }
         } else {
             db.run(`
                 UPDATE nodes SET
-                    fan_out = (SELECT COUNT(*) FROM edges WHERE edges.source = nodes.id),
-                    fan_in  = (SELECT COUNT(*) FROM edges WHERE edges.target = nodes.id)
+                    fan_out = (SELECT COUNT(*) FROM edges WHERE edges.source = nodes.id AND ${structuralTarget}),
+                    fan_in  = (SELECT COUNT(*) FROM edges WHERE edges.target = nodes.id AND ${structuralSource})
+                WHERE nodes.language <> 'documentation'
             `);
+            db.run("UPDATE nodes SET fan_in = 0, fan_out = 0 WHERE language = 'documentation'");
         }
     }
 
@@ -855,7 +873,9 @@ export class GraphDB {
             : '(complexity * (fan_in + 1)) DESC';
 
         return queryAll<HotspotRow>(this.ensureDb(),
-            `SELECT *, (complexity * (fan_in + 1)) AS impact_score FROM nodes ORDER BY ${orderClause} LIMIT ?`,
+            `SELECT *, (complexity * (fan_in + 1)) AS impact_score FROM nodes
+             WHERE language <> 'documentation'
+             ORDER BY ${orderClause} LIMIT ?`,
             [limit]
         );
     }
@@ -870,7 +890,7 @@ export class GraphDB {
     /** Files that nothing imports (fan_in = 0) — orphan / entry-point files. */
     getOrphanFiles(limit: number = 100): NodeRow[] {
         return queryAll<NodeRow>(this.ensureDb(),
-            'SELECT * FROM nodes WHERE fan_in = 0 ORDER BY fan_out, name LIMIT ?',
+            "SELECT * FROM nodes WHERE fan_in = 0 AND language <> 'documentation' ORDER BY fan_out, name LIMIT ?",
             [limit]
         );
     }
@@ -1024,112 +1044,55 @@ export class GraphDB {
     }
 
     /**
-     * Community detection using Louvain algorithm.
-     * Returns nodeId → communityId mapping.
+     * Community detection using the shared deterministic implementation.
+     * Documentation nodes and doc-reference edges are excluded.
+     * Returns nodeId → communityId mapping (legacy shape used by older callers).
      */
     getCommunities(): { nodeId: string; community: number }[] {
-        const db = this.ensureDb();
-        const nodes = queryAll<{ id: string }>(db, 'SELECT id FROM nodes');
-        const edges = queryAll<{ source: string; target: string }>(db, 'SELECT source, target FROM edges');
-
-        if (nodes.length === 0) return [];
-
-        // Build adjacency with weights (undirected, multiple edge types count as 1)
-        const nodeIndex = new Map<string, number>();
-        nodes.forEach((n, i) => nodeIndex.set(n.id, i));
-        const n = nodes.length;
-
-        // Adjacency list: neighbor → weight
-        const adj: Map<number, number>[] = Array.from({ length: n }, () => new Map());
-        let totalWeight = 0;
-
-        for (const e of edges) {
-            const si = nodeIndex.get(e.source);
-            const ti = nodeIndex.get(e.target);
-            if (si === undefined || ti === undefined || si === ti) continue;
-            adj[si].set(ti, (adj[si].get(ti) || 0) + 1);
-            adj[ti].set(si, (adj[ti].get(si) || 0) + 1);
-            totalWeight += 1;
-        }
-
-        if (totalWeight === 0) {
-            return nodes.map((nd, i) => ({ nodeId: nd.id, community: i }));
-        }
-
-        const m2 = totalWeight * 2; // sum of all weights (undirected counted once)
-        // degree of each node (sum of edge weights)
-        const deg = new Float64Array(n);
-        for (let i = 0; i < n; i++) {
-            let d = 0;
-            for (const w of adj[i].values()) d += w;
-            deg[i] = d;
-        }
-
-        // Initial: each node in its own community
-        const community = new Int32Array(n);
-        for (let i = 0; i < n; i++) community[i] = i;
-
-        // Louvain phase 1: local moves
-        let improved = true;
-        let iterations = 0;
-        while (improved && iterations < 20) {
-            improved = false;
-            iterations++;
-            for (let i = 0; i < n; i++) {
-                const ci = community[i];
-                // Sum of weights to each neighboring community
-                const commWeights = new Map<number, number>();
-                for (const [j, w] of adj[i]) {
-                    const cj = community[j];
-                    commWeights.set(cj, (commWeights.get(cj) || 0) + w);
-                }
-
-                // Sum of degrees in each community
-                const commDeg = new Map<number, number>();
-                for (let j = 0; j < n; j++) {
-                    if (j === i) continue;
-                    const cj = community[j];
-                    if (commWeights.has(cj) || cj === ci) {
-                        commDeg.set(cj, (commDeg.get(cj) || 0) + deg[j]);
-                    }
-                }
-
-                // Try removing i from ci and adding to best community
-                const ki = deg[i];
-                const wIn = commWeights.get(ci) || 0;
-                const sumCi = commDeg.get(ci) || 0;
-                const removeCost = wIn / totalWeight - (ki * sumCi) / (m2 * m2) * 2;
-
-                let bestGain = 0;
-                let bestComm = ci;
-                for (const [cj, wj] of commWeights) {
-                    if (cj === ci) continue;
-                    const sumCj = commDeg.get(cj) || 0;
-                    const gain = wj / totalWeight - (ki * sumCj) / (m2 * m2) * 2 - removeCost;
-                    if (gain > bestGain) {
-                        bestGain = gain;
-                        bestComm = cj;
-                    }
-                }
-
-                if (bestComm !== ci) {
-                    community[i] = bestComm;
-                    improved = true;
-                }
+        const result: { nodeId: string; community: number }[] = [];
+        for (const community of this.getCommunitySnapshot()) {
+            for (const nodeId of community.files) {
+                result.push({ nodeId, community: community.id });
             }
         }
-
-        // Renumber communities to 0..k-1
-        const idMap = new Map<number, number>();
-        let nextId = 0;
-        const result: { nodeId: string; community: number }[] = [];
-        for (let i = 0; i < n; i++) {
-            let cid = community[i];
-            if (!idMap.has(cid)) idMap.set(cid, nextId++);
-            result.push({ nodeId: nodes[i].id, community: idMap.get(cid)! });
-        }
-
         return result;
+    }
+
+    /**
+     * The single source of truth for Communities: code-only membership, hub-path
+     * auto labels and user overrides, in one deterministic snapshot.
+     */
+    getCommunitySnapshot(): GraphCommunity[] {
+        const db = this.ensureDb();
+        const nodes = queryAll<CommunityNodeRow>(db, 'SELECT id, language, fan_in FROM nodes ORDER BY id');
+        const edges = queryAll<{ source: string; target: string; type: string }>(
+            db, 'SELECT source, target, type FROM edges ORDER BY source, target, type'
+        );
+        return detectCommunities(nodes, edges, { labels: this.getCommunityLabels() });
+    }
+
+    /** User-provided community labels, keyed by the stable member-set hash. */
+    getCommunityLabels(): Record<string, string> {
+        const db = this.ensureDb();
+        const rows = queryAll<{ key: string; label: string }>(db, 'SELECT key, label FROM community_labels');
+        const labels: Record<string, string> = {};
+        for (const row of rows) {
+            if (row.key && row.label && row.label.trim()) labels[row.key] = row.label.trim();
+        }
+        return labels;
+    }
+
+    /** Rename a community; an empty label restores the automatic hub path. */
+    setCommunityLabel(key: string, label: string): void {
+        if (!key) return;
+        const db = this.ensureDb();
+        const value = label.trim();
+        if (value) {
+            db.run('INSERT OR REPLACE INTO community_labels (key, label) VALUES (?, ?)', [key, value]);
+        } else {
+            db.run('DELETE FROM community_labels WHERE key = ?', [key]);
+        }
+        this.save();
     }
 
     /** Get meta value by key. */

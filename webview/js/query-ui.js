@@ -79,6 +79,7 @@
         hooks.getGraph().nodeVisibility(hooks.getGraph().nodeVisibility());
         hooks.getGraph().linkVisibility(hooks.getGraph().linkVisibility());
         hooks.getGraph().nodeThreeObject(hooks.getGraph().nodeThreeObject());
+        if (hooks.refreshCommunityPaletteCounts) hooks.refreshCommunityPaletteCounts();
     }
 
     function applyQuerySelectMode() {

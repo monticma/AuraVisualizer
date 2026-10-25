@@ -145,7 +145,10 @@
         $('#panel-complexity').textContent = node.complexity || 1;
         var centralityEl = $('#panel-centrality');
         if (centralityEl) {
-            if (typeof node.pagerank === 'number') {
+            if (node.language === 'documentation') {
+                centralityEl.textContent = '—';
+                centralityEl.title = 'Documentation is outside the architectural PageRank graph';
+            } else if (typeof node.pagerank === 'number') {
                 centralityEl.textContent = node.pagerank.toFixed(4);
                 centralityEl.title = 'PageRank centrality — the top 10% files can show a halo (💠 Centrality button)';
             } else {
@@ -681,7 +684,18 @@
             context.selection = node.id || node.path;
             var cid = hooks.getCommunityMap()[node.id];
             if (cid !== undefined && hooks.getCommunityNames()[cid]) {
-                context.filters = { community: hooks.getCommunityNames()[cid].name };
+                var community = hooks.getCommunityNames()[cid];
+                var files = (community.files || []).slice(0, 200);
+                context.community = {
+                    id: cid,
+                    key: community.key || '',
+                    name: community.name,
+                    autoName: community.autoName,
+                    hub: community.hub,
+                    fileCount: (community.files || []).length,
+                    files: files,
+                    truncated: files.length < (community.files || []).length
+                };
             }
         }
         return context;

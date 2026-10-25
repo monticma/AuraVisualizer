@@ -251,9 +251,54 @@ describe('GraphDB', () => {
         };
         expect(result.communities).toHaveLength(1);
         // utils.h is imported by main.c, utils.c and lib/helper.c, so it is the
-        // hub — the same rule the webview Communities palette uses.
-        expect(result.communities[0].name).toBe('utils');
+        // hub — the label is the full hub path, not a shortened basename.
+        expect(result.communities[0].name).toBe('utils.h');
         expect(result.communities[0].size).toBe(4);
+    });
+
+    it('keeps documentation out of communities and structural fan counts', () => {
+        const node = (id: string, language: string, extension: string) => ({
+            id, name: id.split('/').pop(), path: id, language, extension,
+            size: 10, linesOfCode: 5, lastModified: 0, group: id.split('/')[0],
+            fanIn: 0, fanOut: 1, complexity: 1, complexityDetails: {},
+        });
+        const data = {
+            meta: {
+                projectName: 'DocsTest', analyzedAt: '', totalFiles: 3, totalLinks: 2,
+                totalRelationsFound: 2, functionCallLinks: 0, heritageLinks: 0,
+                unresolvedReferences: 0, unresolvedSamples: [], deadCodeFiles: 0,
+                deadExportsTotal: 0, cycles: [], languageStats: {}, groups: [],
+            },
+            nodes: [
+                node('src/a.ts', 'typescript', '.ts'),
+                node('src/b.ts', 'typescript', '.ts'),
+                node('docs/readme.md', 'documentation', '.md'),
+            ],
+            links: [
+                { source: 'src/a.ts', target: 'src/b.ts', type: 'import', label: '', confidence: 1 },
+                { source: 'docs/readme.md', target: 'src/a.ts', type: 'doc-reference', label: '', confidence: 1 },
+            ],
+        } as unknown as GraphData;
+        db.importGraphData(data);
+        db.updateFanCounts();
+
+        const byId = Object.fromEntries(db.getAllNodes().map(n => [n.id, n]));
+        expect(byId['src/b.ts'].fan_in).toBe(1);
+        expect(byId['src/a.ts'].fan_out).toBe(1);
+        expect(byId['docs/readme.md'].fan_in).toBe(0);
+        expect(byId['docs/readme.md'].fan_out).toBe(0);
+
+        const snapshot = db.getCommunitySnapshot();
+        expect(snapshot.flatMap(c => c.files).sort()).toEqual(['src/a.ts', 'src/b.ts']);
+        expect(snapshot[0].label).toBe('src/b.ts');
+
+        db.setCommunityLabel(snapshot[0].key, 'Engine');
+        const renamed = db.getCommunitySnapshot();
+        expect(renamed.find(c => c.key === snapshot[0].key)?.label).toBe('Engine');
+
+        // A full re-analysis replaces nodes/meta but must keep user renames.
+        db.importGraphData(data);
+        expect(db.getCommunityLabels()[snapshot[0].key]).toBe('Engine');
     });
 
     it('exportGraphData round-trips through import', async () => {
