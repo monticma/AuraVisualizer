@@ -1371,10 +1371,11 @@
                 var group = new T.Group();
                 var baseScale = Math.cbrt(getNodeSize(node) || 1) * 8;
 
-                // Centrality halo — only the top PageRank files, deliberately
-                // softer than the dirty/note rings so the graph stays readable.
+                // Centrality halo — a thin glow hugging the node. The rendered
+                // radius is cbrt(nodeVal) * nodeRelSize (nodeRelSize = 1), not
+                // baseScale (which is sized for the dirty/note ring sprites).
                 if (isCentral && dimFactor > 0.02) {
-                    var centralityHaloRadius = baseScale * 2.4;
+                    var centralityHaloRadius = Math.cbrt(getNodeSize(node) || 1) * 1.6;
                     var centralityHaloGeo = new T.SphereGeometry(centralityHaloRadius, 20, 20);
                     var centralityHaloMat = new T.MeshBasicMaterial({
                         color: 0x8b5cf6,
