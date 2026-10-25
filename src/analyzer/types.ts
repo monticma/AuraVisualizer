@@ -129,6 +129,8 @@ export interface GraphNode {
     complexity: number;
     /** Highest cognitive complexity among this file's functions/methods (supported languages). */
     cognitive?: number;
+    /** PageRank over the structural file graph (V2-16). */
+    pagerank?: number;
     complexityDetails: Record<string, unknown>;
     symbols?: NodeSymbols;
     deadExports?: string[];

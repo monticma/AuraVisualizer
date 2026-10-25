@@ -40,6 +40,9 @@
     var showCycles = false;
     var showDirtyOnly = false; // filter: only files with uncommitted changes
     var showNotes = true;      // show note indicators (pulsing ring + dot) on annotated files
+    var showCentralityHalos = false; // show halos around the top PageRank files
+    var centralityHaloIds = new Set();
+    var centralityHaloThreshold = 0;
     var showStaleNotesOnly = false; // filter: only files whose note predates the file
     var staleNoteIds = new Set();
     var workingTree = {};      // workspace-relative path → git state (modified / untracked / …)
@@ -821,6 +824,24 @@
             metricRanges.cochange.min = Math.min(metricRanges.cochange.min, cc);
             metricRanges.cochange.max = Math.max(metricRanges.cochange.max, cc);
         }
+        rebuildCentralityHaloSet();
+    }
+
+    /** Halo only the top 10% PageRank files, so the graph stays readable. */
+    function rebuildCentralityHaloSet() {
+        centralityHaloIds = new Set();
+        centralityHaloThreshold = 0;
+        if (!graphData) return;
+        var ranked = [];
+        for (var i = 0; i < graphData.nodes.length; i++) {
+            var node = graphData.nodes[i];
+            if (typeof node.pagerank === 'number' && node.pagerank > 0) ranked.push(node);
+        }
+        if (ranked.length === 0) return;
+        ranked.sort(function(a, b) { return (b.pagerank || 0) - (a.pagerank || 0); });
+        var count = Math.max(1, Math.ceil(ranked.length * 0.10));
+        centralityHaloThreshold = ranked[count - 1].pagerank || 0;
+        for (var r = 0; r < count; r++) centralityHaloIds.add(ranked[r].id);
     }
 
     function normalizeMetric(value, metric) {
@@ -1289,11 +1310,12 @@
                 var isBlastSource = blastMode && pinnedNode && (node.id === pinnedNode.id || (ts.impactMode && blastDepths[node.id] === 0));
                 var dirtyState = dirtyStateOf(node);
                 var noteInfo = showNotes ? annotationOf(node) : null;
+                var isCentral = showCentralityHalos && centralityHaloIds.has(node.id);
                 // Rings must follow the node's dim state (query highlight, pin/blast,
                 // cycles…): derive the factor from the node color so they always agree.
                 // Only computed when a ring is actually drawn — avoids a second
                 // getNodeColor() call for every plain node on each rebuild.
-                var dimFactor = (dirtyState || noteInfo) ? colorAlpha(getNodeColor(node)) : 1;
+                var dimFactor = (dirtyState || noteInfo || isCentral) ? colorAlpha(getNodeColor(node)) : 1;
                 var hasLabel = showLabels &&
                     !(showOrphans && (node.fanIn > 0 || node.fanOut > 0)) &&
                     !(showDeadCode && !(node.deadExports && node.deadExports.length > 0)) &&
@@ -1344,10 +1366,25 @@
                     return cGroup;
                 }
 
-                if (!isSelected && !hasLabel && !isBlastSource && !dirtyState && !noteInfo) return null;
+                if (!isSelected && !hasLabel && !isBlastSource && !dirtyState && !noteInfo && !isCentral) return null;
 
                 var group = new T.Group();
                 var baseScale = Math.cbrt(getNodeSize(node) || 1) * 8;
+
+                // Centrality halo — only the top PageRank files, deliberately
+                // softer than the dirty/note rings so the graph stays readable.
+                if (isCentral && dimFactor > 0.02) {
+                    var centralityHaloRadius = baseScale * 2.4;
+                    var centralityHaloGeo = new T.SphereGeometry(centralityHaloRadius, 20, 20);
+                    var centralityHaloMat = new T.MeshBasicMaterial({
+                        color: 0x8b5cf6,
+                        transparent: true,
+                        opacity: 0.10,
+                        blending: T.AdditiveBlending,
+                        depthWrite: false
+                    });
+                    group.add(new T.Mesh(centralityHaloGeo, centralityHaloMat));
+                }
 
                 // Git dirty ring — amber circle around files with uncommitted changes
                 if (dirtyState && dimFactor > 0.02) {
@@ -3032,6 +3069,7 @@
             showCycles: showCycles,
             showDirtyOnly: showDirtyOnly,
             showNotes: showNotes,
+            showCentralityHalos: showCentralityHalos,
             showStaleNotesOnly: showStaleNotesOnly,
             showGroups: showGroups,
             pathMode: pathMode,
@@ -3098,6 +3136,7 @@
         showStaleNotesOnly = !!state.showStaleNotesOnly;
         // Defaults to true: states saved before the toggle existed must keep notes visible.
         showNotes = state.showNotes === undefined ? true : !!state.showNotes;
+        showCentralityHalos = !!state.showCentralityHalos;
         showLabels = !!state.showLabels;
         pathMode = !!state.pathMode;
         if (typeof state.followEditor === 'boolean') {
@@ -3128,6 +3167,8 @@
         $('#btn-cycles').classList.toggle('active', showCycles);
         $('#btn-dirty-only').classList.toggle('active', showDirtyOnly);
         $('#btn-notes').classList.toggle('active', showNotes);
+        var restoredCentralityBtn = $('#btn-centrality-halos');
+        if (restoredCentralityBtn) restoredCentralityBtn.classList.toggle('active', showCentralityHalos);
         var restoredStaleBtn = $('#btn-stale-notes');
         if (restoredStaleBtn) restoredStaleBtn.classList.toggle('active', showStaleNotesOnly);
         updateStaleNotesUI();
@@ -3314,6 +3355,17 @@
                 showNotes = !showNotes;
                 notesBtn.classList.toggle('active', showNotes);
                 if (graph) graph.nodeThreeObject(graph.nodeThreeObject());
+                saveViewState();
+            });
+        }
+
+        var centralityBtn = $('#btn-centrality-halos');
+        if (centralityBtn) {
+            centralityBtn.addEventListener('click', function() {
+                showCentralityHalos = !showCentralityHalos;
+                centralityBtn.classList.toggle('active', showCentralityHalos);
+                rebuildCentralityHaloSet();
+                refreshGraphColors();
                 saveViewState();
             });
         }

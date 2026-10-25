@@ -76,7 +76,8 @@ export function buildRiskSnapshot(
     nodes: RiskServiceNode[],
     commits: RiskServiceCommit[],
     windowDays: number,
-    now: number = Date.now()
+    now: number = Date.now(),
+    centrality: boolean = false,
 ): RiskSnapshot {
     const dayMs = 24 * 60 * 60 * 1000;
     const cutoff = now - windowDays * dayMs;
@@ -115,7 +116,7 @@ export function buildRiskSnapshot(
 
     const raw: { node: RiskServiceNode; score: number }[] = [];
     for (const n of nodes) {
-        raw.push({ node: n, score: computeRiskScore(n, pct, churnOf(n)) });
+        raw.push({ node: n, score: computeRiskScore(n, pct, churnOf(n), { centrality }) });
     }
 
     const scorePct = percentileLookup(raw.map(r => r.score));
@@ -137,6 +138,7 @@ export function buildRiskSnapshot(
                 windowDays,
                 churn: churnOf(r.node),
                 authorCount: stats ? stats.authors.size : 0,
+                centrality,
             }),
             lines: r.node.linesOfCode || 0,
             complexity: r.node.complexity || 0,

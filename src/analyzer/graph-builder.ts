@@ -26,6 +26,7 @@ import { computeComplexity } from './complexity';
 import { collectFunctionMetrics, type FunctionMetricEntry } from '../flow/flow-core';
 import { createImportResolver, confidenceScore, type ImportResolver } from './path-resolver';
 import { computeSymbolCycles } from '../analysis/symbol-cycles';
+import { computePageRank } from '../analysis/pagerank';
 import { hasGrammar, parseSource } from './tree-sitter-loader';
 import type { BaseParser } from './parsers/base-parser';
 import type Parser from 'web-tree-sitter';
@@ -734,6 +735,10 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
 
         return node;
     });
+
+    // PageRank centrality (V2-16) — source → target means "depends on".
+    const pageRank = computePageRank(nodes.map(node => node.id), uniqueLinks);
+    for (const node of nodes) node.pagerank = pageRank[node.id] ?? 0;
 
     // Language stats
     const langStats: Record<string, { count: number; totalLOC: number; avgComplexity: number }> = {};

@@ -74,17 +74,20 @@ var AuraRisk = (() => {
   }
   function buildRiskPercentiles(nodes, churnOf) {
     const complexity = [], fanIn = [], fanOut = [], churn = [];
+    const pagerank = [];
     for (const n of nodes) {
       complexity.push(n.complexity || 0);
       fanIn.push(n.fanIn || 0);
       fanOut.push(n.fanOut || 0);
       churn.push(churnOf(n) || 0);
+      pagerank.push(typeof n.pagerank === "number" ? n.pagerank : 0);
     }
     return {
       complexity: percentileLookup(complexity),
       fanIn: percentileLookup(fanIn),
       fanOut: percentileLookup(fanOut),
-      churn: percentileLookup(churn)
+      churn: percentileLookup(churn),
+      centrality: percentileLookup(pagerank)
     };
   }
   function topPercentLabel(p) {
@@ -100,7 +103,7 @@ var AuraRisk = (() => {
   function riskBucket(score) {
     return score >= RISK_HIGH_THRESHOLD ? "high" : score >= RISK_MEDIUM_THRESHOLD ? "medium" : "low";
   }
-  function computeRiskScore(node, pct, churn) {
+  function computeRiskScore(node, pct, churn, options = {}) {
     const complexity = node.complexity || 0;
     const fanIn = node.fanIn || 0;
     const fanOut = node.fanOut || 0;
@@ -108,11 +111,13 @@ var AuraRisk = (() => {
     const fanInP = pct ? pct.fanIn(fanIn) : Math.min(fanIn / 20, 1);
     const fanOutP = pct ? pct.fanOut(fanOut) : Math.min(fanOut / 30, 1);
     const churnP = pct ? pct.churn(churn) : Math.min(churn / CHURN_CAP, 1);
+    const centralityEnabled = options.centrality === true && !!pct?.centrality;
+    const centralityP = centralityEnabled && pct?.centrality ? pct.centrality(node.pagerank || 0) : 0;
     const inCycle = node.cycleIds && node.cycleIds.length > 0 ? 1 : 0;
     const totalSymbols = node.symbols && node.symbols.totalSymbols || 0;
     const deadCount = node.deadExports && node.deadExports.length || 0;
     const deadRatio = totalSymbols > 0 ? Math.min(deadCount / totalSymbols, 1) : 0;
-    return 100 * (0.3 * complexityP + 0.2 * fanInP + 0.1 * fanOutP + 0.15 * inCycle + 0.15 * deadRatio + 0.1 * churnP);
+    return 100 * (0.3 * complexityP + 0.2 * (centralityEnabled ? centralityP : fanInP) + 0.1 * fanOutP + 0.15 * inCycle + 0.15 * deadRatio + 0.1 * churnP);
   }
   function riskReasons(node, pct, ctx) {
     const reasons = [];
@@ -129,10 +134,19 @@ var AuraRisk = (() => {
       lbl = topPercentLabel(pC);
       reasons.push({ weight: 0.3 * pC, text: "complexity " + complexity + (lbl ? " (" + lbl + " of the repo)" : "") });
     }
-    if (fanIn > 0) {
-      const pI = pct ? pct.fanIn(fanIn) : 0;
-      lbl = topPercentLabel(pI);
-      reasons.push({ weight: 0.2 * pI, text: fanIn + (fanIn === 1 ? " file depends on it" : " files depend on it") + (lbl ? " (" + lbl + ")" : "") });
+    if (fanIn > 0 || ctx.centrality && node.pagerank && pct?.centrality) {
+      if (ctx.centrality && pct?.centrality && node.pagerank) {
+        const pCentrality = pct.centrality(node.pagerank);
+        const centralityLabel = topPercentLabel(pCentrality);
+        reasons.push({
+          weight: 0.2 * pCentrality,
+          text: "centrality" + (centralityLabel ? " " + centralityLabel : "") + " (PageRank " + node.pagerank.toFixed(4) + ")"
+        });
+      } else {
+        const pI = pct ? pct.fanIn(fanIn) : 0;
+        lbl = topPercentLabel(pI);
+        reasons.push({ weight: 0.2 * pI, text: fanIn + (fanIn === 1 ? " file depends on it" : " files depend on it") + (lbl ? " (" + lbl + ")" : "") });
+      }
     }
     if (churn > 0) {
       const pCh = pct ? pct.churn(churn) : 0;

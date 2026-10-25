@@ -287,6 +287,33 @@ describe('buildGraph', () => {
         expect(localCall!.callerName).toBe('process');
     });
 
+    it('computes PageRank over the file graph', async () => {
+        const files = [
+            makeFileInfo({
+                id: 'a.js',
+                content: "import { x } from './b';\n",
+                language: 'javascript', extension: '.js',
+            }),
+            makeFileInfo({
+                id: 'b.js',
+                content: "import { y } from './c';\nexport const x = 1;\n",
+                language: 'javascript', extension: '.js',
+            }),
+            makeFileInfo({
+                id: 'c.js',
+                content: 'export const y = 1;\n',
+                language: 'javascript', extension: '.js',
+            }),
+        ];
+        const trees = await preParseFiles(files);
+        const graph = buildGraph(files, 'Project', {}, trees);
+        const byId = new Map(graph.nodes.map(node => [node.id, node]));
+        expect(byId.get('c.js')!.pagerank).toBeGreaterThan(byId.get('b.js')!.pagerank!);
+        expect(byId.get('b.js')!.pagerank).toBeGreaterThan(byId.get('a.js')!.pagerank!);
+        const total = graph.nodes.reduce((sum, node) => sum + (node.pagerank || 0), 0);
+        expect(total).toBeCloseTo(1, 6);
+    });
+
     it('detects mutual recursion between TS files', async () => {
         const files = [
             makeFileInfo({

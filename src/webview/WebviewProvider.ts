@@ -24,6 +24,7 @@ const SETTING_NORMALIZERS: Record<string, (v: unknown) => unknown> = {
     bloomRadius: (v) => clampNumber(v, 0, 2, 0.6),
     bloomThreshold: (v) => clampNumber(v, 0, 1, 0),
     riskWindow: (v) => normalizeRiskWindow(v),
+    riskCentrality: (v) => v === true,
     complexityTrendThreshold: (v) => clampNumber(v, 0, 20, 0.5),
     rotateSpeed: (v) => clampNumber(v, 1, 5, 1),
     flightSpeed: (v) => clampNumber(v, 0.25, 4, 1),
@@ -677,6 +678,7 @@ export class WebviewProvider {
                     bloomRadius: config.get<number>('bloomRadius', 0.6),
                     bloomThreshold: config.get<number>('bloomThreshold', 0.0),
                     riskWindow: normalizeRiskWindow(config.get<number>('riskWindow', 90)),
+                    riskCentrality: config.get<boolean>('riskCentrality', false) === true,
                     complexityTrendThreshold: clampNumber(config.get<number>('complexityTrendThreshold', 0.5), 0, 20, 0.5),
                     rotateSpeed: normalizeRotateSpeed(config.get<number>('rotateSpeed', 1)),
                     flightSpeed: clampNumber(config.get<number>('flightSpeed', 1), 0.25, 4, 1),
@@ -742,6 +744,7 @@ export class WebviewProvider {
                 bloomRadius: config.get<number>('bloomRadius', 0.6),
                 bloomThreshold: config.get<number>('bloomThreshold', 0.0),
                 riskWindow: normalizeRiskWindow(config.get<number>('riskWindow', 90)),
+                riskCentrality: config.get<boolean>('riskCentrality', false) === true,
                 complexityTrendThreshold: clampNumber(config.get<number>('complexityTrendThreshold', 0.5), 0, 20, 0.5),
                 rotateSpeed: normalizeRotateSpeed(config.get<number>('rotateSpeed', 1)),
                 flightSpeed: clampNumber(config.get<number>('flightSpeed', 1), 0.25, 4, 1),
@@ -1008,6 +1011,10 @@ export class WebviewProvider {
                     <div class="panel-metric">
                         <span class="metric-label">Complexity</span>
                         <span class="metric-value" id="panel-complexity">—</span>
+                    </div>
+                    <div class="panel-metric" title="PageRank centrality over the structural file graph">
+                        <span class="metric-label">Centrality</span>
+                        <span class="metric-value" id="panel-centrality">—</span>
                     </div>
                     <div class="panel-metric">
                         <span class="metric-label">Symbols</span>
@@ -1459,6 +1466,7 @@ export class WebviewProvider {
             <button class="filter-btn" id="btn-cycles" title="Circular dependencies">🔄 Cycles</button>
             <button class="filter-btn" id="btn-dirty-only" title="Only files with uncommitted changes (git working tree)">✏️ Dirty</button>
             <button class="filter-btn active" id="btn-notes" title="Show note indicators on annotated files">📝 Notes<span id="notes-stale-count" class="filter-count" style="display:none">0</span></button>
+            <button class="filter-btn" id="btn-centrality-halos" title="Show halos around the top 10% most central files (PageRank)">💠 Centrality</button>
             <button class="filter-btn" id="btn-stale-notes" title="No stale notes" disabled>⚠️ Stale</button>
             <button class="filter-btn" id="btn-cochange-links" title="Show virtual temporal-coupling links (co-change without a direct dependency)">🔗 Co-change</button>
             <button class="filter-btn" id="btn-warps-panel" title="Warp points — named camera bookmarks">🌀 Warps</button>
@@ -1662,6 +1670,10 @@ export class WebviewProvider {
                     <input id="set-complexityTrendThreshold" data-setting="complexityTrendThreshold" type="number" min="0" max="20" step="0.1" />
                 </div>
                 <div class="settings-row">
+                    <label for="set-riskCentrality">Use PageRank centrality<span class="settings-hint">Replace fan-in with PageRank in the risk score</span></label>
+                    <input id="set-riskCentrality" data-setting="riskCentrality" type="checkbox" />
+                </div>
+                <div class="settings-row">
                     <label for="set-rotateSpeed">Mouse rotation speed<span class="settings-hint">Speed when dragging the 3D graph (1 = default)</span></label>
                     <span class="settings-slider-wrap">
                         <input type="range" id="set-rotateSpeed" data-setting="rotateSpeed" min="1" max="5" step="0.1" value="1">
@@ -1828,6 +1840,10 @@ export class WebviewProvider {
                 <p>Click a file node to annotate it: the detail panel's <strong>📝 Note</strong> section takes free text (up to 2 000 chars) plus one of five colors. Annotated files wear a <strong>pulsing note-colored ring + dot</strong> in the graph — animated, so they stay visible at any zoom.</p>
                 <p>The <strong>📝 Notes</strong> toolbar button (next to ✏️ Dirty) shows / hides the indicators; the <code>hasnote</code> query flag finds annotated files. When a file is modified after its note was written, the note header shows <strong>⚠️ À revoir</strong>, the badge counts stale notes and <strong>✓ Mark reviewed</strong> refreshes the note timestamp. The <strong>⚠️ Stale</strong> filter isolates those files; <code>stalenote</code> does the same in queries. Notes are stored in <code>.aura/annotations.json</code> — local to your workspace, never committed.</p>
 
+                <h3>💠 PageRank Centrality</h3>
+                <p>Aura computes a PageRank score over the structural file graph: a file is central when the files depending on it are themselves central. The detail panel shows the score, and the <strong>💠 Centrality</strong> toolbar button draws a soft violet halo around the <strong>top 10%</strong> most central files. It is off by default to keep the graph readable and is saved with the view state.</p>
+                <p>The optional <code>auraVisualizer.riskCentrality</code> setting replaces the fan-in percentile with the PageRank centrality percentile in the risk score (same 0.20 weight); the default is <code>false</code>, so existing scores are unchanged. <code>resolve_context</code> uses PageRank when the database provides it, falling back to fan-in otherwise.</p>
+
                 <h3>🌀 Warp Points</h3>
                 <p>Save named camera bookmarks of the 3D view: the <strong>🌀 Warps</strong> toolbar button opens the floating panel; its <strong>📌</strong> button captures the current pose (camera position + view target + orientation). Click a warp to fly there (smooth 800 ms tween), re-capture or rename it, and assign quick slots — <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>1–9</kbd> flies back from anywhere (plain <kbd>Alt</kbd>+<kbd>digit</kbd> is captured by VS Code). The <strong>🏠 Home</strong> row returns to the default fit-to-view pose.</p>
                 <p>Warps are stored in <code>.aura/warps.json</code> — local to your workspace, never committed.</p>
@@ -1851,6 +1867,7 @@ export class WebviewProvider {
                 <p>The <strong>⚙️ button</strong> in the tab bar (next to 🔍 Query) opens a settings modal — changes apply instantly and are saved to your workspace settings:</p>
                 <table class="help-table">
                     <tr><td><strong>Risk history window</strong></td><td>30 / 90 / 365 days — drives the Risk Map, the status bar and hotspots</td></tr>
+                    <tr><td><strong>PageRank centrality</strong></td><td>Use the PageRank percentile instead of fan-in in the risk score (off by default)</td></tr>
                     <tr><td><strong>Complexity trend threshold</strong></td><td>Complexity points per 30 days that flag a file as degrading</td></tr>
                     <tr><td><strong>Mouse rotation speed</strong></td><td>Slider 1–5 — speed when dragging the 3D graph</td></tr>
                     <tr><td><strong>Link style</strong></td><td>Straight or curved dependency edges (+ curvature)</td></tr>

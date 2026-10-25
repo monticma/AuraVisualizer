@@ -87,7 +87,9 @@
 
     /** Risk score — implemented in the shared core (src/risk/risk-core.ts). */
     function computeRiskScore(node, pct) {
-        return riskCore.computeRiskScore(node, pct || riskPercentiles, churnFor(node));
+        return riskCore.computeRiskScore(node, pct || riskPercentiles, churnFor(node), {
+            centrality: !!(window.AURA_CONFIG && window.AURA_CONFIG.riskCentrality),
+        });
     }
 
     /** Written reasons — implemented in the shared core (src/risk/risk-core.ts). */
@@ -96,7 +98,8 @@
         return riskCore.riskReasons(node, pct || riskPercentiles, {
             windowDays: riskWindowDays,
             churn: churnFor(node),
-            authorCount: stats.authors ? Object.keys(stats.authors).length : 0
+            authorCount: stats.authors ? Object.keys(stats.authors).length : 0,
+            centrality: !!(window.AURA_CONFIG && window.AURA_CONFIG.riskCentrality),
         });
     }
 

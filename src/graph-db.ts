@@ -25,6 +25,7 @@ export interface NodeRow {
     lines: number;
     complexity: number;
     cognitive: number | null;
+    pagerank: number | null;
     fan_in: number;
     fan_out: number;
     last_modified: number;
@@ -104,6 +105,7 @@ CREATE TABLE IF NOT EXISTS nodes (
     lines         INTEGER NOT NULL,
     complexity    INTEGER NOT NULL,
     cognitive     INTEGER,
+    pagerank      REAL,
     fan_in        INTEGER NOT NULL DEFAULT 0,
     fan_out       INTEGER NOT NULL DEFAULT 0,
     last_modified INTEGER NOT NULL DEFAULT 0
@@ -371,8 +373,8 @@ export class GraphDB {
             // Insert nodes
             for (const n of data.nodes) {
                 db.run(
-                    'INSERT INTO nodes (id, name, language, extension, group_name, size, lines, complexity, cognitive, fan_in, fan_out, last_modified) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                    [n.id, n.name, n.language, n.extension, n.group, n.size, n.linesOfCode, n.complexity, n.cognitive ?? null, n.fanIn, n.fanOut, n.lastModified]
+                    'INSERT INTO nodes (id, name, language, extension, group_name, size, lines, complexity, cognitive, pagerank, fan_in, fan_out, last_modified) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                    [n.id, n.name, n.language, n.extension, n.group, n.size, n.linesOfCode, n.complexity, n.cognitive ?? null, n.pagerank ?? null, n.fanIn, n.fanOut, n.lastModified]
                 );
             }
 
@@ -464,9 +466,9 @@ export class GraphDB {
     upsertNode(node: GraphNode): void {
         const db = this.ensureDb();
         db.run(
-            `INSERT OR REPLACE INTO nodes (id, name, language, extension, group_name, size, lines, complexity, cognitive, fan_in, fan_out, last_modified)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [node.id, node.name, node.language, node.extension, node.group, node.size, node.linesOfCode, node.complexity, node.cognitive ?? null, node.fanIn, node.fanOut, node.lastModified]
+            `INSERT OR REPLACE INTO nodes (id, name, language, extension, group_name, size, lines, complexity, cognitive, pagerank, fan_in, fan_out, last_modified)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [node.id, node.name, node.language, node.extension, node.group, node.size, node.linesOfCode, node.complexity, node.cognitive ?? null, node.pagerank ?? null, node.fanIn, node.fanOut, node.lastModified]
         );
     }
 
@@ -504,9 +506,9 @@ export class GraphDB {
         try {
             // Upsert the node
             db.run(
-                `INSERT OR REPLACE INTO nodes (id, name, language, extension, group_name, size, lines, complexity, cognitive, fan_in, fan_out, last_modified)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                [node.id, node.name, node.language, node.extension, node.group, node.size, node.linesOfCode, node.complexity, node.cognitive ?? null, node.fanIn, node.fanOut, node.lastModified]
+                `INSERT OR REPLACE INTO nodes (id, name, language, extension, group_name, size, lines, complexity, cognitive, pagerank, fan_in, fan_out, last_modified)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [node.id, node.name, node.language, node.extension, node.group, node.size, node.linesOfCode, node.complexity, node.cognitive ?? null, node.pagerank ?? null, node.fanIn, node.fanOut, node.lastModified]
             );
 
             // Replace outgoing edges
@@ -623,6 +625,21 @@ export class GraphDB {
         });
     }
 
+    /** Persist PageRank values after an incremental graph update. Does not save(). */
+    updatePageRanks(nodes: GraphNode[]): void {
+        const db = this.ensureDb();
+        db.run('BEGIN TRANSACTION');
+        try {
+            for (const node of nodes) {
+                db.run('UPDATE nodes SET pagerank = ? WHERE id = ?', [node.pagerank ?? 0, node.id]);
+            }
+            db.run('COMMIT');
+        } catch (err) {
+            db.run('ROLLBACK');
+            throw err;
+        }
+    }
+
     /** Recompute fan_in / fan_out from the edges table for given node IDs (or all nodes). */
     updateFanCounts(nodeIds?: string[]): void {
         const db = this.ensureDb();
@@ -711,6 +728,7 @@ export class GraphDB {
                 complexity: n.complexity, complexityDetails: {},
             };
             if (n.cognitive !== null) node.cognitive = n.cognitive;
+            if (n.pagerank !== null) node.pagerank = n.pagerank;
 
             if (syms.length > 0) {
                 node.symbols = {
@@ -1241,6 +1259,9 @@ export class GraphDB {
         const nodeCols = queryAll<{ name: string }>(db, "PRAGMA table_info('nodes')").map(c => c.name);
         if (!nodeCols.includes('cognitive')) {
             db.run('ALTER TABLE nodes ADD COLUMN cognitive INTEGER');
+        }
+        if (!nodeCols.includes('pagerank')) {
+            db.run('ALTER TABLE nodes ADD COLUMN pagerank REAL');
         }
 
         const edgeCols = queryAll<{ name: string }>(db, "PRAGMA table_info('edges')").map(c => c.name);

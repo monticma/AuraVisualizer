@@ -28,6 +28,7 @@ import { saveOrCopyText, saveText } from './export/save';
 import { chunkDocument, type DocChunk } from './analyzer/parsers/doc-parser';
 import { computeCochange } from './analysis/cochange';
 import { computeSymbolCycles } from './analysis/symbol-cycles';
+import { computePageRank } from './analysis/pagerank';
 
 let webviewProvider: WebviewProvider | undefined;
 let cachedGraphData: GraphData | undefined;
@@ -50,6 +51,18 @@ let treeProvider: AuraTreeProvider | undefined;
 let isAnalyzing = false;
 let graphDb: GraphDB | undefined;
 let incrementalCtx: IncrementalContext | undefined;
+
+/** Recompute PageRank in place and return the nodes whose score changed. */
+function recomputePageRank(data: GraphData): GraphNode[] {
+    const before = new Map(data.nodes.map(node => [node.id, node.pagerank]));
+    const scores = computePageRank(data.nodes.map(node => node.id), data.links);
+    const changed: GraphNode[] = [];
+    for (const node of data.nodes) {
+        node.pagerank = scores[node.id] ?? 0;
+        if (before.get(node.id) !== node.pagerank) changed.push(node);
+    }
+    return changed;
+}
 
 export function activate(context: vscode.ExtensionContext): void {
     // Tree View in Activity Bar
@@ -676,8 +689,10 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
             cachedGraphData.functionCalls = (cachedGraphData.functionCalls || []).filter(fc =>
                 fc.callerFile !== relativePath && fc.calleeFile !== relativePath
             );
+            const rankChanges = recomputePageRank(cachedGraphData);
             cachedGraphData.meta.symbolCycles = computeSymbolCycles(cachedGraphData.functionCalls);
             if (graphDb) {
+                graphDb.updatePageRanks(cachedGraphData.nodes);
                 graphDb.replaceSymbolCycles(cachedGraphData.meta.symbolCycles);
                 graphDb.save();
             }
@@ -686,7 +701,7 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
 
             if (webviewProvider?.isVisible) {
                 const delta: GraphDelta = {
-                    changedNodes: [],
+                    changedNodes: rankChanges,
                     removedNodeIds: [relativePath],
                     addedLinks: [],
                     removedLinks,
@@ -800,12 +815,14 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
         cachedGraphData.links = cachedGraphData.links.filter(l => l.source !== newInfo.id);
         cachedGraphData.links.push(...result.outEdges);
 
+        const rankChanges = recomputePageRank(cachedGraphData);
         const existingCalls = cachedGraphData.functionCalls || [];
         cachedGraphData.functionCalls = existingCalls
             .filter(fc => fc.callerFile !== newInfo.id)
             .concat(result.callSites);
         cachedGraphData.meta.symbolCycles = computeSymbolCycles(cachedGraphData.functionCalls);
         if (graphDb) {
+            graphDb.updatePageRanks(cachedGraphData.nodes);
             graphDb.replaceSymbolCycles(cachedGraphData.meta.symbolCycles);
             graphDb.save();
         }
@@ -831,6 +848,11 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
         cachedGraphData.meta.totalLinks = cachedGraphData.links.length;
         delta.meta = cachedGraphData.meta;
         delta.functionCalls = cachedGraphData.functionCalls || [];
+        for (const node of rankChanges) {
+            if (node.id !== result.node.id && delta.changedNodes.indexOf(node) === -1) {
+                delta.changedNodes.push(node);
+            }
+        }
     }
 
     if (webviewProvider?.isVisible) {
@@ -1019,7 +1041,13 @@ function ensureRiskSnapshot(): RiskSnapshot | undefined {
     const days = normalizeRiskWindow(
         vscode.workspace.getConfiguration('auraVisualizer').get<number>('riskWindow', 90)
     );
-    riskSnapshot = buildRiskSnapshot(cachedGraphData.nodes, commitIndex?.commits ?? [], days);
+    riskSnapshot = buildRiskSnapshot(
+        cachedGraphData.nodes,
+        commitIndex?.commits ?? [],
+        days,
+        Date.now(),
+        vscode.workspace.getConfiguration('auraVisualizer').get<boolean>('riskCentrality', false) === true,
+    );
     riskSnapshotDirty = false;
     return riskSnapshot;
 }

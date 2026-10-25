@@ -55,6 +55,7 @@ describe('GraphDB', () => {
         const nodes = db.getAllNodes();
         expect(nodes).toHaveLength(4);
         expect(nodes.map(n => n.id).sort()).toEqual(['lib/helper.c', 'main.c', 'utils.c', 'utils.h']);
+        expect(nodes.some(n => typeof n.pagerank === 'number' && n.pagerank > 0)).toBe(true);
     });
 
     it('stores edges', async () => {

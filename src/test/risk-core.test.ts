@@ -45,6 +45,14 @@ describe('risk-core — buildRiskPercentiles', () => {
         expect(pct.churn(2)).toBe(0);  // churn of the smallest node
         expect(pct.churn(8)).toBe(1);  // churn of the largest node
     });
+
+    it('includes a PageRank centrality percentile', () => {
+        const pct = buildRiskPercentiles([
+            { pagerank: 0.1 }, { pagerank: 0.2 }, { pagerank: 0.9 },
+        ], () => 0);
+        expect(pct.centrality!(0.1)).toBe(0);
+        expect(pct.centrality!(0.9)).toBe(1);
+    });
 });
 
 describe('risk-core — topPercentLabel', () => {
@@ -84,6 +92,29 @@ describe('risk-core — computeRiskScore', () => {
         const node = { complexity: 10, fanIn: 2, fanOut: 2, cycleIds: ['a', 'b'], deadExports: [1, 2], symbols: { totalSymbols: 4 } };
         // 0.5 × 0.70 + 0.15 (cycle) + 0.15 × 0.5 (dead) = 0.575 → 57.5
         expect(computeRiskScore(node, half, 0)).toBeCloseTo(57.5, 5);
+    });
+
+    it('replaces fan-in with PageRank when centrality is enabled', () => {
+        const pct: RiskPercentiles = {
+            complexity: () => 0,
+            fanIn: () => 0,
+            fanOut: () => 0,
+            churn: () => 0,
+            centrality: () => 1,
+        };
+        const node = { fanIn: 0, pagerank: 0.4, deadExports: [], symbols: { totalSymbols: 1 } };
+        expect(computeRiskScore(node, pct, 0)).toBeCloseTo(0, 5);
+        expect(computeRiskScore(node, pct, 0, { centrality: true })).toBeCloseTo(20, 5);
+    });
+
+    it('explains PageRank centrality when enabled', () => {
+        const pct: RiskPercentiles = {
+            complexity: () => 0, fanIn: () => 0, fanOut: () => 0, churn: () => 0, centrality: () => 1,
+        };
+        const reasons = riskReasons({ fanIn: 0, pagerank: 0.4 }, pct, {
+            windowDays: 90, churn: 0, authorCount: 0, centrality: true,
+        });
+        expect(reasons.some(reason => reason.text.includes('centrality'))).toBe(true);
     });
 });
 

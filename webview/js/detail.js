@@ -65,6 +65,7 @@
             $('#panel-fanout').textContent = node.fanOut || 0;
             $('#panel-fanin').textContent = node.fanIn || 0;
             $('#panel-complexity').textContent = '—';
+            $('#panel-centrality').textContent = '—';
             $('#panel-symbols-count').textContent = '0';
             $('#symbols-section').style.display = 'none';
             updateAiActions(node);
@@ -142,6 +143,16 @@
         $('#panel-fanout').textContent = node.fanOut;
         $('#panel-fanin').textContent = node.fanIn;
         $('#panel-complexity').textContent = node.complexity || 1;
+        var centralityEl = $('#panel-centrality');
+        if (centralityEl) {
+            if (typeof node.pagerank === 'number') {
+                centralityEl.textContent = node.pagerank.toFixed(4);
+                centralityEl.title = 'PageRank centrality — the top 10% files can show a halo (💠 Centrality button)';
+            } else {
+                centralityEl.textContent = '—';
+                centralityEl.title = '';
+            }
+        }
 
         var symbolCount = node.symbols ? node.symbols.totalSymbols : 0;
         $('#panel-symbols-count').textContent = symbolCount;
@@ -475,6 +486,7 @@
         $('#panel-fanout').textContent = '—';
         $('#panel-fanin').textContent = '—';
         $('#panel-complexity').textContent = avgComplexity;
+        $('#panel-centrality').textContent = '—';
         $('#panel-symbols-count').textContent = totalSymbols;
 
         var symbolsSection = $('#symbols-section');

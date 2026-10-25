@@ -84,6 +84,16 @@ This removes the false “orphan” nodes that aliased imports used to create. T
 
 Every edge carries a confidence score: **1.0** exact/relative/alias, **0.9** extension or index, **0.8** vendored suffix, **0.6** basename, **0.5** ambiguous (multiple candidates). Function-call edges are **0.8** when the target is unique and **0.5** when several definitions match; heritage edges are **0.9**. Use the **Edge confidence** selector in the toolbar to hide low-confidence links, inspect the per-edge badge in the detail panel, or read the `edges` array (with confidence) from the `aura://node` MCP resource. Legacy databases default to **1.0**.
 
+### PageRank Centrality 💠
+
+Aura computes a **PageRank** centrality over the structural file graph (`source → target` = "depends on"; damping `0.85`, 40 iterations, normalized scores): a file is central when the files that depend on it are themselves central, not just numerous.
+
+- **Detail panel** — the **Centrality** metric shows the PageRank score (`0.0042`, hover for context)
+- **💠 Centrality** toolbar button — shows a soft violet halo around the **top 10%** most central files; off by default and persisted in the view state
+- **Risk score** — optional `auraVisualizer.riskCentrality` setting replaces the fan-in percentile with the PageRank centrality percentile (same `0.20` weight); disabled by default so existing scores are unchanged
+- **MCP / `resolve_context`** — ranking uses PageRank when available, falling back to fan-in for older databases
+- Halos are deliberately subtle: dirty rings, note rings, selection glow and labels keep their existing visual priority
+
 ### Interactive Exploration
 
 | Action | Effect |
@@ -593,6 +603,7 @@ All settings live under `auraVisualizer.*` — the most common ones are also edi
 | `auraVisualizer.autoRefresh` | `true` | Auto-refresh on file save |
 | `auraVisualizer.followEditor` | `true` | Fly the 3D camera to the active editor file; manual camera movement pauses following until the 👁 toolbar button is clicked again |
 | `auraVisualizer.riskWindow` | `90` | Git history window (30 / 90 / 365 days) used by the Risk Map, the status bar and `get_hotspots` |
+| `auraVisualizer.riskCentrality` | `false` | Use the PageRank centrality percentile instead of fan-in in the risk score |
 | `auraVisualizer.complexityTrendThreshold` | `0.5` | Complexity points per 30 days that flag a file as degrading in the Trend column / Risk dashboard |
 | `auraVisualizer.rotateSpeed` | `1` | Rotation speed when dragging the 3D graph (1–5, 5 = fastest) |
 | `auraVisualizer.linkStyle` | `"straight"` | Edge style in the 3D graph (`straight` / `curved`) |

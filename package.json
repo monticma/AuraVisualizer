@@ -415,6 +415,11 @@
           "maximum": 20,
           "description": "Complexity points per 30 days that flag a file as degrading in the Trend column / Risk dashboard"
         },
+        "auraVisualizer.riskCentrality": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use PageRank centrality instead of fan-in in the risk score (optional V2-16 factor)"
+        },
         "auraVisualizer.rotateSpeed": {
           "type": "number",
           "default": 1,

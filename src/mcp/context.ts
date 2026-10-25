@@ -151,18 +151,23 @@ export function resolveContext(db: GraphDB, task: string, limit: number = 10): R
         }
     }
 
-    // 4. Structural centrality (fan_in) + recency (last_modified) — PageRank/churn substitutes
+    // 4. Structural centrality (PageRank when available, fan-in fallback) + recency
     let maxFanIn = 1;
+    let maxPageRank = 0;
     let maxLastModified = 1;
     for (const n of allNodes) {
         if (n.fan_in > maxFanIn) maxFanIn = n.fan_in;
+        if (typeof n.pagerank === 'number' && n.pagerank > maxPageRank) maxPageRank = n.pagerank;
         if (n.last_modified > maxLastModified) maxLastModified = n.last_modified;
     }
     const nodeById = new Map(allNodes.map(n => [n.id, n]));
     for (const [id, a] of accs) {
         const n = nodeById.get(id);
         if (!n) continue;
-        a.score += 5 * (n.fan_in / maxFanIn);
+        const centrality = (maxPageRank > 0 && typeof n.pagerank === 'number')
+            ? n.pagerank / maxPageRank
+            : n.fan_in / maxFanIn;
+        a.score += 5 * centrality;
         a.score += 2 * (n.last_modified / maxLastModified);
     }
 
