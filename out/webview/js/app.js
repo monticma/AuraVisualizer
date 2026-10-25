@@ -1371,20 +1371,16 @@
                 var group = new T.Group();
                 var baseScale = Math.cbrt(getNodeSize(node) || 1) * 8;
 
-                // Centrality halo — a thin glow hugging the node. The rendered
-                // radius is cbrt(nodeVal) * nodeRelSize (nodeRelSize = 1), not
-                // baseScale (which is sized for the dirty/note ring sprites).
+                // Centrality halo — billboard glow sized from the real node
+                // radius (cbrt(nodeVal) × nodeRelSize, nodeRelSize = 1).
                 if (isCentral && dimFactor > 0.02) {
-                    var centralityHaloRadius = Math.cbrt(getNodeSize(node) || 1) * 1.6;
-                    var centralityHaloGeo = new T.SphereGeometry(centralityHaloRadius, 20, 20);
-                    var centralityHaloMat = new T.MeshBasicMaterial({
-                        color: 0x8b5cf6,
-                        transparent: true,
-                        opacity: 0.10,
-                        blending: T.AdditiveBlending,
-                        depthWrite: false
-                    });
-                    group.add(new T.Mesh(centralityHaloGeo, centralityHaloMat));
+                    var centralityHalo = getCentralityHaloSprite();
+                    if (centralityHalo) {
+                        var centralityRadius = Math.cbrt(getNodeSize(node) || 1);
+                        centralityHalo.scale.set(centralityRadius * 5, centralityRadius * 5, 1);
+                        centralityHalo.material.opacity = Math.min(1, dimFactor);
+                        group.add(centralityHalo);
+                    }
                 }
 
                 // Git dirty ring — amber circle around files with uncommitted changes
@@ -2939,6 +2935,9 @@
     }
     function getNoteRingSprite(colorKey) {
         return window.AuraSprites ? AuraSprites.noteRing(colorKey) : null;
+    }
+    function getCentralityHaloSprite() {
+        return window.AuraSprites ? AuraSprites.centralityHalo() : null;
     }
     function attachNotePulse(sprite, baseScale, opacityFactor) {
         if (window.AuraSprites) AuraSprites.attachPulse(sprite, baseScale, opacityFactor);

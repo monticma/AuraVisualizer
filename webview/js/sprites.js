@@ -116,6 +116,58 @@
     }
 
     // ============================================================
+    // Centrality halo (PageRank top files)
+    // ============================================================
+    var centralityHaloSprite = null;
+
+    /**
+     * Soft violet glow drawn once, then cloned. The centre stays transparent so
+     * the node remains readable; the alpha peaks just outside the node radius.
+     * Callers set sprite.scale to 5 × node radius (outer glow ≈ 2.5 × radius).
+     */
+    function getCentralityHaloSprite() {
+        var T = window.THREE;
+        if (!T) return null;
+        if (centralityHaloSprite) return cloneSpriteWithMaterial(centralityHaloSprite);
+
+        var size = 256;
+        var canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        var ctx = canvas.getContext('2d');
+        var center = size / 2;
+
+        var gradient = ctx.createRadialGradient(center, center, size * 0.18, center, center, size * 0.48);
+        gradient.addColorStop(0.00, 'rgba(139, 92, 246, 0)');
+        gradient.addColorStop(0.45, 'rgba(139, 92, 246, 0.10)');
+        gradient.addColorStop(0.78, 'rgba(167, 139, 250, 0.34)');
+        gradient.addColorStop(0.92, 'rgba(139, 92, 246, 0.14)');
+        gradient.addColorStop(1.00, 'rgba(139, 92, 246, 0)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, size, size);
+
+        // Faint rim keeps the halo readable on busy parts of the graph.
+        ctx.beginPath();
+        ctx.arc(center, center, size * 0.42, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(196, 181, 253, 0.45)';
+        ctx.lineWidth = size * 0.012;
+        ctx.stroke();
+
+        var texture = new T.CanvasTexture(canvas);
+        texture.minFilter = T.LinearFilter;
+        var material = new T.SpriteMaterial({
+            map: texture,
+            transparent: true,
+            depthTest: false,
+            depthWrite: false,
+            blending: T.AdditiveBlending
+        });
+        var sprite = new T.Sprite(material);
+        centralityHaloSprite = sprite;
+        return cloneSpriteWithMaterial(sprite);
+    }
+
+    // ============================================================
     // Notes (annotations)
     // ============================================================
     var noteDotSprites = {};
@@ -284,6 +336,7 @@
         labelSprite: getLabelSprite,
         clusterLabel: getClusterLabelSprite,
         dirtyRing: getDirtyRingSprite,
+        centralityHalo: getCentralityHaloSprite,
         noteDot: getNoteDotSprite,
         noteRing: getNoteRingSprite,
         attachPulse: attachNotePulse,
@@ -294,6 +347,7 @@
         invalidateAll: function () {
             labelSpriteCache = {};
             dirtyRingSprite = null;
+            centralityHaloSprite = null;
             noteDotSprites = {};
             noteRingSprites = {};
         }
