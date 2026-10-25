@@ -1466,9 +1466,13 @@
                     }
                 }
 
-                // Label sprite
+                // Label sprite. Documentation labels are yellow so docs are
+                // distinguishable from code even when heatmaps are active.
                 if (hasLabel) {
-                    var sprite = getLabelSprite(node.name);
+                    var sprite = getLabelSprite(
+                        node.name,
+                        node.language === 'documentation' ? 'rgba(250, 204, 21, 0.98)' : undefined
+                    );
                     if (sprite) {
                         sprite.position.y = Math.sqrt(getNodeSize(node) || 1) * 2 + 2;
                         group.add(sprite);
@@ -2919,8 +2923,8 @@
     function cloneSpriteWithMaterial(sprite) {
         return window.AuraSprites ? AuraSprites.cloneWithMaterial(sprite) : null;
     }
-    function getLabelSprite(text) {
-        return window.AuraSprites ? AuraSprites.labelSprite(text) : null;
+    function getLabelSprite(text, color) {
+        return window.AuraSprites ? AuraSprites.labelSprite(text, color) : null;
     }
     function getClusterLabelSprite(groupName, count, color) {
         return window.AuraSprites ? AuraSprites.clusterLabel(groupName, count, color) : null;

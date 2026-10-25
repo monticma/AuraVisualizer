@@ -146,7 +146,7 @@ Each community gets a unique color and an automatic label equal to the **full pa
 - **✨ Ask Aura** — sends the exact member files as the authoritative scope
 - **All** / **None** buttons for batch selection
 
-Unselected communities are grayed out (nodes + links), just like pin focus. `Others` collects isolated code files.
+Unselected communities are grayed out (nodes + links), just like pin focus. `Others` collects isolated code files. Documentation nodes stay in the graph with **yellow labels**, so docs remain distinguishable from code even when a heatmap is active.
 
 ### Blast Radius
 

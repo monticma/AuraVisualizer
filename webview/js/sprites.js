@@ -17,12 +17,14 @@
     // Label Sprites (THREE.js)
     // ============================================================
     var labelSpriteCache = {};
-    function getLabelSprite(text) {
+    function getLabelSprite(text, color) {
         var T = window.THREE;
         if (!T) return null;
+        var fill = color || 'rgba(255, 255, 255, 0.9)';
+        var cacheKey = fill + '|' + text;
 
-        if (labelSpriteCache[text]) {
-            return labelSpriteCache[text].clone();
+        if (labelSpriteCache[cacheKey]) {
+            return labelSpriteCache[cacheKey].clone();
         }
 
         var canvas = document.createElement('canvas');
@@ -49,7 +51,7 @@
             context.fillRect(0, 0, canvas.width, canvas.height);
         }
 
-        context.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        context.fillStyle = fill;
         context.fillText(text, canvas.width / 2, canvas.height / 2);
 
         var texture = new T.CanvasTexture(canvas);
@@ -60,7 +62,7 @@
         var scaleFactor = 0.15;
         sprite.scale.set(canvas.width * scaleFactor, canvas.height * scaleFactor, 1);
 
-        labelSpriteCache[text] = sprite;
+        labelSpriteCache[cacheKey] = sprite;
         return sprite.clone();
     }
 
@@ -342,7 +344,12 @@
         attachPulse: attachNotePulse,
         cloneWithMaterial: cloneSpriteWithMaterial,
         /** Drop a cached label (file re-analysed). */
-        invalidateLabel: function (name) { delete labelSpriteCache[name]; },
+        invalidateLabel: function (name) {
+            var suffix = '|' + name;
+            Object.keys(labelSpriteCache).forEach(function (key) {
+                if (key === name || key.slice(-suffix.length) === suffix) delete labelSpriteCache[key];
+            });
+        },
         /** Drop every cached sprite (full refresh). */
         invalidateAll: function () {
             labelSpriteCache = {};

@@ -1842,7 +1842,7 @@ export class WebviewProvider {
                 </table>
 
                 <h3>🧩 Community Detection</h3>
-                <p>Communities are computed once from the <strong>code-only</strong> Louvain snapshot and shared by the palette, <code>@aura</code> and MCP. Documentation nodes and <code>doc-reference</code> edges stay visible in the graph but are excluded from communities, fan-in, PageRank and risk. Each card shows the full <strong>hub path</strong>, the code file count and the number of files currently visible after filters. Use <strong>✏️</strong> to rename a community (persisted; empty restores the hub path) and <strong>✨</strong> to ask Aura with that exact membership. Use the floating palette to toggle communities on/off.</p>
+                <p>Communities are computed once from the <strong>code-only</strong> Louvain snapshot and shared by the palette, <code>@aura</code> and MCP. Documentation nodes and <code>doc-reference</code> edges stay visible in the graph but are excluded from communities, fan-in, PageRank and risk. Each card shows the full <strong>hub path</strong>, the code file count and the number of files currently visible after filters. Use <strong>✏️</strong> to rename a community (persisted; empty restores the hub path) and <strong>✨</strong> to ask Aura with that exact membership. Use the floating palette to toggle communities on/off. Documentation nodes stay in the graph with <strong>yellow labels</strong> so they remain visually distinct from code.</p>
 
                 <h3>💥 Blast Radius</h3>
                 <p><kbd>Shift+Right-click</kbd> on a file to see all files that transitively depend on it. Nodes are colored by depth of impact: White (source) → Red → Orange → Yellow → Green.</p>
