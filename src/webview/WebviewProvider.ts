@@ -1806,7 +1806,7 @@ export class WebviewProvider {
                 </table>
 
                 <h3>🧩 Community Detection</h3>
-                <p>The Louvain algorithm detects architectural modules by dependency coupling. Each community is named after its hub file (highest fan-in). Use the floating palette to toggle communities on/off.</p>
+                <p>The Louvain algorithm detects architectural modules by dependency coupling. Each community is named after its hub file (highest fan-in), with a <code>#2</code> suffix when hub names collide. Use the floating palette to toggle communities on/off. The <strong>✨ Ask Aura</strong> button on a row sends that palette group's exact member files as the authoritative scope, so the answer cannot drift to another community that happens to have a similar label.</p>
 
                 <h3>💥 Blast Radius</h3>
                 <p><kbd>Shift+Right-click</kbd> on a file to see all files that transitively depend on it. Nodes are colored by depth of impact: White (source) → Red → Orange → Yellow → Green.</p>

@@ -244,6 +244,18 @@ describe('GraphDB', () => {
         expect(communities).toHaveLength(0);
     });
 
+    it('aura_get_communities names groups after their highest fan-in hub', async () => {
+        db.importGraphData(await makeTestGraph());
+        const result = runAuraTool(db, 'aura_get_communities', {}) as {
+            communities: { name: string; files: string[]; size: number }[];
+        };
+        expect(result.communities).toHaveLength(1);
+        // utils.h is imported by main.c, utils.c and lib/helper.c, so it is the
+        // hub — the same rule the webview Communities palette uses.
+        expect(result.communities[0].name).toBe('utils');
+        expect(result.communities[0].size).toBe(4);
+    });
+
     it('exportGraphData round-trips through import', async () => {
         const original = await makeTestGraph();
         db.importGraphData(original);

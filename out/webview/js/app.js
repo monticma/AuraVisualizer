@@ -1076,23 +1076,34 @@
             }
         }
 
-        // Name each community
+        // Name each community. Hub-derived labels can collide (two groups with a
+        // same-named hub file): disambiguate so the palette and Ask Aura never
+        // confuse them.
+        var usedCommunityNames = {};
         activeCommunities.clear();
         for (var ci2 = 0; ci2 < finalId; ci2++) {
             communityColors[ci2] = GROUP_COLORS[ci2 % GROUP_COLORS.length];
             activeCommunities.add(ci2);
             var files = newCommFiles[ci2] || [];
             var isOthers = (singletonFiles.length > 0 && ci2 === finalId - 1);
-            communityNames[ci2] = { name: isOthers ? 'Others' : nameCommunity(files), files: files.map(function(f) { return f.id; }) };
+            var baseName = isOthers ? 'Others' : nameCommunity(files);
+            var uniqueName = baseName;
+            var suffix = 2;
+            while (usedCommunityNames[uniqueName]) uniqueName = baseName + ' #' + suffix++;
+            usedCommunityNames[uniqueName] = true;
+            communityNames[ci2] = { name: uniqueName, files: files.map(function(f) { return f.id; }) };
         }
     }
 
     function nameCommunity(files) {
         if (files.length === 0) return '?';
-        // Hub file: highest fan-in in the community
+        // Hub file: highest fan-in in the community. Ties use the smallest id so
+        // the webview and the @aura tools derive the same label.
         var hub = files[0];
         for (var h = 1; h < files.length; h++) {
-            if ((files[h].fanIn || 0) > (hub.fanIn || 0)) hub = files[h];
+            var score = files[h].fanIn || 0;
+            var hubScore = hub.fanIn || 0;
+            if (score > hubScore || (score === hubScore && String(files[h].id) < String(hub.id))) hub = files[h];
         }
         return String(hub.name || hub.id || '?').replace(/\.[^.]+$/, '');
     }
@@ -1125,11 +1136,25 @@
                 askBtn.addEventListener('click', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
+                    // The palette is the authority on membership. Send every
+                    // file (capped only for very large groups) and label the
+                    // scope explicitly: the hub-derived name is not a canonical
+                    // Louvain id and must not be re-resolved from a name.
+                    var paletteFiles = info.files.slice(0, 200);
                     vscode.postMessage({
                         type: 'askAura',
                         payload: {
-                            prompt: 'Explain the community "' + info.name + '" (' + info.files.length + ' files): its architectural role, hub files, internal coupling and boundaries. Use at most 3 Aura tools, then write the answer and cite files.',
-                            context: { tab: 'graph', filters: { community: info.name, files: info.files.slice(0, 50) } }
+                            prompt: 'Explain the group "' + info.name + '" selected in the Communities palette (' + info.files.length + ' files). The view context contains its exact member files: treat that palette list as the authoritative Louvain membership, even if aura_get_communities labels or orders the same group differently, and do not substitute another community. Cover its architectural role, hub files, internal coupling and boundaries. Use at most 3 Aura tools, then write the answer and cite files.',
+                            context: {
+                                tab: 'graph',
+                                community: {
+                                    id: cid,
+                                    name: info.name,
+                                    fileCount: info.files.length,
+                                    files: paletteFiles,
+                                    truncated: paletteFiles.length < info.files.length
+                                }
+                            }
                         }
                     });
                 });

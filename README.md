@@ -137,12 +137,13 @@ Blue = low, Red = high. A legend displays the value range.
 
 ### Community Detection
 
-The **Communities** heatmap mode uses the Louvain algorithm to detect architectural modules by dependency coupling — not directory structure. Each community gets a unique color and is named after its hub file (highest fan-in).
+The **Communities** heatmap mode uses the Louvain algorithm to detect architectural modules by dependency coupling — not directory structure. Each community gets a unique color and is named after its hub file (highest fan-in); duplicate hub names get a `#2` suffix.
 
 A **floating palette** appears on the right, listing all communities with:
 - Color swatch and hub name
 - File count per community
 - Click to toggle individual communities on/off
+- **✨ Ask Aura** on each row sends the palette's exact member files as the authoritative scope (the hub-derived label is not a canonical community id), so `@aura` does not re-map the group to a different Louvain community
 - **All** / **None** buttons for batch selection
 
 Unselected communities are grayed out (nodes + links), just like pin focus.

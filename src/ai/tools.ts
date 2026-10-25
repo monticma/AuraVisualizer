@@ -210,15 +210,26 @@ export function resolveFileArg(db: GraphDB, file: string): string | null {
 }
 
 /** Shortest filename in a community, used as a human-readable module name. */
-function nameCommunity(files: string[]): string {
+function nameCommunity(files: string[], fanIn: Map<string, number>): string {
     if (files.length === 0) return '?';
+    // Match the webview palette: the hub is the highest fan-in file, ties use
+    // the smallest id. Naming by shortest basename used to disagree with the
+    // palette, so @aura re-mapped a selected group to a different-looking one.
     let best = files[0];
+    let bestScore = fanIn.get(best) ?? 0;
     for (const file of files) {
-        const name = file.replace(/.*\//, '');
-        const bestName = best.replace(/.*\//, '');
-        if (name.length < bestName.length) best = file;
+        const score = fanIn.get(file) ?? 0;
+        if (score > bestScore || (score === bestScore && file < best)) {
+            best = file;
+            bestScore = score;
+        }
     }
     return best.replace(/.*\//, '').replace(/\.[^.]+$/, '');
+}
+
+/** Fan-in per node, used to name communities exactly like the webview palette. */
+function communityFanIn(db: GraphDB): Map<string, number> {
+    return new Map(db.getAllNodes().map(node => [node.id, node.fan_in]));
 }
 
 /** Execute an Aura tool locally (deterministic, no LLM) against the GraphDB. */
@@ -396,9 +407,10 @@ export function runAuraTool(db: GraphDB, name: string, input: Record<string, unk
             for (const c of communityData) {
                 (groups[c.community] ??= []).push(c.nodeId);
             }
+            const communityFanInByName = communityFanIn(db);
             const modules = Object.entries(groups)
                 .filter(([, files]) => files.length >= 2)
-                .map(([id, files]) => ({ community: parseInt(id), name: nameCommunity(files), files, size: files.length }))
+                .map(([id, files]) => ({ community: parseInt(id), name: nameCommunity(files, communityFanInByName), files, size: files.length }))
                 .sort((a, b) => b.size - a.size);
             const singletons = Object.entries(groups)
                 .filter(([, files]) => files.length < 2)
@@ -456,9 +468,10 @@ export function runAuraTool(db: GraphDB, name: string, input: Record<string, unk
             for (const c of communities) {
                 (groups[c.community] ??= []).push(c.nodeId);
             }
+            const communityFanInByName = communityFanIn(db);
             const named = Object.entries(groups)
                 .filter(([, files]) => files.length >= 2)
-                .map(([id, files]) => ({ community: parseInt(id), name: nameCommunity(files), files, size: files.length }))
+                .map(([id, files]) => ({ community: parseInt(id), name: nameCommunity(files, communityFanInByName), files, size: files.length }))
                 .sort((a, b) => b.size - a.size);
             const singletons = Object.entries(groups)
                 .filter(([, files]) => files.length < 2)

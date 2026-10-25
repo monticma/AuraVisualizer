@@ -3,6 +3,7 @@ import { buildUserPrompt, extractAql, extractFileAnchors, extractFileReferences 
 import { buildFileFacts } from '../chat/file-facts';
 import { AURA_TOOLS } from '../ai/tools';
 import { AURA_SYSTEM_PROMPT, buildAuraSystemPrompt } from '../ai/prompts';
+import { describeAuraViewContext } from '../chat/context';
 import type { GraphDB } from '../graph-db';
 
 describe('chat prompt helpers', () => {
@@ -60,6 +61,23 @@ describe('chat prompt helpers', () => {
         const grounded = buildAuraSystemPrompt('- selected file: src/a.ts');
         expect(grounded).toContain('CURRENT AURA VIEW CONTEXT');
         expect(grounded).toContain('src/a.ts');
+    });
+
+    it('marks palette community membership as authoritative', () => {
+        const text = describeAuraViewContext({
+            tab: 'graph',
+            community: {
+                id: 3,
+                name: 'risk',
+                fileCount: 3,
+                files: ['webview/js/risk.js', 'src/risk/risk-core.ts', 'src/risk/risk-service.ts'],
+            },
+        });
+        expect(text).toContain('Communities palette group: "risk" (palette id 3) — 3 files');
+        expect(text).toContain('authoritative Louvain membership');
+        expect(text).toContain('do not substitute another community');
+        expect(text).toContain('`webview/js/risk.js`');
+        expect(text).not.toContain('filters:');
     });
 
     it('builds deterministic file facts for /explain', () => {
