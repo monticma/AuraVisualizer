@@ -13,11 +13,13 @@ import { buildGraph, preParseFiles } from './analyzer/graph-builder';
 import { chunkDocument, type DocChunk } from './analyzer/parsers/doc-parser';
 import { parseSource } from './analyzer/tree-sitter-loader';
 import { flowProfile, functionFlowAtLine, type FunctionFlow } from './flow/flow-core';
+import type { DeadCodeRule } from './analysis/dead-code';
 
 interface WorkerInput {
     rootPath?: string;
     skipDirs?: string[];
     projectName?: string;
+    deadCodeRules?: DeadCodeRule[];
     flowRequest?: { filePath: string; language: string; line: number };
 }
 
@@ -66,6 +68,7 @@ async function run(): Promise<void> {
     const graphData = buildGraph(files, projectName, {
         skipDirs: new Set(skipDirs),
         projectName,
+        deadCodeRules: input.deadCodeRules || [],
     }, astTrees);
 
     // Chunk documentation files for the RAG index

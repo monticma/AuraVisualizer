@@ -320,12 +320,15 @@ function handleTool(db: GraphDB, name: string, args: Record<string, unknown>): u
         }
         case 'find_dead_code': {
             const symbols = (result.symbols ?? []) as { file: string; symbol: string; kind: string }[];
+            const exempted = (result.exempted ?? []) as { file: string; symbol: string; kind: string; reason: string }[];
             const byFile: Record<string, string[]> = {};
             for (const d of symbols) (byFile[d.file] ??= []).push(`${d.symbol} (${d.kind})`);
             return {
                 files: Object.entries(byFile).map(([file, list]) => ({ file, symbols: list })),
                 totalSymbols: symbols.length,
                 totalFiles: Object.keys(byFile).length,
+                exemptedSymbols: exempted,
+                exemptedTotal: exempted.length,
             };
         }
         case 'find_unused_functions': {

@@ -301,6 +301,42 @@ describe('GraphDB', () => {
         expect(db.getCommunityLabels()[snapshot[0].key]).toBe('Engine');
     });
 
+    it('persists dead-code exemptions with their reasons', () => {
+        const data = {
+            meta: {
+                projectName: 'DeadCodeTest', analyzedAt: '', totalFiles: 1, totalLinks: 0,
+                totalRelationsFound: 0, functionCallLinks: 0, heritageLinks: 0,
+                unresolvedReferences: 0, unresolvedSamples: [], deadCodeFiles: 0,
+                deadExportsTotal: 1, deadCodeExemptions: 1, cycles: [], languageStats: {}, groups: [],
+            },
+            nodes: [{
+                id: 'src/Button.tsx', name: 'Button.tsx', path: 'src/Button.tsx',
+                language: 'typescript', extension: '.tsx', size: 10, linesOfCode: 5,
+                lastModified: 0, group: 'src', fanIn: 0, fanOut: 0, complexity: 1,
+                complexityDetails: {}, deadExports: ['legacy'],
+                exemptedExports: [{ name: 'Button', kind: 'function', reason: 'React component exported for JSX' }],
+                symbols: {
+                    functions: [{ name: 'Button', type: 'function', line: 1 }],
+                    methods: [], structs: [], enums: [], macros: [], classes: [],
+                    exports: [{ name: 'Button', type: 'export', line: 1 }],
+                    interfaces: [], traits: [], typeAliases: [], totalSymbols: 2,
+                },
+            }],
+            links: [],
+        } as unknown as GraphData;
+        db.importGraphData(data);
+
+        const exported = db.exportGraphData()!;
+        expect(exported.meta.deadCodeExemptions).toBe(1);
+        expect(exported.nodes[0].exemptedExports).toEqual([
+            { name: 'Button', kind: 'function', reason: 'React component exported for JSX' },
+        ]);
+        expect(db.getExemptedCode()).toEqual([{
+            nodeId: 'src/Button.tsx', symbol: 'Button', kind: 'function',
+            reason: 'React component exported for JSX',
+        }]);
+    });
+
     it('exportGraphData round-trips through import', async () => {
         const original = await makeTestGraph();
         db.importGraphData(original);

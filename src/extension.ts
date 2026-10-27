@@ -30,6 +30,7 @@ import { computeCochange } from './analysis/cochange';
 import { computeSymbolCycles } from './analysis/symbol-cycles';
 import { computePageRank } from './analysis/pagerank';
 import { documentationIdsOf, isStructuralLink } from './analysis/architecture';
+import { parseDeadCodeRules, type DeadCodeRule } from './analysis/dead-code';
 
 let webviewProvider: WebviewProvider | undefined;
 let cachedGraphData: GraphData | undefined;
@@ -66,6 +67,23 @@ function recomputePageRank(data: GraphData): GraphNode[] {
         if (before.get(node.id) !== node.pagerank) changed.push(node);
     }
     return changed;
+}
+
+/** Refresh the dead-code metadata counters after an incremental node change. */
+function recomputeDeadCodeMeta(data: GraphData): void {
+    data.meta.deadCodeFiles = data.nodes.filter(n => n.deadExports && n.deadExports.length > 0).length;
+    data.meta.deadExportsTotal = data.nodes.reduce((sum, n) => sum + (n.deadExports ? n.deadExports.length : 0), 0);
+    data.meta.deadCodeExemptions = data.nodes.reduce((sum, n) => sum + (n.exemptedExports ? n.exemptedExports.length : 0), 0);
+    if (graphDb) {
+        try {
+            graphDb.setMeta('deadCodeFiles', String(data.meta.deadCodeFiles));
+            graphDb.setMeta('deadExportsTotal', String(data.meta.deadExportsTotal));
+            graphDb.setMeta('deadCodeExemptions', String(data.meta.deadCodeExemptions));
+            graphDb.save();
+        } catch (err) {
+            console.warn('[aura] dead-code meta update failed:', err);
+        }
+    }
 }
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -348,6 +366,17 @@ async function openVisualizer(context: vscode.ExtensionContext): Promise<void> {
     }
 }
 
+/** Load optional workspace dead-code exemptions; invalid files fall back to defaults. */
+function loadDeadCodeRules(rootPath: string): DeadCodeRule[] {
+    const file = path.join(rootPath, '.aura', 'dead-code.json');
+    try {
+        return parseDeadCodeRules(readFileSync(file, 'utf-8'));
+    } catch (err) {
+        console.warn('[aura] Invalid .aura/dead-code.json — using default exemptions:', err);
+        return [];
+    }
+}
+
 /** Cheap global fingerprint: HEAD + settings + parser version + file signatures. */
 async function currentAnalysisFingerprint(
     rootPath: string,
@@ -359,6 +388,10 @@ async function currentAnalysisFingerprint(
     const configHash = hashAnalysisConfig({
         excludePaths: [...excludePaths].sort(),
         projectName,
+        deadCodeRules: (() => {
+            try { return readFileSync(path.join(rootPath, '.aura', 'dead-code.json'), 'utf-8'); }
+            catch { return ''; }
+        })(),
     });
     return computeFingerprint({ head, configHash, files: signatures });
 }
@@ -516,7 +549,7 @@ async function refreshAnalysis(context: vscode.ExtensionContext, force = false):
                 location: vscode.ProgressLocation.Window,
                 title: 'Aura: Analyzing codebase...'
             },
-            () => runAnalysisInWorker(context.extensionUri, rootPath, excludePaths, workspaceFolder.name)
+            () => runAnalysisInWorker(context.extensionUri, rootPath, excludePaths, workspaceFolder.name, loadDeadCodeRules(rootPath))
         );
 
         const oldGraphData = cachedGraphData;
@@ -635,7 +668,8 @@ function runAnalysisInWorker(
     extensionUri: vscode.Uri,
     rootPath: string,
     excludePaths: string[],
-    projectName: string
+    projectName: string,
+    deadCodeRules: DeadCodeRule[],
 ): Promise<{ graphData: GraphData; files: FileInfo[]; docChunks: DocChunk[] }> {
     return new Promise((resolve, reject) => {
         const workerPath = path.join(extensionUri.fsPath, 'out', 'analyzer-worker.js');
@@ -648,6 +682,7 @@ function runAnalysisInWorker(
                 rootPath,
                 skipDirs: excludePaths,
                 projectName,
+                deadCodeRules,
             },
         });
 
@@ -718,6 +753,7 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
             }
             cachedGraphData.meta.totalFiles = cachedGraphData.nodes.length;
             cachedGraphData.meta.totalLinks = cachedGraphData.links.length;
+            recomputeDeadCodeMeta(cachedGraphData);
 
             if (webviewProvider?.isVisible) {
                 const delta: GraphDelta = {
@@ -791,7 +827,18 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
     const oldTargets = oldOutEdges.map(e => e.target);
 
     // Rebuild single file
-    const result = rebuildSingleFile(newInfo, incrementalCtx, tree);
+    const result = rebuildSingleFile(newInfo, incrementalCtx, tree, {
+        deadCodeRules: loadDeadCodeRules(rootPath),
+    });
+    // On a cache-only context we cannot rescan all source contents; keep the
+    // previous classification rather than clearing it on every save.
+    if (!incrementalCtx.hasFileContents && cachedGraphData) {
+        const previousNode = cachedGraphData.nodes.find(n => n.id === newInfo.id);
+        if (previousNode) {
+            if (previousNode.deadExports) result.node.deadExports = previousNode.deadExports;
+            if (previousNode.exemptedExports) result.node.exemptedExports = previousNode.exemptedExports;
+        }
+    }
     const newTargets = result.outEdges.map(e => e.target);
     const affectedIds = [...new Set([newInfo.id, ...oldTargets, ...newTargets])];
 
@@ -866,6 +913,7 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
 
         cachedGraphData.meta.totalFiles = cachedGraphData.nodes.length;
         cachedGraphData.meta.totalLinks = cachedGraphData.links.length;
+        recomputeDeadCodeMeta(cachedGraphData);
         delta.meta = cachedGraphData.meta;
         delta.functionCalls = cachedGraphData.functionCalls || [];
         for (const node of rankChanges) {
@@ -991,7 +1039,9 @@ async function notifyScanComplete(context: vscode.ExtensionContext): Promise<voi
     const hotspots = snapshot ? snapshot.highIds.size : 0;
     const cycles = meta.cycles?.length ?? 0;
     const deadExports = meta.deadExportsTotal ?? 0;
-    const message = `Aura: ${meta.totalFiles} files · ${cycles} cycles · ${deadExports} dead exports · ${hotspots} hotspots`;
+    const exemptions = meta.deadCodeExemptions ?? 0;
+    const exemptText = exemptions > 0 ? ` · ${exemptions} exempted` : '';
+    const message = `Aura: ${meta.totalFiles} files · ${cycles} cycles · ${deadExports} dead exports${exemptText} · ${hotspots} hotspots`;
 
     const choice = await vscode.window.showInformationMessage(message, 'View Risk');
     if (choice !== 'View Risk') return;

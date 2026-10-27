@@ -2002,6 +2002,23 @@ html, body {
     text-decoration: line-through;
 }
 
+.exempted-exports-section {
+    border-top-color: rgba(250, 204, 21, 0.28);
+}
+.exempted-exports-header {
+    color: #facc15;
+}
+.exempted-count {
+    background: rgba(250, 204, 21, 0.16);
+    color: #facc15;
+}
+.exempted-export-item {
+    opacity: 0.9;
+}
+.exempted-name {
+    color: #facc15 !important;
+}
+
 /* ============================================================
    Timeline Bar (Time Travel)
    ============================================================ */
@@ -2246,7 +2263,8 @@ html, body {
    Help Modal
    ============================================================ */
 #help-modal,
-#settings-modal {
+#settings-modal,
+#dead-code-rules-modal {
     position: fixed;
     top: 0; left: 0;
     width: 100%; height: 100%;
@@ -3620,6 +3638,83 @@ select option {
     accent-color: #60a5fa;
     width: 16px;
     height: 16px;
+}
+
+.settings-action-btn {
+    background: rgba(96, 165, 250, 0.12);
+    border: 1px solid rgba(96, 165, 250, 0.35);
+    color: var(--aura-text);
+    border-radius: 5px;
+    padding: 5px 9px;
+    cursor: pointer;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.settings-action-btn:hover {
+    background: rgba(96, 165, 250, 0.22);
+}
+
+.dead-code-rules-content {
+    width: 720px;
+}
+
+#dead-code-rules-text {
+    width: 100%;
+    min-height: 280px;
+    resize: vertical;
+    box-sizing: border-box;
+    background: rgba(13, 17, 23, 0.88);
+    color: var(--aura-text);
+    border: 1px solid var(--aura-border);
+    border-radius: 7px;
+    padding: 10px;
+    font: 12px/1.45 monospace;
+    outline: none;
+}
+
+#dead-code-rules-text:focus {
+    border-color: rgba(96, 165, 250, 0.6);
+}
+
+.dead-code-rules-error {
+    min-height: 18px;
+    color: #ff8080;
+    font-size: 11px;
+    white-space: pre-wrap;
+}
+
+.dead-code-rules-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.dead-code-rules-actions .settings-hint {
+    flex: 1;
+    margin: 0;
+}
+
+.dead-code-rules-actions button {
+    background: transparent;
+    border: 1px solid var(--aura-border);
+    color: var(--aura-text-secondary);
+    border-radius: 5px;
+    padding: 5px 9px;
+    cursor: pointer;
+    font-size: 11px;
+}
+
+.dead-code-rules-actions button:hover {
+    background: rgba(96, 165, 250, 0.12);
+    color: var(--aura-text);
+}
+
+.dead-code-rules-actions button.primary {
+    background: rgba(96, 165, 250, 0.18);
+    border-color: rgba(96, 165, 250, 0.45);
+    color: var(--aura-text);
 }
 
 .settings-footer {

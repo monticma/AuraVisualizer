@@ -175,6 +175,21 @@ Find the shortest dependency path between any two files. Click **Path** in the t
 
 Press `X` or click the **Dead Code** button. Files with unused exports are highlighted in orange-to-red gradient. The detail panel lists each unused export with a ⚠️ label.
 
+**Framework/test exemptions (V2-13)** keep framework-owned entry points and callbacks out of the dead list: `main`, VS Code `activate`/`deactivate`, React components in `.tsx`/`.jsx`, Vue lifecycle hooks, SwiftUI `body`, Java servlet methods, Unity callbacks, Arduino `setup`/`loop`, and test files. Exempted symbols remain visible in the detail panel with their reason instead of being silently hidden.
+
+Open **⚙️ Settings → Dead code exemptions → Edit rules…** to edit `.aura/dead-code.json`. The defaults stay active; custom rules are merged after them. Example:
+
+```json
+{
+  "rules": [
+    { "name": "onResume", "path": "src/android/**", "reason": "Android lifecycle" },
+    { "name": ["activate", "deactivate"], "path": "src/**/extension.ts", "reason": "VS Code entry point" }
+  ]
+}
+```
+
+A rule needs a `reason` and at least one of `name`, `namePattern` or `path`; `language` and `kind` are optional filters. Saving validates the JSON and starts a re-analysis.
+
 ### Risk Map 🛡️
 
 Open the **🛡️ Risk** tab for a codebase health dashboard built on a transparent, explainable risk score:

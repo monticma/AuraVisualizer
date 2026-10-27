@@ -9,6 +9,7 @@ import type { GraphData, GraphMeta } from '../analyzer/index';
 import type { GraphDB } from '../graph-db';
 import { runChatStream } from '../chat';
 import { normalizeRiskWindow } from '../risk/risk-core';
+import { parseDeadCodeRules } from '../analysis/dead-code';
 import type { RiskSnapshot } from '../risk/risk-service';
 import { parseAnnotations, serializeAnnotations, withNote, withoutNote, type AnnotationMap } from '../annotations';
 import { saveOrCopyText, saveBinary } from '../export/save';
@@ -247,6 +248,14 @@ export class WebviewProvider {
                     case 'requestViewState':
                         this.sendSavedViewState();
                         break;
+                    case 'requestDeadCodeRules':
+                        void this.sendDeadCodeRules();
+                        break;
+                    case 'saveDeadCodeRules': {
+                        const p = (message.payload || {}) as { text?: string };
+                        void this.handleSaveDeadCodeRules(typeof p.text === 'string' ? p.text : '');
+                        break;
+                    }
                     case 'requestSavedQueries': {
                         const db = this.getGraphDB();
                         let queries: Array<{ id: string; name: string; expr: string; mode: string; createdAt: number }> = [];
@@ -393,6 +402,51 @@ export class WebviewProvider {
     public async sendAnnotations(): Promise<void> {
         const notes = await this.loadAnnotations();
         this.panel?.webview.postMessage({ type: 'annotations', payload: { notes } });
+    }
+
+    // ============================================================
+    // Dead-code exemption rules — .aura/dead-code.json
+    // ============================================================
+
+    private deadCodeRulesFileUri(): vscode.Uri | undefined {
+        const ws = vscode.workspace.workspaceFolders?.[0];
+        return ws ? vscode.Uri.joinPath(ws.uri, '.aura', 'dead-code.json') : undefined;
+    }
+
+    private async sendDeadCodeRules(): Promise<void> {
+        const file = this.deadCodeRulesFileUri();
+        if (!file) {
+            this.panel?.webview.postMessage({ type: 'deadCodeRules', payload: { text: '', exists: false } });
+            return;
+        }
+        try {
+            const buf = await vscode.workspace.fs.readFile(file);
+            this.panel?.webview.postMessage({ type: 'deadCodeRules', payload: { text: Buffer.from(buf).toString('utf-8'), exists: true } });
+        } catch {
+            this.panel?.webview.postMessage({ type: 'deadCodeRules', payload: { text: '', exists: false } });
+        }
+    }
+
+    private async handleSaveDeadCodeRules(text: string): Promise<void> {
+        const ws = vscode.workspace.workspaceFolders?.[0];
+        const file = this.deadCodeRulesFileUri();
+        if (!ws || !file) {
+            this.panel?.webview.postMessage({ type: 'deadCodeRulesError', payload: { message: 'Open a workspace folder before editing dead-code rules.' } });
+            return;
+        }
+        const normalized = text.trim() ? text : '{\n  "rules": []\n}';
+        try {
+            parseDeadCodeRules(normalized);
+            await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(ws.uri, '.aura'));
+            await vscode.workspace.fs.writeFile(file, Buffer.from(normalized, 'utf-8'));
+            this.panel?.webview.postMessage({ type: 'deadCodeRulesSaved', payload: { text: normalized } });
+            void vscode.commands.executeCommand('auraVisualizer.refresh');
+        } catch (err) {
+            this.panel?.webview.postMessage({
+                type: 'deadCodeRulesError',
+                payload: { message: err instanceof Error ? err.message : String(err) }
+            });
+        }
     }
 
     private annotationsFileUri(): vscode.Uri | undefined {
@@ -1770,9 +1824,34 @@ export class WebviewProvider {
                     <label for="set-invertY">Invert mouse Y (flight)<span class="settings-hint">Flight look: moving up looks down</span></label>
                     <input id="set-invertY" data-setting="invertY" type="checkbox" />
                 </div>
+                <div class="settings-row">
+                    <label>Dead code exemptions<span class="settings-hint">Framework/test rules always visible in the detail panel — defaults stay active</span></label>
+                    <button id="dead-code-rules-open" class="settings-action-btn" type="button">Edit rules…</button>
+                </div>
                 <div class="settings-footer">
                     <span id="settings-open-vscode">Open VS Code Settings →</span>
                     <span class="settings-hint">All settings: Extensions → Aura Visualizer</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dead-code exemption rules modal -->
+    <div id="dead-code-rules-modal" class="hidden">
+        <div class="help-modal-content dead-code-rules-content">
+            <div class="help-modal-header">
+                <span>🛡️ Dead-code exemptions</span>
+                <button id="dead-code-rules-close" title="Close">✕</button>
+            </div>
+            <div class="help-modal-body">
+                <p>Defaults (entry points, React/Vue/SwiftUI/servlet/Unity/Arduino, tests) are always active. Add project-specific rules below; they are stored in <code>.aura/dead-code.json</code>. Exempted symbols stay visible with their reason in the detail panel — they are never silently hidden.</p>
+                <textarea id="dead-code-rules-text" spellcheck="false" placeholder='{ "rules": [ { "name": "onResume", "path": "src/android/**", "reason": "Android lifecycle" } ] }'></textarea>
+                <p class="settings-hint">A rule needs a <code>reason</code> and at least one of <code>name</code>, <code>namePattern</code> or <code>path</code>. Multiple values can be arrays; <code>language</code> and <code>kind</code> are optional filters.</p>
+                <div id="dead-code-rules-error" class="dead-code-rules-error"></div>
+                <div class="dead-code-rules-actions">
+                    <button id="dead-code-rules-reset" type="button">Reset custom rules</button>
+                    <span class="settings-hint">Saving starts a re-analysis.</span>
+                    <button id="dead-code-rules-save" class="primary" type="button">Save rules</button>
                 </div>
             </div>
         </div>
@@ -1843,6 +1922,9 @@ export class WebviewProvider {
 
                 <h3>🧩 Community Detection</h3>
                 <p>Communities are computed once from the <strong>code-only</strong> Louvain snapshot and shared by the palette, <code>@aura</code> and MCP. Documentation nodes and <code>doc-reference</code> edges stay visible in the graph but are excluded from communities, fan-in, PageRank and risk. Each card shows the full <strong>hub path</strong>, the code file count and the number of files currently visible after filters. Use <strong>✏️</strong> to rename a community (persisted; empty restores the hub path) and <strong>✨</strong> to ask Aura with that exact membership. Use the floating palette to toggle communities on/off. Documentation nodes stay in the graph with <strong>yellow labels</strong> so they remain visually distinct from code.</p>
+
+                <h3>☠️ Dead Code & Exemptions</h3>
+                <p>The <strong>☠️ Dead</strong> filter and the detail panel show unused exports. Framework-owned entry points and callbacks are exempted by default: <code>main</code>, VS Code lifecycle, React components, Vue hooks, SwiftUI <code>body</code>, Java servlet methods, Unity callbacks, Arduino <code>setup</code>/<code>loop</code> and test files. Exempted symbols remain visible with their reason. Custom rules can be edited from <strong>⚙️ Settings → Dead code exemptions</strong> and are stored in <code>.aura/dead-code.json</code>; defaults always stay active.</p>
 
                 <h3>💥 Blast Radius</h3>
                 <p><kbd>Shift+Right-click</kbd> on a file to see all files that transitively depend on it. Nodes are colored by depth of impact: White (source) → Red → Orange → Yellow → Green.</p>

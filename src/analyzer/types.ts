@@ -114,6 +114,13 @@ export interface ComplexityResult {
     details: Record<string, unknown>;
 }
 
+/** A symbol intentionally ignored by the dead-code detector, with an auditable reason. */
+export interface DeadCodeExemption {
+    name: string;
+    kind?: string;
+    reason: string;
+}
+
 export interface GraphNode {
     id: string;
     name: string;
@@ -134,6 +141,8 @@ export interface GraphNode {
     complexityDetails: Record<string, unknown>;
     symbols?: NodeSymbols;
     deadExports?: string[];
+    /** Symbols ignored by dead-code detection because a framework owns them. */
+    exemptedExports?: DeadCodeExemption[];
     cycleIds?: number[];
 }
 
@@ -169,6 +178,8 @@ export interface GraphMeta {
     symbolCycles?: SymbolCycle[];
     /** Architectural communities (documentation excluded), shared by all surfaces. */
     communities?: GraphCommunity[];
+    /** Number of framework/test symbols exempted from dead-code detection (V2-13). */
+    deadCodeExemptions?: number;
     languageStats: Record<string, LanguageStat>;
     groups: string[];
 }
@@ -211,6 +222,8 @@ export interface AnalyzeOptions extends ScanOptions {
     includeSystemHeaders?: boolean;
     includeUrls?: boolean;
     includeAssets?: boolean;
+    /** Custom dead-code exemption rules (V2-13); defaults are always active. */
+    deadCodeRules?: import('../analysis/dead-code').DeadCodeRule[];
 }
 
 // ============================================================

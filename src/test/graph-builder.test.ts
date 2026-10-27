@@ -20,6 +20,23 @@ describe('buildGraph', () => {
         expect(graph.nodes).toHaveLength(2);
     });
 
+    it('records framework exemptions separately from real dead exports', async () => {
+        const files = [
+            makeFileInfo({
+                id: 'src/Button.tsx',
+                content: 'class Button {}\nclass legacy {}\n',
+                language: 'tsx',
+                extension: '.tsx',
+            }),
+        ];
+        const trees = await preParseFiles(files);
+        const graph = buildGraph(files, 'Project', {}, trees);
+        const node = graph.nodes[0];
+        expect(node.exemptedExports?.map(e => e.name)).toContain('Button');
+        expect(node.deadExports || []).toContain('legacy');
+        expect(graph.meta.deadCodeExemptions).toBeGreaterThanOrEqual(1);
+    });
+
     it('resolves include relations to links', async () => {
         const files = [
             makeFileInfo({ id: 'main.c', content: '#include "utils.h"\n', language: 'c', extension: '.c' }),

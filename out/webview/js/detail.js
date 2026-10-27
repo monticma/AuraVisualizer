@@ -13,6 +13,12 @@
     var $ = function (sel) { return document.querySelector(sel); };
     var detailPanel = document.getElementById('detail-panel');
 
+    function escapeHtml(value) {
+        return String(value === undefined || value === null ? '' : value)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
     function setSectionVisible(id, visible) {
         var section = document.getElementById(id);
         if (section) section.style.display = visible ? '' : 'none';
@@ -319,6 +325,30 @@
                 deadSection.appendChild(dItem);
             }
             symbolsList.appendChild(deadSection);
+            symbolsSection.style.display = '';
+        }
+
+        // Framework/test exemptions (V2-13): visible, never silently hidden.
+        if (node.exemptedExports && node.exemptedExports.length > 0) {
+            var exemptSection = document.createElement('div');
+            exemptSection.className = 'dead-exports-section exempted-exports-section';
+            exemptSection.innerHTML =
+                '<div class="dead-exports-header exempted-exports-header">🛡️ Exempted <span class="dead-count exempted-count">' +
+                node.exemptedExports.length + '</span></div>';
+            for (var xe = 0; xe < node.exemptedExports.length; xe++) {
+                var exemption = node.exemptedExports[xe];
+                var eItem = document.createElement('div');
+                eItem.className = 'symbol-item exempted-export-item';
+                eItem.title = exemption.reason;
+                eItem.innerHTML =
+                    '<div class="symbol-card-main">' +
+                        '<span class="symbol-icon">🛡️</span>' +
+                        '<span class="symbol-name exempted-name">' + escapeHtml(exemption.name) + '</span>' +
+                    '</div>' +
+                    '<div class="symbol-card-detail"><span class="symbol-meta">' + escapeHtml(exemption.reason) + '</span></div>';
+                exemptSection.appendChild(eItem);
+            }
+            symbolsList.appendChild(exemptSection);
             symbolsSection.style.display = '';
         }
 

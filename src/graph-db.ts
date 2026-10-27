@@ -178,6 +178,14 @@ CREATE TABLE IF NOT EXISTS community_labels (
     label TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS symbol_exemptions (
+    node_id TEXT NOT NULL,
+    name    TEXT NOT NULL,
+    kind    TEXT DEFAULT '',
+    reason  TEXT NOT NULL,
+    PRIMARY KEY (node_id, name, kind)
+);
+
 CREATE TABLE IF NOT EXISTS function_calls (
     caller_file  TEXT NOT NULL,
     caller_name  TEXT NOT NULL,
@@ -374,6 +382,7 @@ export class GraphDB {
             db.run('DELETE FROM cycles');
             db.run('DELETE FROM symbol_cycle_steps');
             db.run('DELETE FROM symbol_cycles');
+            db.run('DELETE FROM symbol_exemptions');
             db.run('DELETE FROM nodes');
             db.run('DELETE FROM meta');
             db.run('DELETE FROM function_calls');
@@ -417,6 +426,12 @@ export class GraphDB {
                 for (const i of n.symbols.interfaces || [])  db.run(insertSymbol, [n.id, i.name, i.type || 'interface', '', '', i.line || 0, 0, i.visibility || 'public', 0, 0, null, null, null, null, null]);
                 for (const t of n.symbols.traits || [])      db.run(insertSymbol, [n.id, t.name, t.type || 'trait', '', '', t.line || 0, 0, t.visibility || 'public', 0, 0, null, null, null, null, null]);
                 for (const ta of n.symbols.typeAliases || []) db.run(insertSymbol, [n.id, ta.name, ta.type || 'type_alias', '', '', ta.line || 0, 0, ta.visibility || 'public', 0, 0, null, null, null, null, null]);
+                for (const ex of n.exemptedExports || []) {
+                    db.run(
+                        'INSERT OR IGNORE INTO symbol_exemptions (node_id, name, kind, reason) VALUES (?, ?, ?, ?)',
+                        [n.id, ex.name, ex.kind || '', ex.reason]
+                    );
+                }
             }
 
             // Insert cycles
@@ -440,6 +455,7 @@ export class GraphDB {
                 ['unresolvedReferences', String(data.meta.unresolvedReferences)],
                 ['deadCodeFiles', String(data.meta.deadCodeFiles)],
                 ['deadExportsTotal', String(data.meta.deadExportsTotal)],
+                ['deadCodeExemptions', String(data.meta.deadCodeExemptions || 0)],
                 ['languageStats', JSON.stringify(data.meta.languageStats)],
                 ['groups', JSON.stringify(data.meta.groups)],
             ];
@@ -487,6 +503,7 @@ export class GraphDB {
         try {
             db.run('DELETE FROM edges WHERE source = ? OR target = ?', [nodeId, nodeId]);
             db.run('DELETE FROM symbols WHERE node_id = ?', [nodeId]);
+            db.run('DELETE FROM symbol_exemptions WHERE node_id = ?', [nodeId]);
             db.run('DELETE FROM function_calls WHERE caller_file = ? OR callee_file = ?', [nodeId, nodeId]);
             db.run('DELETE FROM symbol_cycle_steps');
             db.run('DELETE FROM symbol_cycles');
@@ -530,6 +547,7 @@ export class GraphDB {
 
             // Replace symbols
             db.run('DELETE FROM symbols WHERE node_id = ?', [fileId]);
+            db.run('DELETE FROM symbol_exemptions WHERE node_id = ?', [fileId]);
             if (node.symbols) {
                 const deadSet = new Set(node.deadExports || []);
                 const ins = 'INSERT OR IGNORE INTO symbols (node_id, name, kind, return_type, params, line, is_dead, visibility, is_static, is_async, cognitive, cyclomatic, function_lines, halstead_volume, maintainability) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
@@ -547,6 +565,13 @@ export class GraphDB {
                 for (const i of node.symbols.interfaces || [])  db.run(ins, [fileId, i.name, i.type || 'interface', '', '', i.line || 0, 0, i.visibility || 'public', 0, 0, null, null, null, null, null]);
                 for (const t of node.symbols.traits || [])      db.run(ins, [fileId, t.name, t.type || 'trait', '', '', t.line || 0, 0, t.visibility || 'public', 0, 0, null, null, null, null, null]);
                 for (const ta of node.symbols.typeAliases || []) db.run(ins, [fileId, ta.name, ta.type || 'type_alias', '', '', ta.line || 0, 0, ta.visibility || 'public', 0, 0, null, null, null, null, null]);
+            }
+
+            for (const ex of node.exemptedExports || []) {
+                db.run(
+                    'INSERT OR IGNORE INTO symbol_exemptions (node_id, name, kind, reason) VALUES (?, ?, ?, ?)',
+                    [fileId, ex.name, ex.kind || '', ex.reason]
+                );
             }
 
             // Replace call sites from this file
@@ -692,6 +717,9 @@ export class GraphDB {
             db, 'SELECT * FROM function_calls ORDER BY caller_file, call_line'
         );
         const symbolCycles = this.getSymbolCycles();
+        const exemptions = queryAll<{ node_id: string; name: string; kind: string; reason: string }>(
+            db, 'SELECT node_id, name, kind, reason FROM symbol_exemptions ORDER BY node_id, name'
+        );
 
         // Group symbols by node_id
         const symbolsByNode = new Map<string, SymbolRow[]>();
@@ -699,6 +727,12 @@ export class GraphDB {
             let arr = symbolsByNode.get(s.node_id);
             if (!arr) { arr = []; symbolsByNode.set(s.node_id, arr); }
             arr.push(s);
+        }
+        const exemptionsByNode = new Map<string, { name: string; kind: string; reason: string }[]>();
+        for (const ex of exemptions) {
+            let arr = exemptionsByNode.get(ex.node_id);
+            if (!arr) { arr = []; exemptionsByNode.set(ex.node_id, arr); }
+            arr.push({ name: ex.name, kind: ex.kind, reason: ex.reason });
         }
 
         // Build GraphNode array
@@ -756,6 +790,8 @@ export class GraphDB {
                 };
             }
             if (deadSymbols.length > 0) node.deadExports = deadSymbols;
+            const exempted = exemptionsByNode.get(n.id);
+            if (exempted && exempted.length > 0) node.exemptedExports = exempted;
 
             return node;
         });
@@ -794,6 +830,7 @@ export class GraphDB {
                 unresolvedSamples: [],
                 deadCodeFiles: parseInt(meta['deadCodeFiles'] || '0'),
                 deadExportsTotal: parseInt(meta['deadExportsTotal'] || '0'),
+                deadCodeExemptions: parseInt(meta['deadCodeExemptions'] || '0'),
                 cycles,
                 symbolCycles,
                 languageStats: langStats,
@@ -884,6 +921,13 @@ export class GraphDB {
     getDeadCode(): { nodeId: string; symbol: string; kind: string }[] {
         return queryAll<{ nodeId: string; symbol: string; kind: string }>(this.ensureDb(),
             'SELECT node_id AS nodeId, name AS symbol, kind FROM symbols WHERE is_dead = 1 ORDER BY node_id'
+        );
+    }
+
+    /** Symbols explicitly exempted by framework/test rules (V2-13). */
+    getExemptedCode(): { nodeId: string; symbol: string; kind: string; reason: string }[] {
+        return queryAll<{ nodeId: string; symbol: string; kind: string; reason: string }>(this.ensureDb(),
+            'SELECT node_id AS nodeId, name AS symbol, kind, reason FROM symbol_exemptions ORDER BY node_id, name'
         );
     }
 

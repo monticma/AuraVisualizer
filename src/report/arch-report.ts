@@ -39,6 +39,7 @@ export interface ArchReportInput {
     modules: ArchReportModule[];
     cycles: string[][];
     deadCode: ArchReportDeadSymbol[];
+    deadCodeExemptions?: number;
     hotspots: ArchReportHotspot[];
 }
 
@@ -132,6 +133,7 @@ export function buildArchReportInput(
         modules,
         cycles: (extras.cycles || graph.meta.cycles || []).filter(cycle => cycle.every(file => codeIds.has(file))),
         deadCode: (extras.deadCode || []).filter(dead => codeIds.has(dead.file)),
+        deadCodeExemptions: graph.meta.deadCodeExemptions,
         hotspots,
     };
 }
@@ -208,6 +210,9 @@ export function generateArchReport(input: ArchReportInput, options: ArchReportOp
     lines.push(`- **Modules:** ${input.modules.length}`);
     lines.push(`- **Cycles:** ${input.cycles.length}`);
     lines.push(`- **Dead exports:** ${input.deadCode.length}`);
+    if (input.deadCodeExemptions) {
+        lines.push(`- **Dead-code exemptions:** ${input.deadCodeExemptions}`);
+    }
     lines.push('');
 
     lines.push('## Modules');

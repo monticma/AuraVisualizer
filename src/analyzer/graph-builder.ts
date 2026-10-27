@@ -28,10 +28,11 @@ import { createImportResolver, confidenceScore, type ImportResolver } from './pa
 import { computeSymbolCycles } from '../analysis/symbol-cycles';
 import { computePageRank } from '../analysis/pagerank';
 import { documentationIdsOf, isStructuralLink } from '../analysis/architecture';
+import { DEFAULT_DEAD_CODE_RULES, classifyDeadCode, collectCalledNames } from '../analysis/dead-code';
 import { hasGrammar, parseSource } from './tree-sitter-loader';
 import type { BaseParser } from './parsers/base-parser';
 import type Parser from 'web-tree-sitter';
-import type { FileInfo, Relation, GraphData, GraphNode, GraphLink, AnalyzeOptions, FileSymbols, SymbolInfo, CallSite, FunctionCallSite } from './types';
+import type { FileInfo, Relation, GraphData, GraphNode, GraphLink, AnalyzeOptions, FileSymbols, SymbolInfo, CallSite, FunctionCallSite, DeadCodeExemption } from './types';
 
 /** Parser registry — Tree-sitter for languages with WASM grammars, regex for HTML/CSS. */
 const PARSERS: Record<string, BaseParser> = {
@@ -611,53 +612,19 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
         }
     }
 
-    // Phase 7: Dead code detection
-    // Build set of all function/class names called anywhere in the codebase
-    // (including intra-file calls). Simple regex on raw content — false negatives
-    // (matches in comments/strings) are acceptable as they only under-report dead code.
-    const allCalledNames = new Set<string>();
-    const CALL_SCAN_RE = /(?:^|[^.\w])(\w+)\s*\(/gm;
-    for (const file of files) {
-        let m;
-        const re = new RegExp(CALL_SCAN_RE.source, 'gm');
-        while ((m = re.exec(file.content)) !== null) {
-            allCalledNames.add(m[1]);
-        }
-    }
-
+    // Phase 7: Dead code detection with framework/test exemptions (V2-13).
+    // The call scan stays intentionally cheap; exemptions are explicit and
+    // reported separately instead of silently removing candidates.
+    const deadCodeRules = [...DEFAULT_DEAD_CODE_RULES, ...(options.deadCodeRules || [])];
+    const allCalledNames = collectCalledNames(files);
     const deadExportsMap = new Map<string, string[]>();
+    const exemptedExportsMap = new Map<string, DeadCodeExemption[]>();
     for (const file of files) {
         const symbols = fileSymbols.get(file.id);
         if (!symbols) continue;
-
-        const dead: string[] = [];
-
-        // Check each defined function: is it called anywhere?
-        for (const func of symbols.functions) {
-            if (func.name === 'main') continue; // C entry point
-            if (func.type === 'dunder') continue; // Python __init__ etc.
-            if (!allCalledNames.has(func.name)) {
-                dead.push(func.name);
-            }
-        }
-
-        // Check each defined class
-        for (const cls of symbols.classes) {
-            if (!allCalledNames.has(cls.name)) {
-                dead.push(cls.name);
-            }
-        }
-
-        // Check JS/TS/Python exports
-        for (const exp of symbols.exports) {
-            if (!allCalledNames.has(exp.name) && !dead.includes(exp.name)) {
-                dead.push(exp.name);
-            }
-        }
-
-        if (dead.length > 0) {
-            deadExportsMap.set(file.id, dead);
-        }
+        const classified = classifyDeadCode(file, symbols, allCalledNames, deadCodeRules);
+        if (classified.dead.length > 0) deadExportsMap.set(file.id, classified.dead);
+        if (classified.exempted.length > 0) exemptedExportsMap.set(file.id, classified.exempted);
     }
 
     // Phase 8: Build nodes
@@ -733,6 +700,10 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
         if (dead && dead.length > 0) {
             node.deadExports = dead;
         }
+        const exempted = exemptedExportsMap.get(f.id);
+        if (exempted && exempted.length > 0) {
+            node.exemptedExports = exempted;
+        }
 
         return node;
     });
@@ -766,6 +737,7 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
     const heritageCount = uniqueLinks.filter(l => l.type === 'extends' || l.type === 'implements').length;
     const deadCodeFiles = nodes.filter(n => n.deadExports && n.deadExports.length > 0).length;
     const deadExportsTotal = nodes.reduce((sum, n) => sum + (n.deadExports ? n.deadExports.length : 0), 0);
+    const deadCodeExemptions = nodes.reduce((sum, n) => sum + (n.exemptedExports ? n.exemptedExports.length : 0), 0);
 
     // Symbol-level cycles (V2-03): function → function recursion / mutual recursion.
     const symbolCycles = computeSymbolCycles(allCallSites);
@@ -798,6 +770,7 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
             unresolvedSamples: unresolvedCount.targets,
             deadCodeFiles,
             deadExportsTotal,
+            deadCodeExemptions,
             cycles,
             symbolCycles,
             languageStats: langStats,
@@ -817,6 +790,10 @@ export interface IncrementalContext {
     globalFunctionIndex: Map<string, string[]>;
     fileSymbols: Map<string, FileSymbols>;
     importGraph: Map<string, Set<string>>; // fileId → set of resolved import targets
+    /** All identifiers followed by `(`; undefined when content is not cached. */
+    calledNames?: Set<string>;
+    /** True when fileMap content came from a fresh scan (not a cache metadata restore). */
+    hasFileContents?: boolean;
 }
 
 /**
@@ -851,7 +828,7 @@ export function buildIncrementalContext(files: FileInfo[], astTrees?: Map<string
         }
     }
 
-    return { fileMap, globalFunctionIndex, fileSymbols, importGraph: buildImportGraph(files, fileMap, astTrees) };
+    return { fileMap, globalFunctionIndex, fileSymbols, importGraph: buildImportGraph(files, fileMap, astTrees), calledNames: collectCalledNames(files), hasFileContents: true };
 }
 
 /** Build import graph: fileId → set of resolved import targets (used for C/C++ reachability). */
@@ -926,7 +903,14 @@ export function restoreIncrementalContext(files: FileInfo[], graphData: GraphDat
         }
     }
 
-    return { fileMap, globalFunctionIndex, fileSymbols, importGraph };
+    return {
+        fileMap,
+        globalFunctionIndex,
+        fileSymbols,
+        importGraph,
+        calledNames: files.some(f => !!f.content) ? collectCalledNames(files) : undefined,
+        hasFileContents: files.some(f => !!f.content),
+    };
 }
 
 /**
@@ -948,6 +932,11 @@ export function rebuildSingleFile(
 
     // Update fileMap
     fileMap.set(file.id, file);
+    if (ctx.hasFileContents) {
+        // The changed file is now in fileMap, so refresh the global call scan
+        // before classifying its symbols.
+        ctx.calledNames = collectCalledNames([...fileMap.values()]);
+    }
     const resolver = createImportResolver(projectRootFromFiles([file, ...fileMap.values()]), fileMap.keys());
 
     // Remove old entries for this file from globalFunctionIndex
@@ -1165,6 +1154,17 @@ export function rebuildSingleFile(
                 (symbols.interfaces || []).length + (symbols.traits || []).length +
                 (symbols.typeAliases || []).length + (symbols.methods || []).length,
         };
+    }
+
+    if (symbols && ctx.calledNames) {
+        const classified = classifyDeadCode(
+            file,
+            symbols,
+            ctx.calledNames,
+            [...DEFAULT_DEAD_CODE_RULES, ...(options.deadCodeRules || [])]
+        );
+        if (classified.dead.length > 0) node.deadExports = classified.dead;
+        if (classified.exempted.length > 0) node.exemptedExports = classified.exempted;
     }
 
     return { node, outEdges: uniqueEdges, callSites };

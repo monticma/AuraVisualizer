@@ -315,6 +315,25 @@
                 warps = (message.payload && Array.isArray(message.payload.warps)) ? message.payload.warps : [];
                 if (window.AuraWarps) window.AuraWarps.render();
                 break;
+            case 'deadCodeRules': {
+                var rulesText = $('#dead-code-rules-text');
+                if (rulesText) rulesText.value = (message.payload && typeof message.payload.text === 'string') ? message.payload.text : '';
+                var rulesError = $('#dead-code-rules-error');
+                if (rulesError) rulesError.textContent = '';
+                break;
+            }
+            case 'deadCodeRulesSaved': {
+                var savedText = $('#dead-code-rules-text');
+                if (savedText && message.payload && typeof message.payload.text === 'string') savedText.value = message.payload.text;
+                var rulesModal = $('#dead-code-rules-modal');
+                if (rulesModal) rulesModal.classList.add('hidden');
+                break;
+            }
+            case 'deadCodeRulesError': {
+                var errEl = $('#dead-code-rules-error');
+                if (errEl) errEl.textContent = (message.payload && message.payload.message) ? message.payload.message : 'Invalid rules.';
+                break;
+            }
             case 'flowData':
                 if (window.AuraFlowView) window.AuraFlowView.receive(message.payload);
                 break;
@@ -725,6 +744,44 @@
             if (openVscodeSettings) {
                 openVscodeSettings.addEventListener('click', function() {
                     vscode.postMessage({ type: 'openSettings' });
+                });
+            }
+            var deadCodeRulesOpen = $('#dead-code-rules-open');
+            var deadCodeRulesModal = $('#dead-code-rules-modal');
+            var deadCodeRulesText = $('#dead-code-rules-text');
+            var deadCodeRulesError = $('#dead-code-rules-error');
+            function openDeadCodeRules() {
+                if (!deadCodeRulesModal) return;
+                deadCodeRulesModal.classList.remove('hidden');
+                if (deadCodeRulesError) deadCodeRulesError.textContent = '';
+                vscode.postMessage({ type: 'requestDeadCodeRules' });
+            }
+            function closeDeadCodeRules() {
+                if (deadCodeRulesModal) deadCodeRulesModal.classList.add('hidden');
+            }
+            if (deadCodeRulesOpen) deadCodeRulesOpen.addEventListener('click', openDeadCodeRules);
+            var deadCodeRulesClose = $('#dead-code-rules-close');
+            if (deadCodeRulesClose) deadCodeRulesClose.addEventListener('click', closeDeadCodeRules);
+            if (deadCodeRulesModal) {
+                deadCodeRulesModal.addEventListener('click', function(e) {
+                    if (e.target === deadCodeRulesModal) closeDeadCodeRules();
+                });
+            }
+            var deadCodeRulesSave = $('#dead-code-rules-save');
+            if (deadCodeRulesSave) {
+                deadCodeRulesSave.addEventListener('click', function() {
+                    if (deadCodeRulesError) deadCodeRulesError.textContent = '';
+                    vscode.postMessage({
+                        type: 'saveDeadCodeRules',
+                        payload: { text: deadCodeRulesText ? deadCodeRulesText.value : '' }
+                    });
+                });
+            }
+            var deadCodeRulesReset = $('#dead-code-rules-reset');
+            if (deadCodeRulesReset) {
+                deadCodeRulesReset.addEventListener('click', function() {
+                    if (deadCodeRulesText) deadCodeRulesText.value = '{\n  "rules": []\n}';
+                    if (deadCodeRulesError) deadCodeRulesError.textContent = '';
                 });
             }
             var speedSliderEl = $('#set-rotateSpeed');

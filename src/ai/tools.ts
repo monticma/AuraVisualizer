@@ -48,7 +48,7 @@ export const AURA_TOOLS: AuraTool[] = [
     },
     {
         name: 'aura_find_dead_code',
-        description: 'Return exported symbols that are never imported or called anywhere (dead code).',
+        description: 'Return exported symbols that are never imported or called anywhere (dead code). Framework/test exemptions are returned separately with their reason.',
         inputSchema: { type: 'object', properties: {} },
     },
     {
@@ -252,9 +252,12 @@ export function runAuraTool(db: GraphDB, name: string, input: Record<string, unk
         }
         case 'aura_find_dead_code': {
             const dead = db.getDeadCode();
+            const exempted = db.getExemptedCode();
             return {
                 symbols: dead.map(d => ({ file: d.nodeId, symbol: d.symbol, kind: d.kind })),
                 total: dead.length,
+                exempted: exempted.map(e => ({ file: e.nodeId, symbol: e.symbol, kind: e.kind, reason: e.reason })),
+                exempted_total: exempted.length,
             };
         }
         case 'aura_get_hotspots': {
@@ -423,6 +426,7 @@ export function runAuraTool(db: GraphDB, name: string, input: Record<string, unk
             for (const d of dead) {
                 (deadByFile[d.nodeId] ??= []).push(`${d.symbol} (${d.kind})`);
             }
+            const exempted = db.getExemptedCode();
             const criticalDeps = db.getHotspots(10, 'fan_in');
             return {
                 overview: {
@@ -441,6 +445,7 @@ export function runAuraTool(db: GraphDB, name: string, input: Record<string, unk
                     files: Object.entries(deadByFile).map(([file, symbols]) => ({ file, symbols })),
                     total_symbols: dead.length,
                     total_files: Object.keys(deadByFile).length,
+                    exempted_total: exempted.length,
                 },
                 inter_module_links: interModuleLinks,
                 note: 'Use this data to generate comprehensive project documentation. Modules represent dependency-coupled groups detected via Louvain algorithm. Hotspots are files with highest complexity × fan-in. Critical dependencies are files imported by the most other files.',
