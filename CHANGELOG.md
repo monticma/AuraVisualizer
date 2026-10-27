@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-10-27
+
 ### Added
 - **Dead-code framework exemptions (V2-13)** — built-in rules keep framework-owned entry points and callbacks out of the dead list (`main`, VS Code lifecycle, React components, Vue hooks, SwiftUI `body`, Java servlet methods, Unity callbacks, Arduino, test files). Exempted symbols are shown in the detail panel with their reason instead of being silently hidden. Custom rules can be edited from **⚙️ Settings → Dead code exemptions** (`.aura/dead-code.json`, validated JSON) and are merged after the defaults; saving triggers a re-analysis. Exemptions are persisted in `symbol_exemptions`, exported by `GraphDB`, and returned separately by the dead-code AI/MCP tools.
 - **PageRank centrality (V2-16)** — a normalized PageRank score is computed over the structural **code** graph (`damping 0.85`, 40 iterations, dangling nodes handled; documentation and `doc-reference` links excluded) and persisted per node. The detail panel shows **Centrality**, the **💠 Centrality** toolbar button adds a soft **top-10% halo** (off by default, persisted), and the optional `auraVisualizer.riskCentrality` setting replaces fan-in with the PageRank percentile in the risk score. `resolve_context` prefers PageRank when available. Haloes are separate from dirty/note/selection rings.
