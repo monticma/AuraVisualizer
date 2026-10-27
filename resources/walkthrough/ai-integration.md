@@ -12,7 +12,7 @@ Open **VS Code Chat** and type `@aura ...` to ask about the codebase. Aura uses 
 
 Slash commands: `/explain`, `/impact`, `/path`, `/hotspots`, `/query`. Each answer links files and offers **Focus in Aura**, **Apply Aura Query**, **Open Risk** and **Open Aura** buttons.
 
-Contextual **Ask Aura** actions are also available in the file detail panel, clusters, communities, the Risk dashboard and the explorer context menu — they open the chat with the current view context already attached.
+Contextual **Ask Aura** actions are also available in the file detail panel, clusters, community cards, the Risk dashboard and the explorer context menu — they open the chat with the current view context already attached. The community **✨** action sends the palette's exact member files as the authoritative scope; documentation remains excluded from architectural analysis.
 
 ### MCP Server
 
@@ -27,7 +27,7 @@ The MCP server starts automatically and registers itself in `.vscode/mcp.json`. 
 | `find_path` | Shortest path between two files |
 | `find_cycles` | All circular dependency cycles |
 | `find_orphan_files` | Files that nothing imports (entry-point / isolation candidates) |
-| `find_dead_code` | Unused exports across the codebase |
+| `find_dead_code` | Unused exports across the codebase; framework/test exemptions are returned separately with their reasons |
 | `find_unused_functions` | Functions/methods never called anywhere — even within their own file |
 | `get_hotspots` | Most at-risk files, ranked by the repository-relative risk score (percentile-based) with written reasons — optional `window_days`, raw sorts via `sort_by` |
 | `get_largest_files` | Largest files by lines of code |
@@ -35,7 +35,7 @@ The MCP server starts automatically and registers itself in `.vscode/mcp.json`. 
 | `search_symbols` | Find functions, classes, exports by name |
 | `find_heritage` | Inheritance and implementation relationships (extends/implements) |
 | `get_architecture` | High-level overview by language |
-| `get_communities` | Architectural modules detected by Louvain algorithm |
+| `get_communities` | Code-only architectural modules from the shared Louvain snapshot; labels are hub paths or user renames, documentation is excluded |
 | `search_docs` | Full-text search across project documentation (`.md`, `.markdown`, `.txt`, `.rst`) — returns ranked chunks with file path, section heading, and excerpt |
 | `resolve_context` | Ranked list of files most relevant to a natural-language task (deterministic, no LLM) |
 | `generate_documentation` | Full documentation payload in one call: overview, modules, hotspots, cycles, dead code |

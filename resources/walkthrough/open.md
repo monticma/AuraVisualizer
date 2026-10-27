@@ -9,4 +9,4 @@ Aura analyzes your workspace and renders an interactive 3D dependency graph.
 
 The analysis runs in a background thread — your editor stays responsive.
 
-**New in 1.4.0:** **@aura** in VS Code Chat, **Follow editor 👁**, guided **AI context export 📤** (Markdown/JSON, sections, token budget), deterministic architecture report and CSV/JSON metrics.
+**New in 1.4.1:** code-only communities shared by the palette, `@aura` and MCP (cards with hub paths, visible counts and persisted renames), framework-aware **dead-code exemptions** editable in **⚙️ Settings → Dead code exemptions**, **💠 PageRank centrality halos**, **📈 complexity trends**, yellow documentation labels, import aliases and edge confidence.

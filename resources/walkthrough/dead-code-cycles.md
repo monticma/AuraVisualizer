@@ -10,6 +10,17 @@ Press `X` or click the **Dead Code** button to highlight files with unused expor
 - The detail panel lists each unused symbol with a ⚠️ label
 - Great for finding exports that nothing imports
 
+### Framework exemptions 🛡️
+
+Framework entry points and callbacks are often called by the runtime, not by your code, so Aura keeps them out of the real dead list:
+
+- `main`, VS Code `activate`/`deactivate`
+- React components in `.tsx`/`.jsx` and Vue lifecycle hooks
+- SwiftUI `body`, Java servlet methods, Unity callbacks
+- Arduino `setup`/`loop` and test files
+
+Exempted symbols stay visible in the detail panel with a 🛡️ **Exempted** section and their reason — they are never silently hidden. Add project-specific rules from **⚙️ Settings → Dead code exemptions → Edit rules…**; rules are stored in `.aura/dead-code.json`, defaults stay active, and saving starts a re-analysis.
+
 ### Unused Functions
 
 The MCP tool `find_unused_functions` goes further: it detects functions and methods that are **never called anywhere** — not even within their own file. Use it via AI assistants to clean up dead logic after refactoring.

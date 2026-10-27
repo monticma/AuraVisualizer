@@ -17,14 +17,16 @@
 
 ---
 
-## What's New in 1.4.0
+## What's New in 1.4.1
 
-- **`@aura` in VS Code Chat** — ask about architecture, hotspots, impact, dependency paths or natural-language filters, with clickable files and contextual actions.
-- **Follow editor 👁** — switching tabs flies the camera to the active file and selects it exactly like a click, at a fixed close-up distance.
-- **Guided AI context export 📤** — Markdown or JSON, selectable sections (modules, contracts, hotspots, cycles, dead code) and an explicit token budget.
-- **Architecture report** — deterministic Markdown + Mermaid, optionally enriched with an AI narrative.
-- **CSV/JSON metrics** — per-file LOC, complexity, fan-in/out, churn, authors and risk for spreadsheets or dashboards.
-- **Stale notes, PNG export and unified save/copy** — shareable outputs and notes that tell you when they need review.
+- **Code-only communities** — the webview, `@aura` and MCP share one deterministic Louvain snapshot. Documentation and `doc-reference` edges are excluded from communities, fan-in, PageRank and risk. The palette now uses readable cards with full hub paths, total/visible counts and persisted **✏️ rename**.
+- **Dead-code framework exemptions** — built-in rules for entry points and framework callbacks (React/Vue/SwiftUI/Java servlet/Unity/Arduino/tests), visible with a reason in the detail panel. Custom rules are editable from **⚙️ Settings → Dead code exemptions** (`.aura/dead-code.json`).
+- **PageRank centrality 💠** — structural code-only centrality with optional toolbar halos for the top 10% files and an optional risk factor.
+- **Complexity trends 📈** — per-file sparklines, slope per 30 days and degrading badges in Risk and Table views.
+- **Documentation labels are yellow** — docs stay explorable and linkable, but are visually distinct from architecture.
+- **Edge confidence and import aliases** — resolved imports through `tsconfig`/`jsconfig`/Vite/webpack/Python layouts, with a confidence selector and badges; the fingerprint cache keeps startup instant.
+
+_Previously in 1.4.0: `@aura` in VS Code Chat, Follow editor, guided AI context export, architecture report and CSV/JSON metrics._
 
 ---
 
@@ -595,7 +597,7 @@ The MCP server exposes your codebase graph to AI tools via stdio transport. It r
 | `find_path` | `from`, `to` | Shortest dependency path between two files |
 | `find_cycles` | — | Circular dependencies — file-level cycles plus function-level `symbol_cycles` (recursion/mutual recursion with call lines) |
 | `find_orphan_files` | `limit` | Files that nothing imports |
-| `find_dead_code` | — | Unused exports across the codebase |
+| `find_dead_code` | — | Unused exports across the codebase; framework/test exemptions are returned separately with their reasons |
 | `find_unused_functions` | `file`, `include_methods` | Functions/methods never called anywhere |
 | `get_hotspots` | `limit`, `sort_by`, `window_days` | At-risk files ranked by the repository-relative risk score (percentile-based) with written reasons; raw metric sorts still available via `sort_by` |
 | `get_largest_files` | `limit` | Largest files by lines of code |
@@ -603,7 +605,7 @@ The MCP server exposes your codebase graph to AI tools via stdio transport. It r
 | `search_symbols` | `query`, `kind` | Find functions, classes, exports by name |
 | `find_heritage` | `file` | Inheritance and implementation relationships (extends/implements) |
 | `get_architecture` | — | High-level overview by language |
-| `get_communities` | — | Architectural modules detected by Louvain algorithm |
+| `get_communities` | — | Code-only architectural modules from the shared Louvain snapshot; hub-path/user labels, documentation excluded |
 | `search_docs` | `query`, `limit` | Full-text search across project documentation (Markdown / `.txt` / `.rst`) — returns ranked chunks with file path, section heading, and excerpt |
 | `resolve_context` | `task`, `limit` | Ranked list of files most relevant to a natural-language task (deterministic, no LLM) |
 | `generate_documentation` | `hotspot_limit` | Full documentation payload: overview, modules, hotspots, cycles, dead code, inter-module links |

@@ -947,8 +947,8 @@ USER QUESTION: `+e,d=[Ce.LanguageModelChatMessage.User(a)],h=Cn.map(m=>({name:m.
             </div>
             <div class="help-modal-body">
 
-                <h3>\u2728 What's New in 1.4.0</h3>
-                <p><strong>@aura</strong> in VS Code Chat, <strong>Follow editor \u{1F441}</strong>, guided <strong>AI context export</strong> (Markdown/JSON, sections, token budget), deterministic <strong>architecture report</strong> (optional AI narrative), <strong>CSV/JSON metrics</strong>, stale notes and unified save/copy. Press <kbd>F</kbd> to recenter \u2014 selection, glow and detail panel are cleared.</p>
+                <h3>\u2728 What's New in 1.4.1</h3>
+                <p><strong>Code-only communities</strong> shared by the palette, <code>@aura</code> and MCP, with full hub-path labels, editable card names and yellow documentation labels. <strong>Dead-code framework exemptions</strong> are visible with reasons and editable in <strong>\u2699\uFE0F Settings \u2192 Dead code exemptions</strong> (<code>.aura/dead-code.json</code>). <strong>PageRank centrality \u{1F4A0}</strong> adds optional top-10% halos; <strong>complexity trends \u{1F4C8}</strong> add slope sparklines; import aliases, edge confidence and the fingerprint cache keep analysis accurate and fast.</p>
 
                 <h3>\u{1F5B1}\uFE0F Interactive Exploration</h3>
                 <table class="help-table">
@@ -1068,6 +1068,7 @@ USER QUESTION: `+e,d=[Ce.LanguageModelChatMessage.User(a)],h=Cn.map(m=>({name:m.
                     <tr><td><strong>Risk history window</strong></td><td>30 / 90 / 365 days \u2014 drives the Risk Map, the status bar and hotspots</td></tr>
                     <tr><td><strong>PageRank centrality</strong></td><td>Use the PageRank percentile instead of fan-in in the risk score (off by default)</td></tr>
                     <tr><td><strong>Complexity trend threshold</strong></td><td>Complexity points per 30 days that flag a file as degrading</td></tr>
+                    <tr><td><strong>Dead code exemptions</strong></td><td>Edit custom framework/test rules in <code>.aura/dead-code.json</code>; defaults stay active</td></tr>
                     <tr><td><strong>Mouse rotation speed</strong></td><td>Slider 1\u20135 \u2014 speed when dragging the 3D graph</td></tr>
                     <tr><td><strong>Link style</strong></td><td>Straight or curved dependency edges (+ curvature)</td></tr>
                     <tr><td><strong>Selected node effect</strong></td><td>Glow halo or bloom post-processing (+ intensity / radius / threshold)</td></tr>
@@ -1114,7 +1115,7 @@ USER QUESTION: `+e,d=[Ce.LanguageModelChatMessage.User(a)],h=Cn.map(m=>({name:m.
                 </table>
 
                 <h3>\u{1F6E1}\uFE0F Risk Map</h3>
-                <p>Open the <strong>\u{1F6E1}\uFE0F Risk</strong> tab for a codebase health dashboard. It uses a transparent risk score: <code>100 \xD7 (0.30\xB7complexity + 0.20\xB7fan-in + 0.10\xB7fan-out + 0.15\xB7cycle + 0.15\xB7dead-code + 0.10\xB7churn)</code>.</p>
+                <p>Open the <strong>\u{1F6E1}\uFE0F Risk</strong> tab for a codebase health dashboard. It uses a transparent risk score: <code>100 \xD7 (0.30\xB7complexity + 0.20\xB7fan-in + 0.10\xB7fan-out + 0.15\xB7cycle + 0.15\xB7dead-code + 0.10\xB7churn)</code>. Documentation is outside architectural risk: docs are not scored and <code>doc-reference</code> links do not inflate fan-in or PageRank. Exempted framework symbols are not counted as dead code.</p>
                 <p>Complexity, fan-in, fan-out and churn are <strong>percentile ranks inside your repository</strong> (0 = lowest file, 1 = highest), so the score is a standing relative to this codebase. A <strong>History window</strong> selector (30 / 90 / 365 days) drives churn, scoring and explanations. Churn is <strong>rename-aware</strong>: files moved with <code>git mv</code> keep their history across the rename.</p>
                 <p>High / Medium / Low file lists are collapsible, each row explains <em>why</em> a file scores that way, and clicking a file selects it in the 3D graph. Also included: <strong>\u{1F4C8} Risk Trend</strong>, <strong>\uFFFD Complexity Trend</strong> (per-file sparklines + slope), <strong>\u{1F525} Recently Hot</strong> (last 30 days), <strong>\u{1F4CA} Churn \xD7 Complexity</strong> scatter (log scale), and <strong>\u{1F464} Bus Factor</strong> (files with a single author). Use <strong>\u{1F4E4} Export Report</strong> to write <code>.aura/risk-report.md</code>.</p>
                 <p><strong>Complexity Trend</strong> is rebuilt from Time Travel commit deltas: a least-squares slope per 30 days plus R\xB2 flags files whose complexity keeps growing. The <strong>Trend</strong> column in the Table is sortable; adjust the threshold with <code>auraVisualizer.complexityTrendThreshold</code> (default 0.5 point / 30 days).</p>

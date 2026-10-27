@@ -519,7 +519,7 @@
           {
             "id": "use-heatmaps",
             "title": "Use Heatmaps",
-            "description": "Click the heatmap buttons in the toolbar to color nodes by **Complexity**, **Fan-in**, **Fan-out**, **Lines of Code**, or **Last Modified**.\n\nSpot hotspots at a glance!",
+            "description": "Click the heatmap buttons in the toolbar to color nodes by **Complexity**, **Cognitive**, **Fan-in**, **Fan-out**, **Lines of Code**, **Churn**, **Co-change**, **Last Modified**, or **Communities**.\n\nSpot hotspots at a glance!",
             "media": {
               "markdown": "resources/walkthrough/heatmaps.md"
             }
@@ -543,7 +543,7 @@
           {
             "id": "dead-code-cycles",
             "title": "Detect Dead Code & Cycles",
-            "description": "Press **X** to highlight unused exports (dead code). Press **C** to reveal circular dependencies. Press **O** to find orphan files.\n\nClean up your codebase!",
+            "description": "Press **X** to highlight unused exports (dead code). Framework/test exemptions remain visible with their reason and can be edited from **Settings → Dead code exemptions**. Press **C** to reveal circular dependencies. Press **O** to find orphan files.\n\nClean up your codebase!",
             "media": {
               "markdown": "resources/walkthrough/dead-code-cycles.md"
             }

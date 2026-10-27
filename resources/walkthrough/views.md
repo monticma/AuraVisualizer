@@ -46,6 +46,8 @@ Click any tab in the **tab bar** below the toolbar. The 3D graph pauses when you
 
 ### Risk Map tips
 - Risk = `100 × (0.30·complexity + 0.20·fan-in + 0.10·fan-out + 0.15·cycle + 0.15·dead-code + 0.10·churn)`
+- Documentation is outside architectural risk: docs are not scored and `doc-reference` links do not inflate fan-in or PageRank
+- Framework/test exemptions do not count as dead code; they remain visible in the detail panel with their reason
 - Complexity, fan-in, fan-out and churn are **percentile ranks inside your repository** — a score is a standing relative to *this* codebase
 - Every row explains itself in plain words ("changed 29 times in 90 days (top 1%)"); hover for the full breakdown
 - **History window**: pick 30 / 90 / 365 days — it drives churn, scoring and the explanations (also editable in the ⚙️ Settings modal / `auraVisualizer.riskWindow` setting)

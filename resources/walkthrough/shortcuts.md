@@ -27,13 +27,16 @@ Quick access to every feature without leaving the keyboard.
 | Button | Effect |
 |--------|--------|
 | **🔍 Query** | Toggle the query filter bar (also `Ctrl+K`) — filter / highlight / select files by metric |
-| **� Follow** | Fly the camera to the active editor file; manual camera movement pauses it || **📤 Export** | Guided AI context export — Markdown/JSON, sections and token budget || **�🗺️ Map** | Toggle the minimap — real-time overview that rotates with the camera |
+| **👁 Follow** | Fly the camera to the active editor file; manual camera movement pauses it |
+| **📤 Export** | Guided AI context export — Markdown/JSON, sections and token budget |
+| **🗺️ Map** | Toggle the minimap — real-time overview that rotates with the camera |
+| **💠 Centrality** | Toggle soft halos around the top 10% structural PageRank files |
 | **✏️ Dirty** | Show only files with uncommitted changes (git working tree) |
 | **📝 Notes** | Show/hide the note indicators — annotated files wear a pulsing note-colored ring + dot |
 | **🔗 Co-change** | Show virtual temporal-coupling links for the strongest co-change pairs |
 | **🌀 Warps** | Warp points panel — capture the current view (📌), fly back to any saved pose, quick slots |
 | **🚀 Pilot** | Free flight — WASD/QE to move, mouse to look, hold left/right click to advance/retreat (`Space` toggles) |
-| **⚙️ Settings** | Open the in-app settings modal — rotation speed, link style, node effect, risk window, follow editor, auto-refresh |
+| **⚙️ Settings** | Open the in-app settings modal — rotation speed, link style, node effect, risk window, dead-code exemptions, follow editor, auto-refresh |
 
 ### Toolbar sliders
 
@@ -49,6 +52,7 @@ The **⚙️ button** (next to 🔍 Query) opens an in-app settings modal — ch
 
 - **Risk history window** — 30 / 90 / 365 days (Risk Map, status bar and hotspots)
 - **Complexity trend threshold** — complexity points per 30 days that flag a file as degrading (default 0.5)
+- **Dead code exemptions** — edit custom framework/test rules stored in `.aura/dead-code.json`; defaults stay active
 - **Mouse rotation speed** — 1–5 slider, live value shown on the right
 - **Link style & curvature** — straight or curved dependency edges
 - **Selected node effect** — glow halo or bloom post-processing (intensity / radius / threshold)
