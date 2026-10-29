@@ -37,7 +37,8 @@
         lastmodified: 'lastModified',
         deadexports: '_deadCount',
         symbolscount: '_symbolsCount',
-        symbols: '_symbolsCount'
+        symbols: '_symbolsCount',
+        archviolations: 'archViolations'
     };
     var STRING_FIELDS = {
         language: 'language',
@@ -45,7 +46,8 @@
         path: 'path',
         community: '_communityName',
         group: 'group',
-        extension: 'extension'
+        extension: 'extension',
+        layer: 'layer'
     };
     var BOOL_FIELDS = {
         isorphan: '_isOrphan',
@@ -54,7 +56,8 @@
         ispinned: '_isPinned',
         dirty: '_isDirty',
         hasnote: '_hasNote',
-        stalenote: '_staleNote'
+        stalenote: '_staleNote',
+        isarchviolator: '_isArchViolator'
     };
 
     function buildContextNode(node, ctx) {
@@ -66,6 +69,7 @@
         node._isOrphan = (node.fanIn === 0 && node.fanOut === 0);
         node._isDead = node._deadCount > 0;
         node._inCycle = ctx.cycleNodeIds ? ctx.cycleNodeIds.has(node.id) : false;
+        node._isArchViolator = (node.archViolations || 0) > 0;
         node._isPinned = ctx.pinnedNodes ? ctx.pinnedNodes.has(node) : false;
         node._isDirty = ctx.dirtySet ? (ctx.dirtySet.has(node.id) || (node.path ? ctx.dirtySet.has(node.path) : false)) : false;
         var note = ctx.notes ? (ctx.notes[node.id] || (node.path ? ctx.notes[node.path] : null)) : null;

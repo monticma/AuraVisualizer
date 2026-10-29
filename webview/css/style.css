@@ -57,7 +57,11 @@ html, body {
     padding: 0 12px;
     gap: 0;
     z-index: 50;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: thin;
 }
+#tab-bar::-webkit-scrollbar { height: 3px; }
 .tab-btn {
     background: transparent;
     border: none;
@@ -71,6 +75,7 @@ html, body {
     letter-spacing: 0.3px;
     transition: all 0.15s;
     white-space: nowrap;
+    flex-shrink: 0;
 }
 .tab-btn:hover { opacity: 0.8; }
 .tab-btn.active {
@@ -1802,6 +1807,45 @@ html, body {
     color: var(--aura-text);
 }
 
+/* Palette mode combobox (Communities ↔ Architecture layers) */
+#palette-mode {
+    flex: 0 1 auto;
+    min-width: 0;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--aura-border);
+    border-radius: 4px;
+    color: var(--aura-text);
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 2px 4px;
+    cursor: pointer;
+}
+
+#palette-mode:hover {
+    background: rgba(96, 165, 250, 0.15);
+}
+
+.community-empty {
+    padding: 10px;
+    color: var(--aura-text-secondary);
+    font-size: 11px;
+    display: grid;
+    gap: 8px;
+    justify-items: start;
+}
+
+.community-empty p {
+    margin: 0;
+}
+
+.community-empty-hint {
+    opacity: 0.75;
+    font-size: 10px;
+}
+
 #community-list {
     overflow-y: auto;
     padding: 8px;
@@ -2255,6 +2299,90 @@ html, body {
 /* has-timeline class no longer needed — grid handles stacking */
 
 /* ============================================================
+   Parse failures (V2-17)
+   ============================================================ */
+#stat-parse-failures {
+    cursor: pointer;
+    color: #ffb74d;
+    font-weight: 600;
+}
+
+#stat-parse-failures:hover {
+    color: #ffd54f;
+    text-decoration: underline;
+}
+
+.parse-failures-content {
+    width: 720px;
+}
+
+.parse-failures-intro {
+    margin: 0 0 12px;
+    color: var(--aura-text-secondary);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.parse-failures-list {
+    display: grid;
+    gap: 6px;
+    max-height: 48vh;
+    overflow-y: auto;
+}
+
+.parse-failures-row {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 6px 9px;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.028);
+    min-width: 0;
+}
+
+.parse-failures-path {
+    background: none;
+    border: none;
+    padding: 0;
+    color: #64b5f6;
+    font-family: var(--aura-mono, monospace);
+    font-size: 11px;
+    cursor: pointer;
+    text-align: left;
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.parse-failures-path:hover {
+    text-decoration: underline;
+}
+
+.parse-failures-reason {
+    color: var(--aura-text-secondary);
+    font-size: 11px;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.parse-failures-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-top: 14px;
+}
+
+.parse-failures-summary {
+    font-size: 11px;
+    opacity: 0.75;
+}
+
+/* ============================================================
    Utility
    ============================================================ */
 .hidden { display: none !important; }
@@ -2264,7 +2392,9 @@ html, body {
    ============================================================ */
 #help-modal,
 #settings-modal,
-#dead-code-rules-modal {
+#dead-code-rules-modal,
+#arch-rules-modal,
+#parse-failures-modal {
     position: fixed;
     top: 0; left: 0;
     width: 100%; height: 100%;
@@ -3856,3 +3986,686 @@ select option {
     border-color: rgba(239,83,80,0.3);
 }
 .note-btn-delete:hover { background: rgba(239,83,80,0.22); }
+
+/* ============================================================
+   Architecture Rules (V2-20)
+   ============================================================ */
+#arch-view {
+    flex-direction: column;
+    padding: 16px;
+    overflow-y: auto;
+    gap: 14px;
+}
+#arch-view.active { display: flex; }
+
+/* Same rhythm as #risk-content: every card/banner is a flex child with a gap. */
+#arch-content {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.arch-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-shrink: 0;
+}
+.arch-toolbar h2 {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0;
+}
+.arch-toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.arch-health-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 10px;
+}
+.arch-health-card {
+    background: var(--aura-sidebar-bg);
+    border: 1px solid var(--aura-border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    text-align: center;
+}
+.arch-health-value {
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1.1;
+    font-variant-numeric: tabular-nums;
+}
+.arch-health-label {
+    font-size: 11px;
+    opacity: 0.55;
+    margin-top: 3px;
+}
+.arch-health-error .arch-health-value { color: #ff5252; }
+.arch-health-warn .arch-health-value { color: #ffb300; }
+
+.arch-section {
+    background: var(--aura-sidebar-bg);
+    border: 1px solid var(--aura-border);
+    border-radius: 10px;
+    padding: 14px;
+}
+.arch-section h3 {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    opacity: 0.65;
+    margin: 0 0 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.arch-muted { font-size: 11px; opacity: 0.55; }
+.arch-count-badge {
+    font-size: 10px;
+    padding: 1px 7px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.08);
+    opacity: 0.85;
+    text-transform: none;
+    letter-spacing: 0;
+}
+.arch-count-bad { color: #ff5252; font-weight: 700; }
+
+.arch-notice {
+    border-radius: 10px;
+    padding: 14px 16px;
+    border: 1px solid var(--aura-border);
+    background: var(--aura-sidebar-bg);
+    line-height: 1.55;
+}
+.arch-notice p { margin: 6px 0; }
+.arch-notice-error { border-color: rgba(255, 82, 82, 0.4); background: rgba(255, 82, 82, 0.08); }
+.arch-notice-info { border-color: rgba(96, 165, 250, 0.35); background: rgba(96, 165, 250, 0.07); }
+.arch-notice-actions { margin-top: 10px; }
+
+.arch-empty {
+    border: 1px dashed var(--aura-border);
+    border-radius: 12px;
+    padding: 36px 28px;
+    text-align: center;
+    max-width: 760px;
+    margin: 24px auto;
+}
+.arch-empty-icon { font-size: 40px; opacity: 0.85; }
+.arch-empty h3 { font-size: 17px; margin: 10px 0 12px; opacity: 0.9; }
+.arch-empty p { font-size: 12px; opacity: 0.65; line-height: 1.65; max-width: 620px; margin: 8px auto; }
+.arch-empty-actions { display: flex; justify-content: center; gap: 10px; margin-top: 18px; }
+
+.arch-layer-table td { vertical-align: middle; }
+.arch-layer-row { cursor: pointer; }
+.arch-layer-chip { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.arch-layer-dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    margin-right: 7px;
+    background: #78909c;
+    flex-shrink: 0;
+}
+.arch-instability-bar {
+    width: 100%;
+    min-width: 70px;
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+}
+.arch-instability-bar > div { height: 100%; border-radius: 3px; }
+
+.arch-cycles { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.arch-cycles li { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+
+.arch-badge {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    padding: 1px 6px;
+    border-radius: 8px;
+    vertical-align: middle;
+}
+.arch-badge-error { background: rgba(255, 23, 68, 0.18); color: #ff5252; }
+.arch-badge-warn { background: rgba(255, 145, 0, 0.18); color: #ffb300; }
+.arch-badge-deny { background: rgba(96, 165, 250, 0.16); color: #93c5fd; }
+
+.arch-rule-group { margin-bottom: 14px; }
+.arch-rule-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--aura-border);
+    margin-bottom: 4px;
+}
+.arch-violation-list { list-style: none; display: flex; flex-direction: column; gap: 2px; }
+.arch-violation {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 7px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 11px;
+}
+.arch-violation:hover { background: rgba(255, 255, 255, 0.06); }
+.arch-violation-baselined { opacity: 0.55; }
+.arch-violation-paths { display: flex; align-items: center; gap: 7px; min-width: 0; flex-wrap: wrap; }
+.arch-violation-paths code {
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 11px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 46%;
+}
+.arch-arrow { opacity: 0.45; }
+.arch-violation-meta { font-size: 10px; opacity: 0.55; }
+.arch-baselined-tag { color: #ffb300; }
+.arch-filter-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    background: rgba(96, 165, 250, 0.1);
+    border: 1px solid rgba(96, 165, 250, 0.3);
+    font-size: 12px;
+}
+.arch-filter-banner button {
+    background: transparent;
+    border: 1px solid var(--aura-border);
+    color: var(--aura-fg);
+    border-radius: 6px;
+    padding: 4px 9px;
+    cursor: pointer;
+    font-size: 11px;
+}
+.arch-unlayered summary { cursor: pointer; font-size: 11px; opacity: 0.7; margin-top: 6px; }
+.arch-unlayered ul { margin: 8px 0 0 18px; font-size: 11px; opacity: 0.65; max-height: 220px; overflow-y: auto; }
+
+/* Detail panel */
+.arch-detail-layer { font-size: 11px; font-weight: 600; margin: 0 0 8px; }
+.arch-detail-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.arch-detail-item {
+    font-size: 11px;
+    padding: 7px 8px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.04);
+}
+.arch-detail-baselined { opacity: 0.55; }
+.arch-detail-target {
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 10px;
+    margin-top: 3px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.arch-detail-meta { font-size: 10px; opacity: 0.5; margin-top: 2px; }
+.arch-detail-ok { font-size: 11px; opacity: 0.55; font-style: italic; }
+
+/* ============================================================
+   Architecture rules — structured editor
+   ============================================================ */
+.arch-editor-content {
+    width: 960px;
+    max-width: 96vw;
+}
+.arch-editor-body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+#arch-editor-form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+#arch-rules-error:empty { display: none; }
+.arch-editor-intro {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.55;
+    opacity: 0.7;
+}
+.arch-editor-status {
+    min-height: 16px;
+    font-size: 11px;
+}
+.arch-editor-status.valid { color: #81c784; }
+.arch-editor-status.invalid { color: #ff8080; }
+.help-modal-body .arch-editor-intro,
+.help-modal-body .arch-editor-hint,
+.help-modal-body .arch-editor-empty,
+.help-modal-body .arch-editor-status {
+    margin: 0;
+}
+
+.arch-editor-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border: 1px solid var(--aura-border);
+    border-radius: 8px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.02);
+}
+.arch-editor-section h4 {
+    margin: 0;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    opacity: 0.7;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.arch-editor-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+.arch-editor-count {
+    font-size: 10px;
+    padding: 1px 7px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.08);
+    opacity: 0.85;
+    letter-spacing: 0;
+}
+.arch-editor-add {
+    background: transparent;
+    border: 1px dashed rgba(96, 165, 250, 0.45);
+    color: var(--aura-accent);
+    border-radius: 6px;
+    padding: 4px 9px;
+    cursor: pointer;
+    font-size: 11px;
+    white-space: nowrap;
+}
+.arch-editor-add:hover { background: rgba(96, 165, 250, 0.12); }
+.arch-editor-hint {
+    margin: 0;
+    font-size: 10.5px;
+    line-height: 1.5;
+    opacity: 0.55;
+}
+.arch-editor-empty {
+    margin: 0;
+    font-size: 11px;
+    font-style: italic;
+    opacity: 0.5;
+}
+.arch-editor-layer-row {
+    display: grid;
+    grid-template-columns: minmax(140px, 1fr) minmax(220px, 2.2fr) auto;
+    gap: 8px;
+    align-items: center;
+}
+.arch-editor-input,
+.arch-editor-textarea,
+#arch-rules-text,
+.arch-editor-inline select {
+    min-width: 0;
+    background: rgba(13, 17, 23, 0.88);
+    color: var(--aura-fg);
+    border: 1px solid var(--aura-border);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 12px;
+    outline: none;
+}
+.arch-editor-input:focus,
+.arch-editor-textarea:focus,
+#arch-rules-text:focus,
+.arch-editor-inline select:focus {
+    border-color: rgba(96, 165, 250, 0.6);
+}
+.arch-editor-row-actions {
+    display: flex;
+    gap: 4px;
+}
+.arch-editor-row-actions button,
+.arch-editor-rule-head .arch-editor-remove {
+    width: 26px;
+    height: 26px;
+    background: transparent;
+    border: 1px solid var(--aura-border);
+    color: var(--aura-fg);
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 11px;
+    opacity: 0.75;
+}
+.arch-editor-row-actions button:hover,
+.arch-editor-rule-head .arch-editor-remove:hover {
+    background: rgba(96, 165, 250, 0.12);
+    opacity: 1;
+}
+.arch-editor-row-actions button:disabled {
+    opacity: 0.25;
+    cursor: default;
+}
+.arch-editor-rule-head .arch-editor-remove:hover {
+    background: rgba(239, 83, 80, 0.14);
+    border-color: rgba(239, 83, 80, 0.45);
+    color: #ef9a9a;
+}
+.arch-editor-rule {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border-left: 3px solid rgba(96, 165, 250, 0.35);
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 6px;
+    padding: 9px 10px;
+}
+.arch-editor-rule-head {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.arch-editor-rule-head .arch-editor-remove { margin-left: auto; }
+.arch-editor-rule-id {
+    width: 155px;
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 11px;
+}
+.arch-editor-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    opacity: 0.8;
+}
+.arch-editor-inline select { padding: 4px 6px; }
+.arch-editor-chips-label {
+    font-size: 10.5px;
+    opacity: 0.55;
+}
+.arch-editor-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.arch-editor-chip {
+    background: transparent;
+    border: 1px solid var(--aura-border);
+    color: var(--aura-fg);
+    border-radius: 12px;
+    padding: 3px 9px;
+    cursor: pointer;
+    font-size: 10.5px;
+    opacity: 0.7;
+}
+.arch-editor-chip:hover { opacity: 1; background: rgba(255, 255, 255, 0.05); }
+.arch-editor-chip.active {
+    background: rgba(239, 83, 80, 0.18);
+    border-color: rgba(239, 83, 80, 0.55);
+    color: #ff8a80;
+    opacity: 1;
+}
+.arch-editor-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+.arch-editor-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 10.5px;
+    opacity: 0.8;
+}
+.arch-editor-textarea,
+#arch-rules-text {
+    width: 100%;
+    resize: vertical;
+    min-height: 70px;
+    box-sizing: border-box;
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 11px;
+    line-height: 1.45;
+}
+#arch-rules-text { min-height: 190px; margin-top: 8px; }
+.arch-editor-check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    opacity: 0.8;
+}
+.arch-editor-raw summary {
+    cursor: pointer;
+    font-size: 11px;
+    opacity: 0.7;
+}
+.arch-editor-raw[open] summary { opacity: 1; color: var(--aura-accent); }
+.arch-editor-actions { margin-top: 0; }
+.dead-code-rules-actions button:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    filter: none;
+}
+
+/* ============================================================
+   Dead-code exemptions — structured editor
+   ============================================================ */
+.dc-editor-content {
+    width: 920px;
+    max-width: 96vw;
+}
+.dc-editor-body {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+.dc-editor-intro {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.55;
+    opacity: 0.7;
+}
+.dc-editor-status {
+    min-height: 16px;
+    font-size: 11px;
+}
+.dc-editor-status.valid { color: #81c784; }
+.dc-editor-status.invalid { color: #ff8080; }
+.help-modal-body .dc-editor-intro,
+.help-modal-body .dc-hint,
+.help-modal-body .dc-empty,
+.help-modal-body .dc-editor-status {
+    margin: 0;
+}
+#dead-code-rules-error:empty { display: none; }
+
+.dc-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border: 1px solid var(--aura-border);
+    border-radius: 8px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.02);
+}
+.dc-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+.dc-section h4 {
+    margin: 0;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    opacity: 0.7;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.dc-count {
+    font-size: 10px;
+    padding: 1px 7px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.08);
+    opacity: 0.85;
+    letter-spacing: 0;
+}
+.dc-add {
+    background: transparent;
+    border: 1px dashed rgba(96, 165, 250, 0.45);
+    color: var(--aura-accent);
+    border-radius: 6px;
+    padding: 4px 9px;
+    cursor: pointer;
+    font-size: 11px;
+    white-space: nowrap;
+}
+.dc-add:hover { background: rgba(96, 165, 250, 0.12); }
+.dc-hint {
+    margin: 0;
+    font-size: 10.5px;
+    line-height: 1.5;
+    opacity: 0.55;
+}
+.dc-empty {
+    margin: 0;
+    font-size: 11px;
+    font-style: italic;
+    opacity: 0.5;
+}
+.dc-rule {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    border-left: 3px solid rgba(96, 165, 250, 0.35);
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 6px;
+    padding: 9px 10px;
+}
+.dc-rule-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.dc-rule-badge {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    padding: 1px 6px;
+    border-radius: 8px;
+    background: rgba(96, 165, 250, 0.16);
+    color: #93c5fd;
+}
+.dc-rule-actions {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+}
+.dc-rule-actions button {
+    width: 26px;
+    height: 26px;
+    background: transparent;
+    border: 1px solid var(--aura-border);
+    color: var(--aura-fg);
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 11px;
+    opacity: 0.75;
+}
+.dc-rule-actions button:hover { background: rgba(96, 165, 250, 0.12); opacity: 1; }
+.dc-rule-actions button:disabled { opacity: 0.25; cursor: default; }
+.dc-rule-actions .dc-remove:hover {
+    background: rgba(239, 83, 80, 0.14);
+    border-color: rgba(239, 83, 80, 0.45);
+    color: #ef9a9a;
+}
+.dc-rule-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+.dc-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 10.5px;
+    opacity: 0.8;
+}
+.dc-field-full { width: 100%; }
+.dc-input,
+#dead-code-rules-text {
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+    background: rgba(13, 17, 23, 0.88);
+    color: var(--aura-fg);
+    border: 1px solid var(--aura-border);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 12px;
+    outline: none;
+}
+.dc-input:focus,
+#dead-code-rules-text:focus { border-color: rgba(96, 165, 250, 0.6); }
+#dead-code-rules-text {
+    min-height: 190px;
+    margin-top: 8px;
+    resize: vertical;
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 11px;
+    line-height: 1.45;
+}
+.dc-editor-raw summary,
+.dc-editor-defaults summary {
+    cursor: pointer;
+    font-size: 11px;
+    opacity: 0.7;
+}
+.dc-editor-raw[open] summary,
+.dc-editor-defaults[open] summary { opacity: 1; color: var(--aura-accent); }
+.dc-defaults-list,
+#dc-editor-defaults-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 8px;
+}
+.dc-default {
+    padding: 7px 9px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid var(--aura-border);
+}
+.dc-default-reason { font-size: 11px; font-weight: 600; }
+.dc-default-selectors {
+    font-size: 10px;
+    opacity: 0.55;
+    margin-top: 2px;
+    font-family: var(--vscode-editor-font-family, monospace);
+    white-space: pre-wrap;
+}
+.dc-editor-actions { margin-top: 0; }

@@ -29,6 +29,7 @@ import { computeSymbolCycles } from '../analysis/symbol-cycles';
 import { computePageRank } from '../analysis/pagerank';
 import { documentationIdsOf, isStructuralLink } from '../analysis/architecture';
 import { DEFAULT_DEAD_CODE_RULES, classifyDeadCode, collectCalledNames } from '../analysis/dead-code';
+import { buildParseFailureReport, clearParseFailure, isBenignSyntaxError, parseFailureReason, recordParseFailure } from '../analysis/parse-failures';
 import { hasGrammar, parseSource } from './tree-sitter-loader';
 import type { BaseParser } from './parsers/base-parser';
 import type Parser from 'web-tree-sitter';
@@ -131,17 +132,98 @@ function maxCognitive(symbols: FileSymbols | undefined): number | undefined {
 }
 
 /**
+ * Meaningful syntax errors in a Tree-sitter tree (V2-17).
+ *
+ * `hasError()` is coarse: it is also true for valid modern syntax the bundled
+ * grammars do not know yet, and those gaps cascade — the parser inserts MISSING
+ * tokens and then trips over the stray closing delimiter. Walk the concrete
+ * tree, remember the gap anchors, and ignore their immediate fallout so only
+ * real breakage reaches the report.
+ */
+function findSyntaxErrors(tree: Parser.Tree, language: string): { count: number; firstLine: number } | null {
+    if (!tree.rootNode.hasError()) return null;
+
+    // Lines where a known grammar gap was found (benign ERROR or artifact).
+    const anchors: number[] = [];
+    // Remaining ERROR/MISSING nodes, filtered for cascades below.
+    const candidates: { line: number; text: string }[] = [];
+    const seen = new Set<number>();
+
+    const visit = (node: Parser.SyntaxNode): void => {
+        if (seen.has(node.id)) return;
+        seen.add(node.id);
+
+        const isError = node.type === 'ERROR';
+        if (isError && isBenignSyntaxError(language, node.text, node.parent ? node.parent.type : undefined)) {
+            // Known grammar gap: skip the subtree — the parser may also insert
+            // MISSING tokens inside the construct it failed to understand.
+            anchors.push(node.startPosition.row + 1);
+            return;
+        }
+
+        if (!isError && node.isMissing()) {
+            const parentType = node.parent ? node.parent.type : '';
+            // A missing `}` inserted inside a member name/type is an artifact of
+            // a grammar gap, not evidence of a broken file.
+            if (parentType === 'property_identifier' || parentType === 'type_annotation') {
+                anchors.push(node.startPosition.row + 1);
+                return;
+            }
+            candidates.push({ line: node.startPosition.row + 1, text: 'missing ' + node.type });
+            return;
+        }
+
+        // Zero-width ERROR nodes carry no usable information.
+        const text = String(node.text || '').trim();
+        if (isError && text) candidates.push({ line: node.startPosition.row + 1, text });
+
+        for (const child of node.children) visit(child);
+    };
+    visit(tree.rootNode);
+
+    // A grammar gap makes the parser emit a stray closing delimiter on the next
+    // line(s); those are fallout, not independent errors.
+    const CASCADE_LINES = 2;
+    const bareClosers = new Set(['}', ')', ']', ';', ',']);
+    const meaningful = candidates.filter(candidate =>
+        !bareClosers.has(candidate.text) ||
+        !anchors.some(anchor => Math.abs(anchor - candidate.line) <= CASCADE_LINES));
+
+    if (meaningful.length === 0) return null;
+    return { count: meaningful.length, firstLine: meaningful[0].line };
+}
+
+/**
  * Pre-parse all files using Tree-sitter where grammar is available.
  * Parser instances are pooled per language to avoid re-creation overhead.
+ *
+ * Failures never abort the analysis: they are recorded in `failures` (path →
+ * reason, V2-17) and the file simply falls back to the regex parser.
  */
-export async function preParseFiles(files: FileInfo[]): Promise<Map<string, Parser.Tree>> {
+export async function preParseFiles(files: FileInfo[], failures?: Map<string, string>): Promise<Map<string, Parser.Tree>> {
     const trees = new Map<string, Parser.Tree>();
     for (const file of files) {
         if (hasGrammar(file.language)) {
+            // node id === workspace-relative path: the report can focus nodes.
+            const key = file.id || file.path;
             try {
                 const tree = await parseSource(file.language, file.content);
+                if (failures) {
+                    const syntax = findSyntaxErrors(tree, file.language);
+                    if (syntax) {
+                        recordParseFailure(
+                            failures,
+                            key,
+                            'syntax errors (Tree-sitter): ' + syntax.count + ' error' +
+                            (syntax.count === 1 ? '' : 's') + ', first at line ' + syntax.firstLine,
+                        );
+                    } else {
+                        clearParseFailure(failures, key);
+                    }
+                }
                 trees.set(file.id, tree);
-            } catch {
+            } catch (err) {
+                if (failures) recordParseFailure(failures, key, err);
                 // Fall back to regex for this file
             }
         }
@@ -325,7 +407,7 @@ function buildDocReferenceLinks(
     return links;
 }
 
-export function buildGraph(files: FileInfo[], projectName: string = 'Project', options: AnalyzeOptions = {}, astTrees?: Map<string, Parser.Tree>): GraphData {
+export function buildGraph(files: FileInfo[], projectName: string = 'Project', options: AnalyzeOptions = {}, astTrees?: Map<string, Parser.Tree>, failures?: Map<string, string>): GraphData {
     const fileMap = new Map<string, FileInfo>();
     for (const file of files) {
         fileMap.set(file.id, file);
@@ -333,15 +415,21 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
     const resolver = createImportResolver(projectRootFromFiles(files), fileMap.keys());
 
     // Phase 1: Parse relations
+    // A throwing parser must never abort the analysis (V2-17): record the file
+    // and keep going — its node is still created in Phase 4.
     const allRelations: Relation[] = [];
     for (const file of files) {
         const tree = astTrees?.get(file.id);
         const parser = getParser(file.language);
         if (parser) {
-            const relations = tree && parser.usesTreeSitter
-                ? parser.parseAST(tree, file, options as Record<string, unknown>)
-                : parser.parse(file, options as Record<string, unknown>);
-            allRelations.push(...relations);
+            try {
+                const relations = tree && parser.usesTreeSitter
+                    ? parser.parseAST(tree, file, options as Record<string, unknown>)
+                    : parser.parse(file, options as Record<string, unknown>);
+                allRelations.push(...relations);
+            } catch (err) {
+                if (failures) recordParseFailure(failures, file.id || file.path, err);
+            }
         }
     }
 
@@ -356,9 +444,15 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
         const parser = getParser(file.language);
         if (!parser) continue;
 
-        const symbols = tree && parser.usesTreeSitter
-            ? parser.extractSymbolsAST(tree, file)
-            : (parser as unknown as { extractSymbols(f: FileInfo): FileSymbols }).extractSymbols?.(file);
+        let symbols: FileSymbols | undefined;
+        try {
+            symbols = tree && parser.usesTreeSitter
+                ? parser.extractSymbolsAST(tree, file)
+                : (parser as unknown as { extractSymbols(f: FileInfo): FileSymbols }).extractSymbols?.(file);
+        } catch (err) {
+            if (failures) recordParseFailure(failures, file.id || file.path, err);
+            continue;
+        }
         if (!symbols) continue;
         if (tree) attachFunctionMetrics(symbols, tree, file.language);
         fileSymbols.set(file.id, symbols);
@@ -745,6 +839,9 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
     // Cycle detection
     const cycles = findCycles(uniqueLinks);
 
+    // Parse-failure summary (V2-17): exact count + capped sample.
+    const parseFailureReport = failures ? buildParseFailureReport(failures) : undefined;
+
     // Tag nodes with their cycle indices
     const nodeMap = new Map(nodes.map(n => [n.id, n]));
     for (let i = 0; i < cycles.length; i++) {
@@ -773,6 +870,7 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
             deadCodeExemptions,
             cycles,
             symbolCycles,
+            ...(parseFailureReport ? { parseFailures: parseFailureReport } : {}),
             languageStats: langStats,
             groups: [...groupSet].sort(),
         },
@@ -927,8 +1025,14 @@ export function rebuildSingleFile(
     node: GraphNode;
     outEdges: GraphLink[];
     callSites: FunctionCallSite[];
+    /** First parse error hit for this file (V2-17), if any. */
+    parseFailureReason?: string;
 } {
     const { fileMap, globalFunctionIndex, fileSymbols: allFileSymbols } = ctx;
+    let parseFailure: string | undefined;
+    const recordFailure = (err: unknown): void => {
+        if (!parseFailure) parseFailure = parseFailureReason(err);
+    };
 
     // Update fileMap
     fileMap.set(file.id, file);
@@ -958,19 +1062,28 @@ export function rebuildSingleFile(
     const parser = getParser(file.language);
     const relations: Relation[] = [];
     if (parser) {
-        const rels = astTree && parser.usesTreeSitter
-            ? parser.parseAST(astTree, file, options as Record<string, unknown>)
-            : parser.parse(file, options as Record<string, unknown>);
-        relations.push(...rels);
+        try {
+            const rels = astTree && parser.usesTreeSitter
+                ? parser.parseAST(astTree, file, options as Record<string, unknown>)
+                : parser.parse(file, options as Record<string, unknown>);
+            relations.push(...rels);
+        } catch (err) {
+            recordFailure(err);
+        }
     }
 
     // Phase 2: Extract symbols and update indexes
     let symbols: FileSymbols | undefined;
     if (SYMBOL_LANGUAGES.has(file.language) && parser) {
-        symbols = astTree && parser.usesTreeSitter
-            ? parser.extractSymbolsAST(astTree, file)
-            : (parser as unknown as { extractSymbols(f: FileInfo): FileSymbols }).extractSymbols?.(file);
-        if (symbols && astTree) attachFunctionMetrics(symbols, astTree, file.language);
+        try {
+            symbols = astTree && parser.usesTreeSitter
+                ? parser.extractSymbolsAST(astTree, file)
+                : (parser as unknown as { extractSymbols(f: FileInfo): FileSymbols }).extractSymbols?.(file);
+            if (symbols && astTree) attachFunctionMetrics(symbols, astTree, file.language);
+        } catch (err) {
+            recordFailure(err);
+            symbols = undefined;
+        }
     }
 
     if (symbols) {
@@ -1012,13 +1125,17 @@ export function rebuildSingleFile(
 
     const functionCallLinks: GraphLink[] = [];
     if (SYMBOL_LANGUAGES.has(file.language) && !HEADER_EXTS.has(file.extension) && parser) {
-        let calls: string[];
-        if (astTree && parser.usesTreeSitter) {
-            const tsParser = parser as unknown as { extractCallsFromAST(t: Parser.Tree): string[] };
-            calls = tsParser.extractCallsFromAST?.(astTree) || [];
-        } else {
-            const regexParser = parser as unknown as { extractCalls(f: FileInfo): string[] };
-            calls = regexParser.extractCalls?.(file) || [];
+        let calls: string[] = [];
+        try {
+            if (astTree && parser.usesTreeSitter) {
+                const tsParser = parser as unknown as { extractCallsFromAST(t: Parser.Tree): string[] };
+                calls = tsParser.extractCallsFromAST?.(astTree) || [];
+            } else {
+                const regexParser = parser as unknown as { extractCalls(f: FileInfo): string[] };
+                calls = regexParser.extractCalls?.(file) || [];
+            }
+        } catch (err) {
+            recordFailure(err);
         }
         const ownFunctions = new Set(symbols ? symbols.functions.map(f => f.name) : []);
         const family = LANG_FAMILY[file.language] || file.language;
@@ -1042,7 +1159,12 @@ export function rebuildSingleFile(
     // Phase 3a: Collect call sites
     const callSites: FunctionCallSite[] = [];
     if (SYMBOL_LANGUAGES.has(file.language) && !HEADER_EXTS.has(file.extension) && parser && astTree && parser.usesTreeSitter) {
-        const sites: CallSite[] = parser.extractCallSitesAST(astTree, file);
+        let sites: CallSite[] = [];
+        try {
+            sites = parser.extractCallSitesAST(astTree, file);
+        } catch (err) {
+            recordFailure(err);
+        }
         const family = LANG_FAMILY[file.language] || file.language;
 
         for (const site of sites) {
@@ -1072,7 +1194,14 @@ export function rebuildSingleFile(
             for (const trait of (syms.traits || [])) symbolFileIndex.set(trait.name, fid);
             for (const struct of syms.structs) symbolFileIndex.set(struct.name, fid);
         }
-        const heritageRels = parser.extractHeritageRelations(astTree, file);
+        const heritageRels = (() => {
+            try {
+                return parser.extractHeritageRelations(astTree, file);
+            } catch (err) {
+                recordFailure(err);
+                return [];
+            }
+        })();
         for (const rel of heritageRels) {
             const targetFileId = symbolFileIndex.get(rel.target);
             if (targetFileId && targetFileId !== file.id) {
@@ -1167,5 +1296,5 @@ export function rebuildSingleFile(
         if (classified.exempted.length > 0) node.exemptedExports = classified.exempted;
     }
 
-    return { node, outEdges: uniqueEdges, callSites };
+    return { node, outEdges: uniqueEdges, callSites, ...(parseFailure ? { parseFailureReason: parseFailure } : {}) };
 }

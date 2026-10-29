@@ -144,6 +144,36 @@ function matchesPath(filePath: string, expected: string | string[] | undefined):
     return !list || list.length === 0 || matchesAnyPath(filePath, list);
 }
 
+function selectorList(value: string | string[] | undefined): string[] | undefined {
+    if (value === undefined) return undefined;
+    const list = Array.isArray(value) ? value : [value];
+    const cleaned = list.map(item => item.trim()).filter(item => item.length > 0);
+    return cleaned.length > 0 ? cleaned : undefined;
+}
+
+/**
+ * Canonical serialization used by the structured editor.
+ * Always emits `{ version, rules }`; selectors are arrays and empty selectors
+ * are omitted. Round-trips through `parseDeadCodeRules`.
+ */
+export function serializeDeadCodeRules(rules: DeadCodeRule[]): string {
+    const entries = rules.map(rule => {
+        const entry: Record<string, unknown> = {};
+        const name = selectorList(rule.name);
+        if (name) entry.name = name;
+        if (rule.namePattern) entry.namePattern = rule.namePattern;
+        const path = selectorList(rule.path);
+        if (path) entry.path = path;
+        const language = selectorList(rule.language);
+        if (language) entry.language = language;
+        const kind = selectorList(rule.kind);
+        if (kind) entry.kind = kind;
+        entry.reason = rule.reason;
+        return entry;
+    });
+    return JSON.stringify({ version: 1, rules: entries }, null, 2) + '\n';
+}
+
 /** Validate and normalize a `.aura/dead-code.json` payload. */
 export function parseDeadCodeRules(raw: unknown): DeadCodeRule[] {
     let value = raw;

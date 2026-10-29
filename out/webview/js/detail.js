@@ -102,6 +102,7 @@
             setSectionVisible('deps-section', memberCount > 0);
             setSectionVisible('dependents-section', false);
             setSectionVisible('symbol-cycles-section', false);
+            setSectionVisible('arch-section', false);
 
             // Clusters have no note editor
             var noteSection = $('#note-section');
@@ -145,6 +146,7 @@
             gitEl.textContent = gitState ? (hooks.getGitStateLabels()[gitState] || gitState) : '—';
             gitEl.style.color = gitState ? '#ffb300' : '';
         }
+        renderArchitecture(node);
         updateNoteEditor(node);
         $('#panel-fanout').textContent = node.fanOut;
         $('#panel-fanin').textContent = node.fanIn;
@@ -609,6 +611,7 @@
         $('#dependents-count').textContent = '0';
         setSectionVisible('dependents-section', false);
         setSectionVisible('symbol-cycles-section', false);
+        setSectionVisible('arch-section', false);
     }
 
     function shortenParams(params) {
@@ -618,6 +621,80 @@
     }
 
     /** Function→function cycles involving this file (V2-03). */
+    /**
+     * Architecture section (V2-20): layer + outgoing violations of the file.
+     * Baselined violations stay visible with a tag; only new ones alert.
+     */
+    function renderArchitecture(node) {
+        var graphData = hooks.getGraphData ? hooks.getGraphData() : null;
+        var meta = graphData && graphData.meta ? graphData.meta.arch : null;
+        var layerEl = $('#panel-layer');
+        var archMeta = meta;
+        var layerIndex = -1;
+        if (archMeta && node.layer) {
+            for (var i = 0; i < archMeta.layers.length; i++) {
+                if (archMeta.layers[i].name === node.layer) { layerIndex = i; break; }
+            }
+        }
+        var layerColorValue = node.layer && window.layerColor ? window.layerColor(node.layer, layerIndex) : '';
+        if (layerEl) {
+            layerEl.textContent = node.layer || '—';
+            layerEl.style.color = layerColorValue;
+            layerEl.title = archMeta
+                ? 'Layer assigned by .aura/arch-rules.json'
+                : 'No architecture rules configured';
+        }
+
+        var list = $('#panel-arch-list');
+        if (!list) return;
+        if (!archMeta) {
+            setSectionVisible('arch-section', false);
+            return;
+        }
+        var violations = [];
+        for (var v = 0; v < archMeta.violations.length; v++) {
+            if (archMeta.violations[v].source === node.id) violations.push(archMeta.violations[v]);
+        }
+        if (!node.layer && violations.length === 0) {
+            setSectionVisible('arch-section', false);
+            return;
+        }
+        setSectionVisible('arch-section', true);
+        var countEl = $('#arch-count');
+        var openCount = 0;
+        for (var o = 0; o < violations.length; o++) if (!violations[o].baselined) openCount++;
+        if (countEl) countEl.textContent = String(openCount);
+        var layerLabel = $('#panel-arch-layer');
+        if (layerLabel) {
+            layerLabel.textContent = node.layer
+                ? 'Layer: ' + node.layer
+                : 'Outside every layer (no glob matched) — imports are not evaluated.';
+            layerLabel.style.color = layerColorValue || '';
+        }
+        list.innerHTML = '';
+        if (violations.length === 0) {
+            var ok = document.createElement('li');
+            ok.className = 'arch-detail-ok';
+            ok.textContent = 'No outgoing violation.';
+            list.appendChild(ok);
+            return;
+        }
+        for (var k = 0; k < violations.length; k++) {
+            var violation = violations[k];
+            var item = document.createElement('li');
+            item.className = 'arch-detail-item' + (violation.baselined ? ' arch-detail-baselined' : '');
+            item.innerHTML =
+                '<span class="arch-badge ' + (violation.severity === 'error' ? 'arch-badge-error' : 'arch-badge-warn') + '">' +
+                    escapeHtml(violation.severity) + '</span> ' +
+                '<strong>' + escapeHtml(violation.ruleId) + '</strong>' +
+                '<div class="arch-detail-target">→ ' + escapeHtml(violation.target) + '</div>' +
+                '<div class="arch-detail-meta">' + escapeHtml((violation.sourceGroup || '?') + ' → ' + (violation.targetGroup || '?')) +
+                    ' · ' + escapeHtml((violation.linkTypes || [violation.linkType]).join(', ')) +
+                    (violation.baselined ? ' · baselined' : '') + '</div>';
+            list.appendChild(item);
+        }
+    }
+
     function renderSymbolCycles(node) {
         var section = document.getElementById('symbol-cycles-section');
         var list = document.getElementById('symbol-cycles-list');

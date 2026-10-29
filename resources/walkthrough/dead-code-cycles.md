@@ -19,7 +19,7 @@ Framework entry points and callbacks are often called by the runtime, not by you
 - SwiftUI `body`, Java servlet methods, Unity callbacks
 - Arduino `setup`/`loop` and test files
 
-Exempted symbols stay visible in the detail panel with a 🛡️ **Exempted** section and their reason — they are never silently hidden. Add project-specific rules from **⚙️ Settings → Dead code exemptions → Edit rules…**; rules are stored in `.aura/dead-code.json`, defaults stay active, and saving starts a re-analysis.
+Exempted symbols stay visible in the detail panel with a 🛡️ **Exempted** section and their reason — they are never silently hidden. Add project-specific rules from **⚙️ Settings → Dead code exemptions → Edit rules…**: the structured editor edits the reason, exact names, regex, path globs, languages and kinds, lets you reorder rules and validates them with the analysis parser. Built-in defaults are listed read-only, raw JSON is available for advanced cases, and saving starts a re-analysis (`.aura/dead-code.json`).
 
 ### Unused Functions
 

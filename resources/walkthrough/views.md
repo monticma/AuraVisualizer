@@ -1,6 +1,6 @@
 ## Tabbed Views
 
-Aura offers **9 visualization tabs** — each gives a different perspective on your codebase architecture.
+Aura offers **10 visualization tabs** — each gives a different perspective on your codebase architecture.
 
 ### How to switch
 
@@ -18,6 +18,7 @@ Click any tab in the **tab bar** below the toolbar. The 3D graph pauses when you
 | **📈 Timeline** | Line chart of metric evolution over git history. Choose between LOC, file count, avg complexity, or total complexity |
 | **📋 Table** | Sortable, filterable spreadsheet of all files with their metrics, including **Cog. max** (highest function cognitive complexity) and a **Trend** sparkline column |
 | **🛡️ Risk** | Codebase health dashboard — risk score, distribution, churn × complexity matrix, complexity trends, bus factor, exportable report |
+| **🏛️ Architecture** | Layer rules — violations grouped by rule, Ca/Ce/instability per layer, aggregated layer cycles, unlayered files, baseline and Markdown export |
 | **🔗 Co-change** | Temporal co-change — files changing together without a direct dependency. Rows show co-changes, Jaccard, support; **Show on graph** adds virtual links |
 
 ### Treemap tips
@@ -26,14 +27,15 @@ Click any tab in the **tab bar** below the toolbar. The 3D graph pauses when you
 - Click any directory to zoom into it; the breadcrumb trail at the top lets you navigate back
 
 ### Matrix (DSM) tips
-- **Group by**: Directory, Language, or Community — separator lines mark group boundaries
+- **Group by**: Directory, Language, Architecture layer, or Community — separator lines mark group boundaries
 - **Sort by**: Group, Name, Fan-in, or Fan-out
 - Hover a cell to see source → target details. Hover a header to see file metrics.
 - Red cells with ↺ indicate **circular dependencies**
+- In **Architecture layer** mode, a forbidden dependency is a solid red cell with ✖, and a baselined one is amber
 - Click a dependency cell to open the source file
 
 ### Chord Diagram tips
-- **Group by**: Directory, Language, or Community
+- **Group by**: Directory, Language, Architecture layer, or Community
 - Hover an arc to highlight all its connections
 - Hover a ribbon to see flows in both directions (A→B and B→A)
 - Great for spotting unexpected coupling between modules

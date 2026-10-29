@@ -5,11 +5,12 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { Worker } from 'worker_threads';
-import type { GraphData, GraphMeta } from '../analyzer/index';
+import type { GraphData, GraphMeta, GraphLink } from '../analyzer/index';
 import type { GraphDB } from '../graph-db';
 import { runChatStream } from '../chat';
 import { normalizeRiskWindow } from '../risk/risk-core';
 import { parseDeadCodeRules } from '../analysis/dead-code';
+import { ARCH_RULES_FILE, parseArchRules } from '../arch/arch-core';
 import type { RiskSnapshot } from '../risk/risk-service';
 import { parseAnnotations, serializeAnnotations, withNote, withoutNote, type AnnotationMap } from '../annotations';
 import { saveOrCopyText, saveBinary } from '../export/save';
@@ -66,6 +67,8 @@ export class WebviewProvider {
     private pendingNodeFocus: { nodeId: string; reveal: boolean } | undefined;
     private pendingFollowEditor: string | undefined;
     private pendingShowRiskTab = false;
+    private pendingShowArchTab = false;
+    private pendingArchFocus: string | undefined;
     private pendingQuery: { expr: string; mode: 'highlight' | 'filter' | 'select' } | undefined;
     private pendingBlastRadius: string | undefined;
     private webviewReady = false;
@@ -139,6 +142,8 @@ export class WebviewProvider {
             this.pendingNodeFocus = undefined;
             this.pendingFollowEditor = undefined;
             this.pendingShowRiskTab = false;
+            this.pendingShowArchTab = false;
+            this.pendingArchFocus = undefined;
             this.pendingQuery = undefined;
             this.pendingBlastRadius = undefined;
             this.disposables.forEach(d => d.dispose());
@@ -181,6 +186,14 @@ export class WebviewProvider {
                         if (this.pendingShowRiskTab) {
                             this.panel?.webview.postMessage({ type: 'showRiskTab' });
                             this.pendingShowRiskTab = false;
+                        }
+                        if (this.pendingShowArchTab) {
+                            this.panel?.webview.postMessage({ type: 'showArchTab' });
+                            this.pendingShowArchTab = false;
+                        }
+                        if (this.pendingArchFocus) {
+                            this.panel?.webview.postMessage({ type: 'archFocusFile', payload: { nodeId: this.pendingArchFocus } });
+                            this.pendingArchFocus = undefined;
                         }
                         if (this.pendingQuery) {
                             this.panel?.webview.postMessage({ type: 'applyQuery', payload: this.pendingQuery });
@@ -248,6 +261,36 @@ export class WebviewProvider {
                     case 'requestViewState':
                         this.sendSavedViewState();
                         break;
+                    case 'requestArchRules':
+                        void this.sendArchRules();
+                        break;
+                    case 'openDeadCodeRulesFile':
+                        void vscode.commands.executeCommand('auraVisualizer.deadCodeRules');
+                        break;
+                    case 'saveArchRules': {
+                        const p = (message.payload || {}) as { text?: string };
+                        void this.handleSaveArchRules(typeof p.text === 'string' ? p.text : '');
+                        break;
+                    }
+                    case 'openArchRulesFile':
+                        void vscode.commands.executeCommand('auraVisualizer.archRules');
+                        break;
+                    case 'createArchBaseline':
+                        void vscode.commands.executeCommand('auraVisualizer.baselineArch');
+                        break;
+                    case 'resetArchBaseline':
+                        void vscode.commands.executeCommand('auraVisualizer.resetArchBaseline');
+                        break;
+                    case 'exportArchViolations': {
+                        const p = (message.payload || {}) as { markdown?: string };
+                        if (p.markdown) void this.handleExportArchViolations(p.markdown);
+                        break;
+                    }
+                    case 'exportParseFailures': {
+                        const p = (message.payload || {}) as { markdown?: string };
+                        if (p.markdown) void this.handleExportParseFailures(p.markdown);
+                        break;
+                    }
                     case 'requestDeadCodeRules':
                         void this.sendDeadCodeRules();
                         break;
@@ -380,6 +423,26 @@ export class WebviewProvider {
         }
     }
 
+    private async handleExportArchViolations(markdown: string): Promise<void> {
+        try {
+            await saveOrCopyText('Architecture violations', markdown, 'arch-violations.md', { Markdown: ['md'] });
+        } catch (err) {
+            vscode.window.showErrorMessage(
+                'Aura: Failed to export the architecture report: ' + (err instanceof Error ? err.message : String(err))
+            );
+        }
+    }
+
+    private async handleExportParseFailures(markdown: string): Promise<void> {
+        try {
+            await saveOrCopyText('Parse failures report', markdown, 'parse-failures.md', { Markdown: ['md'] });
+        } catch (err) {
+            vscode.window.showErrorMessage(
+                'Aura: Failed to export the parse failures report: ' + (err instanceof Error ? err.message : String(err))
+            );
+        }
+    }
+
     private async handleExportImageData(dataUrl: string): Promise<void> {
         try {
             const comma = dataUrl.indexOf(',');
@@ -402,6 +465,58 @@ export class WebviewProvider {
     public async sendAnnotations(): Promise<void> {
         const notes = await this.loadAnnotations();
         this.panel?.webview.postMessage({ type: 'annotations', payload: { notes } });
+    }
+
+    // ============================================================
+    // Architecture rules — .aura/arch-rules.json
+    // ============================================================
+
+    private archRulesFileUri(): vscode.Uri | undefined {
+        const ws = vscode.workspace.workspaceFolders?.[0];
+        return ws ? vscode.Uri.joinPath(ws.uri, ...ARCH_RULES_FILE.split('/')) : undefined;
+    }
+
+    private async sendArchRules(): Promise<void> {
+        const file = this.archRulesFileUri();
+        if (!file) {
+            this.panel?.webview.postMessage({ type: 'archRules', payload: { text: '', exists: false } });
+            return;
+        }
+        try {
+            const buf = await vscode.workspace.fs.readFile(file);
+            this.panel?.webview.postMessage({
+                type: 'archRules',
+                payload: { text: Buffer.from(buf).toString('utf-8'), exists: true },
+            });
+        } catch {
+            this.panel?.webview.postMessage({ type: 'archRules', payload: { text: '', exists: false } });
+        }
+    }
+
+    private async handleSaveArchRules(text: string): Promise<void> {
+        const ws = vscode.workspace.workspaceFolders?.[0];
+        const file = this.archRulesFileUri();
+        if (!ws || !file) {
+            this.panel?.webview.postMessage({
+                type: 'archRulesError',
+                payload: { message: 'Open a workspace folder before editing architecture rules.' },
+            });
+            return;
+        }
+        const normalized = text.trim() ? text : '{}\n';
+        try {
+            parseArchRules(normalized);
+            await vscode.workspace.fs.createDirectory(vscode.Uri.joinPath(ws.uri, '.aura'));
+            await vscode.workspace.fs.writeFile(file, Buffer.from(normalized, 'utf-8'));
+            this.panel?.webview.postMessage({ type: 'archRulesSaved', payload: { text: normalized } });
+            // Side file only: re-evaluate, no re-parse.
+            void vscode.commands.executeCommand('auraVisualizer.reloadArchRules');
+        } catch (err) {
+            this.panel?.webview.postMessage({
+                type: 'archRulesError',
+                payload: { message: err instanceof Error ? err.message : String(err) },
+            });
+        }
     }
 
     // ============================================================
@@ -635,6 +750,45 @@ export class WebviewProvider {
         }
     }
 
+    /**
+     * Push only the architecture annotations after a rules/baseline edit.
+     *
+     * A full `graphData` message destroys and rebuilds the ForceGraph3D instance:
+     * the force layout restarts and the camera snaps back to its default framing.
+     * Evaluation only changes `layer` / `archViolations` / `archViolation`, so the
+     * webview can patch those in place and keep camera + node positions intact.
+     */
+    public sendArchUpdate(data: GraphData): void {
+        if (!this.webviewReady) return; // pendingData already carries the same (mutated) objects
+        const nodes: { id: string; layer?: string; archViolations?: number }[] = [];
+        for (const node of data.nodes) {
+            if (node.layer === undefined && !node.archViolations) continue;
+            const entry: { id: string; layer?: string; archViolations?: number } = { id: node.id };
+            if (node.layer !== undefined) entry.layer = node.layer;
+            if (node.archViolations) entry.archViolations = node.archViolations;
+            nodes.push(entry);
+        }
+        const links: { source: string; target: string; type: string; archViolation: NonNullable<GraphLink['archViolation']> }[] = [];
+        for (const link of data.links) {
+            if (!link.archViolation) continue;
+            links.push({
+                source: link.source,
+                target: link.target,
+                type: link.type,
+                archViolation: link.archViolation,
+            });
+        }
+        this.panel?.webview.postMessage({
+            type: 'archUpdate',
+            payload: {
+                arch: data.meta.arch ?? null,
+                archError: data.meta.archError ?? null,
+                nodes,
+                links,
+            },
+        });
+    }
+
     /** Every graph snapshot sent to the webview carries the DB's community snapshot. */
     private attachCommunities(data: GraphData): void {
         const db = this.getGraphDB();
@@ -699,6 +853,24 @@ export class WebviewProvider {
             this.panel?.webview.postMessage({ type: 'showRiskTab' });
         } else {
             this.pendingShowRiskTab = true;
+        }
+    }
+
+    /** Switch the webview to the Architecture tab without changing the graph. */
+    public showArchTab(): void {
+        if (this.webviewReady) {
+            this.panel?.webview.postMessage({ type: 'showArchTab' });
+        } else {
+            this.pendingShowArchTab = true;
+        }
+    }
+
+    /** Reveal a file in the Architecture tab (expand its rule, scroll, flash). */
+    public focusArchFile(nodeId: string): void {
+        if (this.webviewReady) {
+            this.panel?.webview.postMessage({ type: 'archFocusFile', payload: { nodeId } });
+        } else {
+            this.pendingArchFocus = nodeId;
         }
     }
 
@@ -876,6 +1048,18 @@ export class WebviewProvider {
         const riskUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'risk-core.js')
         );
+        const archCoreUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'arch-core.js')
+        );
+        const archPanelUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'arch.js')
+        );
+        const deadCodeCoreUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'dead-code-core.js')
+        );
+        const deadCodeEditorUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'dead-code.js')
+        );
         const flightCoreUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'flight-core.js')
         );
@@ -971,6 +1155,8 @@ export class WebviewProvider {
                     <span class="stat" id="stat-links">0 links</span>
                     <span class="stat-separator">·</span>
                     <span class="stat" id="stat-time">—</span>
+                    <span class="stat-separator hidden" id="stat-parse-separator">·</span>
+                    <span class="stat stat-warn hidden" id="stat-parse-failures" role="button" tabindex="0" title="Files that could not be parsed cleanly — click for details">⚠ 0 parse failures</span>
                 </div>
                 <button id="btn-export" class="top-btn" title="Export AI context (Markdown/JSON) — selectable sections and token budget">📤 Export</button>
                 <button id="btn-export-image" class="top-btn" title="Export a high-resolution PNG of the 3D graph">📷</button>
@@ -991,6 +1177,7 @@ export class WebviewProvider {
             <button class="tab-btn" data-tab="timeline">📈 Timeline</button>
             <button class="tab-btn" data-tab="table">📋 Table</button>
             <button class="tab-btn" data-tab="risk">🛡️ Risk</button>
+            <button class="tab-btn" data-tab="arch">🏛️ Architecture</button>
             <button class="tab-btn" data-tab="coupling">🔗 Co-change</button>
             <button id="qb-toggle" class="qb-toggle" title="Toggle query bar (Ctrl+K)">🔍</button>
             <button id="settings-toggle" type="button" class="qb-toggle" title="Aura settings">⚙️</button>
@@ -1075,6 +1262,10 @@ export class WebviewProvider {
                         <span class="metric-value" id="panel-community">—</span>
                     </div>
                     <div class="panel-metric">
+                        <span class="metric-label">Layer</span>
+                        <span class="metric-value" id="panel-layer">—</span>
+                    </div>
+                    <div class="panel-metric">
                         <span class="metric-label">Lines</span>
                         <span class="metric-value" id="panel-loc">—</span>
                     </div>
@@ -1132,6 +1323,16 @@ export class WebviewProvider {
                         </span>
                     </div>
                 </div>
+            </div>
+        </details>
+        <details class="panel-section panel-collapsible" id="arch-section" style="display:none" open>
+            <summary class="panel-section-header">
+                <span class="panel-section-heading">🏛️ Architecture</span>
+                <span id="arch-count" class="count-badge">0</span>
+            </summary>
+            <div class="panel-section-body">
+                <p id="panel-arch-layer" class="arch-detail-layer"></p>
+                <ul id="panel-arch-list" class="panel-list arch-detail-list"></ul>
             </div>
         </details>
         <details class="panel-section panel-collapsible" id="symbols-section" style="display:none" open>
@@ -1325,6 +1526,20 @@ export class WebviewProvider {
         </div>
     </div>
 
+    <!-- Architecture Rules View (V2-20) -->
+    <div id="arch-view" class="tab-content" data-tab="arch">
+        <div class="arch-toolbar">
+            <h2>🏛️ Architecture Rules</h2>
+            <div class="arch-toolbar-actions">
+                <button id="arch-edit-rules" type="button" class="risk-export-btn" title="Create or open .aura/arch-rules.json">⚙️ Edit rules</button>
+                <button id="arch-baseline" type="button" class="risk-export-btn" title="Freeze current violations so only new ones alert">📌 Baseline violations</button>
+                <button id="arch-reset-baseline" type="button" class="risk-export-btn" title="Clear the baseline: every violation alerts again">↺ Reset baseline</button>
+                <button id="arch-export" type="button" class="risk-export-btn" title="Export a Markdown report">📤 Export report</button>
+            </div>
+        </div>
+        <div id="arch-content"></div>
+    </div>
+
     <!-- Treemap View -->
     <div id="treemap-view" class="tab-content" data-tab="treemap">
         <div class="treemap-toolbar">
@@ -1353,6 +1568,7 @@ export class WebviewProvider {
                 <label>Group by: <select id="chord-group-by">
                     <option value="directory" selected>Directory</option>
                     <option value="language">Language</option>
+                    <option value="layer">Architecture layer</option>
                     <option value="community">Community</option>
                 </select></label>
                 <span class="chord-stats" id="chord-stats"></span>
@@ -1384,6 +1600,7 @@ export class WebviewProvider {
                 <label>Group by: <select id="dsm-group-by">
                     <option value="directory" selected>Directory</option>
                     <option value="language">Language</option>
+                    <option value="layer">Architecture layer</option>
                     <option value="community">Community</option>
                 </select></label>
                 <label>Sort: <select id="dsm-sort">
@@ -1449,6 +1666,7 @@ export class WebviewProvider {
                     <tr>
                         <th data-col="name">File</th>
                         <th data-col="language">Lang</th>
+                        <th data-col="layer">Layer</th>
                         <th data-col="loc" class="num">LOC</th>
                         <th data-col="complexity" class="num">Complexity</th>
                         <th data-col="cognitive" class="num" title="Highest Sonar cognitive complexity among this file's functions">Cog. max</th>
@@ -1578,6 +1796,7 @@ export class WebviewProvider {
                 <option value="churn">⏱ Churn (commits)</option>
                 <option value="cochange">🔗 Co-change</option>
                 <option value="lastModified">📆 Last update</option>
+                <option value="layers">🏛️ Architecture layers</option>
                 <option value="community">🧩 Communities</option>
             </select>
         </div>
@@ -1630,10 +1849,13 @@ export class WebviewProvider {
         <span class="legend-mode" id="legend-mode">—</span>
     </div>
 
-    <!-- Community Palette (overlay) -->
+    <!-- Group Palette (overlay) — Communities or Architecture layers -->
     <div id="community-palette" class="hidden">
         <div class="community-palette-header">
-            <span title="Code-only Louvain communities: documentation and doc-reference edges are excluded">🧩 Communities</span>
+            <select id="palette-mode" class="palette-mode" title="Palette content — Communities groups the Louvain partition, Layers groups the architecture rules. Documentation is excluded from both.">
+                <option value="community">🧩 Communities</option>
+                <option value="layers">🏛️ Layers</option>
+            </select>
             <div class="community-palette-actions">
                 <button id="community-select-all" title="Select all">All</button>
                 <button id="community-select-none" title="Unselect all">None</button>
@@ -1828,6 +2050,10 @@ export class WebviewProvider {
                     <label>Dead code exemptions<span class="settings-hint">Framework/test rules always visible in the detail panel — defaults stay active</span></label>
                     <button id="dead-code-rules-open" class="settings-action-btn" type="button">Edit rules…</button>
                 </div>
+                <div class="settings-row">
+                    <label>Architecture rules<span class="settings-hint">Layers, deny rules and baseline — stored in <code>.aura/arch-rules.json</code></span></label>
+                    <button id="arch-rules-open" class="settings-action-btn" type="button">Edit rules…</button>
+                </div>
                 <div class="settings-footer">
                     <span id="settings-open-vscode">Open VS Code Settings →</span>
                     <span class="settings-hint">All settings: Extensions → Aura Visualizer</span>
@@ -1836,22 +2062,77 @@ export class WebviewProvider {
         </div>
     </div>
 
-    <!-- Dead-code exemption rules modal -->
+    <!-- Dead-code exemption rules editor -->
     <div id="dead-code-rules-modal" class="hidden">
-        <div class="help-modal-content dead-code-rules-content">
+        <div class="help-modal-content dead-code-rules-content dc-editor-content">
             <div class="help-modal-header">
                 <span>🛡️ Dead-code exemptions</span>
                 <button id="dead-code-rules-close" title="Close">✕</button>
             </div>
-            <div class="help-modal-body">
-                <p>Defaults (entry points, React/Vue/SwiftUI/servlet/Unity/Arduino, tests) are always active. Add project-specific rules below; they are stored in <code>.aura/dead-code.json</code>. Exempted symbols stay visible with their reason in the detail panel — they are never silently hidden.</p>
-                <textarea id="dead-code-rules-text" spellcheck="false" placeholder='{ "rules": [ { "name": "onResume", "path": "src/android/**", "reason": "Android lifecycle" } ] }'></textarea>
-                <p class="settings-hint">A rule needs a <code>reason</code> and at least one of <code>name</code>, <code>namePattern</code> or <code>path</code>. Multiple values can be arrays; <code>language</code> and <code>kind</code> are optional filters.</p>
+            <div class="help-modal-body dc-editor-body">
+                <p class="dc-editor-intro">Built-in defaults (entry points, React/Vue/SwiftUI/servlet/Unity/Arduino, tests) are always active. Custom rules are evaluated after the defaults and stay visible with their reason in the detail panel — they are never silently hidden.</p>
                 <div id="dead-code-rules-error" class="dead-code-rules-error"></div>
-                <div class="dead-code-rules-actions">
-                    <button id="dead-code-rules-reset" type="button">Reset custom rules</button>
-                    <span class="settings-hint">Saving starts a re-analysis.</span>
-                    <button id="dead-code-rules-save" class="primary" type="button">Save rules</button>
+                <div id="dc-editor-status" class="dc-editor-status"></div>
+                <div id="dc-editor-form"></div>
+                <details id="dc-editor-raw-wrap" class="dc-editor-raw">
+                    <summary>Raw JSON (advanced)</summary>
+                    <p class="settings-hint">Valid JSON re-renders the form when you leave the field. The stored file uses <code>{ version, rules }</code>.</p>
+                    <textarea id="dead-code-rules-text" spellcheck="false"></textarea>
+                </details>
+                <details id="dc-editor-defaults" class="dc-editor-defaults">
+                    <summary>Built-in defaults (always active)</summary>
+                    <div id="dc-editor-defaults-list"></div>
+                </details>
+                <div class="dead-code-rules-actions dc-editor-actions">
+                    <button id="dead-code-rules-reload" type="button">Reload from file</button>
+                    <button id="dead-code-rules-example" type="button">Load example</button>
+                    <button id="dead-code-rules-open-file" type="button">Open file</button>
+                    <button id="dead-code-rules-save" class="primary" type="button" disabled>Save rules</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Architecture rules editor (V2-20) -->
+    <div id="arch-rules-modal" class="hidden">
+        <div class="help-modal-content dead-code-rules-content arch-editor-content">
+            <div class="help-modal-header">
+                <span>🏛️ Architecture rules</span>
+                <button id="arch-rules-close" title="Close">✕</button>
+            </div>
+            <div class="help-modal-body arch-editor-body">
+                <p class="arch-editor-intro">Layers are matched in order (first match wins). Rules reference layers by name; renaming a layer updates every rule, and the same validation engine as the analysis checks the result before saving. Rule ids are referenced by the baseline — renaming an id makes its baselined violations new again.</p>
+                <div id="arch-rules-error" class="dead-code-rules-error"></div>
+                <div id="arch-editor-status" class="arch-editor-status"></div>
+                <div id="arch-editor-form"></div>
+                <details id="arch-editor-raw-wrap" class="arch-editor-raw">
+                    <summary>Raw JSON (advanced)</summary>
+                    <p class="settings-hint">Only for fields the form does not expose (<code>edgeTypes</code>, manual ordering). Valid JSON re-renders the form when you leave the field.</p>
+                    <textarea id="arch-rules-text" spellcheck="false"></textarea>
+                </details>
+                <div class="dead-code-rules-actions arch-editor-actions">
+                    <button id="arch-rules-reload" type="button">Reload from file</button>
+                    <button id="arch-rules-example" type="button">Load example</button>
+                    <button id="arch-rules-open-file" type="button">Open file</button>
+                    <button id="arch-rules-save" class="primary" type="button" disabled>Save rules</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Parse failures report (V2-17) -->
+    <div id="parse-failures-modal" class="hidden">
+        <div class="help-modal-content parse-failures-content">
+            <div class="help-modal-header">
+                <span>⚠ Parse failures</span>
+                <button id="parse-failures-close" title="Close">✕</button>
+            </div>
+            <div class="help-modal-body">
+                <p class="parse-failures-intro">These files could not be parsed cleanly. They are kept in the graph so their imports and dependents stay visible — cross-file relations may be incomplete for them. Click a path to reveal the node.</p>
+                <div id="parse-failures-list" class="parse-failures-list"></div>
+                <div class="parse-failures-actions">
+                    <span id="parse-failures-summary" class="parse-failures-summary"></span>
+                    <button id="parse-failures-export" class="risk-export-btn" type="button">Export report</button>
                 </div>
             </div>
         </div>
@@ -1866,8 +2147,9 @@ export class WebviewProvider {
             </div>
             <div class="help-modal-body">
 
-                <h3>✨ What's New in 1.4.1</h3>
-                <p><strong>Code-only communities</strong> shared by the palette, <code>@aura</code> and MCP, with full hub-path labels, editable card names and yellow documentation labels. <strong>Dead-code framework exemptions</strong> are visible with reasons and editable in <strong>⚙️ Settings → Dead code exemptions</strong> (<code>.aura/dead-code.json</code>). <strong>PageRank centrality 💠</strong> adds optional top-10% halos; <strong>complexity trends 📈</strong> add slope sparklines; import aliases, edge confidence and the fingerprint cache keep analysis accurate and fast.</p>
+                <h3>✨ What's New in 1.5.0</h3>
+                <p><strong>Architecture rules 🏛️</strong> turn layers into an executable fitness function: declare <code>layers</code>, <code>deny</code>, <code>slices</code>, <code>no-cycles</code> and <code>exceptions</code> in <code>.aura/arch-rules.json</code>. The <strong>🏛️ Architecture</strong> tab lists violations by rule with <strong>Ca/Ce/instability</strong> per layer; the <strong>Architecture layers</strong> heatmap turns forbidden edges red; the status bar shows the active file's violations. The floating palette switches between <strong>🧩 Communities</strong> and <strong>🏛️ Layers</strong>: click a layer card to hide it (Unlayered included when files fall outside every layer), and both selections are saved with the view state. Freeze legacy debt with a baseline so only new violations alert.</p>
+                <p><strong>⚠️ Parse failures</strong> are never fatal: a file Tree-sitter cannot parse cleanly keeps its node (imports stay visible), and a <strong>⚠ N parse failures</strong> badge in the stats bar opens the sampled paths and reasons. Click a path to reveal the node; <strong>Export report</strong> writes a Markdown summary.</p>
 
                 <h3>🖱️ Interactive Exploration</h3>
                 <table class="help-table">
@@ -1924,7 +2206,7 @@ export class WebviewProvider {
                 <p>Communities are computed once from the <strong>code-only</strong> Louvain snapshot and shared by the palette, <code>@aura</code> and MCP. Documentation nodes and <code>doc-reference</code> edges stay visible in the graph but are excluded from communities, fan-in, PageRank and risk. Each card shows the full <strong>hub path</strong>, the code file count and the number of files currently visible after filters. Use <strong>✏️</strong> to rename a community (persisted; empty restores the hub path) and <strong>✨</strong> to ask Aura with that exact membership. Use the floating palette to toggle communities on/off. Documentation nodes stay in the graph with <strong>yellow labels</strong> so they remain visually distinct from code.</p>
 
                 <h3>☠️ Dead Code & Exemptions</h3>
-                <p>The <strong>☠️ Dead</strong> filter and the detail panel show unused exports. Framework-owned entry points and callbacks are exempted by default: <code>main</code>, VS Code lifecycle, React components, Vue hooks, SwiftUI <code>body</code>, Java servlet methods, Unity callbacks, Arduino <code>setup</code>/<code>loop</code> and test files. Exempted symbols remain visible with their reason. Custom rules can be edited from <strong>⚙️ Settings → Dead code exemptions</strong> and are stored in <code>.aura/dead-code.json</code>; defaults always stay active.</p>
+                <p>The <strong>☠️ Dead</strong> filter and the detail panel show unused exports. Framework-owned entry points and callbacks are exempted by default: <code>main</code>, VS Code lifecycle, React components, Vue hooks, SwiftUI <code>body</code>, Java servlet methods, Unity callbacks, Arduino <code>setup</code>/<code>loop</code> and test files. Exempted symbols remain visible with their reason. Custom rules are edited from <strong>⚙️ Settings → Dead code exemptions</strong> in a structured editor (reason, names, regex, globs, languages, kinds, ordering) validated before saving; they are stored in <code>.aura/dead-code.json</code> and defaults always stay active.</p>
 
                 <h3>💥 Blast Radius</h3>
                 <p><kbd>Shift+Right-click</kbd> on a file to see all files that transitively depend on it. Nodes are colored by depth of impact: White (source) → Red → Orange → Yellow → Green.</p>
@@ -1987,7 +2269,7 @@ export class WebviewProvider {
                     <tr><td><strong>Risk history window</strong></td><td>30 / 90 / 365 days — drives the Risk Map, the status bar and hotspots</td></tr>
                     <tr><td><strong>PageRank centrality</strong></td><td>Use the PageRank percentile instead of fan-in in the risk score (off by default)</td></tr>
                     <tr><td><strong>Complexity trend threshold</strong></td><td>Complexity points per 30 days that flag a file as degrading</td></tr>
-                    <tr><td><strong>Dead code exemptions</strong></td><td>Edit custom framework/test rules in <code>.aura/dead-code.json</code>; defaults stay active</td></tr>
+                    <tr><td><strong>Dead code exemptions</strong></td><td>Edit custom framework/test rules with the structured editor; stored in <code>.aura/dead-code.json</code>, defaults stay active</td></tr>
                     <tr><td><strong>Mouse rotation speed</strong></td><td>Slider 1–5 — speed when dragging the 3D graph</td></tr>
                     <tr><td><strong>Link style</strong></td><td>Straight or curved dependency edges (+ curvature)</td></tr>
                     <tr><td><strong>Selected node effect</strong></td><td>Glow halo or bloom post-processing (+ intensity / radius / threshold)</td></tr>
@@ -2032,6 +2314,11 @@ export class WebviewProvider {
                     <tr><td><strong>🛡️ Risk</strong></td><td>Codebase risk dashboard (health score, churn, bus factor)</td></tr>
                     <tr><td><strong>🔗 Co-change</strong></td><td>Temporal co-change pairs — files changing together without a direct dependency, with virtual graph links</td></tr>
                 </table>
+
+                <h3>🏛️ Architecture Rules</h3>
+                <p>Create or edit <code>.aura/arch-rules.json</code> from the <strong>🏛️ Architecture</strong> tab or <strong>⚙️ Settings → Architecture rules</strong>. The structured editor manages layers, deny targets, slices, cycles and exceptions with live validation; renaming a layer updates every rule. Layers are matched by glob (first match wins), deny rules follow the real dependency direction, <code>slices</code> isolate sibling feature folders, and <code>no-cycles</code> checks the aggregated file → layer graph.</p>
+                <p>Only <strong>new</strong> violations alert once you baseline the current ones (<code>.aura/arch-baseline.json</code>). <strong>Ca</strong> = external files depending on a layer, <strong>Ce</strong> = external files it depends on, <strong>I = Ce / (Ca + Ce)</strong>. Documentation is outside the model: <code>.md</code> nodes and <code>doc-reference</code> edges are never evaluated.</p>
+                <p>Query examples: <code>layer == domain AND archviolations > 0</code> and <code>isarchviolator</code>. The MCP tool <code>get_architecture_violations</code> exposes the same evaluation to AI agents.</p>
 
                 <h3>🛡️ Risk Map</h3>
                 <p>Open the <strong>🛡️ Risk</strong> tab for a codebase health dashboard. It uses a transparent risk score: <code>100 × (0.30·complexity + 0.20·fan-in + 0.10·fan-out + 0.15·cycle + 0.15·dead-code + 0.10·churn)</code>. Documentation is outside architectural risk: docs are not scored and <code>doc-reference</code> links do not inflate fan-in or PageRank. Exempted framework symbols are not counted as dead code.</p>
@@ -2079,6 +2366,8 @@ export class WebviewProvider {
     <script nonce="${nonce}" src="${queryUri}"></script>
     <script nonce="${nonce}" src="${structureUri}"></script>
     <script nonce="${nonce}" src="${riskUri}"></script>
+    <script nonce="${nonce}" src="${archCoreUri}"></script>
+    <script nonce="${nonce}" src="${deadCodeCoreUri}"></script>
     <script nonce="${nonce}" src="${flightCoreUri}"></script>
     <script nonce="${nonce}" src="${flightUri}"></script>
     <script nonce="${nonce}" src="${flowUri}"></script>
@@ -2086,6 +2375,8 @@ export class WebviewProvider {
     <script nonce="${nonce}" src="${warpsUri}"></script>
     <script nonce="${nonce}" src="${timelineUri}"></script>
     <script nonce="${nonce}" src="${riskMapUri}"></script>
+    <script nonce="${nonce}" src="${archPanelUri}"></script>
+    <script nonce="${nonce}" src="${deadCodeEditorUri}"></script>
     <script nonce="${nonce}" src="${detailUri}"></script>
     <script nonce="${nonce}" src="${queryUiUri}"></script>
     <script nonce="${nonce}" src="${exportUri}"></script>

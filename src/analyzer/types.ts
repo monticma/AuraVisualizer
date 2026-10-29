@@ -2,6 +2,8 @@
  * Types for the Aura analyzer.
  */
 
+import type { ArchEvaluation } from '../arch/arch-core';
+
 export interface FileInfo {
     id: string;
     name: string;
@@ -144,6 +146,10 @@ export interface GraphNode {
     /** Symbols ignored by dead-code detection because a framework owns them. */
     exemptedExports?: DeadCodeExemption[];
     cycleIds?: number[];
+    /** Architectural layer assigned by `.aura/arch-rules.json` (V2-20). */
+    layer?: string;
+    /** New (non-baselined) architecture violations where this file is the source. */
+    archViolations?: number;
 }
 
 export interface GraphLink {
@@ -153,6 +159,12 @@ export interface GraphLink {
     label: string;
     /** Edge confidence: 1.0 exact, 0.9 extension, 0.8 suffix, 0.6 basename, 0.5 ambiguous. */
     confidence?: number;
+    /** Strongest architecture violation carried by this file pair (V2-20). */
+    archViolation?: {
+        ruleId: string;
+        severity: 'error' | 'warn';
+        baselined: boolean;
+    };
 }
 
 export interface LanguageStat {
@@ -174,12 +186,18 @@ export interface GraphMeta {
     deadCodeFiles: number;
     deadExportsTotal: number;
     cycles: string[][];
+    /** Parse-failure summary (V2-17); absent when every file parsed cleanly. */
+    parseFailures?: ParseFailureReport;
     /** Function-level cycles (V2-03); absent on old databases until re-analysis. */
     symbolCycles?: SymbolCycle[];
     /** Architectural communities (documentation excluded), shared by all surfaces. */
     communities?: GraphCommunity[];
     /** Number of framework/test symbols exempted from dead-code detection (V2-13). */
     deadCodeExemptions?: number;
+    /** Layer rules evaluation (V2-20); absent when no rules file is configured. */
+    arch?: ArchEvaluation;
+    /** Parse error of `.aura/arch-rules.json`, surfaced in the Architecture tab. */
+    archError?: string;
     languageStats: Record<string, LanguageStat>;
     groups: string[];
 }
@@ -189,6 +207,20 @@ export interface GraphData {
     nodes: GraphNode[];
     links: GraphLink[];
     functionCalls?: FunctionCallSite[];
+}
+
+/** A file that could not be parsed cleanly (V2-17). */
+export interface ParseFailure {
+    /** Workspace-relative path (node id). */
+    path: string;
+    /** Human-readable reason: exception message or "syntax errors". */
+    reason: string;
+}
+
+/** Exact failure count plus a deterministic, capped sample (V2-17). */
+export interface ParseFailureReport {
+    total: number;
+    samples: ParseFailure[];
 }
 
 /** An architectural community, computed once from the structural code graph. */

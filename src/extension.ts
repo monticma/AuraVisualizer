@@ -9,7 +9,7 @@ import { existsSync, readFileSync, readdirSync } from 'fs';
 import { Worker } from 'worker_threads';
 import { WebviewProvider } from './webview/WebviewProvider';
 import { AuraTreeProvider } from './AuraTreeProvider';
-import { analyzeCodebase, scanSingleFile, scanFileSignatures, buildGraph, preParseFiles, rebuildSingleFile, buildIncrementalContext, restoreIncrementalContext, type GraphData, type GraphNode, type GraphLink, type FileInfo, type IncrementalContext } from './analyzer/index';
+import { analyzeCodebase, scanSingleFile, scanFileSignatures, buildGraph, preParseFiles, rebuildSingleFile, buildIncrementalContext, restoreIncrementalContext, type GraphData, type GraphNode, type GraphLink, type FileInfo, type IncrementalContext, type ParseFailure } from './analyzer/index';
 import { isGitRepo, getGitRoot, getGitHead, getWorkingTreeFiles, type GitFileState } from './analyzer/git-history';
 import { computeFingerprint, fingerprintFromMeta, fingerprintMetaEntries, hashAnalysisConfig, planAnalysis, type AnalysisFingerprint } from './analyzer/fingerprint';
 import type { CommitIndex, CommitDelta } from './analyzer/types';
@@ -28,9 +28,25 @@ import { saveOrCopyText, saveText } from './export/save';
 import { chunkDocument, type DocChunk } from './analyzer/parsers/doc-parser';
 import { computeCochange } from './analysis/cochange';
 import { computeSymbolCycles } from './analysis/symbol-cycles';
+import { buildParseFailureReport } from './analysis/parse-failures';
 import { computePageRank } from './analysis/pagerank';
 import { documentationIdsOf, isStructuralLink } from './analysis/architecture';
 import { parseDeadCodeRules, type DeadCodeRule } from './analysis/dead-code';
+import {
+    ARCH_BASELINE_FILE,
+    ARCH_RULES_FILE,
+    EMPTY_ARCH_RULES,
+    applyArchitecture,
+    buildArchBaseline,
+    buildArchRulesTemplate,
+    evaluateArchitecture,
+    parseArchBaseline,
+    parseArchRules,
+    serializeArchBaseline,
+    type ArchBaseline,
+    type ArchEvaluation,
+    type ArchRules,
+} from './arch/arch-core';
 
 let webviewProvider: WebviewProvider | undefined;
 let cachedGraphData: GraphData | undefined;
@@ -42,6 +58,11 @@ let fileWatcher: vscode.FileSystemWatcher | undefined;
 let riskStatusBarItem: vscode.StatusBarItem | undefined;
 let riskSnapshot: RiskSnapshot | undefined;
 let riskSnapshotDirty = true;
+let archStatusBarItem: vscode.StatusBarItem | undefined;
+let archRules: ArchRules | undefined;
+let archBaseline: ArchBaseline = { version: 1, entries: [] };
+let archEvaluation: ArchEvaluation | undefined;
+let archRulesError: string | undefined;
 let workingTreeFiles: Map<string, GitFileState> = new Map();
 let workingTreeTimer: ReturnType<typeof setTimeout> | undefined;
 let startupWorkingTreeTimer: ReturnType<typeof setTimeout> | undefined;
@@ -53,6 +74,35 @@ let treeProvider: AuraTreeProvider | undefined;
 let isAnalyzing = false;
 let graphDb: GraphDB | undefined;
 let incrementalCtx: IncrementalContext | undefined;
+/**
+ * Files that failed to parse cleanly (V2-17), keyed by node id. The full index
+ * is kept in memory for incremental edits; `meta.parseFailures` only carries a
+ * capped sample for the UI.
+ */
+let parseFailureIndex = new Map<string, string>();
+
+/** Rebuild `meta.parseFailures` from the live index (undefined when clean). */
+function refreshParseFailureMeta(data: GraphData | undefined = cachedGraphData): void {
+    if (!data) return;
+    const report = buildParseFailureReport(parseFailureIndex);
+    if (report) data.meta.parseFailures = report;
+    else delete data.meta.parseFailures;
+}
+
+/** Seed the in-memory index from a cached graph (sample-only, best effort). */
+function seedParseFailureIndex(data: GraphData | undefined): void {
+    parseFailureIndex = new Map((data?.meta.parseFailures?.samples || []).map(sample => [sample.path, sample.reason]));
+}
+
+/** Apply one file's parse result to the index + meta (incremental edits). */
+function applyParseFailure(path: string, reason?: string): void {
+    const before = parseFailureIndex.get(path);
+    if (reason) parseFailureIndex.set(path, reason);
+    else parseFailureIndex.delete(path);
+    if ((before || reason) && cachedGraphData) {
+        refreshParseFailureMeta(cachedGraphData);
+    }
+}
 
 /** Recompute PageRank in place and return the nodes whose score changed. */
 function recomputePageRank(data: GraphData): GraphNode[] {
@@ -67,6 +117,164 @@ function recomputePageRank(data: GraphData): GraphNode[] {
         if (before.get(node.id) !== node.pagerank) changed.push(node);
     }
     return changed;
+}
+
+// ============================================================
+// Architecture rules (V2-20) — host-side configuration and evaluation
+// ============================================================
+
+function archRulesFilePath(rootPath: string): string {
+    return path.join(rootPath, ARCH_RULES_FILE);
+}
+
+function archBaselineFilePath(rootPath: string): string {
+    return path.join(rootPath, ARCH_BASELINE_FILE);
+}
+
+/** Read `.aura/arch-rules.json` + `.aura/arch-baseline.json`. Never throws. */
+function loadArchConfiguration(rootPath: string): void {
+    archRules = undefined;
+    archRulesError = undefined;
+    archBaseline = { version: 1, entries: [] };
+
+    const rulesFile = archRulesFilePath(rootPath);
+    if (existsSync(rulesFile)) {
+        try {
+            archRules = parseArchRules(readFileSync(rulesFile, 'utf-8'));
+        } catch (err) {
+            archRulesError = err instanceof Error ? err.message : String(err);
+            console.warn('[aura] Invalid .aura/arch-rules.json:', err);
+        }
+    }
+
+    const baselineFile = archBaselineFilePath(rootPath);
+    if (existsSync(baselineFile)) {
+        try {
+            archBaseline = parseArchBaseline(readFileSync(baselineFile, 'utf-8'));
+        } catch (err) {
+            console.warn('[aura] Invalid .aura/arch-baseline.json — ignored:', err);
+        }
+    }
+}
+
+/**
+ * Evaluate the architecture rules against the current graph, annotate every
+ * node/link in place, and expose the evaluation through `meta.arch`.
+ * Removes stale annotations when the rules file is absent or invalid.
+ */
+function applyArchitectureToGraph(data: GraphData): ArchEvaluation | undefined {
+    if (!archRules) {
+        const empty = evaluateArchitecture({ nodes: [], links: [] }, EMPTY_ARCH_RULES);
+        applyArchitecture(data.nodes, data.links, empty, EMPTY_ARCH_RULES);
+        delete data.meta.arch;
+        archEvaluation = undefined;
+    } else {
+        archEvaluation = evaluateArchitecture(data, archRules, { baseline: archBaseline });
+        applyArchitecture(data.nodes, data.links, archEvaluation, archRules);
+        data.meta.arch = archEvaluation;
+    }
+    if (archRulesError) data.meta.archError = archRulesError;
+    else delete data.meta.archError;
+    return archEvaluation;
+}
+
+/** Top-level source folders used to seed a rules template. */
+function topLevelSourceFolders(rootPath: string): string[] {
+    const skip = new Set([
+        'node_modules', '.git', '.aura', '.vscode', '.github', 'out', 'dist', 'build',
+        'coverage', '__pycache__', 'docs', 'doc', 'test', 'tests', 'resources',
+    ]);
+    const srcPath = path.join(rootPath, 'src');
+    for (const base of [srcPath, rootPath]) {
+        try {
+            const folders = readdirSync(base, { withFileTypes: true })
+                .filter(entry => entry.isDirectory() && !entry.name.startsWith('.') && !skip.has(entry.name))
+                .map(entry => entry.name)
+                .sort();
+            if (folders.length > 0) return folders;
+        } catch {
+            // Try the next base directory.
+        }
+    }
+    return [];
+}
+
+/** Re-read rules + baseline, re-evaluate and refresh every surface (no re-parse). */
+function reloadArchitecture(): void {
+    const ws = vscode.workspace.workspaceFolders?.[0];
+    if (!ws) return;
+    loadArchConfiguration(ws.uri.fsPath);
+    if (cachedGraphData) {
+        applyArchitectureToGraph(cachedGraphData);
+        // Annotation-only message: keeps the live graph instance (camera framing,
+        // settled node layout) instead of re-sending the whole dataset.
+        webviewProvider?.sendArchUpdate(cachedGraphData);
+        treeProvider?.update(cachedGraphData);
+    }
+    updateStatusBar();
+}
+
+/** Create (from source folders) or open the rules file. */
+async function createOrOpenArchRules(): Promise<void> {
+    const ws = vscode.workspace.workspaceFolders?.[0];
+    if (!ws) {
+        void vscode.window.showWarningMessage('Aura: open a workspace folder first.');
+        return;
+    }
+    const file = archRulesFilePath(ws.uri.fsPath);
+    try {
+        if (!existsSync(file)) {
+            await fs.mkdir(path.dirname(file), { recursive: true });
+            await fs.writeFile(file, buildArchRulesTemplate(topLevelSourceFolders(ws.uri.fsPath)), 'utf-8');
+        }
+        const doc = await vscode.workspace.openTextDocument(file);
+        await vscode.window.showTextDocument(doc);
+    } catch (err) {
+        void vscode.window.showErrorMessage(
+            'Aura: could not create architecture rules — ' + (err instanceof Error ? err.message : String(err))
+        );
+    }
+}
+
+/** Freeze every current violation so only new ones alert. */
+async function baselineArchitecture(): Promise<void> {
+    const ws = vscode.workspace.workspaceFolders?.[0];
+    if (!ws) return;
+    if (!cachedGraphData || !archRules) {
+        void vscode.window.showWarningMessage('Aura: create .aura/arch-rules.json before baselining violations.');
+        return;
+    }
+    applyArchitectureToGraph(cachedGraphData);
+    if (!archEvaluation) return;
+    const baseline = buildArchBaseline(archEvaluation);
+    try {
+        await fs.mkdir(path.dirname(archBaselineFilePath(ws.uri.fsPath)), { recursive: true });
+        await fs.writeFile(archBaselineFilePath(ws.uri.fsPath), serializeArchBaseline(baseline), 'utf-8');
+        reloadArchitecture();
+        void vscode.window.showInformationMessage(
+            `Aura: ${baseline.entries.length} architecture violation${baseline.entries.length === 1 ? '' : 's'} baselined — only new ones will alert.`
+        );
+    } catch (err) {
+        void vscode.window.showErrorMessage(
+            'Aura: could not write the architecture baseline — ' + (err instanceof Error ? err.message : String(err))
+        );
+    }
+}
+
+/** Clear the baseline: every violation alerts again. */
+async function resetArchitectureBaseline(): Promise<void> {
+    const ws = vscode.workspace.workspaceFolders?.[0];
+    if (!ws) return;
+    const file = archBaselineFilePath(ws.uri.fsPath);
+    try {
+        if (existsSync(file)) await fs.unlink(file);
+        reloadArchitecture();
+        void vscode.window.showInformationMessage('Aura: architecture baseline cleared.');
+    } catch (err) {
+        void vscode.window.showErrorMessage(
+            'Aura: could not delete the baseline — ' + (err instanceof Error ? err.message : String(err))
+        );
+    }
 }
 
 /** Refresh the dead-code metadata counters after an incremental node change. */
@@ -109,6 +317,12 @@ export function activate(context: vscode.ExtensionContext): void {
     riskStatusBarItem.tooltip = 'Aura risk map';
     context.subscriptions.push(riskStatusBarItem);
 
+    // Status bar (right) — layer + new architecture violations of the edited file.
+    archStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 49);
+    archStatusBarItem.command = 'auraVisualizer.statusBarArch';
+    archStatusBarItem.tooltip = 'Aura architecture rules';
+    context.subscriptions.push(archStatusBarItem);
+
     // Language Model tools — exposes Aura's codebase graph to VS Code AI agents (Copilot Chat, etc.)
     registerAuraLmTools(context, () => graphDb, () => ensureRiskSnapshot());
     registerAuraChatParticipant(context, () => graphDb, () => ensureRiskSnapshot(), () => webviewProvider?.isOpen ?? false);
@@ -131,6 +345,12 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('auraVisualizer.exportMetrics', () => exportMetrics()),
         vscode.commands.registerCommand('auraVisualizer.blastRadius', () => blastRadiusCurrentFile(context)),
         vscode.commands.registerCommand('auraVisualizer.statusBarRisk', (nodeId?: string) => focusRiskFromStatusBar(context, nodeId)),
+        vscode.commands.registerCommand('auraVisualizer.statusBarArch', (nodeId?: string) => focusArchFromStatusBar(context, nodeId)),
+        vscode.commands.registerCommand('auraVisualizer.archRules', () => createOrOpenArchRules()),
+        vscode.commands.registerCommand('auraVisualizer.deadCodeRules', () => createOrOpenDeadCodeRules()),
+        vscode.commands.registerCommand('auraVisualizer.reloadArchRules', () => reloadArchitecture()),
+        vscode.commands.registerCommand('auraVisualizer.baselineArch', () => baselineArchitecture()),
+        vscode.commands.registerCommand('auraVisualizer.resetArchBaseline', () => resetArchitectureBaseline()),
         vscode.commands.registerCommand('auraVisualizer.applyQuery', async (expr?: string, mode: 'highlight' | 'filter' | 'select' = 'filter') => {
             if (!expr) return;
             await openVisualizer(context);
@@ -147,6 +367,10 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // Watch for file changes (incremental)
     setupFileWatcher(context);
+
+    // Rules and baseline are side files: editing them only requires a
+    // re-evaluation (no re-parse, no DB write).
+    setupArchitectureWatcher(context);
 
     // Watch .git for state changes (commit, stage, checkout, stash, branch
     // switch) so the dirty overlay stays fresh — none of those touch a source
@@ -179,6 +403,7 @@ export function activate(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         vscode.window.onDidChangeActiveTextEditor(editor => {
             updateRiskStatusBar();
+            updateArchStatusBar();
             if (!editor || !webviewProvider?.isVisible) return;
             if (editor.document.uri.scheme !== 'file') return;
             const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -245,6 +470,7 @@ async function loadFromDbThenRefresh(context: vscode.ExtensionContext): Promise<
 
     const rootPath = workspaceFolder.uri.fsPath;
     const dbPath = path.join(rootPath, '.aura', 'graph.db');
+    loadArchConfiguration(rootPath);
 
     if (existsSync(dbPath)) {
         try {
@@ -258,6 +484,8 @@ async function loadFromDbThenRefresh(context: vscode.ExtensionContext): Promise<
             const cached = graphDb.exportGraphData();
             if (cached && cached.nodes.length > 0) {
                 cachedGraphData = cached;
+                seedParseFailureIndex(cachedGraphData);
+                applyArchitectureToGraph(cachedGraphData);
                 const rankChanges = recomputePageRank(cachedGraphData);
                 if (rankChanges.length > 0) {
                     graphDb.updatePageRanks(cachedGraphData.nodes);
@@ -366,6 +594,28 @@ async function openVisualizer(context: vscode.ExtensionContext): Promise<void> {
     }
 }
 
+/** Create (empty) or open `.aura/dead-code.json`. */
+async function createOrOpenDeadCodeRules(): Promise<void> {
+    const ws = vscode.workspace.workspaceFolders?.[0];
+    if (!ws) {
+        void vscode.window.showWarningMessage('Aura: open a workspace folder first.');
+        return;
+    }
+    const file = path.join(ws.uri.fsPath, '.aura', 'dead-code.json');
+    try {
+        if (!existsSync(file)) {
+            await fs.mkdir(path.dirname(file), { recursive: true });
+            await fs.writeFile(file, '{\n  "version": 1,\n  "rules": []\n}\n', 'utf-8');
+        }
+        const doc = await vscode.workspace.openTextDocument(file);
+        await vscode.window.showTextDocument(doc);
+    } catch (err) {
+        void vscode.window.showErrorMessage(
+            'Aura: could not create dead-code rules — ' + (err instanceof Error ? err.message : String(err))
+        );
+    }
+}
+
 /** Load optional workspace dead-code exemptions; invalid files fall back to defaults. */
 function loadDeadCodeRules(rootPath: string): DeadCodeRule[] {
     const file = path.join(rootPath, '.aura', 'dead-code.json');
@@ -416,6 +666,8 @@ function filesFromGraphData(data: GraphData, rootPath: string): FileInfo[] {
 /** Rebuild the in-memory incremental context after a cache hit. */
 function hydrateCachedGraphState(rootPath: string): void {
     if (!cachedGraphData) return;
+    loadArchConfiguration(rootPath);
+    applyArchitectureToGraph(cachedGraphData);
     if (cachedFiles.length === 0) {
         cachedFiles = filesFromGraphData(cachedGraphData, rootPath);
     }
@@ -486,6 +738,7 @@ async function refreshAnalysis(context: vscode.ExtensionContext, force = false):
         if (currentFingerprint && graphDb) {
             if (!cachedGraphData) {
                 cachedGraphData = graphDb.exportGraphData() ?? undefined;
+                seedParseFailureIndex(cachedGraphData);
             }
             const previous = fingerprintFromMeta(graphDb.getAllMeta());
             const plan = planAnalysis(previous, currentFingerprint, {
@@ -556,6 +809,12 @@ async function refreshAnalysis(context: vscode.ExtensionContext, force = false):
 
         cachedGraphData = result.graphData;
         cachedFiles = result.files;
+        // V2-17: the worker sends the full failure list; keep it for incremental
+        // edits and rebuild the capped report carried by meta.
+        parseFailureIndex = new Map((result.parseFailures || []).map(failure => [failure.path, failure.reason]));
+        refreshParseFailureMeta(cachedGraphData);
+        loadArchConfiguration(rootPath);
+        applyArchitectureToGraph(cachedGraphData);
         // Restore incremental context from already-computed graph data (no re-parsing)
         incrementalCtx = restoreIncrementalContext(cachedFiles, cachedGraphData);
 
@@ -670,7 +929,7 @@ function runAnalysisInWorker(
     excludePaths: string[],
     projectName: string,
     deadCodeRules: DeadCodeRule[],
-): Promise<{ graphData: GraphData; files: FileInfo[]; docChunks: DocChunk[] }> {
+): Promise<{ graphData: GraphData; files: FileInfo[]; docChunks: DocChunk[]; parseFailures: ParseFailure[] }> {
     return new Promise((resolve, reject) => {
         const workerPath = path.join(extensionUri.fsPath, 'out', 'analyzer-worker.js');
         const worker = new Worker(workerPath, {
@@ -686,7 +945,7 @@ function runAnalysisInWorker(
             },
         });
 
-        worker.on('message', (msg: { graphData?: GraphData; files?: FileInfo[]; docChunks?: DocChunk[]; error?: string; progress?: { phase: string; message: string } }) => {
+        worker.on('message', (msg: { graphData?: GraphData; files?: FileInfo[]; docChunks?: DocChunk[]; parseFailures?: ParseFailure[]; error?: string; progress?: { phase: string; message: string } }) => {
             if (msg.progress) {
                 webviewProvider?.sendProgress(msg.progress.phase, msg.progress.message);
                 return;
@@ -694,7 +953,7 @@ function runAnalysisInWorker(
             if (msg.error) {
                 reject(new Error(msg.error));
             } else {
-                resolve({ graphData: msg.graphData!, files: msg.files!, docChunks: msg.docChunks || [] });
+                resolve({ graphData: msg.graphData!, files: msg.files!, docChunks: msg.docChunks || [], parseFailures: msg.parseFailures || [] });
             }
             worker.terminate();
         });
@@ -730,8 +989,11 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
             incrementalCtx.fileMap.delete(relativePath);
             incrementalCtx.fileSymbols.delete(relativePath);
         }
+        // A deleted file can no longer fail to parse (V2-17).
+        applyParseFailure(relativePath, undefined);
         if (graphDb) {
             graphDb.deleteNode(relativePath);
+            if (cachedGraphData) graphDb.setMeta('parseFailures', JSON.stringify(cachedGraphData.meta.parseFailures || null));
             graphDb.save();
         }
         // Update cached graph + send delta
@@ -754,6 +1016,7 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
             cachedGraphData.meta.totalFiles = cachedGraphData.nodes.length;
             cachedGraphData.meta.totalLinks = cachedGraphData.links.length;
             recomputeDeadCodeMeta(cachedGraphData);
+            applyArchitectureToGraph(cachedGraphData);
 
             if (webviewProvider?.isVisible) {
                 const delta: GraphDelta = {
@@ -816,8 +1079,9 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
         incrementalCtx = restoreIncrementalContext(cachedFiles, cachedGraphData!);
     }
 
-    // Pre-parse single file
-    const trees = await preParseFiles([newInfo]);
+    // Pre-parse single file (a syntax-error file keeps its node — V2-17)
+    const fileFailures = new Map<string, string>();
+    const trees = await preParseFiles([newInfo], fileFailures);
     const tree = trees.get(newInfo.id);
 
     // Get old outgoing edge targets (for fan-count recalculation)
@@ -830,6 +1094,8 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
     const result = rebuildSingleFile(newInfo, incrementalCtx, tree, {
         deadCodeRules: loadDeadCodeRules(rootPath),
     });
+    // Tree-sitter errors or a throwing parser both feed the same report.
+    applyParseFailure(newInfo.id, fileFailures.get(newInfo.id) || result.parseFailureReason);
     // On a cache-only context we cannot rescan all source contents; keep the
     // previous classification rather than clearing it on every save.
     if (!incrementalCtx.hasFileContents && cachedGraphData) {
@@ -846,6 +1112,7 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
     if (graphDb) {
         graphDb.replaceFileData(newInfo.id, result.node, result.outEdges, result.callSites);
         graphDb.updateFanCounts(affectedIds);
+        if (cachedGraphData) graphDb.setMeta('parseFailures', JSON.stringify(cachedGraphData.meta.parseFailures || null));
         graphDb.save();
     }
 
@@ -914,6 +1181,7 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
         cachedGraphData.meta.totalFiles = cachedGraphData.nodes.length;
         cachedGraphData.meta.totalLinks = cachedGraphData.links.length;
         recomputeDeadCodeMeta(cachedGraphData);
+        applyArchitectureToGraph(cachedGraphData);
         delta.meta = cachedGraphData.meta;
         delta.functionCalls = cachedGraphData.functionCalls || [];
         for (const node of rankChanges) {
@@ -1013,6 +1281,7 @@ function computeGraphDelta(
 
 function updateStatusBar(): void {
     invalidateRisk();
+    updateArchStatusBar();
     if (!statusBarItem) return;
     if (!cachedGraphData || cachedGraphData.nodes.length === 0) {
         statusBarItem.text = '$(eye) Aura';
@@ -1041,9 +1310,18 @@ async function notifyScanComplete(context: vscode.ExtensionContext): Promise<voi
     const deadExports = meta.deadExportsTotal ?? 0;
     const exemptions = meta.deadCodeExemptions ?? 0;
     const exemptText = exemptions > 0 ? ` · ${exemptions} exempted` : '';
-    const message = `Aura: ${meta.totalFiles} files · ${cycles} cycles · ${deadExports} dead exports${exemptText} · ${hotspots} hotspots`;
+    const archViolations = meta.arch?.counts.newTotal ?? 0;
+    const archText = meta.arch?.configured
+        ? ` · ${archViolations} arch violation${archViolations === 1 ? '' : 's'}`
+        : '';
+    const message = `Aura: ${meta.totalFiles} files · ${cycles} cycles · ${deadExports} dead exports${exemptText} · ${hotspots} hotspots${archText}`;
 
-    const choice = await vscode.window.showInformationMessage(message, 'View Risk');
+    const choices = meta.arch?.configured ? ['View Risk', 'View Architecture'] : ['View Risk'];
+    const choice = await vscode.window.showInformationMessage(message, ...choices);
+    if (choice === 'View Architecture') {
+        await focusArchFromStatusBar(context);
+        return;
+    }
     if (choice !== 'View Risk') return;
 
     const top = snapshot
@@ -1188,6 +1466,86 @@ function buildRiskTooltip(entry: RiskFileEntry, relPath: string): vscode.Markdow
     return md;
 }
 
+// ============================================================
+// Architecture status bar — layer + violations of the active file
+// ============================================================
+
+function updateArchStatusBar(): void {
+    if (!archStatusBarItem) return;
+    const ws = vscode.workspace.workspaceFolders?.[0];
+    const editor = vscode.window.activeTextEditor;
+    if (!ws || !editor || !cachedGraphData || !archRules || editor.document.uri.scheme !== 'file') {
+        archStatusBarItem.hide();
+        return;
+    }
+    const rel = path.relative(ws.uri.fsPath, editor.document.uri.fsPath);
+    if (rel.startsWith('..') || path.isAbsolute(rel)) {
+        archStatusBarItem.hide();
+        return;
+    }
+    const relNorm = rel.split(path.sep).join('/');
+    const node = cachedGraphData.nodes.find(n => (n.path || n.id).replace(/\\/g, '/') === relNorm);
+    if (!node || node.language === 'documentation') {
+        archStatusBarItem.hide();
+        return;
+    }
+    const violations = archEvaluation
+        ? archEvaluation.violations.filter(v => !v.baselined && v.source === relNorm)
+        : [];
+    const baselined = archEvaluation
+        ? archEvaluation.violations.filter(v => v.baselined && v.source === relNorm).length
+        : 0;
+    if (!node.layer && violations.length === 0) {
+        if (archRules.strict) {
+            archStatusBarItem.text = '$(symbol-structure) unlayered';
+            archStatusBarItem.tooltip = 'Strict mode: this file matches no layer in .aura/arch-rules.json.';
+            archStatusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
+            archStatusBarItem.command = {
+                command: 'auraVisualizer.statusBarArch',
+                title: 'Reveal in Architecture tab',
+                arguments: [relNorm],
+            };
+            archStatusBarItem.show();
+            return;
+        }
+        archStatusBarItem.hide();
+        return;
+    }
+
+    const errors = violations.filter(v => v.severity === 'error').length;
+    if (violations.length > 0) {
+        archStatusBarItem.text = `$(symbol-structure) ${violations.length} arch violation${violations.length === 1 ? '' : 's'}`;
+    } else {
+        archStatusBarItem.text = `$(symbol-structure) ${node.layer}`;
+    }
+
+    const md = new vscode.MarkdownString();
+    md.appendMarkdown(`**Layer: ${node.layer || 'unlayered'}**\n\n`);
+    if (violations.length > 0) {
+        for (const violation of violations.slice(0, 6)) {
+            md.appendMarkdown(`- \`${violation.ruleId}\`: ${violation.sourceGroup || '?'} → ${violation.targetGroup || '?'} \`${violation.linkTypes.join(', ')}\`\n`);
+            md.appendMarkdown(`  ${violation.target}\n`);
+        }
+        if (violations.length > 6) md.appendMarkdown(`\n… and ${violations.length - 6} more`);
+    } else {
+        md.appendMarkdown('No violation where this file is the source.\n');
+    }
+    if (baselined > 0) {
+        md.appendMarkdown(`\n${baselined} baselined violation${baselined === 1 ? '' : 's'} (not alerting).`);
+    }
+    md.appendMarkdown('\n\nClick to reveal in the Architecture tab.');
+    archStatusBarItem.tooltip = md;
+    archStatusBarItem.backgroundColor = errors > 0
+        ? new vscode.ThemeColor('statusBarItem.errorBackground')
+        : (violations.length > 0 ? new vscode.ThemeColor('statusBarItem.warningBackground') : undefined);
+    archStatusBarItem.command = {
+        command: 'auraVisualizer.statusBarArch',
+        title: 'Reveal in Architecture tab',
+        arguments: [relNorm],
+    };
+    archStatusBarItem.show();
+}
+
 /** Map a git (repo-relative) path to a workspace-relative, slash-separated path. */
 function toWorkspaceRelative(repoRelative: string): string | undefined {
     const ws = vscode.workspace.workspaceFolders?.[0];
@@ -1288,6 +1646,29 @@ async function focusRiskFromStatusBar(context: vscode.ExtensionContext, nodeId?:
         webviewProvider.focusRiskFile(nodeId);
     } else {
         webviewProvider.showRiskTab();
+    }
+}
+
+async function focusArchFromStatusBar(context: vscode.ExtensionContext, nodeId?: string): Promise<void> {
+    const wasOpen = webviewProvider?.isOpen ?? false;
+    if (!webviewProvider) {
+        webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState, () => graphDb, hostDataAccessors());
+        registerOpenFileHandler();
+    }
+    webviewProvider.show();
+    if (!wasOpen && cachedGraphData) {
+        webviewProvider.sendGraphData(cachedGraphData);
+        if (commitIndex) {
+            webviewProvider.sendHistoryIndex(commitIndex);
+            for (const delta of cachedDeltas) {
+                webviewProvider.sendHistoryDelta(delta);
+            }
+        }
+    }
+    if (nodeId) {
+        webviewProvider.focusArchFile(nodeId);
+    } else {
+        webviewProvider.showArchTab();
     }
 }
 
@@ -1671,6 +2052,29 @@ function setupFileWatcher(context: vscode.ExtensionContext): void {
     });
 
     context.subscriptions.push(fileWatcher);
+}
+
+/**
+ * Rules and baseline are configuration side files. Re-evaluate them on save
+ * without re-parsing the project: evaluation is O(nodes + edges).
+ */
+function setupArchitectureWatcher(context: vscode.ExtensionContext): void {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const schedule = () => {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => {
+            timer = undefined;
+            reloadArchitecture();
+        }, 250);
+    };
+    for (const glob of ['**/.aura/arch-rules.json', '**/.aura/arch-baseline.json']) {
+        const watcher = vscode.workspace.createFileSystemWatcher(glob);
+        watcher.onDidChange(schedule);
+        watcher.onDidCreate(schedule);
+        watcher.onDidDelete(schedule);
+        context.subscriptions.push(watcher);
+    }
+    context.subscriptions.push({ dispose: () => { if (timer) clearTimeout(timer); } });
 }
 
 /**

@@ -2,7 +2,7 @@
   "name": "aura-visualizer-3D",
   "displayName": "Aura 3D Visualizer",
   "description": "Visualize your codebase in 3D directly in VSCode — interactive dependency graph with force-directed layout",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "publisher": "monticma-aura",
   "icon": "resources/aura-star-icon.png",
   "repository": {
@@ -247,6 +247,26 @@
         "command": "auraVisualizer.blastRadius",
         "title": "Aura: Blast Radius (Impact Analysis)",
         "icon": "$(radio-tower)"
+      },
+      {
+        "command": "auraVisualizer.archRules",
+        "title": "Aura: Create or Open Architecture Rules",
+        "icon": "$(law)"
+      },
+      {
+        "command": "auraVisualizer.deadCodeRules",
+        "title": "Aura: Create or Open Dead-code Exemptions",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "auraVisualizer.baselineArch",
+        "title": "Aura: Baseline Architecture Violations",
+        "icon": "$(pin)"
+      },
+      {
+        "command": "auraVisualizer.resetArchBaseline",
+        "title": "Aura: Reset Architecture Baseline",
+        "icon": "$(discard)"
       },
       {
         "command": "auraVisualizer.askAura",
@@ -511,7 +531,7 @@
           {
             "id": "tabbed-views",
             "title": "Switch Between Views",
-            "description": "Use the **tab bar** to switch between 9 views: 3D Graph, Treemap, Matrix (DSM), Chord Diagram, Metrics Dashboard, Timeline Chart, File Table, Risk Dashboard and Temporal Co-change.\n\nEach view offers a different perspective on your architecture.",
+            "description": "Use the **tab bar** to switch between 10 views: 3D Graph, Treemap, Matrix (DSM), Chord Diagram, Metrics Dashboard, Timeline Chart, File Table, Risk Dashboard, Architecture Rules and Temporal Co-change.\n\nEach view offers a different perspective on your architecture.",
             "media": {
               "markdown": "resources/walkthrough/views.md"
             }
@@ -519,7 +539,7 @@
           {
             "id": "use-heatmaps",
             "title": "Use Heatmaps",
-            "description": "Click the heatmap buttons in the toolbar to color nodes by **Complexity**, **Cognitive**, **Fan-in**, **Fan-out**, **Lines of Code**, **Churn**, **Co-change**, **Last Modified**, or **Communities**.\n\nSpot hotspots at a glance!",
+            "description": "Click the heatmap buttons in the toolbar to color nodes by **Complexity**, **Cognitive**, **Fan-in**, **Fan-out**, **Lines of Code**, **Churn**, **Co-change**, **Last Modified**, **Architecture layers**, or **Communities**.\n\nSpot hotspots at a glance!",
             "media": {
               "markdown": "resources/walkthrough/heatmaps.md"
             }
@@ -543,9 +563,17 @@
           {
             "id": "dead-code-cycles",
             "title": "Detect Dead Code & Cycles",
-            "description": "Press **X** to highlight unused exports (dead code). Framework/test exemptions remain visible with their reason and can be edited from **Settings → Dead code exemptions**. Press **C** to reveal circular dependencies. Press **O** to find orphan files.\n\nClean up your codebase!",
+            "description": "Press **X** to highlight unused exports (dead code). Framework/test exemptions remain visible with their reason and can be edited with a structured form (reason, names, regex, globs, languages, kinds) from **Settings → Dead code exemptions**. Press **C** to reveal circular dependencies. Press **O** to find orphan files.\n\nClean up your codebase!",
             "media": {
               "markdown": "resources/walkthrough/dead-code-cycles.md"
+            }
+          },
+          {
+            "id": "arch-rules",
+            "title": "Enforce Architecture Layers",
+            "description": "Declare layers, deny rules, sibling slices and exceptions in `.aura/arch-rules.json` (seeded from your `src/` folders). The **🏛️ Architecture** tab shows violations by rule, Ca/Ce/instability per layer and aggregated cycles; the **Architecture layers** heatmap turns forbidden edges red. Freeze legacy violations with a baseline so only new ones alert.\n\n[Create or open rules](command:auraVisualizer.archRules)",
+            "media": {
+              "markdown": "resources/walkthrough/arch-rules.md"
             }
           },
           {

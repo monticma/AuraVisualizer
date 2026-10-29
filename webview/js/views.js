@@ -836,6 +836,7 @@
         // Build groups
         function groupKey(n) {
             if (chordGroupBy === 'language') return n.language || 'unknown';
+            if (chordGroupBy === 'layer') return n.layer || 'unlayered';
             if (chordGroupBy === 'community') {
                 var cid = communityMap[n.id];
                 if (cid != null && communityNames[cid]) return communityNames[cid].name;
@@ -1585,6 +1586,7 @@
         // Build group key for each node
         function groupKey(n) {
             if (dsmGroupBy === 'language') return n.language || 'unknown';
+            if (dsmGroupBy === 'layer') return n.layer || 'unlayered';
             if (dsmGroupBy === 'community') {
                 var cid = communityMap[n.id];
                 if (cid != null && communityNames[cid]) return communityNames[cid].name;
@@ -1610,6 +1612,16 @@
         var idToIdx = {};
         for (var i = 0; i < sortedNodes.length; i++) {
             idToIdx[sortedNodes[i].id] = i;
+        }
+
+        // Architecture violations (V2-20): red cells when the layer view is on.
+        var archPairSet = {};
+        var archMeta = graphData.meta ? graphData.meta.arch : null;
+        if (dsmGroupBy === 'layer' && archMeta) {
+            for (var av = 0; av < archMeta.violations.length; av++) {
+                var archViolation = archMeta.violations[av];
+                archPairSet[archViolation.source + '\u0000' + archViolation.target] = archViolation.baselined ? 'baselined' : 'new';
+            }
         }
 
         // Build adjacency matrix
@@ -1671,9 +1683,13 @@
                 } else if (matrix[i][j]) {
                     // Check for bidirectional (cycle)
                     var isBidi = matrix[j][i] ? 1 : 0;
-                    var color = isBidi ? 'rgba(255,100,100,0.5)' : 'rgba(88,166,255,0.35)';
-                    html += '<td class="dsm-cell dsm-cell-dep' + sepCls + '" data-row="' + i + '" data-col="' + j + '" style="background:' + color + '">';
-                    if (isBidi) html += '<span style="font-size:8px;color:#ff6b6b">↺</span>';
+                    var archState = archPairSet[sortedNodes[i].id + '\u0000' + sortedNodes[j].id];
+                    var color = archState === 'new'
+                        ? 'rgba(255,23,68,0.75)'
+                        : (archState === 'baselined' ? 'rgba(255,145,0,0.45)' : (isBidi ? 'rgba(255,100,100,0.5)' : 'rgba(88,166,255,0.35)'));
+                    html += '<td class="dsm-cell dsm-cell-dep' + (archState ? ' dsm-cell-violation' : '') + sepCls + '" data-row="' + i + '" data-col="' + j + '" style="background:' + color + '">';
+                    if (archState === 'new') html += '<span style="font-size:8px;color:#fff">✖</span>';
+                    else if (isBidi) html += '<span style="font-size:8px;color:#ff6b6b">↺</span>';
                     html += '</td>';
                 } else {
                     html += '<td class="dsm-cell' + sepCls + '"></td>';
@@ -1825,6 +1841,7 @@
             switch (tableSortCol) {
                 case 'name': va = a.id.toLowerCase(); vb = b.id.toLowerCase(); break;
                 case 'language': va = (a.language || '').toLowerCase(); vb = (b.language || '').toLowerCase(); break;
+                case 'layer': va = (a.layer || '').toLowerCase(); vb = (b.layer || '').toLowerCase(); break;
                 case 'loc': va = a.linesOfCode || 0; vb = b.linesOfCode || 0; break;
                 case 'complexity': va = a.complexity || 0; vb = b.complexity || 0; break;
                 case 'cognitive': va = fileCognitiveMax(a); vb = fileCognitiveMax(b);
@@ -1861,10 +1878,20 @@
             var symCount = n.symbols ? n.symbols.totalSymbols : 0;
             var cognitive = fileCognitiveMax(n);
             var trend = fileTrends[n.id];
+            var layerIndex = -1;
+            var archMeta = graphData.meta ? graphData.meta.arch : null;
+            if (n.layer && archMeta) {
+                for (var l = 0; l < archMeta.layers.length; l++) {
+                    if (archMeta.layers[l].name === n.layer) { layerIndex = l; break; }
+                }
+            }
             html += '<tr data-id="' + escapeHtml(n.id) + '"' +
                 (selectedNode && selectedNode.id === n.id ? ' class="selected"' : '') + '>' +
                 '<td title="' + escapeHtml(n.id) + '">' + escapeHtml(n.id) + '</td>' +
                 '<td><span class="lang-dot" style="background:' + color + '"></span>' + escapeHtml(n.language || '—') + '</td>' +
+                '<td>' + (n.layer
+                    ? '<span class="arch-layer-chip"><span class="arch-layer-dot" style="background:' + (window.layerColor ? layerColor(n.layer, layerIndex) : '#90a4ae') + '"></span>' + escapeHtml(n.layer) + '</span>'
+                    : '<span class="arch-muted">—</span>') + '</td>' +
                 '<td class="num">' + (n.linesOfCode || 0).toLocaleString() + '</td>' +
                 '<td class="num">' + (n.complexity || 0) + '</td>' +
                 '<td class="num">' + (cognitive === null ? '—' : cognitive) + '</td>' +
@@ -1910,7 +1937,7 @@
                         tableSortAsc = !tableSortAsc;
                     } else {
                         tableSortCol = col;
-                        tableSortAsc = col === 'name' || col === 'language' || col === 'group';
+                        tableSortAsc = col === 'name' || col === 'language' || col === 'layer' || col === 'group';
                     }
                     renderTable();
                 };

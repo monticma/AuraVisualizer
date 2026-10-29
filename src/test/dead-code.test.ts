@@ -4,6 +4,7 @@ import {
     classifyDeadCode,
     findExemption,
     parseDeadCodeRules,
+    serializeDeadCodeRules,
     type DeadCodeRule,
 } from '../analysis/dead-code';
 import type { FileInfo, FileSymbols } from '../analyzer/types';
@@ -39,6 +40,29 @@ function symbols(functions: string[], exports: string[] = [], methods: string[] 
         methods: methods.map(name => ({ name, type: 'method' })),
     };
 }
+
+describe('dead-code exemption serialization', () => {
+    it('round-trips custom rules through canonical serialization', () => {
+        const rules: DeadCodeRule[] = [
+            { reason: 'Android lifecycle', name: ['onResume', 'onPause'], language: ['kotlin', 'java'] },
+            { reason: 'Generated code', path: 'src/gen/**' },
+            { reason: 'Init hooks', namePattern: '^init[A-Z]', kind: 'function' },
+        ];
+        const text = serializeDeadCodeRules(rules);
+        const parsed = parseDeadCodeRules(text);
+        expect(parsed[0]).toEqual({
+            reason: 'Android lifecycle',
+            name: ['onResume', 'onPause'],
+            language: ['kotlin', 'java'],
+        });
+        expect(parsed).toHaveLength(3);
+        expect(parsed[1].path).toEqual(['src/gen/**']);
+        expect(text).toContain('"version": 1');
+        expect(text).toContain('"namePattern": "^init[A-Z]"');
+        // Canonical text is stable.
+        expect(serializeDeadCodeRules(parsed)).toBe(text);
+    });
+});
 
 describe('dead-code exemption rules', () => {
     it('keeps normal unused exports dead', () => {

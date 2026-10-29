@@ -149,6 +149,31 @@ async function copyWebviewAssets() {
         tsconfig: 'tsconfig.json',
     });
 
+    // Architecture core — layer rules engine, bundled as window.AuraArch.
+    // Same single-source pattern as risk-core: the host, the webview and the
+    // MCP server all evaluate violations with this module.
+    await esbuild.build({
+        entryPoints: [path.join(__dirname, 'src', 'arch', 'arch-core.ts')],
+        bundle: true,
+        format: 'iife',
+        globalName: 'AuraArch',
+        outfile: path.join(webviewDest, 'js', 'arch-core.js'),
+        logLevel: 'silent',
+        tsconfig: 'tsconfig.json',
+    });
+
+    // Dead-code core — exemption rules parser/serializer, bundled as
+    // window.AuraDeadCode for the structured rules editor.
+    await esbuild.build({
+        entryPoints: [path.join(__dirname, 'src', 'analysis', 'dead-code.ts')],
+        bundle: true,
+        format: 'iife',
+        globalName: 'AuraDeadCode',
+        outfile: path.join(webviewDest, 'js', 'dead-code-core.js'),
+        logLevel: 'silent',
+        tsconfig: 'tsconfig.json',
+    });
+
     console.log('Webview assets copied.');
 }
 

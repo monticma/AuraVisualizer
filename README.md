@@ -17,16 +17,14 @@
 
 ---
 
-## What's New in 1.4.1
+## What's New in 1.5.0
 
-- **Code-only communities** — the webview, `@aura` and MCP share one deterministic Louvain snapshot. Documentation and `doc-reference` edges are excluded from communities, fan-in, PageRank and risk. The palette now uses readable cards with full hub paths, total/visible counts and persisted **✏️ rename**.
-- **Dead-code framework exemptions** — built-in rules for entry points and framework callbacks (React/Vue/SwiftUI/Java servlet/Unity/Arduino/tests), visible with a reason in the detail panel. Custom rules are editable from **⚙️ Settings → Dead code exemptions** (`.aura/dead-code.json`).
-- **PageRank centrality 💠** — structural code-only centrality with optional toolbar halos for the top 10% files and an optional risk factor.
-- **Complexity trends 📈** — per-file sparklines, slope per 30 days and degrading badges in Risk and Table views.
-- **Documentation labels are yellow** — docs stay explorable and linkable, but are visually distinct from architecture.
-- **Edge confidence and import aliases** — resolved imports through `tsconfig`/`jsconfig`/Vite/webpack/Python layouts, with a confidence selector and badges; the fingerprint cache keeps startup instant.
+- **Architecture rules 🏛️** — declare layers, deny rules, sibling `slices`, aggregated `no-cycles`, exceptions and a baseline in `.aura/arch-rules.json`. A pure engine shared by the extension, the webview (`window.AuraArch`) and MCP evaluates violations and Martin coupling (`Ca`/`Ce`/`I`) on every analysis. New surfaces: **🏛️ Architecture** tab, **Architecture layers** heatmap with red forbidden edges, layer grouping in Matrix/Chord/Table, status-bar violations for the active file, detail-panel section, query fields and the `get_architecture_violations` MCP tool. Documentation stays outside the model.
+- **Adoption baseline** — freeze legacy violations in `.aura/arch-baseline.json`; only new ones alert.
+- **Rules editors** — the Architecture tab and **⚙️ Settings → Architecture rules** use a structured editor (layers, deny targets, slices, cycles, exceptions) with validation before saving. Dead-code exemptions get the same treatment: reason, exact names, regex, globs, languages and kinds are edited as forms, reordered, and validated by the analysis parser; raw JSON stays available as an escape hatch.
+- **Parse failure report ⚠️** — files that Tree-sitter cannot parse cleanly (or that make a parser throw) keep their graph node, so their imports and dependents stay visible. A **⚠ N parse failures** badge in the stats bar opens a panel with the sampled paths and reasons; a dashed link row reveals the node, and the report exports to Markdown.
 
-_Previously in 1.4.0: `@aura` in VS Code Chat, Follow editor, guided AI context export, architecture report and CSV/JSON metrics._
+_Previously in 1.4.1: code-only communities, dead-code framework exemptions, PageRank centrality, complexity trends, yellow documentation labels, edge confidence and import aliases._
 
 ---
 
@@ -113,7 +111,8 @@ Aura computes a **PageRank** centrality over the structural **code** graph (`sou
 
 Click a file node to open a collapsible detail panel:
 
-- **📋 File details** groups the file metrics, **Ask Aura** actions and the **📝 Note** editor in one foldable section
+- **📋 File details** groups the file metrics (including **Layer**), **Ask Aura** actions and the **📝 Note** editor in one foldable section
+- **🏛️ Architecture** lists the file's layer and every outgoing rule violation with its severity, target and link types (baselined ones stay visible)
 - **Symbols**, **Dependencies** and **Dependents** are collapsible too, and render as readable cards (name/signature/metrics on separate lines, path + type + confidence for edges)
 - Empty sections are hidden automatically — no empty Dependents block, no Symbols block for a file without symbols
 - Section open/closed state is kept while the webview stays open
@@ -133,6 +132,7 @@ Color every node by a metric to spot hotspots at a glance. Press `H` to cycle th
 | **Churn (commits)** | Git commit count per file — requires Time Travel scan |
 | **Co-change** | Strongest temporal-coupling Jaccard score per file — requires Time Travel scan |
 | **Last Modified** | File modification time (most recently changed = red) |
+| **Architecture layers** | Layer colors from `.aura/arch-rules.json`; forbidden edges turn red, baselined ones amber. The floating palette switches between Communities and Layers and hides the layers you switch off |
 | **Communities** | Architectural modules detected by Louvain algorithm |
 
 Blue = low, Red = high. A legend displays the value range.
@@ -179,18 +179,20 @@ Press `X` or click the **Dead Code** button. Files with unused exports are highl
 
 **Framework/test exemptions (V2-13)** keep framework-owned entry points and callbacks out of the dead list: `main`, VS Code `activate`/`deactivate`, React components in `.tsx`/`.jsx`, Vue lifecycle hooks, SwiftUI `body`, Java servlet methods, Unity callbacks, Arduino `setup`/`loop`, and test files. Exempted symbols remain visible in the detail panel with their reason instead of being silently hidden.
 
-Open **⚙️ Settings → Dead code exemptions → Edit rules…** to edit `.aura/dead-code.json`. The defaults stay active; custom rules are merged after them. Example:
+Open **⚙️ Settings → Dead code exemptions → Edit rules…** to edit `.aura/dead-code.json` with a **structured editor**: each rule is a form with a required reason, exact symbol names, an optional regex, path globs, languages and kinds. Rules can be reordered (first match wins), removed, and are validated by the same parser as the analysis before **Save** is enabled. The built-in defaults are listed read-only; raw JSON remains available for advanced cases.
+
+The defaults stay active; custom rules are merged after them. Equivalent file example:
 
 ```json
 {
   "rules": [
-    { "name": "onResume", "path": "src/android/**", "reason": "Android lifecycle" },
-    { "name": ["activate", "deactivate"], "path": "src/**/extension.ts", "reason": "VS Code entry point" }
+    { "name": ["onResume", "onPause"], "language": ["kotlin", "java"], "reason": "Android lifecycle" },
+    { "path": ["src/gen/**"], "reason": "Generated code" }
   ]
 }
 ```
 
-A rule needs a `reason` and at least one of `name`, `namePattern` or `path`; `language` and `kind` are optional filters. Saving validates the JSON and starts a re-analysis.
+A rule needs a `reason` and at least one of `name`, `namePattern` or `path`; `language` and `kind` are optional filters. Saving starts a re-analysis so the dead-code list updates immediately.
 
 ### Risk Map 🛡️
 
@@ -265,6 +267,64 @@ Annotate any file with a personal, color-coded note — a marker that follows yo
 ### Circular Dependencies 🔄
 
 Press `C` or click the **Cycles** button. All nodes involved in circular dependency chains are highlighted in orange. The detail panel shows the full cycle paths.
+
+### Architecture Rules 🏛️
+
+Architecture rules are a **fitness function**: they turn the dependency graph into an executable constraint checked on every analysis. Declare them in `.aura/arch-rules.json`:
+
+```json
+{
+  "version": 1,
+  "edgeTypes": ["import", "import-type", "require", "dynamic-import", "extends", "implements", "function-call"],
+  "layers": [
+    { "name": "ui",             "paths": ["src/ui/**", "src/components/**"] },
+    { "name": "application",    "paths": ["src/app/**", "src/services/**"] },
+    { "name": "domain",         "paths": ["src/domain/**", "src/models/**"] },
+    { "name": "infrastructure", "paths": ["src/infra/**", "src/db/**"] }
+  ],
+  "rules": [
+    { "id": "domain-pure", "from": "domain", "deny": ["ui", "application", "infrastructure"], "severity": "error" },
+    { "id": "app-no-ui",   "from": "application", "deny": ["ui"] },
+    { "id": "slices", "type": "slices", "pattern": "src/features/*", "shared": ["src/shared/**"], "severity": "warn" },
+    { "id": "no-layer-cycles", "type": "no-cycles" }
+  ],
+  "exceptions": ["src/domain/legacy/**"]
+}
+```
+
+- **`layers`** — first matching glob wins (`*`, `**`, `?`); files matched by no layer are reported as `unlayered` (never silently ignored)
+- **`from` + `deny`** — every real edge in that direction is a violation; `"*"` means any other layer
+- **`slices`** — sibling folders captured by the pattern may not import each other; `shared` globs are allowed
+- **`no-cycles`** — Tarjan SCCs on the aggregated file → layer graph
+- **`exceptions`** — source globs exempted from every rule
+- **`severity`** — `error` (red) or `warn` (amber), default `warn`
+- **Baseline** — `.aura/arch-baseline.json` freezes legacy violations; only **new** ones alert. Write it from the Architecture tab or the command palette
+- **Martin metrics** — per layer `Ca` (external files depending on it), `Ce` (external files it depends on) and instability `I = Ce / (Ca + Ce)`
+- **Documentation is outside the model** — `.md` nodes and `doc-reference` edges are never evaluated, even if listed in `edgeTypes`
+
+**Surfaces:**
+
+| Surface | What it shows |
+|---|---|
+| **🏛️ Architecture tab** | Rule-by-rule violations, layer table with Ca/Ce/I, aggregated cycles, unlayered files, baseline and Markdown export |
+| **Architecture layers heatmap** | Nodes colored by layer; forbidden edges in red, baselined edges amber; the floating palette switches between **Communities** and **Layers** and hides the layers you switch off (selections persisted) |
+| **Status bar** | Current file's layer, or `🏛️ N arch violations`; tooltip lists every offending import |
+| **Detail panel** | Layer + every outgoing violation with its rule, target, link types and baseline state |
+| **Matrix / Chord** | **Group by → Architecture layer**; violating DSM cells turn red with ✖ |
+| **Table** | Sortable **Layer** column |
+| **Query DSL** | `layer == domain AND archviolations > 0`, `isarchviolator` |
+| **MCP** | `get_architecture_violations` returns new violations, layer metrics and cycles |
+
+Create the rules file from your top-level `src/` folders with **Aura: Create or Open Architecture Rules**. The **⚙️ Edit rules** button in the Architecture tab (also in **⚙️ Settings → Architecture rules**) opens a **structured editor**: add/reorder layers, toggle forbidden targets per deny rule, edit slices/shared globs, add `no-cycles`, exceptions and strict mode. Layer renames update every rule reference, and the exact analysis engine validates the form before saving (the raw JSON field stays available for `edgeTypes`). Saving re-evaluates immediately — no re-parse.
+
+### Parse Failures ⚠️
+
+A file that Tree-sitter cannot parse cleanly (syntax errors) or that makes a parser throw is **never dropped from the graph**: its node stays, so imports and dependents remain visible, and the failure is recorded with a short reason.
+
+- The stats bar shows **⚠ N parse failures** when the analysis reported at least one.
+- Clicking the badge opens a panel with the sampled paths and reasons; clicking a path reveals the node in the 3D view.
+- The report holds the exact failure count plus a deterministic sample (25 entries), is persisted in `.aura/graph.db`, and follows incremental edits (a fixed file leaves the list, a newly broken one joins it).
+- **Export report** writes a Markdown summary (`parse-failures.md`). No analysis aborts on a broken file.
 
 ### Orphan Detection
 
@@ -395,7 +455,9 @@ Filter, highlight, or select files with the built-in **Aura Query Language** —
 | `cochange` | Strongest temporal-coupling Jaccard score (0–1) |
 | `language`, `name`, `path`, `group`, `extension` | String metadata |
 | `community` | Detected community name |
-| `isorphan`, `isdead`, `incycle`, `ispinned`, `dirty`, `hasnote` | Boolean flags (`dirty` = uncommitted git changes, `hasnote` = annotated file) |
+| `layer` | Architecture layer from `.aura/arch-rules.json` |
+| `archviolations` | Number of new (non-baselined) violations where the file is the source |
+| `isorphan`, `isdead`, `incycle`, `ispinned`, `dirty`, `hasnote`, `isarchviolator` | Boolean flags (`dirty` = uncommitted git changes, `hasnote` = annotated file, `isarchviolator` = file imports a forbidden layer) |
 
 **Operators:** `==`, `!=`, `>`, `<`, `>=`, `<=`, `~` (regex), `!~`, `in [ ... ]`, plus `AND` / `OR` / `NOT` and parentheses.
 
@@ -407,6 +469,8 @@ Filter, highlight, or select files with the built-in **Aura Query Language** —
 - `dirty AND complexity > 20` — files being edited right now
 - `cochange > 0.6` — strongly coupled files (run Time Travel first)
 - `hasnote` — every annotated file
+- `layer == domain AND archviolations > 0` — layer-pure violations, ranked by count
+- `isarchviolator` — every file that imports a forbidden layer
 - `path ~ /src\/.*/`
 
 **Modes:** **Highlight** (dim non-matching files), **Filter** (hide non-matching files), **Select** (multi-select matching files).
@@ -482,18 +546,19 @@ This turns the Explorer into a fast outline / go-to-symbol navigator across your
 
 ### Tabbed Views
 
-Switch between **9 visualization tabs** for different perspectives on your codebase:
+Switch between **10 visualization tabs** for different perspectives on your codebase:
 
 | Tab | Description |
 |-----|-------------|
 | **✦ 3D Graph** | Interactive 3D force-directed dependency graph (default) |
 | **🗺️ Treemap** | Files nested by directory, sized by LOC or complexity, colored by metric. Click to zoom into subdirectories, breadcrumb navigation to zoom out. |
-| **🗑️ Matrix** | N×N Dependency Structure Matrix (DSM). Rows and columns are files; a colored cell means a dependency exists. Red cells with ↺ indicate circular dependencies. Group by directory, language, or community. |
-| **🎵 Chord** | Chord diagram showing dependency flows between groups (directories, languages, or communities). Ribbon thickness reflects flow volume. Hover to highlight a group and its connections. |
+| **🗑️ Matrix** | N×N Dependency Structure Matrix (DSM). Rows and columns are files; a colored cell means a dependency exists. Red cells with ↺ indicate circular dependencies. Group by directory, language, architecture layer, or community — a forbidden layer dependency is a red cell with ✖. |
+| **🎵 Chord** | Chord diagram showing dependency flows between groups (directories, languages, architecture layers, or communities). Ribbon thickness reflects flow volume. Hover to highlight a group and its connections. |
 | **📊 Metrics** | Dashboard with bar charts: LOC, complexity, fan-in, fan-out by language and top files. |
 | **📈 Timeline** | Line chart showing metric evolution over git history (LOC, file count, avg complexity, total complexity). Requires Time Travel scan. |
-| **📋 Table** | Sortable, filterable spreadsheet of all files with LOC, complexity, cognitive max, fan-in/out, symbols, and folder. |
+| **📋 Table** | Sortable, filterable spreadsheet of all files with LOC, complexity, cognitive max, fan-in/out, symbols, layer, and folder. |
 | **🛡️ Risk** | Codebase risk dashboard — health score, risk distribution, churn × complexity matrix, bus factor, and an exportable report |
+| **🏛️ Architecture** | Layer rules — violations by rule, Ca/Ce/instability per layer, aggregated cycles, unlayered files, baseline and Markdown export |
 | **🔗 Co-change** | Temporal co-change — files that change together in git commits without a direct dependency (Jaccard score, support, virtual links) |
 
 All tabs share the same live data and update when the graph is refreshed.
@@ -524,6 +589,9 @@ You can also open the visualizer from the **Aura** icon in the Activity Bar or v
 | Aura: Export Architecture Report | — | Markdown + Mermaid architecture report |
 | Aura: Export Architecture Report with AI Narrative | — | Same report plus an AI-written architecture explanation |
 | Aura: Export Metrics (CSV/JSON) | — | Per-file LOC, complexity, cognitive max, fan-in/out, churn, authors and risk |
+| Aura: Create or Open Architecture Rules | — | Seed `.aura/arch-rules.json` from top-level `src/` folders and open it |
+| Aura: Baseline Architecture Violations | — | Freeze current violations in `.aura/arch-baseline.json` |
+| Aura: Reset Architecture Baseline | — | Clear the baseline — every violation alerts again |
 
 ## Keyboard Shortcuts (in graph)
 
@@ -588,7 +656,7 @@ The MCP server exposes your codebase graph to AI tools via stdio transport. It r
 | `aura://nodes` | All files with full metrics |
 | `aura://node/{id}` | Detail for a specific file — symbols, dependencies, dependents |
 
-**Tools (17):**
+**Tools (18):**
 
 | Tool | Parameters | Description |
 |------|-----------|-------------|
@@ -609,6 +677,7 @@ The MCP server exposes your codebase graph to AI tools via stdio transport. It r
 | `search_docs` | `query`, `limit` | Full-text search across project documentation (Markdown / `.txt` / `.rst`) — returns ranked chunks with file path, section heading, and excerpt |
 | `resolve_context` | `task`, `limit` | Ranked list of files most relevant to a natural-language task (deterministic, no LLM) |
 | `generate_documentation` | `hotspot_limit` | Full documentation payload: overview, modules, hotspots, cycles, dead code, inter-module links |
+| `get_architecture_violations` | `limit`, `include_baselined` | Evaluate `.aura/arch-rules.json` — new deny/slice violations, per-layer Ca/Ce/instability and aggregated layer cycles; documentation excluded |
 
 ---
 

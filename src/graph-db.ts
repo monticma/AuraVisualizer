@@ -10,7 +10,7 @@
 import initSqlJs, { type Database as SqlJsDatabase } from 'sql.js';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
-import type { GraphData, GraphNode, GraphLink, GraphCommunity, SymbolCycle, SymbolCycleStep } from './analyzer/types';
+import type { GraphData, GraphNode, GraphLink, GraphMeta, GraphCommunity, SymbolCycle, SymbolCycleStep } from './analyzer/types';
 import type { CochangePair } from './analysis/cochange';
 import { detectCommunities } from './analysis/communities';
 
@@ -456,6 +456,7 @@ export class GraphDB {
                 ['deadCodeFiles', String(data.meta.deadCodeFiles)],
                 ['deadExportsTotal', String(data.meta.deadExportsTotal)],
                 ['deadCodeExemptions', String(data.meta.deadCodeExemptions || 0)],
+                ['parseFailures', JSON.stringify(data.meta.parseFailures || null)],
                 ['languageStats', JSON.stringify(data.meta.languageStats)],
                 ['groups', JSON.stringify(data.meta.groups)],
             ];
@@ -817,6 +818,19 @@ export class GraphDB {
             meta['languageStats'] ? JSON.parse(meta['languageStats']) : {};
         const groups: string[] = meta['groups'] ? JSON.parse(meta['groups']) : [];
 
+        // Parse-failure report (V2-17): persisted as JSON; absent when clean.
+        let parseFailures: GraphMeta['parseFailures'];
+        if (meta['parseFailures']) {
+            try {
+                const parsed = JSON.parse(meta['parseFailures']);
+                if (parsed && typeof parsed.total === 'number' && Array.isArray(parsed.samples)) {
+                    parseFailures = parsed;
+                }
+            } catch {
+                // Corrupt cache entry — ignore rather than fail the export.
+            }
+        }
+
         return {
             meta: {
                 projectName: meta['projectName'] || '',
@@ -833,6 +847,7 @@ export class GraphDB {
                 deadCodeExemptions: parseInt(meta['deadCodeExemptions'] || '0'),
                 cycles,
                 symbolCycles,
+                ...(parseFailures ? { parseFailures } : {}),
                 languageStats: langStats,
                 groups,
             },

@@ -103,6 +103,7 @@ var HEATMAP_LABELS = {
     churn:      'Churn (commits)',
     cochange:   'Temporal coupling (co-change)',
     lastModified: 'Last modified',
+    layers:     'Architecture layers',
     community:  'Communities'
 };
 
@@ -121,6 +122,28 @@ var GROUP_COLORS = [
     '#29b6f6', '#26c6da', '#9ccc65', '#ffca28',
     '#8d6e63', '#78909c', '#5c6bc0', '#d4e157'
 ];
+
+// Architecture layers (V2-20) — ordered palette shared by the graph heatmap,
+// the legend and the Architecture tab. Unknown layers fall back to a hash so
+// two layers never share a color by accident.
+var LAYER_COLORS = [
+    '#4fc3f7', '#ffb74d', '#81c784', '#ba68c8',
+    '#f06292', '#4db6ac', '#ffd54f', '#9575cd',
+    '#a1887f', '#90a4ae', '#7986cb', '#aed581'
+];
+
+function layerColor(name, index) {
+    if (!name) return '#90a4ae';
+    if (name === 'unlayered') return '#78909c';
+    if (typeof index === 'number' && index >= 0) {
+        return LAYER_COLORS[index % LAYER_COLORS.length];
+    }
+    var hash = 0;
+    for (var i = 0; i < name.length; i++) {
+        hash = ((hash << 5) - hash + name.charCodeAt(i)) | 0;
+    }
+    return LAYER_COLORS[Math.abs(hash) % LAYER_COLORS.length];
+}
 
 function heatmapColor(value, scale) {
     var clamped = Math.max(0, Math.min(1, value));

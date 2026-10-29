@@ -372,4 +372,90 @@ describe('buildGraph', () => {
             callerName: 'walk', calleeName: 'walk', callLine: 2, confidence: 1,
         });
     });
+
+    // V2-17 — parse failures keep the node and surface a report.
+    it('keeps nodes for files with syntax errors and reports them', async () => {
+        const files = [
+            makeFileInfo({
+                id: 'src/broken.ts',
+                content: 'import { x } from "./x";\nconst y = ;\n',
+                language: 'typescript', extension: '.ts', group: 'src',
+            }),
+            makeFileInfo({
+                id: 'src/x.ts',
+                content: 'export const x = 1;\n',
+                language: 'typescript', extension: '.ts', group: 'src',
+            }),
+        ];
+        const failures = new Map<string, string>();
+        const trees = await preParseFiles(files, failures);
+        const graph = buildGraph(files, 'Project', {}, trees, failures);
+
+        expect(failures.get('src/broken.ts')).toMatch(/syntax/i);
+        expect(failures.has('src/x.ts')).toBe(false);
+        expect(graph.nodes.map(node => node.id)).toContain('src/broken.ts');
+        expect(graph.meta.parseFailures?.total).toBe(1);
+        expect(graph.meta.parseFailures?.samples[0]).toMatchObject({ path: 'src/broken.ts' });
+    });
+
+    it('does not report valid modern syntax the bundled grammars miss', async () => {
+        const files = [
+            makeFileInfo({
+                id: 'src/import-type.ts',
+                content: "let t: import('web-tree-sitter').Tree | undefined;\nexport const ok = 1;\n",
+                language: 'typescript', extension: '.ts', group: 'src',
+            }),
+            makeFileInfo({
+                id: 'src/anim.css',
+                content: '@keyframes k { 0%, 100% { color: red; } 50% { color: blue; } }\n',
+                language: 'css', extension: '.css', group: 'src',
+            }),
+        ];
+        const failures = new Map<string, string>();
+        const trees = await preParseFiles(files, failures);
+        const graph = buildGraph(files, 'Project', {}, trees, failures);
+
+        expect(failures.size).toBe(0);
+        expect(graph.meta.parseFailures).toBeUndefined();
+    });
+
+    it('filters the cascading errors a grammar gap leaves behind', async () => {
+        // `import('...').Type` makes the bundled grammar lose the interface
+        // closing brace: a MISSING `}` plus a stray `}` on the next line.
+        const files = [
+            makeFileInfo({
+                id: 'src/options.ts',
+                content: [
+                    'export interface A {',
+                    '    a?: string;',
+                    "    /** rules */",
+                    "    r?: import('./m').R[];",
+                    '}',
+                ].join('\n') + '\n',
+                language: 'typescript', extension: '.ts', group: 'src',
+            }),
+        ];
+        const failures = new Map<string, string>();
+        const trees = await preParseFiles(files, failures);
+        const graph = buildGraph(files, 'Project', {}, trees, failures);
+
+        expect(failures.size).toBe(0);
+        expect(graph.meta.parseFailures).toBeUndefined();
+    });
+
+    it('omits the report when every file parses cleanly', async () => {
+        const files = [
+            makeFileInfo({
+                id: 'ok.ts',
+                content: 'export const ok = 1;\n',
+                language: 'typescript', extension: '.ts',
+            }),
+        ];
+        const failures = new Map<string, string>();
+        const trees = await preParseFiles(files, failures);
+        const graph = buildGraph(files, 'Project', {}, trees, failures);
+
+        expect(failures.size).toBe(0);
+        expect(graph.meta.parseFailures).toBeUndefined();
+    });
 });

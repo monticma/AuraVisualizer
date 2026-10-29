@@ -54,8 +54,8 @@
         // while another tab is active — switchTab re-derives them on return.
         var graphTabActive = (activeTab === 'graph');
 
-        // Show/hide community palette
-        if (mode === 'community') {
+        // Show/hide the group palette (communities or architecture layers).
+        if (mode === 'community' || mode === 'layers') {
             if (graphTabActive) if (hooks.showCommunityPalette) hooks.showCommunityPalette();
         } else {
             if (hooks.hideCommunityPalette) hooks.hideCommunityPalette();
@@ -86,6 +86,27 @@
             }
             $('#legend-low').textContent = numComm + ' communities';
             $('#legend-high').textContent = '';
+        } else if (mode === 'layers') {
+            if (graphTabActive) legend.classList.remove('hidden');
+            $('#legend-mode').textContent = HEATMAP_LABELS[mode] || mode;
+
+            var layerGradient = $('#legend-gradient');
+            var layerMeta = hooks.getGraphData() && hooks.getGraphData().meta
+                ? hooks.getGraphData().meta.arch
+                : null;
+            if (layerMeta && layerMeta.layers.length > 0) {
+                var layerStops = [];
+                for (var li = 0; li < layerMeta.layers.length; li++) {
+                    layerStops.push(layerColor(layerMeta.layers[li].name, li));
+                }
+                layerGradient.style.background = 'linear-gradient(to right, ' + layerStops.join(', ') + ')';
+                $('#legend-low').textContent = layerMeta.layers.length + ' layers';
+                $('#legend-high').textContent = layerMeta.counts.newTotal + ' violations';
+            } else {
+                layerGradient.style.background = 'linear-gradient(to right, #37474f, #78909c)';
+                $('#legend-low').textContent = 'No architecture rules';
+                $('#legend-high').textContent = '';
+            }
         } else {
             if (graphTabActive) legend.classList.remove('hidden');
             $('#legend-mode').textContent = HEATMAP_LABELS[mode] || mode;
@@ -108,7 +129,13 @@
             }
         }
 
-        if (graph) graph.nodeColor(graph.nodeColor());
+        if (graph) {
+            graph.nodeColor(graph.nodeColor());
+            // Link colours/widths depend on the heatmap mode as well: red
+            // forbidden edges in layers mode, dimmed links in both group modes.
+            graph.linkColor(graph.linkColor());
+            graph.linkWidth(graph.linkWidth());
+        }
     }
     // ============================================================
     // Search

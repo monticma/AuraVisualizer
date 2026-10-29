@@ -141,12 +141,18 @@ async function analyzeFileForDelta(
         }
     }
 
-    // Parse relations (imports/includes/requires)
+    // Parse relations (imports/includes/requires) — a throwing parser must not
+    // abort the whole history scan (V2-17); the file simply contributes no link.
     const linksOut: { target: string; type: string; confidence?: number }[] = [];
     if (parser) {
-        const relations = tree
-            ? parser.parseAST(tree, fileInfo, {})
-            : parser.parse(fileInfo, {});
+        let relations: ReturnType<typeof parser.parse> = [];
+        try {
+            relations = tree
+                ? parser.parseAST(tree, fileInfo, {})
+                : parser.parse(fileInfo, {});
+        } catch {
+            relations = [];
+        }
         for (const rel of relations) {
             const resolution = resolver.resolve(rel.target, fileInfo.id);
             if (resolution && resolution.id !== fileInfo.id) {
@@ -158,9 +164,14 @@ async function analyzeFileForDelta(
     // Extract symbols
     let symbols: DeltaNodeState['symbols'] = undefined;
     if (SYMBOL_LANGUAGES.has(fileInfo.language) && parser) {
-        const raw = tree
-            ? parser.extractSymbolsAST(tree, fileInfo)
-            : (parser as unknown as { extractSymbols(f: FileInfo): FileSymbols }).extractSymbols?.(fileInfo);
+        let raw: FileSymbols | undefined;
+        try {
+            raw = tree
+                ? parser.extractSymbolsAST(tree, fileInfo)
+                : (parser as unknown as { extractSymbols(f: FileInfo): FileSymbols }).extractSymbols?.(fileInfo);
+        } catch {
+            raw = undefined;
+        }
         if (raw) {
             symbols = {
                 functions: raw.functions.map(f => ({

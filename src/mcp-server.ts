@@ -6,7 +6,7 @@
  *
  * Reads the SQLite database at AURA_DB_PATH (env var) and serves:
  *   - 3 resources  (overview, nodes, node detail)
- *   - 17 tools     (find_dependencies, find_dependents, find_path, get_cochange, etc.)
+ *   - 18 tools     (find_dependencies, find_dependents, find_path, get_cochange, etc.)
  *
  * Transport: stdio (standard for local MCP servers).
  * Launched by VS Code's MCP configuration (.vscode/mcp.json).
@@ -27,6 +27,13 @@ import { dirname, join, resolve } from 'path';
 import { GraphDB } from './graph-db';
 import { runAuraTool } from './ai/tools';
 import { buildRiskSnapshot, type RiskServiceCommit } from './risk/risk-service';
+import {
+    ARCH_BASELINE_FILE,
+    ARCH_RULES_FILE,
+    evaluateArchitecture,
+    parseArchBaseline,
+    parseArchRules,
+} from './arch/arch-core';
 
 // ── Env ────────────────────────────────────────────────────────
 
@@ -219,6 +226,17 @@ const TOOLS = [
             required: ['task'],
         },
     },
+    {
+        name: 'get_architecture_violations',
+        description: 'Evaluate the project layer rules (.aura/arch-rules.json) against the dependency graph. Returns new (non-baselined) deny/slice violations with severity, per-layer Ca/Ce/instability and aggregated layer cycles. Documentation nodes and doc-reference edges are excluded.',
+        inputSchema: {
+            type: 'object' as const,
+            properties: {
+                limit: { type: 'number', description: 'Maximum violations to return (default: 100)' },
+                include_baselined: { type: 'boolean', description: 'Include violations frozen in .aura/arch-baseline.json (default: false)' },
+            },
+        },
+    },
 ];
 
 // ── Tool handlers ──────────────────────────────────────────────
@@ -263,6 +281,58 @@ const AURA_TOOL_BY_MCP: Record<string, string> = {
 };
 
 function handleTool(db: GraphDB, name: string, args: Record<string, unknown>): unknown {
+    if (name === 'get_architecture_violations') {
+        const root = resolve(dirname(DB_PATH!), '..');
+        const rulesPath = join(root, ARCH_RULES_FILE);
+        let rulesText: string;
+        try {
+            rulesText = readFileSync(rulesPath, 'utf-8');
+        } catch {
+            return {
+                configured: false,
+                hint: 'No .aura/arch-rules.json in this workspace. Create it in the Aura Architecture tab or add layers/deny rules manually.',
+            };
+        }
+        let rules;
+        try {
+            rules = parseArchRules(rulesText);
+        } catch (err) {
+            return { configured: false, error: err instanceof Error ? err.message : String(err) };
+        }
+        const graph = db.exportGraphData();
+        if (!graph) throw new Error('Aura has not analyzed this workspace yet');
+        let baselineText: string | undefined;
+        try { baselineText = readFileSync(join(root, ARCH_BASELINE_FILE), 'utf-8'); }
+        catch { baselineText = undefined; }
+        const baseline = parseArchBaseline(baselineText);
+        const evaluation = evaluateArchitecture(graph, rules, { baseline });
+        const includeBaselined = args.include_baselined === true;
+        const limit = typeof args.limit === 'number' && args.limit > 0 ? Math.round(args.limit) : 100;
+        const list = includeBaselined ? evaluation.violations : evaluation.newViolations;
+        return {
+            configured: evaluation.configured,
+            counts: evaluation.counts,
+            rules: evaluation.rules,
+            layers: evaluation.layers,
+            cycles: evaluation.layerCycles,
+            unlayered_files: evaluation.unlayeredFiles.slice(0, 50),
+            unlayered_total: evaluation.unlayeredTotal,
+            violations: list.slice(0, limit).map(violation => ({
+                rule: violation.ruleId,
+                kind: violation.kind,
+                severity: violation.severity,
+                source: violation.source,
+                target: violation.target,
+                types: violation.linkTypes,
+                from: violation.sourceGroup,
+                to: violation.targetGroup,
+                baselined: violation.baselined,
+            })),
+            violations_total: list.length,
+            truncated: list.length > limit,
+        };
+    }
+
     const auraName = AURA_TOOL_BY_MCP[name];
     if (!auraName) throw new Error(`Unknown tool: ${name}`);
 

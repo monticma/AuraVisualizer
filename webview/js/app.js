@@ -63,6 +63,10 @@
     var expandedGroups = new Set();
     var groupMeshes = [];
     var metricRanges = {};
+    // Signature of the dataset currently fed to the 3D graph. Visibility
+    // changes that alter nothing must not re-feed: every feed reheats the force
+    // engine, which visibly drifts/rotates the settled layout.
+    var lastFeedKey = '';
 
     // Temporal coupling (co-change) — computed from the timeline commits.
     var cochangeResult = { pairs: [], windowDays: 365, commitsConsidered: 0, totalCommitsInWindow: 0, maxJaccard: 0 };
@@ -90,6 +94,17 @@
     var communityColors = {}; // communityId → color
     var communityNames = {}; // communityId → { name, files }
     var activeCommunities = new Set(); // communityIds currently visible
+
+    // Architecture layers — same palette machinery as communities, keyed by
+    // layer name (rule order drives the colour so it matches the heatmap and
+    // the Architecture tab). Unlayered files form one extra group.
+    var UNLAYERED_KEY = '\u0000unlayered';
+    // Null-prototype maps: layer names come from the rules file and must never
+    // collide with Object.prototype members (__proto__, constructor, …).
+    var layerNames = Object.create(null);   // key → { key, name, color, files, newViolations, unlayered }
+    var layerOrder = [];   // keys in rule order (colour order)
+    var layerByNode = Object.create(null);  // nodeId → layer key (documentation excluded)
+    var activeLayers = new Set(); // layer keys currently highlighted
 
     // Directory filter (from Files panel checkboxes).
     // Empty means NO directory is checked → no files are shown (user clicked "None").
@@ -184,6 +199,9 @@
             case 'updateGraph':
                 handleGraphDelta(message.payload);
                 break;
+            case 'archUpdate':
+                handleArchUpdate(message.payload);
+                break;
             case 'communities':
                 if (message.payload && Array.isArray(message.payload.communities) && graphData) {
                     graphData.meta.communities = message.payload.communities;
@@ -262,8 +280,8 @@
                         updateFollowEditorButton();
                     }
                     applyLinkStyle();
-                    if (typeof applySelectedNodeEffect === 'function') {
-                        applySelectedNodeEffect();
+                    if (typeof ensureSelectedNodeEffect === 'function') {
+                        ensureSelectedNodeEffect();
                     }
                     refreshCameraControls();
                     // Risk window can change from the Settings UI — re-derive churn & scoring
@@ -290,6 +308,30 @@
             case 'showRiskTab':
                 switchTab('risk');
                 break;
+            case 'showArchTab':
+                switchTab('arch');
+                break;
+            case 'archFocusFile':
+                if (window.AuraArchPanel && message.payload && message.payload.nodeId) {
+                    switchTab('arch');
+                    window.AuraArchPanel.revealFile(message.payload.nodeId);
+                }
+                break;
+            case 'archRules':
+                if (window.AuraArchPanel) {
+                    window.AuraArchPanel.onRulesLoaded(message.payload && message.payload.text);
+                }
+                break;
+            case 'archRulesSaved':
+                if (window.AuraArchPanel) {
+                    window.AuraArchPanel.onRulesSaved(message.payload && message.payload.text);
+                }
+                break;
+            case 'archRulesError':
+                if (window.AuraArchPanel) {
+                    window.AuraArchPanel.onRulesError(message.payload && message.payload.message);
+                }
+                break;
             case 'workingTree':
                 workingTree = (message.payload && message.payload.files) || {};
                 if (window.AuraQueryBar) window.AuraQueryBar.refreshAfterDataChange();
@@ -315,25 +357,21 @@
                 warps = (message.payload && Array.isArray(message.payload.warps)) ? message.payload.warps : [];
                 if (window.AuraWarps) window.AuraWarps.render();
                 break;
-            case 'deadCodeRules': {
-                var rulesText = $('#dead-code-rules-text');
-                if (rulesText) rulesText.value = (message.payload && typeof message.payload.text === 'string') ? message.payload.text : '';
-                var rulesError = $('#dead-code-rules-error');
-                if (rulesError) rulesError.textContent = '';
+            case 'deadCodeRules':
+                if (window.AuraDeadCodeEditor) {
+                    window.AuraDeadCodeEditor.onRulesLoaded(message.payload && message.payload.text);
+                }
                 break;
-            }
-            case 'deadCodeRulesSaved': {
-                var savedText = $('#dead-code-rules-text');
-                if (savedText && message.payload && typeof message.payload.text === 'string') savedText.value = message.payload.text;
-                var rulesModal = $('#dead-code-rules-modal');
-                if (rulesModal) rulesModal.classList.add('hidden');
+            case 'deadCodeRulesSaved':
+                if (window.AuraDeadCodeEditor) {
+                    window.AuraDeadCodeEditor.onRulesSaved(message.payload && message.payload.text);
+                }
                 break;
-            }
-            case 'deadCodeRulesError': {
-                var errEl = $('#dead-code-rules-error');
-                if (errEl) errEl.textContent = (message.payload && message.payload.message) ? message.payload.message : 'Invalid rules.';
+            case 'deadCodeRulesError':
+                if (window.AuraDeadCodeEditor) {
+                    window.AuraDeadCodeEditor.onRulesError(message.payload && message.payload.message);
+                }
                 break;
-            }
             case 'flowData':
                 if (window.AuraFlowView) window.AuraFlowView.receive(message.payload);
                 break;
@@ -475,6 +513,7 @@
         setupRefresh();
         setupFollowEditor();
         setupExplorer();
+        setupParseFailures();
         if (window.AuraTimeline) AuraTimeline.setup();
         setupTabs();
         if (window.AuraQueryBar) {
@@ -510,6 +549,20 @@
             });
             AuraRiskMap.setup();
         }
+        if (window.AuraArchPanel) {
+            AuraArchPanel.init({
+                getGraphData: function () { return graphData; },
+                focusNode: focusNodeFromView,
+                postMessage: function (msg) { vscode.postMessage(msg); }
+            });
+            AuraArchPanel.setup();
+        }
+        if (window.AuraDeadCodeEditor) {
+            AuraDeadCodeEditor.init({
+                postMessage: function (msg) { vscode.postMessage(msg); }
+            });
+            AuraDeadCodeEditor.setup();
+        }
         setupBottomBarsOffset();
         vscode.postMessage({ type: 'requestSavedQueries' });
     }
@@ -542,14 +595,18 @@
         headGraphData = JSON.parse(JSON.stringify(data));
         computeMetricRanges();
         syncCommunitiesFromMetadata(false);
+        syncLayersFromMetadata(false);
         updateStats(graphData.meta);
         updateLanguageButtons(graphData.nodes);
         if (window.AuraRiskMap) AuraRiskMap.renderRiskDashboard();
+        if (window.AuraArchPanel) AuraArchPanel.render();
         try {
+            // The composer and its passes belong to the previous graph instance.
+            disposeBloomState();
             initGraph(graphData);
             // Apply the persisted link style + selected-node effect to the new graph
             applyLinkStyle();
-            applySelectedNodeEffect();
+            ensureSelectedNodeEffect();
         } catch (e) {
             console.error('[aura] initGraph error:', e);
         }
@@ -606,6 +663,11 @@
                 node.lastModified = updated.lastModified;
                 if (updated.symbols) node.symbols = updated.symbols;
                 if (updated.complexityDetails) node.complexityDetails = updated.complexityDetails;
+                // Architecture annotations are recomputed by the host on every
+                // delta; copy them so layer colors and counts stay accurate.
+                if (updated.layer) node.layer = updated.layer; else delete node.layer;
+                if (typeof updated.archViolations === 'number') node.archViolations = updated.archViolations;
+                else delete node.archViolations;
             }
             existingIds.add(node.id);
             newNodes.push(node);
@@ -653,6 +715,8 @@
         // Rebuild the community projection from the host snapshot. Keep the
         // user's on/off toggles across deltas (matching by stable key).
         syncCommunitiesFromMetadata(true);
+        // Layers are keyed by name: keep the palette toggles across deltas too.
+        syncLayersFromMetadata(true);
 
         // Recompute ranges and stats
         computeMetricRanges();
@@ -660,10 +724,7 @@
 
         // Re-feed filtered data to the graph — preserve positions: no synchronous
         // warmup, no live engine run either (budgets restored right after the feed).
-        graph.warmupTicks(0);
-        graph.cooldownTicks(0);
-        graph.graphData(filterGraphData(graphData));
-        setTimeout(function () { applyEngineBudget(); }, 200);
+        feedGraphFrozen(filterGraphData(graphData));
 
         // Update language buttons
         updateLanguageButtons(graphData.nodes, true);
@@ -681,7 +742,83 @@
             loadingOverlay.style.display = 'none';
         }
         updateStaleNotesUI();
+        if (window.AuraArchPanel) AuraArchPanel.render();
 
+    }
+
+    /**
+     * Architecture-only update (rules edited, baseline created/cleared).
+     *
+     * The host only rewrites layer/violation annotations. Patching them in place
+     * keeps the live ForceGraph3D instance — camera framing and settled node
+     * positions — whereas a full `graphData` message rebuilds the graph and
+     * recentres the view.
+     */
+    function handleArchUpdate(payload) {
+        if (!graphData || !payload) return;
+
+        if (payload.arch) graphData.meta.arch = payload.arch;
+        else delete graphData.meta.arch;
+        if (payload.archError) graphData.meta.archError = payload.archError;
+        else delete graphData.meta.archError;
+
+        // Replace annotations wholesale: a rule removed from the file must clear
+        // the layers and red edges it used to produce.
+        var i;
+        var nodesById = {};
+        for (i = 0; i < graphData.nodes.length; i++) {
+            var node = graphData.nodes[i];
+            delete node.layer;
+            delete node.archViolations;
+            nodesById[node.id] = node;
+        }
+        var annotatedNodes = payload.nodes || [];
+        for (i = 0; i < annotatedNodes.length; i++) {
+            var entry = annotatedNodes[i];
+            var target = entry && nodesById[entry.id];
+            if (!target) continue;
+            if (entry.layer) target.layer = entry.layer;
+            if (entry.archViolations) target.archViolations = entry.archViolations;
+        }
+
+        // Link endpoints are node objects once 3d-force-graph has ingested the
+        // dataset, so index by resolved ids before matching the host entries.
+        var linksByKey = {};
+        for (i = 0; i < graphData.links.length; i++) {
+            var link = graphData.links[i];
+            delete link.archViolation;
+            var src = (typeof link.source === 'object' && link.source) ? link.source.id : link.source;
+            var tgt = (typeof link.target === 'object' && link.target) ? link.target.id : link.target;
+            linksByKey[src + '>' + tgt + '>' + link.type] = link;
+        }
+        var flaggedLinks = payload.links || [];
+        for (i = 0; i < flaggedLinks.length; i++) {
+            var flagged = flaggedLinks[i];
+            if (!flagged) continue;
+            var live = linksByKey[flagged.source + '>' + flagged.target + '>' + flagged.type];
+            if (live) live.archViolation = flagged.archViolation;
+        }
+
+        // Rules may have added, renamed or removed layers: refresh the palette
+        // model while keeping the user's toggles by name.
+        syncLayersFromMetadata(true);
+
+        // Red edges / widths depend on link.archViolation.
+        if (graph) {
+            graph.linkColor(graph.linkColor());
+            graph.linkWidth(graph.linkWidth());
+        }
+        // Node colours + layers legend read node.layer and meta.arch.
+        if (window.AuraPanels) window.AuraPanels.applyHeatmapMode(heatmapMode);
+        else if (graph) graph.nodeColor(graph.nodeColor());
+
+        if (window.AuraArchPanel) AuraArchPanel.render();
+        // Keep an open detail panel in sync with the new layer/violations —
+        // show() reopens the panel, so only refresh it when it is visible.
+        var detailEl = $('#detail-panel');
+        if (selectedNode && window.AuraDetail && detailEl && !detailEl.classList.contains('collapsed')) {
+            AuraDetail.show(selectedNode);
+        }
     }
 
     function setupRefresh() {
@@ -744,44 +881,6 @@
             if (openVscodeSettings) {
                 openVscodeSettings.addEventListener('click', function() {
                     vscode.postMessage({ type: 'openSettings' });
-                });
-            }
-            var deadCodeRulesOpen = $('#dead-code-rules-open');
-            var deadCodeRulesModal = $('#dead-code-rules-modal');
-            var deadCodeRulesText = $('#dead-code-rules-text');
-            var deadCodeRulesError = $('#dead-code-rules-error');
-            function openDeadCodeRules() {
-                if (!deadCodeRulesModal) return;
-                deadCodeRulesModal.classList.remove('hidden');
-                if (deadCodeRulesError) deadCodeRulesError.textContent = '';
-                vscode.postMessage({ type: 'requestDeadCodeRules' });
-            }
-            function closeDeadCodeRules() {
-                if (deadCodeRulesModal) deadCodeRulesModal.classList.add('hidden');
-            }
-            if (deadCodeRulesOpen) deadCodeRulesOpen.addEventListener('click', openDeadCodeRules);
-            var deadCodeRulesClose = $('#dead-code-rules-close');
-            if (deadCodeRulesClose) deadCodeRulesClose.addEventListener('click', closeDeadCodeRules);
-            if (deadCodeRulesModal) {
-                deadCodeRulesModal.addEventListener('click', function(e) {
-                    if (e.target === deadCodeRulesModal) closeDeadCodeRules();
-                });
-            }
-            var deadCodeRulesSave = $('#dead-code-rules-save');
-            if (deadCodeRulesSave) {
-                deadCodeRulesSave.addEventListener('click', function() {
-                    if (deadCodeRulesError) deadCodeRulesError.textContent = '';
-                    vscode.postMessage({
-                        type: 'saveDeadCodeRules',
-                        payload: { text: deadCodeRulesText ? deadCodeRulesText.value : '' }
-                    });
-                });
-            }
-            var deadCodeRulesReset = $('#dead-code-rules-reset');
-            if (deadCodeRulesReset) {
-                deadCodeRulesReset.addEventListener('click', function() {
-                    if (deadCodeRulesText) deadCodeRulesText.value = '{\n  "rules": []\n}';
-                    if (deadCodeRulesError) deadCodeRulesError.textContent = '';
                 });
             }
             var speedSliderEl = $('#set-rotateSpeed');
@@ -854,6 +953,141 @@
             parts.push(entries[i][1].count + ' ' + entries[i][0]);
         }
         $('#stat-time').textContent = parts.join(', ');
+
+        updateParseFailureBadge(meta);
+    }
+
+    // ============================================================
+    // Parse failures (V2-17) — badge + detail panel + export
+    // ============================================================
+    /** Toggle the "⚠ N parse failures" badge in the stats bar. */
+    function updateParseFailureBadge(meta) {
+        var badge = $('#stat-parse-failures');
+        var separator = $('#stat-parse-separator');
+        if (!badge) return;
+        var report = meta && meta.parseFailures ? meta.parseFailures : null;
+        if (report && report.total > 0) {
+            badge.textContent = '⚠ ' + report.total + ' parse failure' + (report.total === 1 ? '' : 's');
+            badge.classList.remove('hidden');
+            if (separator) separator.classList.remove('hidden');
+        } else {
+            badge.classList.add('hidden');
+            if (separator) separator.classList.add('hidden');
+        }
+        // Keep an open panel in sync after a refresh / delta.
+        var modal = $('#parse-failures-modal');
+        if (modal && !modal.classList.contains('hidden')) renderParseFailures();
+    }
+
+    /** Fill the modal with the current sample (paths are focusable). */
+    function renderParseFailures() {
+        var list = $('#parse-failures-list');
+        var modal = $('#parse-failures-modal');
+        var summary = $('#parse-failures-summary');
+        var exportBtn = $('#parse-failures-export');
+        if (!list) return;
+
+        var report = graphData && graphData.meta ? graphData.meta.parseFailures : null;
+        var total = report && report.total ? report.total : 0;
+        var samples = report && report.samples ? report.samples : [];
+
+        list.innerHTML = '';
+        if (summary) {
+            summary.textContent = total === 0
+                ? 'No parse failure.'
+                : total + ' file' + (total === 1 ? '' : 's') + ' · ' +
+                  samples.length + ' sample' + (samples.length === 1 ? '' : 's') + ' shown';
+        }
+        if (exportBtn) exportBtn.disabled = total === 0;
+
+        for (var i = 0; i < samples.length; i++) {
+            (function(sample) {
+                var row = document.createElement('div');
+                row.className = 'parse-failures-row';
+
+                var pathBtn = document.createElement('button');
+                pathBtn.type = 'button';
+                pathBtn.className = 'parse-failures-path';
+                pathBtn.textContent = sample.path;
+                pathBtn.title = 'Reveal this file in the graph';
+                pathBtn.addEventListener('click', function() {
+                    if (modal) modal.classList.add('hidden');
+                    focusNodeById(sample.path, true);
+                });
+
+                var reason = document.createElement('span');
+                reason.className = 'parse-failures-reason';
+                reason.textContent = sample.reason;
+
+                row.appendChild(pathBtn);
+                row.appendChild(reason);
+                list.appendChild(row);
+            })(samples[i]);
+        }
+    }
+
+    function mdCell(value) {
+        return String(value == null ? '' : value).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ').trim();
+    }
+
+    /** Markdown matching the host generator (export button). */
+    function buildParseFailuresMarkdown(report) {
+        if (!report || !report.total) return '';
+        var project = (graphData && graphData.meta && graphData.meta.projectName) || 'project';
+        var samples = report.samples || [];
+        var lines = [];
+        lines.push('# Parse failures — ' + project);
+        lines.push('');
+        lines.push('Generated ' + new Date().toISOString() + ' by Aura Visualizer.');
+        lines.push('');
+        lines.push(report.total + ' file' + (report.total === 1 ? '' : 's') +
+            ' could not be parsed cleanly. They are kept in the graph so their imports and dependents stay visible; cross-file relations may be incomplete for them.');
+        lines.push('');
+        lines.push('| File | Reason |');
+        lines.push('|------|--------|');
+        for (var i = 0; i < samples.length; i++) {
+            lines.push('| `' + mdCell(samples[i].path) + '` | ' + mdCell(samples[i].reason) + ' |');
+        }
+        if (report.total > samples.length) {
+            lines.push('');
+            lines.push('_Showing ' + samples.length + ' of ' + report.total + ' failures (sample capped)._');
+        }
+        lines.push('');
+        return lines.join('\n');
+    }
+
+    function setupParseFailures() {
+        var badge = $('#stat-parse-failures');
+        var modal = $('#parse-failures-modal');
+        if (badge && modal) {
+            badge.addEventListener('click', function() {
+                renderParseFailures();
+                modal.classList.remove('hidden');
+            });
+            badge.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    badge.click();
+                }
+            });
+        }
+        var close = $('#parse-failures-close');
+        if (close && modal) {
+            close.addEventListener('click', function() { modal.classList.add('hidden'); });
+        }
+        if (modal) {
+            modal.addEventListener('click', function(e) {
+                if (e.target === modal) modal.classList.add('hidden');
+            });
+        }
+        var exportBtn = $('#parse-failures-export');
+        if (exportBtn) {
+            exportBtn.addEventListener('click', function() {
+                var report = graphData && graphData.meta ? graphData.meta.parseFailures : null;
+                var markdown = buildParseFailuresMarkdown(report);
+                if (markdown) vscode.postMessage({ type: 'exportParseFailures', payload: { markdown: markdown } });
+            });
+        }
     }
 
     // ============================================================
@@ -1022,7 +1256,7 @@
         activeCommunities.clear();
 
         if (!communities || !communities.length) {
-            buildCommunityList();
+            buildPaletteList();
             return;
         }
 
@@ -1050,11 +1284,122 @@
             }
             for (var f = 0; f < files.length; f++) communityMap[files[f]] = cid;
         }
-        buildCommunityList();
+        buildPaletteList();
+    }
+
+    // ============================================================
+    // Architecture layers — same palette machinery as communities
+    // ============================================================
+
+    /** Current architecture evaluation, or null when no rules are configured. */
+    function archEvaluation() {
+        return (graphData && graphData.meta && graphData.meta.arch) ? graphData.meta.arch : null;
+    }
+
+    /** Palette group of a node: its layer name, the unlayered bucket, or null for documentation. */
+    function layerGroupKey(node) {
+        if (!node || node.language === 'documentation') return null;
+        return node.layer || UNLAYERED_KEY;
+    }
+
+    /**
+     * Mirror the layer evaluation into the palette model. Layers are identified
+     * by name; toggles survive rules edits and deltas by name (removed layers are
+     * dropped, new ones start active). The unlayered bucket only exists when the
+     * evaluation reports files outside the model.
+     */
+    function syncLayersFromMetadata(preserveActive) {
+        var previousKeys = Object.create(null);
+        var previousActiveKeys = Object.create(null);
+        if (preserveActive) {
+            for (var oldKey in layerNames) {
+                previousKeys[oldKey] = true;
+                if (activeLayers.has(oldKey)) previousActiveKeys[oldKey] = true;
+            }
+        }
+
+        layerNames = Object.create(null);
+        layerOrder = [];
+        layerByNode = Object.create(null);
+        activeLayers.clear();
+
+        var meta = archEvaluation();
+        if (meta && meta.layers) {
+            for (var i = 0; i < meta.layers.length; i++) {
+                var stat = meta.layers[i];
+                var key = stat.name;
+                layerNames[key] = {
+                    key: key,
+                    name: stat.name,
+                    color: layerColor(stat.name, i),
+                    files: stat.files || 0,
+                    newViolations: stat.newViolations || 0,
+                    unlayered: false
+                };
+                layerOrder.push(key);
+                if (!preserveActive || !previousKeys[key] || previousActiveKeys[key]) activeLayers.add(key);
+            }
+        }
+        if (meta && meta.unlayeredTotal > 0) {
+            layerNames[UNLAYERED_KEY] = {
+                key: UNLAYERED_KEY,
+                name: 'Unlayered',
+                color: layerColor('unlayered'),
+                files: meta.unlayeredTotal,
+                newViolations: 0,
+                unlayered: true
+            };
+            layerOrder.push(UNLAYERED_KEY);
+            if (!preserveActive || !previousKeys[UNLAYERED_KEY] || previousActiveKeys[UNLAYERED_KEY]) {
+                activeLayers.add(UNLAYERED_KEY);
+            }
+        }
+
+        if (graphData && graphData.nodes) {
+            for (var n = 0; n < graphData.nodes.length; n++) {
+                var groupKey = layerGroupKey(graphData.nodes[n]);
+                if (groupKey) layerByNode[graphData.nodes[n].id] = groupKey;
+            }
+        }
+
+        buildPaletteList();
+    }
+
+    /** 'community' or 'layers' — derived from the heatmap so both controls stay in sync. */
+    function paletteModeNow() {
+        return heatmapMode === 'layers' ? 'layers' : 'community';
+    }
+
+    /** Re-evaluate colors after a palette toggle (nodes, links, labels). */
+    function recolorPaletteGroups() {
+        if (!graph) return;
+        graph.nodeColor(graph.nodeColor());
+        graph.linkColor(graph.linkColor());
+        graph.nodeThreeObject(graph.nodeThreeObject());
+    }
+
+    /** Rebuild whichever list the palette currently shows. */
+    function buildPaletteList() {
+        if (paletteModeNow() === 'layers') buildLayerList();
+        else buildCommunityList();
+    }
+
+    /** Select all / none for the active palette mode. */
+    function setAllPaletteGroups(active) {
+        if (paletteModeNow() === 'layers') {
+            activeLayers.clear();
+            if (active) for (var key in layerNames) activeLayers.add(key);
+        } else {
+            activeCommunities.clear();
+            if (active) for (var cid in communityNames) activeCommunities.add(Number(cid));
+        }
+        buildPaletteList();
+        recolorPaletteGroups();
+        saveViewState();
     }
 
     /** IDs currently rendered (language/dir filters + query/dirty/stale). */
-    function visibleCommunityIds() {
+    function visibleNodeIds() {
         var visible = new Set();
         if (!graphData) return visible;
         for (var i = 0; i < graphData.nodes.length; i++) {
@@ -1076,7 +1421,7 @@
         ids.sort(function(a, b) {
             return (communityNames[b].files.length) - (communityNames[a].files.length);
         });
-        var visible = visibleCommunityIds();
+        var visible = visibleNodeIds();
 
         for (var i = 0; i < ids.length; i++) {
             (function(cid) {
@@ -1144,10 +1489,88 @@
                     if (activeCommunities.has(cid)) activeCommunities.delete(cid);
                     else activeCommunities.add(cid);
                     card.classList.toggle('dimmed', !activeCommunities.has(cid));
-                    if (graph) { graph.nodeColor(graph.nodeColor()); graph.linkColor(graph.linkColor()); graph.nodeThreeObject(graph.nodeThreeObject()); }
+                    recolorPaletteGroups();
+                    saveViewState();
                 });
                 list.appendChild(card);
             })(ids[i]);
+        }
+    }
+
+    /**
+     * Palette list in "layers" mode. Cards keep the rule order so each swatch
+     * matches the layer colour used by the graph, the legend and the
+     * Architecture tab. Unlayered files get one extra gray group.
+     */
+    function buildLayerList() {
+        var list = $('#community-list');
+        if (!list) return;
+        list.innerHTML = '';
+
+        var meta = archEvaluation();
+        if (!meta || layerOrder.length === 0) {
+            var empty = document.createElement('div');
+            empty.className = 'community-empty';
+            empty.innerHTML =
+                '<p>No architecture rules configured.</p>' +
+                '<p class="community-empty-hint">Declare layers in <code>.aura/arch-rules.json</code> to see them here.</p>';
+            var create = document.createElement('button');
+            create.type = 'button';
+            create.className = 'risk-export-btn';
+            create.textContent = 'Create / open rules file';
+            create.addEventListener('click', function() {
+                vscode.postMessage({ type: 'openArchRulesFile' });
+            });
+            empty.appendChild(create);
+            list.appendChild(empty);
+            return;
+        }
+
+        // Nodes currently drawn — same definition the Communities list uses.
+        var visible = visibleNodeIds();
+        var visibleCounts = Object.create(null);
+        if (graphData && graphData.nodes) {
+            for (var n = 0; n < graphData.nodes.length; n++) {
+                var node = graphData.nodes[n];
+                var gk = layerGroupKey(node);
+                if (gk && visible.has(node.id)) visibleCounts[gk] = (visibleCounts[gk] || 0) + 1;
+            }
+        }
+
+        for (var i = 0; i < layerOrder.length; i++) {
+            (function(key) {
+                var info = layerNames[key];
+                var visibleCount = visibleCounts[key] || 0;
+                var total = info.files;
+                var countText = total + (total === 1 ? ' file' : ' files');
+                if (visibleCount !== total) countText += ' · ' + visibleCount + ' visible';
+                if (info.newViolations) {
+                    countText += ' · ' + info.newViolations + ' violation' + (info.newViolations === 1 ? '' : 's');
+                }
+
+                var card = document.createElement('div');
+                card.className = 'community-card' + (activeLayers.has(key) ? '' : ' dimmed');
+                card.innerHTML =
+                    '<div class="community-card-head">' +
+                        '<span class="community-swatch" style="background:' + info.color + '"></span>' +
+                        '<span class="community-name" title="' + escapeHtml(info.name) + '">' + escapeHtml(info.name) + '</span>' +
+                    '</div>' +
+                    '<div class="community-card-meta">' +
+                        '<span class="community-count">' + countText + '</span>' +
+                    '</div>';
+                card.title = info.unlayered
+                    ? 'Files outside every architecture layer (documentation excluded)'
+                    : 'Layer "' + info.name + '" — click to show/hide it on the graph';
+
+                card.addEventListener('click', function() {
+                    if (activeLayers.has(key)) activeLayers.delete(key);
+                    else activeLayers.add(key);
+                    card.classList.toggle('dimmed', !activeLayers.has(key));
+                    recolorPaletteGroups();
+                    saveViewState();
+                });
+                list.appendChild(card);
+            })(layerOrder[i]);
         }
     }
 
@@ -1176,7 +1599,7 @@
             finished = true;
             input.removeEventListener('blur', onBlur);
             if (!save) {
-                buildCommunityList();
+                buildPaletteList();
                 return;
             }
             var label = input.value.trim();
@@ -1184,7 +1607,7 @@
             // Apply immediately; the host will broadcast the canonical snapshot.
             info.custom = !!label;
             info.name = label || info.autoName;
-            buildCommunityList();
+            buildPaletteList();
         }
         function onBlur() { finish(true); }
         input.addEventListener('keydown', function(e) {
@@ -1196,15 +1619,19 @@
     }
 
 
+    /** Rebuild the visible palette list (communities or layers) after a filter change. */
     function refreshCommunityPaletteCounts() {
         var palette = $('#community-palette');
-        if (palette && !palette.classList.contains('hidden')) buildCommunityList();
+        if (palette && !palette.classList.contains('hidden')) buildPaletteList();
     }
 
     function showCommunityPalette() {
         var el = $('#community-palette');
         if (el) {
-            buildCommunityList();
+            // The header combobox mirrors the heatmap mode.
+            var modeSelect = $('#palette-mode');
+            if (modeSelect) modeSelect.value = paletteModeNow();
+            buildPaletteList();
             el.classList.remove('hidden');
         }
     }
@@ -1375,6 +1802,8 @@
                     !(pinnedNode && !pinnedNodes.has(node)) &&
                     !(heatmapMode === 'community' && activeCommunities.size < Object.keys(communityNames).length &&
                       (communityMap[node.id] === undefined || !activeCommunities.has(communityMap[node.id]))) &&
+                    !(heatmapMode === 'layers' && activeLayers.size < layerOrder.length &&
+                      (layerGroupKey(node) === null || !activeLayers.has(layerGroupKey(node)))) &&
                     !(flowTraceMode && !flowTraceNodes.has(node.id)) &&
                     !(ts.active && ts.compareMode && ts.changed.size > 0 && !ts.changed.has(node.id));
 
@@ -1497,7 +1926,10 @@
                             transparent: false
                         });
                         var bloomMesh = new T.Mesh(bloomGeo, bloomMat);
-                        bloomMesh.layers.enable(BLOOM_LAYER);
+                        // Selective bloom: this mesh is rendered by the bloom
+                        // pre-pass only. Keeping layer 0 would also draw it as
+                        // an opaque pale-blue sphere in the main pass.
+                        bloomMesh.layers.set(BLOOM_LAYER);
                         group.add(bloomMesh);
                     } else {
                         // Glow mode: soft additive halo (no post-processing)
@@ -1599,6 +2031,9 @@
             .d3AlphaDecay(0.03)
             .d3VelocityDecay(0.5);
 
+        // Remember what was fed so a no-op filter change never re-feeds it.
+        lastFeedKey = feedKeyFor(filtered);
+
         // Apply spread forces
         applySpreadForces();
 
@@ -1667,8 +2102,15 @@
     // ============================================================
     var BLOOM_LAYER = 1;
     var bloomState = null; // { prePass, compositePass, bloomPass, bloomComposer }
+    var bloomRetryHandle = null;
+    var bloomRetryCount = 0;
 
     function disposeBloomState() {
+        if (bloomRetryHandle) {
+            cancelAnimationFrame(bloomRetryHandle);
+            bloomRetryHandle = null;
+        }
+        bloomRetryCount = 0;
         if (!bloomState || !graph || typeof graph.postProcessingComposer !== 'function') {
             bloomState = null;
             return;
@@ -1903,6 +2345,33 @@
         if (selectedNode && selectedNode.id === node.id) return '#93c5fd';
 
         if (heatmapMode !== 'off') {
+            if (heatmapMode === 'layers') {
+                // Documentation is outside architecture.
+                if (node.language === 'documentation') return '#ffffff12';
+                var archMeta = graphData && graphData.meta ? graphData.meta.arch : null;
+                if (!archMeta) return '#ffffff10';
+                // Palette selection: dims every layer the user switched off,
+                // exactly like the Communities palette does.
+                var groupKey = layerGroupKey(node);
+                if (groupKey && !activeLayers.has(groupKey)) return '#ffffff08';
+                var layerBase;
+                if (!node.layer) {
+                    layerBase = layerColor('unlayered');
+                } else {
+                    var layerIndex = -1;
+                    for (var li = 0; li < archMeta.layers.length; li++) {
+                        if (archMeta.layers[li].name === node.layer) { layerIndex = li; break; }
+                    }
+                    layerBase = layerColor(node.layer, layerIndex);
+                }
+                if (node.archViolations > 0) {
+                    // Violating sources stay bright; their outgoing edges are red.
+                    return layerBase;
+                }
+                if (pinnedNode) return pinnedNodes.has(node) ? layerBase : withAlpha(layerBase, '15');
+                if (highlightNodes.size > 0 && !highlightNodes.has(node)) return withAlpha(layerBase, '44');
+                return layerBase;
+            }
             if (heatmapMode === 'community') {
                 // Documentation is outside architecture: no community, neutral color.
                 if (node.language === 'documentation') return '#ffffff12';
@@ -2071,6 +2540,20 @@
             return LINK_COLORS[link.type] || '#ffffffaa';
         }
 
+        // Palette selection (layers): dim links touching a hidden layer, then
+        // keep the violation colours for the layers that stay visible.
+        if (heatmapMode === 'layers' && activeLayers.size < layerOrder.length) {
+            var laySrc = typeof link.source === 'object' ? link.source.id : link.source;
+            var layTgt = typeof link.target === 'object' ? link.target.id : link.target;
+            if (!activeLayers.has(layerByNode[laySrc]) || !activeLayers.has(layerByNode[layTgt])) return '#ffffff06';
+        }
+
+        // Architecture heatmap: forbidden file pairs are red, baselined ones dimmed.
+        if (heatmapMode === 'layers' && link.archViolation) {
+            if (link.archViolation.baselined) return '#ff910066';
+            return link.archViolation.severity === 'error' ? '#ff1744' : '#ff9100';
+        }
+
         // Dim links for unselected communities
         if (heatmapMode === 'community' && activeCommunities.size < Object.keys(communityNames).length) {
             var lSrc = typeof link.source === 'object' ? link.source.id : link.source;
@@ -2086,6 +2569,9 @@
 
     function getLinkWidth(link) {
         if (link && link._cochange) return 2.2;
+        if (heatmapMode === 'layers' && link.archViolation) {
+            return link.archViolation.severity === 'error' ? 2.8 : 2;
+        }
         if (link._isCallEdge) {
             if (!hoveredSymbolId) return 0;
             var cwSrc = typeof link.source === 'object' ? link.source.id : link.source;
@@ -2213,6 +2699,44 @@
             if (nodes[i].id === id) return nodes[i];
         }
         return null;
+    }
+
+    /**
+     * Make sure the configured selected-node effect is active before a
+     * selection renders. The bloom composer is created by the first render:
+     * when a selection comes from another tab (e.g. an Architecture layer
+     * row), the graph may only just have resumed, so retry once on the next
+     * frame instead of leaving the bloom mesh as a plain pale sphere.
+     */
+    function ensureSelectedNodeEffect() {
+        if (!graph) return;
+        applySelectedNodeEffect();
+        var cfg = window.AURA_CONFIG || {};
+        if (cfg.selectedNodeEffect !== 'bloom') {
+            bloomRetryCount = 0;
+            return;
+        }
+        if (bloomState) {
+            bloomRetryCount = 0;
+            return;
+        }
+        if (bloomRetryHandle || bloomRetryCount >= 6) return;
+        bloomRetryCount++;
+        bloomRetryHandle = requestAnimationFrame(function () {
+            bloomRetryHandle = null;
+            if (!graph) return;
+            applySelectedNodeEffect();
+            if (bloomState) {
+                bloomRetryCount = 0;
+                if (selectedNode) {
+                    // Rebuild once so the selected node's bloom mesh is picked
+                    // up by the composer that was just created.
+                    graph.nodeThreeObject(graph.nodeThreeObject());
+                }
+            } else {
+                ensureSelectedNodeEffect();
+            }
+        });
     }
 
     function handleNodeClick(node, event) {
@@ -2683,6 +3207,7 @@
             multiSelectedLinks.clear();
         }
         selectedNode = node;
+        ensureSelectedNodeEffect();
         graph.nodeThreeObject(graph.nodeThreeObject());
         updateExplorerSelection();
         if (window.AuraDetail) AuraDetail.show(node);
@@ -2897,6 +3422,15 @@
     function setHeatmapMode(mode) {
         heatmapMode = mode;
         if (window.AuraPanels) window.AuraPanels.applyHeatmapMode(mode);
+        // The filter-bar select and the palette combobox are two views of the
+        // same state — keep them consistent whichever one changed.
+        var heatmapSelect = $('#heatmap-select');
+        if (heatmapSelect && heatmapSelect.value !== mode) heatmapSelect.value = mode;
+        var paletteSelect = $('#palette-mode');
+        if (paletteSelect) {
+            var paletteMode = paletteModeNow();
+            if (paletteSelect.value !== paletteMode) paletteSelect.value = paletteMode;
+        }
     }
 
     // ============================================================
@@ -3119,9 +3653,25 @@
         return !!wp._wasVisible;
     }
 
+    /** Stable keys of the highlighted communities (numeric ids can be renumbered). */
+    function activeCommunityKeys() {
+        var keys = [];
+        for (var cid in communityNames) {
+            if (activeCommunities.has(Number(cid)) && communityNames[cid].key) {
+                keys.push(communityNames[cid].key);
+            }
+        }
+        return keys;
+    }
+
     function collectViewState() {
         return {
             activeLanguages: Array.from(activeLanguages),
+            // Palette selections, persisted for both modes. Communities use their
+            // stable key (ids are renumbered when the partition changes), layers
+            // use their rule name.
+            activeCommunityKeys: activeCommunityKeys(),
+            activeLayers: Array.from(activeLayers),
             dagMode: dagMode,
             showOrphans: showOrphans,
             showDeadCode: showDeadCode,
@@ -3239,12 +3789,17 @@
         $('#btn-group-dirs').classList.toggle('active', showGroups);
 
         // Sliders
+        // A restored spread must reshape the layout. Changing the charge of an
+        // already cooled engine does almost nothing (alpha is the temperature),
+        // so the caller reheats when this flag is set.
+        var spreadChanged = false;
         if (typeof state.nodeSizeMultiplier === 'number') {
             nodeSizeMultiplier = state.nodeSizeMultiplier;
             var nss = $('#node-size-slider');
             if (nss) nss.value = nodeSizeMultiplier;
         }
         if (typeof state.spreadMultiplier === 'number') {
+            spreadChanged = Math.abs(spreadMultiplier - state.spreadMultiplier) > 0.001;
             spreadMultiplier = state.spreadMultiplier;
             var ss = $('#spread-slider');
             if (ss) ss.value = spreadMultiplier;
@@ -3256,6 +3811,46 @@
             var dv = $('#depth-value');
             if (dv) dv.textContent = focusDepth;
         }
+
+        // Palette selections — persisted for both modes. Communities are matched
+        // by stable key, layers by name; entries that no longer exist are
+        // ignored (no match at all = keep the default "everything visible").
+        if (Array.isArray(state.activeCommunityKeys) && Object.keys(communityNames).length) {
+            var wantedCommunities = {};
+            for (var ck = 0; ck < state.activeCommunityKeys.length; ck++) {
+                wantedCommunities[state.activeCommunityKeys[ck]] = true;
+            }
+            var restoredCommunities = new Set();
+            var matchedCommunity = false;
+            for (var rc in communityNames) {
+                var communityKey = communityNames[rc].key;
+                if (communityKey && wantedCommunities[communityKey]) {
+                    restoredCommunities.add(Number(rc));
+                    matchedCommunity = true;
+                }
+            }
+            if (matchedCommunity || state.activeCommunityKeys.length === 0) {
+                activeCommunities.clear();
+                restoredCommunities.forEach(function(id) { activeCommunities.add(id); });
+            }
+        }
+        if (Array.isArray(state.activeLayers) && layerOrder.length) {
+            var wantedLayers = Object.create(null);
+            for (var lk = 0; lk < state.activeLayers.length; lk++) wantedLayers[state.activeLayers[lk]] = true;
+            var restoredLayers = new Set();
+            var matchedLayer = false;
+            for (var lo = 0; lo < layerOrder.length; lo++) {
+                if (wantedLayers[layerOrder[lo]]) {
+                    restoredLayers.add(layerOrder[lo]);
+                    matchedLayer = true;
+                }
+            }
+            if (matchedLayer || state.activeLayers.length === 0) {
+                activeLayers.clear();
+                restoredLayers.forEach(function(key) { activeLayers.add(key); });
+            }
+        }
+        buildPaletteList();
 
         // Heatmap
         if (state.heatmapMode) {
@@ -3322,6 +3917,13 @@
 
             applySpreadForces();
             applyFilters();
+            // Visibility filters no longer re-feed (and thus no longer reheat), so
+            // a restored spread has to ask for its own bounded settle. Restore the
+            // engine budget first: a frozen feed zeroes warmup/cooldown ticks.
+            if (spreadChanged) {
+                applyEngineBudget();
+                reheatWithSettle();
+            }
             // Force refresh of all visual accessors
             graph.nodeColor(graph.nodeColor());
             graph.nodeVal(graph.nodeVal());
@@ -3356,6 +3958,9 @@
                 graph.dagLevelDistance(dagMode ? 60 : null);
                 if (!dagMode) {
                     graph.numDimensions(3);
+                    // numDimensions resets the charge force to the library 3D
+                    // default (-60): re-apply the user's spread instead.
+                    applySpreadForces();
                     reheatWithSettle();
                 }
                 applyFilters();
@@ -3602,22 +4207,28 @@
             });
         }
 
-        // Community palette buttons
+        // Group palette — header combobox switches between Communities and
+        // Architecture layers (the heatmap itself is the single source of truth).
+        var paletteModeSelect = $('#palette-mode');
+        if (paletteModeSelect) {
+            paletteModeSelect.addEventListener('change', function(e) {
+                setHeatmapMode(e.target.value === 'layers' ? 'layers' : 'community');
+                saveViewState();
+            });
+        }
+
+        // Community palette buttons (All / None act on the list currently shown)
         var cpSelectAll = $('#community-select-all');
         var cpSelectNone = $('#community-select-none');
         var cpClose = $('#community-palette-close');
         if (cpSelectAll) {
             cpSelectAll.addEventListener('click', function() {
-                for (var k in communityNames) activeCommunities.add(Number(k));
-                buildCommunityList();
-                if (graph) { graph.nodeColor(graph.nodeColor()); graph.linkColor(graph.linkColor()); graph.nodeThreeObject(graph.nodeThreeObject()); }
+                setAllPaletteGroups(true);
             });
         }
         if (cpSelectNone) {
             cpSelectNone.addEventListener('click', function() {
-                activeCommunities.clear();
-                buildCommunityList();
-                if (graph) { graph.nodeColor(graph.nodeColor()); graph.linkColor(graph.linkColor()); graph.nodeThreeObject(graph.nodeThreeObject()); }
+                setAllPaletteGroups(false);
             });
         }
         if (cpClose) {
@@ -3635,7 +4246,9 @@
             var offsetX = 0, offsetY = 0;
 
             header.addEventListener('mousedown', function(e) {
-                if (e.target.tagName === 'BUTTON') return;
+                var tag = e.target && e.target.tagName;
+                // Buttons and the mode combobox are interactive, not drag handles.
+                if (tag === 'BUTTON' || tag === 'SELECT' || tag === 'OPTION' || tag === 'INPUT') return;
                 dragging = true;
                 var rect = palette.getBoundingClientRect();
                 offsetX = e.clientX - rect.left;
@@ -3918,7 +4531,7 @@
         // ============================================================
         // Keyboard shortcuts
         // ============================================================
-        var HEATMAP_MODES = ['off', 'complexity', 'cognitive', 'fanIn', 'fanOut', 'loc', 'churn', 'cochange', 'lastModified', 'community'];
+        var HEATMAP_MODES = ['off', 'complexity', 'cognitive', 'fanIn', 'fanOut', 'loc', 'churn', 'cochange', 'lastModified', 'layers', 'community'];
 
         document.addEventListener('keydown', function(e) {
             // Ignore when typing in an input
@@ -4158,8 +4771,49 @@
 
     function applyFilters() {
         if (!graph || !graphData) return;
-        graph.graphData(filterGraphData(graphData));
+        var filtered = filterGraphData(graphData);
+        // Nothing visible changed (e.g. "All" while every folder is already
+        // shown, or a confidence step that filters no edge): re-feeding would
+        // reheat the engine for nothing and nudge the whole layout.
+        if (feedKeyFor(filtered) !== lastFeedKey) feedGraphFrozen(filtered);
         refreshCommunityPaletteCounts();
+    }
+
+    /** Signature of a fed dataset: visible node ids + visible links. */
+    function feedKeyFor(dataset) {
+        var parts = [];
+        var i;
+        for (i = 0; i < dataset.nodes.length; i++) parts.push(dataset.nodes[i].id);
+        var key = parts.join('\u0001') + '\u0002';
+        parts = [];
+        var links = dataset.links || [];
+        for (i = 0; i < links.length; i++) {
+            var l = links[i];
+            var s = (typeof l.source === 'object' && l.source) ? l.source.id : l.source;
+            var t = (typeof l.target === 'object' && l.target) ? l.target.id : l.target;
+            // Co-change links are rebuilt on every call: carry their scores so a
+            // recomputed coupling still refreshes the fed dataset.
+            var virtual = l._cochange ? '~' + l._cochange + '/' + (l._cochangeCount || 0) : '';
+            parts.push(s + '>' + t + '>' + (l.type || '') + virtual);
+        }
+        return key + parts.join('\u0001');
+    }
+
+    /**
+     * Feed a visibility subset without re-heating the engine: filters only
+     * change what is drawn, not where the remaining nodes sit. A regular feed
+     * runs the synchronous warmup (100/220 ticks at alpha 1) then a live
+     * cooldown, which drifts every node — read as a small rotation of the whole
+     * graph. Zeroed budgets keep the settled positions; they are restored right
+     * after the feed so later interactions still settle normally.
+     */
+    function feedGraphFrozen(dataset) {
+        if (!graph) return;
+        lastFeedKey = feedKeyFor(dataset);
+        graph.warmupTicks(0);
+        graph.cooldownTicks(0);
+        graph.graphData(dataset);
+        setTimeout(function () { applyEngineBudget(); }, 200);
     }
 
     // ============================================================
@@ -4519,6 +5173,9 @@
                 graph.height(graphContainer.clientHeight);
                 refreshCameraControls();
             }
+            // The canvas was hidden while another tab was active: build/refresh
+            // the selected-node bloom now that the renderer is visible again.
+            ensureSelectedNodeEffect();
         } else {
             pauseGraph();
             // Pilot mode only makes sense in the graph tab.
@@ -4536,6 +5193,7 @@
             if (tabName === 'table') AuraViews.renderTable();
         }
         if (tabName === 'risk' && window.AuraRiskMap) AuraRiskMap.renderRiskDashboard();
+        if (tabName === 'arch' && window.AuraArchPanel) AuraArchPanel.render();
     }
 
     function pauseGraph() {

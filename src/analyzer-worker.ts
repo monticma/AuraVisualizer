@@ -61,15 +61,17 @@ async function run(): Promise<void> {
     });
 
     parentPort?.postMessage({ progress: { phase: 'parsing', message: `Parsing ${files.length} files...` } });
-    // Pre-parse files with Tree-sitter where grammar is available
-    const astTrees = await preParseFiles(files);
+    // Pre-parse files with Tree-sitter where grammar is available. Failures are
+    // collected (V2-17) and summarized in meta.parseFailures — never fatal.
+    const parseFailures = new Map<string, string>();
+    const astTrees = await preParseFiles(files, parseFailures);
 
     parentPort?.postMessage({ progress: { phase: 'building', message: 'Building dependency graph...' } });
     const graphData = buildGraph(files, projectName, {
         skipDirs: new Set(skipDirs),
         projectName,
         deadCodeRules: input.deadCodeRules || [],
-    }, astTrees);
+    }, astTrees, parseFailures);
 
     // Chunk documentation files for the RAG index
     const docChunks: DocChunk[] = [];
@@ -83,7 +85,15 @@ async function run(): Promise<void> {
         }
     }
 
-    parentPort?.postMessage({ graphData, files, docChunks });
+    parentPort?.postMessage({
+        graphData,
+        files,
+        docChunks,
+        // Full failure list (usually tiny): the host keeps it for incremental edits.
+        parseFailures: [...parseFailures.entries()]
+            .sort((a, b) => a[0].localeCompare(b[0]))
+            .map(([path, reason]) => ({ path, reason })),
+    });
 }
 
 run().catch((err) => {
