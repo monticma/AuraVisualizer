@@ -20,6 +20,7 @@ import { registerAuraLmTools } from './lm-tools';
 import { registerAuraChatParticipant } from './chat/participant';
 import { registerNavigationCommands } from './commands/navigation';
 import { collectBlastTargets } from './commands/blast-targets';
+import { registerPaletteCommands } from './commands/palette';
 import { AuraCodeLensProvider, registerSymbolCommands } from './codelens';
 import { registerAskAuraCommands } from './commands/ask-aura';
 import { buildArchReportInput, generateArchReport, withAiNarrative, type ArchReportExtras, type ArchReportModule } from './report/arch-report';
@@ -407,6 +408,24 @@ export function activate(context: vscode.ExtensionContext): void {
         }),
     );
     context.subscriptions.push(...registerAskAuraCommands());
+
+    // Enriched palette (V3-03): focus a file by name, replay a saved query, add
+    // a warp on the current camera pose.
+    context.subscriptions.push(...registerPaletteCommands({
+        revealGraph: () => openVisualizer(context),
+        focusInGraph: (relativePath: string) => webviewProvider?.focusNode(relativePath, true),
+        applyQuery: (expr: string, mode: 'highlight' | 'filter' | 'select') => webviewProvider?.applyQueryFromHost(expr, mode),
+        captureWarp: () => webviewProvider?.captureWarpHere(),
+    }, {
+        files: () => cachedGraphData?.nodes ?? [],
+        queries: () => {
+            try {
+                return graphDb && graphDb.isOpen ? graphDb.listSavedQueries() : [];
+            } catch {
+                return [];
+            }
+        },
+    }));
 
     // Watch for file changes (incremental)
     setupFileWatcher(context);

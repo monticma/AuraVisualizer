@@ -399,6 +399,12 @@
                     );
                 }
                 break;
+            case 'captureWarp':
+                // Palette command "Aura: Add Warp Here" — reuse the 📌 flow.
+                if (window.AuraWarps && typeof AuraWarps.capture === 'function') {
+                    AuraWarps.capture();
+                }
+                break;
             case 'applyQuery':
                 if (window.AuraQueryBar && message.payload && typeof message.payload.expr === 'string') {
                     window.AuraQueryBar.applyFromHost(message.payload.expr, message.payload.mode);

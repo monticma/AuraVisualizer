@@ -272,6 +272,21 @@
         "icon": "$(table)"
       },
       {
+        "command": "auraVisualizer.focusFileByName",
+        "title": "Aura: Focus File in Graph…",
+        "icon": "$(go-to-file)"
+      },
+      {
+        "command": "auraVisualizer.applySavedQuery",
+        "title": "Aura: Apply Saved Query…",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "auraVisualizer.addWarpHere",
+        "title": "Aura: Add Warp Here",
+        "icon": "$(pin)"
+      },
+      {
         "command": "auraVisualizer.blastRadius",
         "title": "Aura: Blast Radius (Impact Analysis)",
         "icon": "$(radio-tower)"

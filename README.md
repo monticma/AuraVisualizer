@@ -458,6 +458,18 @@ Press `V` or click the **⇄ Compare** button to enter **Compare mode**. A secon
 
 Type in the search box (2+ characters) to find files by name or path. Results appear in a live dropdown — click to navigate.
 
+### Command Palette 🎛️
+
+Three navigation gestures are one keystroke away from anywhere in VS Code (`Ctrl+Shift+P`):
+
+| Command | What it does |
+|---------|--------------|
+| **Aura: Focus File in Graph…** | Fuzzy picker over the analyzed files (path, language, directory, LOC, fan-in/out, layer, violations) — selection focuses the node and opens its detail panel |
+| **Aura: Apply Saved Query…** | Replay a query saved from the query bar, with its stored mode (filter / highlight / select); most recent first |
+| **Aura: Add Warp Here** | Opens the warp naming modal on the current camera pose (same flow as 📌 in the Warps panel) |
+
+Files are code only (documentation nodes are excluded) and the picker caps at 5 000 entries — typing a path fragment narrows it down.
+
 ### Query Filter 🔍
 
 Filter, highlight, or select files with the built-in **Aura Query Language** — a small boolean DSL evaluated over node metrics.

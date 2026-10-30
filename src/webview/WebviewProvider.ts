@@ -73,6 +73,7 @@ export class WebviewProvider {
     private pendingQuery: { expr: string; mode: 'highlight' | 'filter' | 'select' } | undefined;
     private pendingBlastRadius: string[] | undefined;
     private pendingFlow: { nodeId: string; line: number; language: string; name?: string } | undefined;
+    private pendingCaptureWarp = false;
     private webviewReady = false;
     /**
      * True once the webview reported that a graph was actually rendered.
@@ -158,6 +159,7 @@ export class WebviewProvider {
             this.pendingArchFocus = undefined;
             this.pendingQuery = undefined;
             this.pendingBlastRadius = undefined;
+            this.pendingCaptureWarp = false;
             this.disposables.forEach(d => d.dispose());
             this.disposables = [];
             this.onDisposeEmitter.fire();
@@ -758,6 +760,10 @@ export class WebviewProvider {
             this.panel.webview.postMessage({ type: 'blastRadius', payload: { nodeIds: this.pendingBlastRadius } });
             this.pendingBlastRadius = undefined;
         }
+        if (this.pendingCaptureWarp) {
+            this.panel.webview.postMessage({ type: 'captureWarp' });
+            this.pendingCaptureWarp = false;
+        }
         this.flushPendingFlow();
     }
 
@@ -876,6 +882,19 @@ export class WebviewProvider {
             this.panel?.webview.postMessage({ type: 'openFlow', payload });
         } else {
             this.pendingFlow = payload;
+        }
+    }
+
+    /**
+     * Open the warp capture modal on the live camera pose (palette command
+     * "Aura: Add Warp Here"). Needs a rendered graph, so it is queued like the
+     * other graph-dependent messages.
+     */
+    public captureWarpHere(): void {
+        if (this.webviewReady && this.graphReady) {
+            this.panel?.webview.postMessage({ type: 'captureWarp' });
+        } else {
+            this.pendingCaptureWarp = true;
         }
     }
 
@@ -2283,6 +2302,7 @@ export class WebviewProvider {
                 <h3>🌀 Warp Points</h3>
                 <p>Save named camera bookmarks of the 3D view: the <strong>🌀 Warps</strong> toolbar button opens the floating panel; its <strong>📌</strong> button captures the current pose (camera position + view target + orientation). Click a warp to fly there (smooth 800 ms tween), re-capture or rename it, and assign quick slots — <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>1–9</kbd> flies back from anywhere (plain <kbd>Alt</kbd>+<kbd>digit</kbd> is captured by VS Code). The <strong>🏠 Home</strong> row returns to the default fit-to-view pose.</p>
                 <p>Warps are stored in <code>.aura/warps.json</code> — local to your workspace, never committed.</p>
+                <p>The command palette has <strong>Aura: Add Warp Here</strong>: it opens the same naming modal on the current camera pose, so a bookmark can be captured without reaching for the panel.</p>
 
                 <h3>🚀 Pilot Mode (free flight)</h3>
                 <p>The <strong>🚀 Pilot</strong> toolbar button switches to free-flight navigation: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move (camera-relative — physical key layout, so AZERTY gets ZQSD), <kbd>Q</kbd>/<kbd>E</kbd> down/up, mouse look (click locks the pointer), mouse wheel adjusts the speed, <kbd>Shift</kbd> boosts. Hold the <strong>left mouse button</strong> to fly forward and the <strong>right button</strong> to fly backward — steer by looking; keys keep working in parallel. Press <kbd>Esc</kbd> to exit — or simply hit <kbd>Space</kbd> to toggle pilot mode on/off. The orbit controls take over seamlessly at the exact same view. Flight speed, smoothing, mouse sensitivity and Y-inversion live in <strong>⚙️ Settings</strong>.</p>
@@ -2293,6 +2313,9 @@ export class WebviewProvider {
 
                 <h3>📂 Directory Filtering</h3>
                 <p>In the <strong>File Explorer</strong> panel, each directory has a checkbox to show/hide its files in the graph. Use the <strong>All</strong> / <strong>None</strong> buttons for batch selection. Directories are checked by default.</p>
+
+                <h3>🎛️ Command Palette</h3>
+                <p>From anywhere in VS Code: <strong>Aura: Focus File in Graph…</strong> (fuzzy picker over analyzed files — path, language, directory, LOC, fan-in/out, layer, violations), <strong>Aura: Apply Saved Query…</strong> (replays a query saved from the query bar with its stored mode, most recent first) and <strong>Aura: Add Warp Here</strong> (warp naming modal on the current camera pose). The file picker lists code only — documentation nodes are excluded — and caps at 5 000 entries.</p>
 
                 <h3>🔍 Query Filter</h3>
                 <p>Open the query bar with the <strong>🔍 button</strong> (far right of the tab bar) or <kbd>Ctrl+K</kbd> / <kbd>Cmd+K</kbd> — it stays hidden until you need it. Type a boolean expression over node metrics, e.g. <code>complexity &gt; 20 AND fanIn &gt; 5</code>.</p>

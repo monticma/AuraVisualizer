@@ -555,6 +555,8 @@
         init: init,
         // Wire the toolbar button + panel controls (called once by app init)
         setup: setupWarps,
+        // Capture the current camera pose (palette command / host message)
+        capture: function () { syncCtx(); showWarpModal(); },
         // Re-render the list (called on every 'warps' message)
         render: function () { syncCtx(); renderWarpsPanel(); },
         // Show/hide the panel (called by applyViewState)
