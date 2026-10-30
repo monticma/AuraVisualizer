@@ -173,7 +173,7 @@ Use the **Depth slider** (1–5) or keys `1`–`5` to control the blast radius d
 **From the code side** — the same analysis is one click away where you work:
 
 - **Source Control**: right-click one or several changed files → *Aura: Blast Radius*. A multi-selection seeds the **impact cascade** (every selected file at depth 0, dependents colored by depth)
-- **Editor title**: the `$(radio-tower)` button on the file's tab, and the same entry in the **Explorer** file context menu
+- **Editor title**: the radio-tower icon on the file's tab, the same entry in the **editor** right-click menu, and in the **Explorer** file context menu
 - Files outside the workspace or not part of the analyzed graph are skipped; the panel is only opened when at least one file matches
 
 ### File Explosion

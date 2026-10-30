@@ -2245,7 +2245,7 @@ export class WebviewProvider {
 
                 <h3>💥 Blast Radius</h3>
                 <p><kbd>Shift+Right-click</kbd> on a file to see all files that transitively depend on it. Nodes are colored by depth of impact: White (source) → Red → Orange → Yellow → Green.</p>
-                <p>The same analysis starts from your code: right-click changed files in <strong>Source Control</strong>, or use the <strong>💥 button in the editor title</strong> and the Explorer context menu. Selecting several files in Source Control seeds the <strong>multi-seed cascade</strong> — every selected file at depth 0, their dependents colored by depth. Files outside the workspace or outside the analyzed graph are skipped, and the panel only opens when at least one file matches.</p>
+                <p>The same analysis starts from your code: right-click changed files in <strong>Source Control</strong>, or use the <strong>radio-tower icon in the editor title</strong>, the <strong>editor</strong> right-click menu and the Explorer context menu. Selecting several files in Source Control seeds the <strong>multi-seed cascade</strong> — every selected file at depth 0, their dependents colored by depth. Files outside the workspace or outside the analyzed graph are skipped, and the panel only opens when at least one file matches.</p>
 
                 <h3>▶ Flow Trace</h3>
                 <p>In the detail panel, click the <strong>▶</strong> button next to a function to trace its outgoing call chain across files. Files light up progressively by call depth.</p>

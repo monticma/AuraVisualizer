@@ -97,7 +97,8 @@ The impact analysis also starts outside the graph:
 | Where | Action |
 |-------|--------|
 | **Source Control** (right-click) | *Aura: Blast Radius* on one file, or on a **multi-selection** to seed the multi-file impact cascade |
-| **Editor title** | The `💥` button on the file's tab |
+| **Editor title** | The radio-tower icon (`Aura: Blast Radius`) on the file's tab |
+| **Editor** (right-click) | *Aura: Blast Radius* |
 | **Explorer** (right-click) | Same entry on any file |
 | **Command palette** | *Aura: Blast Radius* — uses the active editor |
 

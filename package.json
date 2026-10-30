@@ -362,7 +362,7 @@
       "scm/resourceState/context": [
         {
           "command": "auraVisualizer.blastRadius",
-          "when": "scmProvider == git",
+          "when": "config.git.enabled && gitOpenRepositoryCount != 0",
           "group": "navigation"
         }
       ],
@@ -370,7 +370,14 @@
         {
           "command": "auraVisualizer.blastRadius",
           "when": "resourceScheme == file",
-          "group": "navigation"
+          "group": "navigation@1"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "auraVisualizer.blastRadius",
+          "when": "resourceScheme == file",
+          "group": "aura@1"
         }
       ],
       "explorer/context": [

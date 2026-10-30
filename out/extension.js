@@ -1100,7 +1100,7 @@ ${JSON.stringify(i,null,2)}`);let a=s[o]();return new Language(INTERNAL,a)})}}cl
 
                 <h3>\u{1F4A5} Blast Radius</h3>
                 <p><kbd>Shift+Right-click</kbd> on a file to see all files that transitively depend on it. Nodes are colored by depth of impact: White (source) \u2192 Red \u2192 Orange \u2192 Yellow \u2192 Green.</p>
-                <p>The same analysis starts from your code: right-click changed files in <strong>Source Control</strong>, or use the <strong>\u{1F4A5} button in the editor title</strong> and the Explorer context menu. Selecting several files in Source Control seeds the <strong>multi-seed cascade</strong> \u2014 every selected file at depth 0, their dependents colored by depth. Files outside the workspace or outside the analyzed graph are skipped, and the panel only opens when at least one file matches.</p>
+                <p>The same analysis starts from your code: right-click changed files in <strong>Source Control</strong>, or use the <strong>radio-tower icon in the editor title</strong>, the <strong>editor</strong> right-click menu and the Explorer context menu. Selecting several files in Source Control seeds the <strong>multi-seed cascade</strong> \u2014 every selected file at depth 0, their dependents colored by depth. Files outside the workspace or outside the analyzed graph are skipped, and the panel only opens when at least one file matches.</p>
 
                 <h3>\u25B6 Flow Trace</h3>
                 <p>In the detail panel, click the <strong>\u25B6</strong> button next to a function to trace its outgoing call chain across files. Files light up progressively by call depth.</p>
