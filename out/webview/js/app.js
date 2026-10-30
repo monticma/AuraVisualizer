@@ -606,13 +606,38 @@
      * Tell the host a live ForceGraph3D instance is available. Queued focus /
      * blast / flowchart messages are flushed then. Idempotent: the first call
      * after a render wins, the others are no-ops.
+     *
+     * The payload carries a render diagnosis so a broken panel can be reported
+     * instead of silently handing a dead graph to the host.
      */
     function announceGraphRendered() {
         if (!renderAnnouncePending) return;
         renderAnnouncePending = false;
         if (renderAnnounceTimer) { clearTimeout(renderAnnounceTimer); renderAnnounceTimer = 0; }
+        var canvas = graphContainer ? graphContainer.querySelector('canvas') : null;
+        var report = {
+            hasGraph: !!graph,
+            nodes: graphData && graphData.nodes ? graphData.nodes.length : 0,
+            rendered: (headGraphData && headGraphData.nodes) ? headGraphData.nodes.length : 0,
+            width: graphContainer ? graphContainer.clientWidth : 0,
+            height: graphContainer ? graphContainer.clientHeight : 0,
+            canvasWidth: canvas ? canvas.width : 0,
+            canvasHeight: canvas ? canvas.height : 0,
+            tab: activeTab,
+            paused: graphPaused
+        };
+        if (!report.hasGraph || report.nodes === 0) {
+            console.error('[aura] graph render incomplete:', JSON.stringify(report));
+            // Keep the user out of a grey void: say what happened where they
+            // are already looking (the overlay) instead of a blank canvas.
+            var statusEl = document.getElementById('loading-status');
+            if (statusEl) statusEl.textContent = 'The 3D graph could not be built — see the Extension Host log.';
+            if (loadingOverlay) loadingOverlay.style.display = 'flex';
+            try { vscode.postMessage({ type: 'renderFailed', payload: report }); } catch (_) { /* noop */ }
+            return; // keep the host queue waiting: nothing to act on yet
+        }
         if (loadingOverlay) loadingOverlay.style.display = 'none';
-        try { vscode.postMessage({ type: 'graphRendered' }); } catch (_) { /* noop */ }
+        try { vscode.postMessage({ type: 'graphRendered', payload: report }); } catch (_) { /* noop */ }
     }
 
     function handleGraphData(data) {
@@ -677,10 +702,25 @@
             ensureSelectedNodeEffect();
         } catch (e) {
             console.error('[aura] initGraph error:', e);
-        } finally {
-            hideOverlay();
-            armAnnounce();
         }
+        // A cold start can hit a panel that has not been laid out yet: retry
+        // once the container has a size instead of leaving an empty canvas.
+        if (!graph && renderInitRetries < 3) {
+            renderInitRetries++;
+            requestAnimationFrame(function () {
+                try {
+                    initGraph(graphData);
+                    applyLinkStyle();
+                    ensureSelectedNodeEffect();
+                } catch (e) {
+                    console.error('[aura] initGraph retry failed:', e);
+                }
+            });
+        } else {
+            renderInitRetries = 0;
+        }
+        hideOverlay();
+        armAnnounce();
         buildExplorerTree(graphData.nodes);
         // Refresh saved queries now that DB is definitely open
         try { vscode.postMessage({ type: 'requestSavedQueries' }); } catch (_) { /* noop */ }
@@ -3938,6 +3978,8 @@
     var renderAnnouncePending = false;
     /** Fallback timer: announce even if the host has no view state to restore. */
     var renderAnnounceTimer = 0;
+    /** Retry budget while ForceGraph3D has not produced an instance yet. */
+    var renderInitRetries = 0;
 
     function saveViewState() {
         if (!viewStateReady) return;

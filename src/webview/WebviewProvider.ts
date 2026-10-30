@@ -82,6 +82,8 @@ export class WebviewProvider {
      * finishes, and the action used to be dropped).
      */
     private graphReady = false;
+    /** One warning per session when the webview reports a broken render. */
+    private renderFailureShown = false;
 
     private static readonly VIEW_STATE_KEY = 'aura.viewState';
 
@@ -217,9 +219,26 @@ export class WebviewProvider {
                     case 'graphRendered':
                         // The webview has a live ForceGraph3D instance: this is the
                         // first moment focus / blast radius / flowchart can work.
+                        console.log('[aura] graph rendered', JSON.stringify(message.payload || {}));
                         this.graphReady = true;
                         this.flushGraphActions();
                         break;
+                    case 'renderFailed': {
+                        // The webview could not build a usable ForceGraph3D (no
+                        // instance, empty dataset or a zero-size panel) — keep the
+                        // queued actions and tell the user instead of pretending
+                        // the graph is live.
+                        const report = JSON.stringify(message.payload || {});
+                        console.error('[aura] graph render failed', report);
+                        this.graphReady = false;
+                        if (!this.renderFailureShown) {
+                            this.renderFailureShown = true;
+                            void vscode.window.showWarningMessage(
+                                'Aura: the 3D graph could not be built (see the Extension Host log for details). Try Aura: Refresh Visualization.',
+                            );
+                        }
+                        break;
+                    }
                     case 'openFile':
                         if (message.payload) {
                             this.onOpenFileEmitter.fire({
