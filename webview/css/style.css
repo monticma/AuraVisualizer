@@ -1447,6 +1447,14 @@ html, body {
 }
 .pilot-speed { color: var(--aura-text); }
 .pilot-speed span { font-weight: 600; }
+.pilot-pad {
+    color: #a78bfa;
+    font-weight: 600;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.pilot-pad.hidden { display: none; }
 .pilot-keys { color: var(--aura-text-secondary); }
 .pilot-keys kbd {
     background: rgba(201, 209, 217, 0.12);

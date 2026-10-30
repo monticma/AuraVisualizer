@@ -387,8 +387,9 @@ Switch from orbiting the graph to **flying through it** — first-person navigat
 - **`W A S D`** move camera-relative (physical key layout — AZERTY gets ZQSD), **`Q`/`E`** descend / ascend
 - **Mouse look** with pointer lock; hold the **left mouse button** to fly forward, the **right** to fly backward — steer by looking while you hold
 - **Wheel** adjusts base speed, **`Shift`** boosts — the base speed scales with the graph size
+- **🎮 Gamepad** (DualSense, Xbox — any W3C standard pad): **left stick** translates, **right stick** looks, **L2** descends, **R2** boosts analogically, **✕** resets the camera to an overview, **touchpad** re-aims at the graph centre, **d-pad ↑/↓** change the speed, **Options** resets it, **○** exits. Sticks pass a 15% deadzone then a response curve, so fine nudges stay precise; the stick look rate follows the **Mouse look sensitivity** setting. Pads are only polled while flying (browsers expose a pad after its first button press), and the live pad name shows in the pilot HUD
 - No roll (pitch clamped), smooth acceleration/damping, and single-letter shortcuts, hover and clicks are suspended while flying
-- Flight speed, smoothing, mouse sensitivity and Y-inversion live in **⚙️ Settings**
+- Flight speed, smoothing, mouse sensitivity, Y-inversion and the gamepad toggle live in **⚙️ Settings**
 
 ### Function Flowcharts ⑂
 
@@ -509,7 +510,8 @@ The **⚙️ button** in the tab bar (next to 🔍 Query) opens an in-app settin
 | **Link style** | Straight or curved dependency edges (+ curvature amount) |
 | **Selected node effect** | Glow halo or bloom post-processing (+ intensity / radius / threshold) |
 | **Flight speed / smoothing** | Pilot mode base speed (scene-scaled) and acceleration damping |
-| **Mouse look sensitivity / invert Y** | Pilot mode mouse-look feel |
+| **Mouse look sensitivity / invert Y** | Pilot mode mouse-look feel (also scales the gamepad stick look rate) |
+| **Gamepad in pilot mode** | Fly with a DualSense/Xbox pad (W3C standard mapping) — on by default, ignored outside pilot mode |
 | **Follow editor** | Fly the camera to the file of the active editor (👁 toolbar toggle) |
 | **Auto-refresh on save** | Re-analyze changed files automatically |
 

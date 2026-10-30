@@ -501,6 +501,11 @@
           "default": false,
           "description": "Pilot mode: invert the mouse Y axis (moving the mouse up looks down)"
         },
+        "auraVisualizer.gamepadEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Pilot mode: fly with a gamepad (DualSense, Xbox — W3C standard mapping). Left stick moves, right stick looks, L2 descends, R2 boosts. Ignored outside pilot mode."
+        },
         "auraVisualizer.savedQueries": {
           "type": "array",
           "default": [],

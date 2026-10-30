@@ -1,7 +1,7 @@
 /**
- * flight.js — Pilot mode: free-flight camera (WASD/QE + mouse look).
+ * flight.js — Pilot mode: free-flight camera (keyboard, mouse and gamepad).
  *
- * Owns the whole flight UX: keyboard/mouse input, pointer lock (with a
+ * Owns the whole flight UX: keyboard/mouse/gamepad input, pointer lock (with a
  * drag-to-look fallback), the rAF integration loop, the HUD badge and the
  * clean handover back to TrackballControls. The math lives in
  * `window.AuraPilot` (src/flight/flight-core.ts, unit-tested).
@@ -10,6 +10,14 @@
  * RIGHT button to fly backward — steer by simply moving the mouse; the
  * keyboard keeps working in parallel. In the drag-to-look fallback, the
  * left button keeps its "look" role and only the right button reels back.
+ *
+ * Gamepad (W3C standard mapping — DualSense, Xbox…): left stick translates,
+ * right stick looks, L2 descends, R2 boosts (analog), ✕ resets the camera,
+ * touchpad re-aims at the graph centre, ○ leaves the flight, Options resets
+ * the speed, d-pad up/down change the speed. `navigator.getGamepads()` is
+ * poll-based and returns nulls until a button is pressed once with the window
+ * focused — the polling loop keeps trying, so the pad simply appears after the
+ * first press. The pad is ignored when `auraVisualizer.gamepadEnabled` is off.
  *
  * Design notes (see docs/Ideas/PilotMode.md):
  * - entry/exit through the 🚀 toolbar button only — single-letter shortcuts
@@ -52,8 +60,15 @@
         flightSpeed: core.DEFAULT_FLIGHT_SPEED,
         flightSmoothing: core.DEFAULT_SMOOTHING,
         mouseSensitivity: core.DEFAULT_MOUSE_SENSITIVITY,
-        invertY: false
+        invertY: false,
+        gamepadEnabled: true,
+        padLookScale: 1
     };
+
+    // Gamepad state (polled every frame — the API has no motion events)
+    var pad = null;
+    var padPrevButtons = [];
+    var padHudLabel = '';
 
     var pointerLocked = false;
     var dragLook = false;
@@ -77,6 +92,14 @@
         cfg.flightSmoothing = clampNum(config.flightSmoothing, core.DEFAULT_SMOOTHING, 0.02, 0.5);
         cfg.mouseSensitivity = clampNum(config.mouseSensitivity, core.DEFAULT_MOUSE_SENSITIVITY, 0.0005, 0.01);
         cfg.invertY = config.invertY === true;
+        cfg.gamepadEnabled = config.gamepadEnabled !== false;
+        // One slider drives both looks: the stick rate follows the mouse sensitivity.
+        cfg.padLookScale = cfg.mouseSensitivity / core.DEFAULT_MOUSE_SENSITIVITY;
+        if (!cfg.gamepadEnabled) {
+            pad = null;
+            padPrevButtons = [];
+            updatePadHud(null);
+        }
     }
 
     function isActive() { return active; }
@@ -219,6 +242,20 @@
         mouseHeld.backward = false;
     }
 
+    function onGamepadConnected(e) {
+        if (!active || !cfg.gamepadEnabled) return;
+        pad = (e && e.gamepad) || pad;
+        padPrevButtons = [];
+        updatePadHud(core.readPadState(pad, cfg.invertY));
+    }
+
+    function onGamepadDisconnected() {
+        if (!active) return;
+        pad = null;
+        padPrevButtons = [];
+        updatePadHud(null);
+    }
+
     function addListeners() {
         if (listenersOn || !container) return;
         listenersOn = true;
@@ -230,6 +267,8 @@
         document.addEventListener('pointerlockerror', onPointerLockError);
         document.addEventListener('contextmenu', onContextMenu, true);
         window.addEventListener('blur', onBlur);
+        window.addEventListener('gamepadconnected', onGamepadConnected);
+        window.addEventListener('gamepaddisconnected', onGamepadDisconnected);
         container.addEventListener('mousedown', onMouseDown);
         container.addEventListener('wheel', onWheel, { passive: false });
     }
@@ -245,8 +284,105 @@
         document.removeEventListener('pointerlockerror', onPointerLockError);
         document.removeEventListener('contextmenu', onContextMenu, true);
         window.removeEventListener('blur', onBlur);
+        window.removeEventListener('gamepadconnected', onGamepadConnected);
+        window.removeEventListener('gamepaddisconnected', onGamepadDisconnected);
         container.removeEventListener('mousedown', onMouseDown);
         container.removeEventListener('wheel', onWheel);
+    }
+
+    // ============================================================
+    // Gamepad
+    // ============================================================
+
+    /** First connected pad, or null. `getGamepads()` is poll-based by design. */
+    function pollPad() {
+        if (!cfg.gamepadEnabled) return null;
+        if (typeof navigator === 'undefined' || typeof navigator.getGamepads !== 'function') return null;
+        var pads;
+        try { pads = navigator.getGamepads(); } catch (e) { return null; }
+        if (!pads) return null;
+        for (var i = 0; i < pads.length; i++) {
+            var candidate = pads[i];
+            if (candidate && candidate.connected !== false) return candidate;
+        }
+        return null;
+    }
+
+    /** HUD chip: "🎮 DualSense Wireless Controller" while a pad is live. */
+    function updatePadHud(state) {
+        var el = document.getElementById('pilot-pad');
+        if (!el) return;
+        var label = state
+            ? '🎮 ' + String(state.id || 'gamepad')
+                .replace(/\s*\(.*?\)\s*/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim()
+            : '';
+        if (label === padHudLabel) return; // called every frame — avoid DOM churn
+        padHudLabel = label;
+        el.textContent = label;
+        el.classList.toggle('hidden', !label);
+    }
+
+    /** Centre of the laid-out graph (average of node positions), or null. */
+    function graphCenter() {
+        var nodes = (graph && graph.graphData ? graph.graphData().nodes : null) || [];
+        var count = 0, cx = 0, cy = 0, cz = 0;
+        for (var i = 0; i < nodes.length; i++) {
+            var node = nodes[i];
+            if (typeof node.x !== 'number' || typeof node.y !== 'number' || typeof node.z !== 'number') continue;
+            cx += node.x; cy += node.y; cz += node.z; count++;
+        }
+        if (!count) return null;
+        return { x: cx / count, y: cy / count, z: cz / count };
+    }
+
+    /** ✕ — teleport back to an overview framing of the whole graph, still flying. */
+    function resetCamera() {
+        var centre = graphCenter();
+        if (!centre) return;
+        scale = core.sceneScale((graph.graphData ? graph.graphData().nodes : null) || []);
+        var distance = Math.max(core.MIN_SCENE_SCALE, scale) * 1.5;
+        camera.position.set(centre.x, centre.y, centre.z + distance);
+        yaw = 0;
+        pitch = 0;
+        velocity = { x: 0, y: 0, z: 0 };
+        orbitRadius = distance; // keeps the orbit hand-over sane after a reset
+    }
+
+    /** Touchpad — re-aim at the graph centre without moving. */
+    function recenterLook() {
+        var centre = graphCenter();
+        if (!centre) return;
+        var yp = core.yawPitchFromDirection(
+            centre.x - camera.position.x,
+            centre.y - camera.position.y,
+            centre.z - camera.position.z
+        );
+        yaw = yp.yaw;
+        pitch = yp.pitch;
+        velocity = { x: 0, y: 0, z: 0 };
+    }
+
+    /**
+     * Edge-triggered pad buttons. Returns true when the flight was left
+     * (the caller must stop scheduling frames).
+     */
+    function handlePadButtons(state) {
+        if (!state) return false;
+        var now = state.buttons || [];
+        var prev = padPrevButtons || [];
+        var pressed = function (index) { return now[index] === true && prev[index] !== true; };
+
+        if (pressed(core.PAD_BUTTON.cross)) resetCamera();
+        if (pressed(core.PAD_BUTTON.touchpad)) recenterLook();
+        if (pressed(core.PAD_BUTTON.options)) { speedMult = 1; updateHud(); }
+        if (pressed(core.PAD_BUTTON.up)) { speedMult = core.adjustSpeedMult(speedMult, 1); updateHud(); }
+        if (pressed(core.PAD_BUTTON.down)) { speedMult = core.adjustSpeedMult(speedMult, -1); updateHud(); }
+
+        padPrevButtons = now.slice();
+        if (pressed(core.PAD_BUTTON.circle)) { stop(); return true; }
+        return false;
     }
 
     // ============================================================
@@ -258,19 +394,47 @@
         var dt = Math.min(0.05, Math.max(0.001, (now - lastTime) / 1000));
         lastTime = now;
 
+        // Gamepad — polled every frame (the API has no motion events). The
+        // first frame after a pad wakes up has no previous state, so button
+        // edges start clean.
+        var livePad = pollPad();
+        var padState = null;
+        if (livePad) {
+            if (livePad !== pad) { pad = livePad; padPrevButtons = []; }
+            padState = core.readPadState(livePad, cfg.invertY);
+            updatePadHud(padState);
+            if (handlePadButtons(padState)) return; // ○ left the flight
+        } else if (pad) {
+            pad = null;
+            padPrevButtons = [];
+            updatePadHud(null);
+        }
+
+        // Look — right stick rates (dt-scaled) on top of the mouse deltas.
+        if (padState) {
+            var look = core.applyStickLook(yaw, pitch, padState, dt, cfg.padLookScale);
+            yaw = look.yaw;
+            pitch = look.pitch;
+        }
+
         // Orientation — yaw/pitch around world-up, rebuilt every frame (no roll).
         var q = core.yawPitchQuaternion(yaw, pitch);
         camera.quaternion.set(q.x, q.y, q.z, q.w);
 
-        // Movement — camera-relative WASD, world-axis Q/E, exponential smoothing.
-        var input = core.inputVector({
+        // Movement — camera-relative WASD / left stick, world-axis Q/E / L2,
+        // exponential smoothing. Both sources may be active at once.
+        var keyInput = core.inputVector({
             forward: keys.KeyW || mouseHeld.forward,
             back: keys.KeyS || mouseHeld.backward,
             left: keys.KeyA, right: keys.KeyD,
             up: keys.KeyE, down: keys.KeyQ
         });
-        var boost = keys.ShiftLeft || keys.ShiftRight;
-        var speed = core.baseSpeed(scale, cfg.flightSpeed) * speedMult * (boost ? core.BOOST_MULT : 1);
+        var padInput = padState
+            ? { forward: padState.forward, strafe: padState.strafe, vertical: -padState.descend }
+            : { forward: 0, strafe: 0, vertical: 0 };
+        var input = core.combineInput(keyInput, padInput);
+        var boost = core.boostFactor(!!(keys.ShiftLeft || keys.ShiftRight), padState ? padState.boost : 0);
+        var speed = core.baseSpeed(scale, cfg.flightSpeed) * speedMult * boost;
         var dir = core.moveDirection(input, q);
         velocity = core.approachVec3(velocity, { x: dir.x * speed, y: dir.y * speed, z: dir.z * speed }, cfg.flightSmoothing, dt);
 
@@ -307,6 +471,8 @@
         pointerLocked = false;
         dragLook = false;
         dragging = false;
+        pad = null;
+        padPrevButtons = [];
 
         // Entry orientation: unroll the current orbital view onto world-up yaw/pitch.
         var forward = new T.Vector3();
@@ -354,6 +520,11 @@
         mouseHeld.backward = false;
         velocity = { x: 0, y: 0, z: 0 };
         dragging = false;
+        pad = null;
+        padPrevButtons = [];
+        padHudLabel = '';
+        var padEl = document.getElementById('pilot-pad');
+        if (padEl) { padEl.textContent = ''; padEl.classList.add('hidden'); }
 
         if (pointerLocked && document.exitPointerLock) {
             try { document.exitPointerLock(); } catch (e) { /* noop */ }

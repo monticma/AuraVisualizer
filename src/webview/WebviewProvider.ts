@@ -32,6 +32,7 @@ const SETTING_NORMALIZERS: Record<string, (v: unknown) => unknown> = {
     flightSmoothing: (v) => clampNumber(v, 0.02, 0.5, 0.12),
     mouseSensitivity: (v) => clampNumber(v, 0.0005, 0.01, 0.0022),
     invertY: (v) => v === true,
+    gamepadEnabled: (v) => v !== false,
     autoRefresh: (v) => v === true,
     followEditor: (v) => v === true,
 };
@@ -928,6 +929,7 @@ export class WebviewProvider {
                     flightSmoothing: clampNumber(config.get<number>('flightSmoothing', 0.12), 0.02, 0.5, 0.12),
                     mouseSensitivity: clampNumber(config.get<number>('mouseSensitivity', 0.0022), 0.0005, 0.01, 0.0022),
                     invertY: config.get<boolean>('invertY', false) === true,
+                    gamepadEnabled: config.get<boolean>('gamepadEnabled', true) !== false,
                     autoRefresh: config.get<boolean>('autoRefresh', true),
                     followEditor: config.get<boolean>('followEditor', true),
                 }
@@ -994,6 +996,7 @@ export class WebviewProvider {
                 flightSmoothing: clampNumber(config.get<number>('flightSmoothing', 0.12), 0.02, 0.5, 0.12),
                 mouseSensitivity: clampNumber(config.get<number>('mouseSensitivity', 0.0022), 0.0005, 0.01, 0.0022),
                 invertY: config.get<boolean>('invertY', false) === true,
+                gamepadEnabled: config.get<boolean>('gamepadEnabled', true) !== false,
                 autoRefresh: config.get<boolean>('autoRefresh', true),
                 followEditor: config.get<boolean>('followEditor', true),
             });
@@ -1908,7 +1911,8 @@ export class WebviewProvider {
     <div id="pilot-hud" class="hidden">
         <span class="pilot-title">🚀 PILOT</span>
         <span class="pilot-speed">speed <span id="pilot-speed-mult">×1</span></span>
-        <span class="pilot-keys"><kbd>W A S D</kbd> move · <kbd>Q</kbd>/<kbd>E</kbd> down/up · hold <kbd>LMB</kbd>/<kbd>RMB</kbd> fwd/back · wheel = speed · <kbd>Shift</kbd> boost · <kbd>Esc</kbd>/<kbd>Space</kbd> exit</span>
+        <span id="pilot-pad" class="pilot-pad hidden"></span>
+        <span class="pilot-keys"><kbd>W A S D</kbd> move · <kbd>Q</kbd>/<kbd>E</kbd> down/up · hold <kbd>LMB</kbd>/<kbd>RMB</kbd> fwd/back · wheel = speed · <kbd>Shift</kbd> boost · <kbd>Esc</kbd>/<kbd>Space</kbd> exit · 🎮 sticks = move/look, <kbd>L2</kbd> down, <kbd>R2</kbd> boost, <kbd>✕</kbd> reset, <kbd>○</kbd> exit</span>
     </div>
 
     <!-- Flowchart Modal (overlay) -->
@@ -2008,6 +2012,10 @@ export class WebviewProvider {
                 <div class="settings-row">
                     <label for="set-invertY">Invert mouse Y (flight)<span class="settings-hint">Flight look: moving up looks down</span></label>
                     <input id="set-invertY" data-setting="invertY" type="checkbox" />
+                </div>
+                <div class="settings-row">
+                    <label for="set-gamepadEnabled">Gamepad in pilot mode<span class="settings-hint">Left stick moves, right stick looks, L2/R2 descend/boost (DualSense, Xbox…)</span></label>
+                    <input id="set-gamepadEnabled" data-setting="gamepadEnabled" type="checkbox" />
                 </div>
                 <div class="settings-row">
                     <label>Dead code exemptions<span class="settings-hint">Framework/test rules always visible in the detail panel — defaults stay active</span></label>
@@ -2217,6 +2225,7 @@ export class WebviewProvider {
 
                 <h3>🚀 Pilot Mode (free flight)</h3>
                 <p>The <strong>🚀 Pilot</strong> toolbar button switches to free-flight navigation: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move (camera-relative — physical key layout, so AZERTY gets ZQSD), <kbd>Q</kbd>/<kbd>E</kbd> down/up, mouse look (click locks the pointer), mouse wheel adjusts the speed, <kbd>Shift</kbd> boosts. Hold the <strong>left mouse button</strong> to fly forward and the <strong>right button</strong> to fly backward — steer by looking; keys keep working in parallel. Press <kbd>Esc</kbd> to exit — or simply hit <kbd>Space</kbd> to toggle pilot mode on/off. The orbit controls take over seamlessly at the exact same view. Flight speed, smoothing, mouse sensitivity and Y-inversion live in <strong>⚙️ Settings</strong>.</p>
+                <p><strong>🎮 Gamepad</strong> (DualSense, DualShock, Xbox — any pad reporting the W3C <em>standard</em> mapping, on by default): <strong>left stick</strong> translates, <strong>right stick</strong> looks (its rate follows the mouse-sensitivity setting), the analog <strong>L2</strong> descends and <strong>R2</strong> boosts proportionally to the trigger travel. <strong>✕</strong> resets the camera to a full-graph overview, a <strong>touchpad click</strong> re-aims at the graph centre without moving, <strong>d-pad ↑/↓</strong> step the speed multiplier (like the wheel), <strong>Options</strong> resets it to ×1 and <strong>○</strong> leaves the flight. Sticks pass a 15% deadzone and a response curve so fine nudges stay precise, and keyboard + pad inputs add up. Pads are only polled while flying — and a browser hides a pad until one of its buttons has been pressed once with the window focused. Turn it off with <code>auraVisualizer.gamepadEnabled</code> or the <strong>⚙️ Settings</strong> checkbox.</p>
 
                 <h3>👁 Follow Editor</h3>
                 <p>When you switch editor tabs, the camera flies to the matching file and selects it exactly like a click — same glow, explorer selection and detail panel, at a fixed 120-unit close-up. This keeps the node readable even from a far overview and avoids creeping closer when alternating files. The <strong>👁</strong> toolbar button toggles it; any manual orbit, pan or zoom pauses following so the camera never fights you — click 👁 again to resume. The choice is saved in the view state and as the <code>auraVisualizer.followEditor</code> setting.</p>
@@ -2290,7 +2299,7 @@ export class WebviewProvider {
                 <h3>🛡️ Risk Map</h3>
                 <p>Open the <strong>🛡️ Risk</strong> tab for a codebase health dashboard. It uses a transparent risk score: <code>100 × (0.30·complexity + 0.20·fan-in + 0.10·fan-out + 0.15·cycle + 0.15·dead-code + 0.10·churn)</code>. Documentation is outside architectural risk: docs are not scored and <code>doc-reference</code> links do not inflate fan-in or PageRank. Exempted framework symbols are not counted as dead code.</p>
                 <p>Complexity, fan-in, fan-out and churn are <strong>percentile ranks inside your repository</strong> (0 = lowest file, 1 = highest), so the score is a standing relative to this codebase. A <strong>History window</strong> selector (30 / 90 / 365 days) drives churn, scoring and explanations. Churn is <strong>rename-aware</strong>: files moved with <code>git mv</code> keep their history across the rename.</p>
-                <p>High / Medium / Low file lists are collapsible, each row explains <em>why</em> a file scores that way, and clicking a file selects it in the 3D graph. Also included: <strong>📈 Risk Trend</strong>, <strong>� Complexity Trend</strong> (per-file sparklines + slope), <strong>🔥 Recently Hot</strong> (last 30 days), <strong>📊 Churn × Complexity</strong> scatter (log scale), and <strong>👤 Bus Factor</strong> (files with a single author). Use <strong>📤 Export Report</strong> to write <code>.aura/risk-report.md</code>.</p>
+                <p>High / Medium / Low file lists are collapsible, each row explains <em>why</em> a file scores that way, and clicking a file selects it in the 3D graph. Also included: <strong>📈 Risk Trend</strong>, <strong>📈 Complexity Trend</strong> (per-file sparklines + slope), <strong>🔥 Recently Hot</strong> (last 30 days), <strong>📊 Churn × Complexity</strong> scatter (log scale), and <strong>👤 Bus Factor</strong> (files with a single author). Use <strong>📤 Export Report</strong> to write <code>.aura/risk-report.md</code>.</p>
                 <p><strong>Complexity Trend</strong> is rebuilt from Time Travel commit deltas: a least-squares slope per 30 days plus R² flags files whose complexity keeps growing. The <strong>Trend</strong> column in the Table is sortable; adjust the threshold with <code>auraVisualizer.complexityTrendThreshold</code> (default 0.5 point / 30 days).</p>
 
                 <h3>🔗 Temporal Co-change</h3>

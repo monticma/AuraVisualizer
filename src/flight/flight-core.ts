@@ -9,7 +9,7 @@
  * Bundled by esbuild into the webview as `window.AuraPilot` (same pattern as
  * risk-core → `window.AuraRisk`). Keep this module dependency-free (no DOM,
  * no `vscode`): it runs in the browser and in Node (vitest). The gamepad tier
- * will reuse the same helpers.
+ * (`readPadState` & friends, W3C standard mapping) shares the same helpers.
  */
 
 export interface Vec3 {
@@ -212,4 +212,158 @@ export function baseSpeed(scale: number, speedSetting: number): number {
 /** Wheel-adjusted speed multiplier, clamped to [MIN_SPEED_MULT, MAX_SPEED_MULT]. */
 export function adjustSpeedMult(mult: number, wheelSteps: number): number {
     return clamp(mult * Math.pow(WHEEL_STEP, wheelSteps), MIN_SPEED_MULT, MAX_SPEED_MULT);
+}
+
+// ============================================================
+// Gamepad tier (W3C standard mapping — DualSense, Xbox, …)
+// ============================================================
+
+/** Stick deflection ignored at rest (thumbstick drift, trigger noise). */
+export const GAMEPAD_DEADZONE = 0.15;
+/** Response-curve exponent applied after the deadzone (>1 = finer near centre). */
+export const GAMEPAD_RESPONSE_EXPONENT = 1.5;
+/** Right-stick look rate at full deflection, radians per second. */
+export const GAMEPAD_LOOK_RATE = 1.8;
+/** Analog trigger rest threshold — real pads never report exactly 0. */
+export const GAMEPAD_TRIGGER_THRESHOLD = 0.08;
+
+/**
+ * W3C "standard" gamepad button indices. DualSense, DualShock, Xbox and most
+ * modern pads report this layout; `gamepad.mapping === 'standard'` guarantees it.
+ */
+export const PAD_BUTTON = {
+    cross: 0,
+    circle: 1,
+    square: 2,
+    triangle: 3,
+    l1: 4,
+    r1: 5,
+    l2: 6,
+    r2: 7,
+    share: 8,
+    options: 9,
+    l3: 10,
+    r3: 11,
+    up: 12,
+    down: 13,
+    left: 14,
+    right: 15,
+    ps: 16,
+    touchpad: 17,
+};
+
+/** Minimal shape of a `Gamepad` — plain data, so tests can fake one. */
+export interface PadLike {
+    id?: string;
+    axes?: ArrayLike<number>;
+    buttons?: ArrayLike<{ pressed?: boolean; value?: number }>;
+}
+
+/** One frame of gamepad input, already mapped to the flight model. */
+export interface PadState {
+    id: string;
+    /** Left stick → camera-relative translation, -1..1. */
+    forward: number;
+    strafe: number;
+    /** Right stick → look rates, radians/s. */
+    lookYaw: number;
+    lookPitch: number;
+    /** Analog triggers, 0..1 (L2 descends, R2 boosts). */
+    descend: number;
+    boost: number;
+    /** Latched button flags — callers edge-trigger them. */
+    buttons: boolean[];
+}
+
+/** Signed stick value → 0 inside the deadzone, curved response outside. */
+export function deadzone(value: number, dz = GAMEPAD_DEADZONE): number {
+    const v = clamp(typeof value === 'number' && isFinite(value) ? value : 0, -1, 1);
+    const magnitude = Math.abs(v);
+    if (magnitude <= dz) return 0;
+    const scaled = (magnitude - dz) / (1 - dz);
+    return Math.sign(v) * Math.pow(scaled, GAMEPAD_RESPONSE_EXPONENT);
+}
+
+/**
+ * Analog trigger amount, 0..1, threshold applied.
+ *
+ * Standard-mapping pads expose L2/R2 as analog **buttons** 6/7 with a `value`;
+ * a few pad/browser combinations report them as **axes** 4/5 instead (-1 at
+ * rest) — both shapes are accepted.
+ */
+export function triggerValue(pad: PadLike, index: number): number {
+    const button = pad.buttons ? pad.buttons[index] : undefined;
+    const value = button && typeof button.value === 'number' ? button.value : undefined;
+    const raw = typeof value === 'number'
+        ? value
+        : (() => {
+            const axisIndex = index === PAD_BUTTON.l2 ? 4 : index === PAD_BUTTON.r2 ? 5 : -1;
+            const axis = axisIndex >= 0 && pad.axes ? pad.axes[axisIndex] : undefined;
+            return typeof axis === 'number' ? (axis + 1) / 2 : 0;
+        })();
+    return clamp(raw, 0, 1);
+}
+
+/** Trigger amount with the rest threshold removed and the remainder re-scaled. */
+function triggerAmount(value: number): number {
+    if (value <= GAMEPAD_TRIGGER_THRESHOLD) return 0;
+    return clamp((value - GAMEPAD_TRIGGER_THRESHOLD) / (1 - GAMEPAD_TRIGGER_THRESHOLD), 0, 1);
+}
+
+/** Read one frame of pad data: sticks → translation + look rates, triggers, buttons. */
+export function readPadState(pad: PadLike, invertY: boolean): PadState {
+    const axes = pad.axes || [];
+    const axis = (i: number) => (typeof axes[i] === 'number' ? (axes[i] as number) : 0);
+    const lx = deadzone(axis(0));
+    const ly = deadzone(axis(1));
+    const rx = deadzone(axis(2));
+    const ry = deadzone(axis(3));
+
+    const buttons: boolean[] = [];
+    const count = pad.buttons ? pad.buttons.length : 0;
+    for (let i = 0; i < count; i++) {
+        const b = pad.buttons ? pad.buttons[i] : undefined;
+        buttons[i] = !!(b && (b.pressed === true || (typeof b.value === 'number' && b.value > 0.5)));
+    }
+
+    return {
+        id: pad.id || 'gamepad',
+        forward: -ly, // stick pushed up (negative axis) = fly forward
+        strafe: lx,
+        lookYaw: -rx * GAMEPAD_LOOK_RATE, // stick right = look right
+        lookPitch: (invertY ? ry : -ry) * GAMEPAD_LOOK_RATE, // stick up = look up
+        descend: triggerAmount(triggerValue(pad, PAD_BUTTON.l2)),
+        boost: triggerAmount(triggerValue(pad, PAD_BUTTON.r2)),
+        buttons,
+    };
+}
+
+/** Integrate the stick look rates into yaw/pitch (pitch clamped, no roll). */
+export function applyStickLook(
+    yaw: number,
+    pitch: number,
+    state: PadState,
+    dt: number,
+    rateScale = 1,
+): { yaw: number; pitch: number } {
+    return {
+        yaw: yaw + state.lookYaw * rateScale * dt,
+        pitch: clamp(pitch + state.lookPitch * rateScale * dt, -MAX_PITCH, MAX_PITCH),
+    };
+}
+
+/** Sum two input vectors (keyboard + gamepad) and re-normalize to unit length. */
+export function combineInput(a: FlightInput, b: FlightInput): FlightInput {
+    const forward = a.forward + b.forward;
+    const strafe = a.strafe + b.strafe;
+    const vertical = a.vertical + b.vertical;
+    const len = Math.hypot(forward, strafe, vertical);
+    if (len > 1) return { forward: forward / len, strafe: strafe / len, vertical: vertical / len };
+    return { forward, strafe, vertical };
+}
+
+/** Speed multiplier: keyboard Shift is on/off, R2 is analog (both cap at BOOST_MULT). */
+export function boostFactor(digitalBoost: boolean, padBoost: number): number {
+    const analog = 1 + (BOOST_MULT - 1) * clamp(padBoost, 0, 1);
+    return Math.max(digitalBoost ? BOOST_MULT : 1, analog);
 }

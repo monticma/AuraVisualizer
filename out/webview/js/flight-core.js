@@ -26,23 +26,34 @@ var AuraPilot = (() => {
     DEFAULT_MOUSE_SENSITIVITY: () => DEFAULT_MOUSE_SENSITIVITY,
     DEFAULT_SMOOTHING: () => DEFAULT_SMOOTHING,
     FOLLOW_DISTANCE: () => FOLLOW_DISTANCE,
+    GAMEPAD_DEADZONE: () => GAMEPAD_DEADZONE,
+    GAMEPAD_LOOK_RATE: () => GAMEPAD_LOOK_RATE,
+    GAMEPAD_RESPONSE_EXPONENT: () => GAMEPAD_RESPONSE_EXPONENT,
+    GAMEPAD_TRIGGER_THRESHOLD: () => GAMEPAD_TRIGGER_THRESHOLD,
     MAX_PITCH: () => MAX_PITCH,
     MAX_SPEED_MULT: () => MAX_SPEED_MULT,
     MIN_SCENE_SCALE: () => MIN_SCENE_SCALE,
     MIN_SPEED_MULT: () => MIN_SPEED_MULT,
+    PAD_BUTTON: () => PAD_BUTTON,
     SCENE_SPEED_FACTOR: () => SCENE_SPEED_FACTOR,
     WHEEL_STEP: () => WHEEL_STEP,
     adjustSpeedMult: () => adjustSpeedMult,
     applyMouseDelta: () => applyMouseDelta,
+    applyStickLook: () => applyStickLook,
     approach: () => approach,
     approachVec3: () => approachVec3,
     baseSpeed: () => baseSpeed,
+    boostFactor: () => boostFactor,
     clamp: () => clamp,
+    combineInput: () => combineInput,
+    deadzone: () => deadzone,
     followPose: () => followPose,
     inputVector: () => inputVector,
     moveDirection: () => moveDirection,
+    readPadState: () => readPadState,
     rotateVec3: () => rotateVec3,
     sceneScale: () => sceneScale,
+    triggerValue: () => triggerValue,
     yawPitchFromDirection: () => yawPitchFromDirection,
     yawPitchQuaternion: () => yawPitchQuaternion
   });
@@ -168,6 +179,99 @@ var AuraPilot = (() => {
   }
   function adjustSpeedMult(mult, wheelSteps) {
     return clamp(mult * Math.pow(WHEEL_STEP, wheelSteps), MIN_SPEED_MULT, MAX_SPEED_MULT);
+  }
+  var GAMEPAD_DEADZONE = 0.15;
+  var GAMEPAD_RESPONSE_EXPONENT = 1.5;
+  var GAMEPAD_LOOK_RATE = 1.8;
+  var GAMEPAD_TRIGGER_THRESHOLD = 0.08;
+  var PAD_BUTTON = {
+    cross: 0,
+    circle: 1,
+    square: 2,
+    triangle: 3,
+    l1: 4,
+    r1: 5,
+    l2: 6,
+    r2: 7,
+    share: 8,
+    options: 9,
+    l3: 10,
+    r3: 11,
+    up: 12,
+    down: 13,
+    left: 14,
+    right: 15,
+    ps: 16,
+    touchpad: 17
+  };
+  function deadzone(value, dz = GAMEPAD_DEADZONE) {
+    const v = clamp(typeof value === "number" && isFinite(value) ? value : 0, -1, 1);
+    const magnitude = Math.abs(v);
+    if (magnitude <= dz)
+      return 0;
+    const scaled = (magnitude - dz) / (1 - dz);
+    return Math.sign(v) * Math.pow(scaled, GAMEPAD_RESPONSE_EXPONENT);
+  }
+  function triggerValue(pad, index) {
+    const button = pad.buttons ? pad.buttons[index] : void 0;
+    const value = button && typeof button.value === "number" ? button.value : void 0;
+    const raw = typeof value === "number" ? value : (() => {
+      const axisIndex = index === PAD_BUTTON.l2 ? 4 : index === PAD_BUTTON.r2 ? 5 : -1;
+      const axis = axisIndex >= 0 && pad.axes ? pad.axes[axisIndex] : void 0;
+      return typeof axis === "number" ? (axis + 1) / 2 : 0;
+    })();
+    return clamp(raw, 0, 1);
+  }
+  function triggerAmount(value) {
+    if (value <= GAMEPAD_TRIGGER_THRESHOLD)
+      return 0;
+    return clamp((value - GAMEPAD_TRIGGER_THRESHOLD) / (1 - GAMEPAD_TRIGGER_THRESHOLD), 0, 1);
+  }
+  function readPadState(pad, invertY) {
+    const axes = pad.axes || [];
+    const axis = (i) => typeof axes[i] === "number" ? axes[i] : 0;
+    const lx = deadzone(axis(0));
+    const ly = deadzone(axis(1));
+    const rx = deadzone(axis(2));
+    const ry = deadzone(axis(3));
+    const buttons = [];
+    const count = pad.buttons ? pad.buttons.length : 0;
+    for (let i = 0; i < count; i++) {
+      const b = pad.buttons ? pad.buttons[i] : void 0;
+      buttons[i] = !!(b && (b.pressed === true || typeof b.value === "number" && b.value > 0.5));
+    }
+    return {
+      id: pad.id || "gamepad",
+      forward: -ly,
+      // stick pushed up (negative axis) = fly forward
+      strafe: lx,
+      lookYaw: -rx * GAMEPAD_LOOK_RATE,
+      // stick right = look right
+      lookPitch: (invertY ? ry : -ry) * GAMEPAD_LOOK_RATE,
+      // stick up = look up
+      descend: triggerAmount(triggerValue(pad, PAD_BUTTON.l2)),
+      boost: triggerAmount(triggerValue(pad, PAD_BUTTON.r2)),
+      buttons
+    };
+  }
+  function applyStickLook(yaw, pitch, state, dt, rateScale = 1) {
+    return {
+      yaw: yaw + state.lookYaw * rateScale * dt,
+      pitch: clamp(pitch + state.lookPitch * rateScale * dt, -MAX_PITCH, MAX_PITCH)
+    };
+  }
+  function combineInput(a, b) {
+    const forward = a.forward + b.forward;
+    const strafe = a.strafe + b.strafe;
+    const vertical = a.vertical + b.vertical;
+    const len = Math.hypot(forward, strafe, vertical);
+    if (len > 1)
+      return { forward: forward / len, strafe: strafe / len, vertical: vertical / len };
+    return { forward, strafe, vertical };
+  }
+  function boostFactor(digitalBoost, padBoost) {
+    const analog = 1 + (BOOST_MULT - 1) * clamp(padBoost, 0, 1);
+    return Math.max(digitalBoost ? BOOST_MULT : 1, analog);
   }
   return __toCommonJS(flight_core_exports);
 })();
