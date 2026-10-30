@@ -19,6 +19,7 @@ import { GraphDB } from './graph-db';
 import { registerAuraLmTools } from './lm-tools';
 import { registerAuraChatParticipant } from './chat/participant';
 import { registerNavigationCommands } from './commands/navigation';
+import { collectBlastTargets } from './commands/blast-targets';
 import { AuraCodeLensProvider, registerSymbolCommands } from './codelens';
 import { registerAskAuraCommands } from './commands/ask-aura';
 import { buildArchReportInput, generateArchReport, withAiNarrative, type ArchReportExtras, type ArchReportModule } from './report/arch-report';
@@ -365,7 +366,8 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('auraVisualizer.exportArchReport', () => exportArchReport()),
         vscode.commands.registerCommand('auraVisualizer.exportArchReportAI', () => exportArchReport(true)),
         vscode.commands.registerCommand('auraVisualizer.exportMetrics', () => exportMetrics()),
-        vscode.commands.registerCommand('auraVisualizer.blastRadius', () => blastRadiusCurrentFile(context)),
+        vscode.commands.registerCommand('auraVisualizer.blastRadius', (uri?: vscode.Uri | vscode.Uri[], selection?: vscode.Uri[]) =>
+            blastRadiusFromResources(context, uri, selection)),
         vscode.commands.registerCommand('auraVisualizer.statusBarRisk', (nodeId?: string) => focusRiskFromStatusBar(context, nodeId)),
         vscode.commands.registerCommand('auraVisualizer.statusBarArch', (nodeId?: string) => focusArchFromStatusBar(context, nodeId)),
         vscode.commands.registerCommand('auraVisualizer.archRules', () => createOrOpenArchRules()),
@@ -1818,31 +1820,43 @@ function focusCurrentFile(): void {
     }
 }
 
-async function blastRadiusCurrentFile(context: vscode.ExtensionContext): Promise<void> {
-    const editor = vscode.window.activeTextEditor;
+/**
+ * Blast radius for one or several resources (V3-02).
+ *
+ * Called by the Source Control / editor title / explorer menus (they pass the
+ * clicked `Uri`, SCM also passes the whole selection as a second argument) and
+ * by the command palette without an argument, where it falls back to the active
+ * editor. Files outside the workspace or outside the analyzed graph are ignored;
+ * when nothing matches, the panel is not opened at all.
+ */
+async function blastRadiusFromResources(
+    context: vscode.ExtensionContext,
+    argument?: vscode.Uri | vscode.Uri[],
+    selection?: vscode.Uri[],
+): Promise<void> {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!editor || !workspaceFolder) return;
+    const targets = collectBlastTargets(
+        argument as { fsPath: string; scheme?: string } | { fsPath: string; scheme?: string }[] | undefined,
+        selection as { fsPath: string; scheme?: string }[] | undefined,
+        vscode.window.activeTextEditor?.document.uri as { fsPath: string; scheme?: string } | undefined,
+        workspaceFolder?.uri.fsPath,
+        cachedGraphData?.nodes.map(node => node.id),
+    );
 
-    const relativePath = path.relative(workspaceFolder.uri.fsPath, editor.document.uri.fsPath);
-    if (relativePath.startsWith('..')) return;
-
-    if (!webviewProvider) {
-        webviewProvider = new WebviewProvider(context.extensionUri, context.workspaceState, () => graphDb, hostDataAccessors());
-        registerOpenFileHandler();
-    }
-    webviewProvider.show();
-    if (cachedGraphData) {
-        webviewProvider.sendGraphData(cachedGraphData);
-        if (commitIndex) {
-            webviewProvider.sendHistoryIndex(commitIndex);
-            for (const delta of cachedDeltas) {
-                webviewProvider.sendHistoryDelta(delta);
-            }
+    if (!targets.ids.length) {
+        if (!workspaceFolder) return;
+        if (cachedGraphData) {
+            void vscode.window.showInformationMessage(
+                'Aura: no analyzed file in the selection — open the graph once so the file is part of the analysis.',
+            );
         }
+        return;
     }
+
+    await openVisualizer(context);
     // The provider queues the message until the webview has rendered a graph
     // (cold start: the panel is created before the analysis finishes).
-    webviewProvider.sendBlastRadius(relativePath);
+    webviewProvider?.sendBlastRadius(targets.ids);
 }
 
 async function exportMetrics(): Promise<void> {

@@ -230,23 +230,34 @@
                     followNodeById(message.payload.nodeId);
                 }
                 break;
-            case 'blastRadius':
-                if (message.payload && message.payload.nodeId) {
+            case 'blastRadius': {
+                // One node → the single-source blast (colors + camera);
+                // several nodes (Source Control / editor multi-selection, V3-02)
+                // → the multi-seed impact cascade.
+                var brIds = message.payload
+                    ? (message.payload.nodeIds || (message.payload.nodeId ? [message.payload.nodeId] : []))
+                    : [];
+                if (brIds.length) {
                     if (activeTab !== 'graph') switchTab('graph');
-                    var brNode = findNode(message.payload.nodeId);
-                    if (brNode) {
-                        cancelInitialFit();
-                        handleBlastRadius(brNode, false);
-                        if (graph && hasFinitePosition(brNode)) {
-                            graph.cameraPosition(
-                                { x: brNode.x, y: brNode.y, z: brNode.z + 200 },
-                                { x: brNode.x, y: brNode.y, z: brNode.z },
-                                1000
-                            );
+                    cancelInitialFit();
+                    if (brIds.length > 1) {
+                        startMultiNodeBlast(brIds);
+                    } else {
+                        var brNode = findNode(brIds[0]);
+                        if (brNode) {
+                            handleBlastRadius(brNode, false);
+                            if (graph && hasFinitePosition(brNode)) {
+                                graph.cameraPosition(
+                                    { x: brNode.x, y: brNode.y, z: brNode.z + 200 },
+                                    { x: brNode.x, y: brNode.y, z: brNode.z },
+                                    1000
+                                );
+                            }
                         }
                     }
                 }
                 break;
+            }
             case 'themeChanged':
                 // Could adapt colors here if needed
                 break;

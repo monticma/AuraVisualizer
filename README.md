@@ -170,6 +170,12 @@ Unselected communities are grayed out (nodes + links), just like pin focus. `Oth
 
 Use the **Depth slider** (1–5) or keys `1`–`5` to control the blast radius depth.
 
+**From the code side** — the same analysis is one click away where you work:
+
+- **Source Control**: right-click one or several changed files → *Aura: Blast Radius*. A multi-selection seeds the **impact cascade** (every selected file at depth 0, dependents colored by depth)
+- **Editor title**: the `$(radio-tower)` button on the file's tab, and the same entry in the **Explorer** file context menu
+- Files outside the workspace or not part of the analyzed graph are skipped; the panel is only opened when at least one file matches
+
 ### File Explosion
 
 Expand any file into its internal symbols — functions, structs, enums, macros. Each symbol becomes its own node, connected to the parent file. Double-click a symbol to jump to that exact line in the editor.

@@ -358,6 +358,27 @@
           "when": "view == auraVisualizer.statsView && viewItem == auraFile",
           "group": "inline"
         }
+      ],
+      "scm/resourceState/context": [
+        {
+          "command": "auraVisualizer.blastRadius",
+          "when": "scmProvider == git",
+          "group": "navigation"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "auraVisualizer.blastRadius",
+          "when": "resourceScheme == file",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "auraVisualizer.blastRadius",
+          "when": "resourceScheme == file",
+          "group": "navigation"
+        }
       ]
     },
     "keybindings": [

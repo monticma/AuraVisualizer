@@ -90,6 +90,19 @@ In analyzed files, every function, method and class carries a `⟡ focus · flow
 
 Symbols and lines come from the graph database — no language server needed — and a file that was never analyzed shows no lens. Commands: `Aura: Focus Symbol in Graph`, `Aura: Show Symbol Flowchart`, `Aura: Symbol Blast Radius`; switching it off is `auraVisualizer.codeLens` (or **⚙️ Settings**).
 
+### Blast radius from the code 💥
+
+The impact analysis also starts outside the graph:
+
+| Where | Action |
+|-------|--------|
+| **Source Control** (right-click) | *Aura: Blast Radius* on one file, or on a **multi-selection** to seed the multi-file impact cascade |
+| **Editor title** | The `💥` button on the file's tab |
+| **Explorer** (right-click) | Same entry on any file |
+| **Command palette** | *Aura: Blast Radius* — uses the active editor |
+
+Files outside the workspace or outside the analyzed graph are skipped, and Aura only opens when something matches.
+
 ### Status bar
 
 The risk item (bottom right of the VS Code window) shows the risk of the file you are editing — its tooltip lists the written reasons. When your uncommitted changes touch high-risk files it becomes **⚠ N hotspots in your changes**; click it to reveal the file in the Risk tab.
