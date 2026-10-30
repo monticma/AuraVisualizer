@@ -227,13 +227,35 @@ export function resolveSpecifier(
     const suffix = matchSuffix(clean, known);
     if (suffix) return suffix;
 
-    // 5. Unique basename (`helper` → only one helper.* in the graph).
-    const wanted = baseName(clean);
-    if (wanted) {
-        const hits = [...known].filter(id => baseName(id) === wanted);
-        if (hits.length === 1) return { nodeId: hits[0], confidence: 0.5 };
+    // 5. Unique basename — only for a single, extension-less segment.
+    //    `@scope/pkg/types.js` or `lib/types.js` are *package* specifiers: a
+    //    basename hit there is always a false positive (`types.js` used to
+    //    resolve to src/analyzer/types.ts).
+    if (allowsBasenameFallback(clean)) {
+        const wanted = baseName(clean);
+        if (wanted) {
+            const hits = [...known].filter(id => baseName(id) === wanted);
+            if (hits.length === 1) return { nodeId: hits[0], confidence: 0.5 };
+        }
     }
     return undefined;
+}
+
+/**
+ * Is the unique-basename fallback safe for this specifier?
+ *
+ * Only a bare, single-segment, extension-less name can be a real workspace
+ * file the editor did not resolve itself (`import helper`). Scoped packages
+ * (`@scope/pkg`), anything with a path separator and anything carrying an
+ * extension belong to the package world: refusing them keeps the hover from
+ * pointing at an unrelated file that happens to share a basename.
+ */
+export function allowsBasenameFallback(specifier: string): boolean {
+    if (!specifier) return false;
+    if (specifier.startsWith('@')) return false;
+    if (specifier.includes('/') || specifier.includes('\\')) return false;
+    if (/\.[a-z0-9]+$/i.test(specifier)) return false;
+    return true;
 }
 
 /** `/x/y` suffix lookup, with the extension variants. */

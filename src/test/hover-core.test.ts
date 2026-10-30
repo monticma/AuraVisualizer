@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
     CANDIDATE_EXTENSIONS,
+    allowsBasenameFallback,
     findImportSpecifier,
     formatHover,
     resolveSpecifier,
@@ -63,6 +64,7 @@ describe('hover: specifier resolution', () => {
         'pkg/mod.py',
         'a/b/C.java',
         'src/only.ts',
+        'src/analyzer/types.ts', // same basename as the package specifier below
     ];
     const known = new Set(graph);
 
@@ -94,6 +96,18 @@ describe('hover: specifier resolution', () => {
         expect(resolveSpecifier('index', 'src/app.ts', known)).toEqual({ nodeId: 'src/utils/index.ts', confidence: 0.6 });
         // A basename that only exists once resolves at the lowest confidence.
         expect(resolveSpecifier('legacy', 'src/app.ts', known)).toEqual({ nodeId: 'lib/legacy.js', confidence: 0.6 });
+    });
+
+    it('never resolves a package specifier through its basename', () => {
+        // Regression: `@modelcontextprotocol/sdk/types.js` used to point at
+        // src/analyzer/types.ts because `types.js` shares a basename.
+        expect(resolveSpecifier('@modelcontextprotocol/sdk/types.js', 'src/app.ts', known)).toBeUndefined();
+        expect(resolveSpecifier('lib/types.js', 'src/app.ts', known)).toBeUndefined();
+        expect(resolveSpecifier('types.js', 'src/app.ts', known)).toBeUndefined();
+        expect(resolveSpecifier('@scope/pkg', 'src/app.ts', known)).toBeUndefined();
+        expect(allowsBasenameFallback('@scope/pkg')).toBe(false);
+        expect(allowsBasenameFallback('lib/types.js')).toBe(false);
+        expect(allowsBasenameFallback('helper')).toBe(true);
     });
 
     it('returns undefined for unknown or empty specifiers', () => {
