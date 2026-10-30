@@ -15,6 +15,15 @@ import { computeFingerprint, fingerprintFromMeta, fingerprintMetaEntries, hashAn
 import type { CommitIndex, CommitDelta } from './analyzer/types';
 import { normalizeRiskWindow } from './risk/risk-core';
 import { buildRiskSnapshot, type RiskSnapshot, type RiskFileEntry } from './risk/risk-service';
+import {
+    hotspotBadgeText,
+    hotspotTooltipSummary,
+    hotspotTooltipTitle,
+    riskBadgeText,
+    selectDirtyHotspots,
+    toWorkspaceRelative,
+    type DirtyHotspot,
+} from './risk/statusbar-core';
 import { GraphDB } from './graph-db';
 import { registerAuraLmTools } from './lm-tools';
 import { registerAuraChatParticipant } from './chat/participant';
@@ -329,8 +338,11 @@ export function activate(context: vscode.ExtensionContext): void {
     });
     context.subscriptions.push(treeView);
 
-    // Status bar — shows file & link count
-    statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
+    // Status bar — shows file & link count. The three Aura items carry a stable
+    // id/name so users can hide an individual one from the status bar context
+    // menu, and so other extensions can recognise them.
+    statusBarItem = vscode.window.createStatusBarItem('auraVisualizer.files', vscode.StatusBarAlignment.Left, 50);
+    statusBarItem.name = 'Aura: files & links';
     statusBarItem.command = 'auraVisualizer.open';
     statusBarItem.text = '$(eye) Aura';
     statusBarItem.tooltip = 'Open Aura 3D Visualizer';
@@ -338,13 +350,15 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // Status bar (right) — risk score of the edited file; switches to an alert when
     // the files being changed right now are high-risk ("hotspots in your changes").
-    riskStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 50);
+    riskStatusBarItem = vscode.window.createStatusBarItem('auraVisualizer.risk', vscode.StatusBarAlignment.Right, 50);
+    riskStatusBarItem.name = 'Aura: risk & hotspots';
     riskStatusBarItem.command = 'auraVisualizer.open';
     riskStatusBarItem.tooltip = 'Aura risk map';
     context.subscriptions.push(riskStatusBarItem);
 
     // Status bar (right) — layer + new architecture violations of the edited file.
-    archStatusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 49);
+    archStatusBarItem = vscode.window.createStatusBarItem('auraVisualizer.arch', vscode.StatusBarAlignment.Right, 49);
+    archStatusBarItem.name = 'Aura: architecture';
     archStatusBarItem.command = 'auraVisualizer.statusBarArch';
     archStatusBarItem.tooltip = 'Aura architecture rules';
     context.subscriptions.push(archStatusBarItem);
@@ -457,6 +471,10 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.workspace.onDidChangeConfiguration(e => {
             if (e.affectsConfiguration('auraVisualizer') && webviewProvider) {
                 webviewProvider.sendSettings({});
+            }
+            if (e.affectsConfiguration('auraVisualizer.statusBar')) {
+                // One switch for every Aura badge — re-evaluate all three.
+                updateStatusBar();
             }
             if (e.affectsConfiguration('auraVisualizer.riskWindow')) {
                 invalidateRisk();
@@ -869,7 +887,7 @@ async function refreshAnalysis(context: vscode.ExtensionContext, force = false):
         console.error('[aura] Fingerprint cache path failed, falling back to a full scan:', cacheErr);
     }
 
-    if (statusBarItem) {
+    if (statusBarItem && isStatusBarEnabled()) {
         statusBarItem.text = '$(loading~spin) Aura: Analyzing...';
         statusBarItem.show();
     }
@@ -1363,11 +1381,20 @@ function computeGraphDelta(
     return delta;
 }
 
+/**
+ * `auraVisualizer.statusBar` — one switch for every Aura badge (file counter,
+ * risk + hotspot alert, architecture). Read on each update so toggling the
+ * setting takes effect immediately, without a reload or a re-scan.
+ */
+function isStatusBarEnabled(): boolean {
+    return vscode.workspace.getConfiguration('auraVisualizer').get<boolean>('statusBar', true);
+}
+
 function updateStatusBar(): void {
     invalidateRisk();
     updateArchStatusBar();
     if (!statusBarItem) return;
-    if (!cachedGraphData || cachedGraphData.nodes.length === 0) {
+    if (!isStatusBarEnabled() || !cachedGraphData || cachedGraphData.nodes.length === 0) {
         statusBarItem.text = '$(eye) Aura';
         statusBarItem.hide();
         return;
@@ -1486,6 +1513,10 @@ function ensureRiskSnapshot(): RiskSnapshot | undefined {
 
 function updateRiskStatusBar(): void {
     if (!riskStatusBarItem) return;
+    if (!isStatusBarEnabled()) {
+        riskStatusBarItem.hide();
+        return;
+    }
     const snapshot = ensureRiskSnapshot();
     if (!snapshot || snapshot.byId.size === 0) {
         riskStatusBarItem.hide();
@@ -1493,22 +1524,17 @@ function updateRiskStatusBar(): void {
     }
 
     // 1. Working-tree alert — the changes in flight touch high-risk files
-    const hotspots = dirtyHotspotIds(snapshot);
+    const hotspots = dirtyHotspots();
     if (hotspots.length > 0) {
-        riskStatusBarItem.text = `$(warning) ${hotspots.length} hotspot${hotspots.length > 1 ? 's' : ''} in your changes`;
+        riskStatusBarItem.text = hotspotBadgeText(hotspots.length);
         const md = new vscode.MarkdownString();
-        md.appendMarkdown(`**${hotspots.length} high-risk file${hotspots.length > 1 ? 's' : ''} in your current changes**\n\n`);
-        const shown = hotspots.slice(0, 5);
-        for (const h of shown) {
-            const entry = snapshot.byId.get(h);
-            md.appendMarkdown(`- \`${h}\`${entry ? ` — risk ${Math.round(entry.score)}/100` : ''}\n`);
-        }
-        if (hotspots.length > shown.length) {
-            md.appendMarkdown(`\n… and ${hotspots.length - shown.length} more`);
-        }
+        md.appendMarkdown(`${hotspotTooltipTitle(hotspots.length)}\n\n`);
+        const { lines, hidden } = hotspotTooltipSummary(hotspots);
+        for (const line of lines) md.appendMarkdown(`${line}\n`);
+        if (hidden > 0) md.appendMarkdown(`\n… and ${hidden} more`);
         riskStatusBarItem.tooltip = md;
         riskStatusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.warningBackground');
-        riskStatusBarItem.command = { command: 'auraVisualizer.statusBarRisk', title: 'Reveal in Risk tab', arguments: [hotspots[0]] };
+        riskStatusBarItem.command = { command: 'auraVisualizer.statusBarRisk', title: 'Reveal in Risk tab', arguments: [hotspots[0].id] };
         riskStatusBarItem.show();
         return;
     }
@@ -1532,7 +1558,7 @@ function updateRiskStatusBar(): void {
         riskStatusBarItem.hide();
         return;
     }
-    riskStatusBarItem.text = `$(shield) Risk ${Math.round(entry.score)}${entry.topLabel ? ' · ' + entry.topLabel : ''}`;
+    riskStatusBarItem.text = riskBadgeText(entry);
     riskStatusBarItem.tooltip = buildRiskTooltip(entry, relNorm);
     riskStatusBarItem.command = { command: 'auraVisualizer.statusBarRisk', title: 'Reveal in Risk tab', arguments: [entry.id] };
     riskStatusBarItem.show();
@@ -1556,6 +1582,10 @@ function buildRiskTooltip(entry: RiskFileEntry, relPath: string): vscode.Markdow
 
 function updateArchStatusBar(): void {
     if (!archStatusBarItem) return;
+    if (!isStatusBarEnabled()) {
+        archStatusBarItem.hide();
+        return;
+    }
     const ws = vscode.workspace.workspaceFolders?.[0];
     const editor = vscode.window.activeTextEditor;
     if (!ws || !editor || !cachedGraphData || !archRules || editor.document.uri.scheme !== 'file') {
@@ -1631,31 +1661,25 @@ function updateArchStatusBar(): void {
 }
 
 /** Map a git (repo-relative) path to a workspace-relative, slash-separated path. */
-function toWorkspaceRelative(repoRelative: string): string | undefined {
+function workspaceRelative(repoRelative: string): string | undefined {
     const ws = vscode.workspace.workspaceFolders?.[0];
     if (!ws || !gitRepoRoot) return undefined;
-    const rel = path.relative(ws.uri.fsPath, path.join(gitRepoRoot, repoRelative));
-    if (rel.startsWith('..') || path.isAbsolute(rel)) return undefined;
-    return rel.split(path.sep).join('/');
+    return toWorkspaceRelative(repoRelative, ws.uri.fsPath, gitRepoRoot);
 }
 
 /** High-risk files that appear in the working tree right now, most risky first. */
-function dirtyHotspotIds(snapshot: RiskSnapshot): string[] {
-    if (workingTreeFiles.size === 0) return [];
-    const ids: string[] = [];
-    for (const repoRel of workingTreeFiles.keys()) {
-        const wsRel = toWorkspaceRelative(repoRel);
-        if (wsRel && snapshot.highIds.has(wsRel)) ids.push(wsRel);
-    }
-    ids.sort((a, b) => (snapshot.byId.get(b)?.score ?? 0) - (snapshot.byId.get(a)?.score ?? 0));
-    return ids;
+function dirtyHotspots(): DirtyHotspot[] {
+    const ws = vscode.workspace.workspaceFolders?.[0];
+    const snapshot = ensureRiskSnapshot();
+    if (!ws || !gitRepoRoot || !snapshot || workingTreeFiles.size === 0) return [];
+    return selectDirtyHotspots(workingTreeFiles, snapshot, ws.uri.fsPath, gitRepoRoot);
 }
 
 /** Working-tree state keyed by workspace-relative path (the ids used by the graph). */
 function buildWorkingTreePayload(): Record<string, GitFileState> {
     const files: Record<string, GitFileState> = {};
     for (const [repoRel, state] of workingTreeFiles) {
-        const wsRel = toWorkspaceRelative(repoRel);
+        const wsRel = workspaceRelative(repoRel);
         if (wsRel) files[wsRel] = state;
     }
     return files;

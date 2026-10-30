@@ -220,7 +220,7 @@ Complexity, fan-in, fan-out and churn are **percentile ranks inside your reposit
 - **High / Medium / Low files** — collapsible lists (▼/▶ arrows); each file states *why* it scores that way ("changed 29 times in 90 days (top 1%)", "12 files depend on it"), with the full breakdown on hover. Click a file to select it and focus it in the 3D graph.
 - **History window** — pick 30 / 90 / 365 days of git history; it drives churn, scoring and the explanations. Also available as the `auraVisualizer.riskWindow` workspace setting, shared with the status bar and the MCP `get_hotspots` tool
 - **Rename-aware churn** — files moved with `git mv` keep their history: churn, bus factor and the written explanations follow the rename (chained renames collapsed, latest one wins)
-- **🛡️ Status bar** — the risk of the file you are editing (`Risk 72 · top 8%`, written reasons in the tooltip); it switches to **`⚠ N hotspots in your changes`** when your working tree touches high-risk files. Click to jump to the file in the Risk tab
+- **🛡️ Status bar** — the risk of the file you are editing (`Risk 72 · top 8%`, written reasons in the tooltip); it switches to **`⚠ N hotspots in your changes`** when your working tree touches high-risk files. Click to jump to the file in the Risk tab. Deleted files never count (a removed hotspot is no longer at risk), and a single switch — `auraVisualizer.statusBar` — hides every Aura badge
 - **📈 Risk Trend** — average complexity over git history (structural risk proxy)
 - **🔥 Recently Hot** — files modified most in the last 30 days
 - **📊 Churn × Complexity** — scatter matrix (log scale) spotting files that are both complex and heavily churned (red = hot)
@@ -622,6 +622,8 @@ All tabs share the same live data and update when the graph is refreshed.
 
 You can also open the visualizer from the **Aura** icon in the Activity Bar or via the Command Palette → *Aura: Visualize Codebase*.
 
+> **Multi-root windows** — Aura analyses the **first folder** of the workspace only. Files that belong to another folder of the same window are not part of the graph, so the 3D view, the hotspots and the status bar badges all cover that first folder.
+
 ---
 
 ## Commands
@@ -640,6 +642,8 @@ You can also open the visualizer from the **Aura** icon in the Activity Bar or v
 | Aura: Create or Open Architecture Rules | — | Seed `.aura/arch-rules.json` from top-level `src/` folders and open it |
 | Aura: Baseline Architecture Violations | — | Freeze current violations in `.aura/arch-baseline.json` |
 | Aura: Reset Architecture Baseline | — | Clear the baseline — every violation alerts again |
+| Aura: Show Risk Map | — | Open the Risk tab, or reveal the clicked hotspot |
+| Aura: Show Architecture | — | Open the Architecture tab |
 
 ## Keyboard Shortcuts (in graph)
 
@@ -738,6 +742,7 @@ All settings live under `auraVisualizer.*` — the most common ones are also edi
 | `auraVisualizer.excludePaths` | `["node_modules", ".git", "dist", "build", "out", "__pycache__"]` | Directories to exclude from analysis |
 | `auraVisualizer.maxFiles` | `500` | Maximum number of files to analyze |
 | `auraVisualizer.autoRefresh` | `true` | Auto-refresh on file save |
+| `auraVisualizer.statusBar` | `true` | Show Aura's status bar badges — file/link counter, active-file risk, `⚠ N hotspots in your changes`, architecture violations (one switch for all of them) |
 | `auraVisualizer.followEditor` | `true` | Fly the 3D camera to the active editor file; manual camera movement pauses following until the 👁 toolbar button is clicked again |
 | `auraVisualizer.riskWindow` | `90` | Git history window (30 / 90 / 365 days) used by the Risk Map, the status bar and `get_hotspots` |
 | `auraVisualizer.riskCentrality` | `false` | Use the PageRank centrality percentile instead of fan-in in the risk score |

@@ -2315,7 +2315,7 @@ export class WebviewProvider {
 
                 <h3>✏️ Git Working Tree</h3>
                 <p>Files with uncommitted changes wear a thin <span style="color:#ffb300">● amber ring</span> in the graph — read straight from <code>git status</code> (modified, staged, untracked, renamed, conflicts). The detail panel shows the exact state on its <strong>Git</strong> line.</p>
-                <p>The <strong>✏️ Dirty</strong> toolbar button filters the graph down to those files (nodes and links); the <code>dirty</code> flag does the same in queries. The VS Code status bar shows the risk of the file you are editing and switches to <strong>⚠ N hotspots in your changes</strong> when your changes touch high-risk files — click it to reveal them in the Risk tab.</p>
+                <p>The <strong>✏️ Dirty</strong> toolbar button filters the graph down to those files (nodes and links); the <code>dirty</code> flag does the same in queries. The VS Code status bar shows the risk of the file you are editing and switches to <strong>⚠ N hotspots in your changes</strong> when your changes touch high-risk files — click it to reveal them in the Risk tab. Deleted files are ignored, and <code>auraVisualizer.statusBar</code> turns every Aura badge off in one switch.</p>
 
                 <h3>📝 Notes</h3>
                 <p>Click a file node to annotate it: the detail panel's <strong>📝 Note</strong> section takes free text (up to 2 000 chars) plus one of five colors. Annotated files wear a <strong>pulsing note-colored ring + dot</strong> in the graph — animated, so they stay visible at any zoom.</p>

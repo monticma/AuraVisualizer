@@ -335,6 +335,14 @@
         "command": "auraVisualizer.askAuraForTreeItem",
         "title": "Aura: Ask @aura about this file",
         "icon": "$(comment-discussion)"
+      },
+      {
+        "command": "auraVisualizer.statusBarRisk",
+        "title": "Aura: Show Risk Map"
+      },
+      {
+        "command": "auraVisualizer.statusBarArch",
+        "title": "Aura: Show Architecture"
       }
     ],
     "viewsContainers": {
@@ -444,6 +452,11 @@
           "type": "boolean",
           "default": true,
           "description": "Show a summary notification after a full codebase analysis (files, cycles, dead exports, hotspots)"
+        },
+        "auraVisualizer.statusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show Aura's status bar badges: the file/link counter, the risk of the active file, the ⚠ N hotspots in your changes alert, and architecture violations. One switch for all of them"
         },
         "auraVisualizer.linkStyle": {
           "type": "string",

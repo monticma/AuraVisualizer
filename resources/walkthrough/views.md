@@ -54,7 +54,7 @@ Click any tab in the **tab bar** below the toolbar. The 3D graph pauses when you
 - Every row explains itself in plain words ("changed 29 times in 90 days (top 1%)"); hover for the full breakdown
 - **History window**: pick 30 / 90 / 365 days — it drives churn, scoring and the explanations (also editable in the ⚙️ Settings modal / `auraVisualizer.riskWindow` setting)
 - **📈 Complexity Trend** — per-file sparkline + least-squares slope per 30 days (R²). Files above `auraVisualizer.complexityTrendThreshold` (default 0.5) get a degrading badge; the Table has the same sortable **Trend** column
-- The VS Code **status bar** mirrors the risk of the file you are editing and warns with `⚠ N hotspots in your changes` when your working tree touches high-risk files — click it to jump to that file here
+- The VS Code **status bar** mirrors the risk of the file you are editing and warns with `⚠ N hotspots in your changes` when your working tree touches high-risk files — click it to jump to that file here. Deleted files are ignored, and `auraVisualizer.statusBar` turns all Aura badges off at once
 - Buckets: High ≥ 66, Medium 33–65, Low < 33
 - Click any file in a list to select it and focus it in the 3D graph
 - 📤 Export Report writes `.aura/risk-report.md` (reasons included)
