@@ -21,6 +21,7 @@ import { registerAuraChatParticipant } from './chat/participant';
 import { registerNavigationCommands } from './commands/navigation';
 import { collectBlastTargets } from './commands/blast-targets';
 import { registerPaletteCommands } from './commands/palette';
+import { AuraHoverProvider } from './hover';
 import { AuraCodeLensProvider, registerSymbolCommands } from './codelens';
 import { registerAskAuraCommands } from './commands/ask-aura';
 import { buildArchReportInput, generateArchReport, withAiNarrative, type ArchReportExtras, type ArchReportModule } from './report/arch-report';
@@ -55,6 +56,7 @@ import { buildArchitectureToolPayload } from './arch/arch-tool';
 let webviewProvider: WebviewProvider | undefined;
 let cachedGraphData: GraphData | undefined;
 let codeLensProvider: AuraCodeLensProvider | undefined;
+let hoverProvider: AuraHoverProvider | undefined;
 let cachedFiles: FileInfo[] = [];
 let historyWorker: Worker | undefined;
 let commitIndex: CommitIndex | undefined;
@@ -381,6 +383,17 @@ export function activate(context: vscode.ExtensionContext): void {
             await openVisualizer(context);
             webviewProvider?.applyQueryFromHost(expr, mode);
         })
+    );
+
+    // Import hover (V3-04): metrics of the imported file on the specifier.
+    // Metrics come from the in-memory graph — a hover never queries SQLite.
+    hoverProvider = new AuraHoverProvider(
+        () => (cachedGraphData ? { nodes: cachedGraphData.nodes } : undefined),
+        () => ensureRiskSnapshot(),
+        () => vscode.workspace.getConfiguration('auraVisualizer').get<boolean>('hover', true),
+    );
+    context.subscriptions.push(
+        vscode.languages.registerHoverProvider({ scheme: 'file' }, hoverProvider),
     );
 
     context.subscriptions.push(...registerNavigationCommands({
@@ -2206,6 +2219,8 @@ export function deactivate(): void {
     fileWatcher?.dispose();
     codeLensProvider?.dispose();
     codeLensProvider = undefined;
+    hoverProvider?.dispose();
+    hoverProvider = undefined;
     if (refreshTimeout) clearTimeout(refreshTimeout);
     if (workingTreeTimer) clearTimeout(workingTreeTimer);
     if (startupWorkingTreeTimer) clearTimeout(startupWorkingTreeTimer);

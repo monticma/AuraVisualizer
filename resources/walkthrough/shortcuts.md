@@ -60,6 +60,8 @@ The **⚙️ button** (next to 🔍 Query) opens an in-app settings modal — ch
 - **Follow editor** — fly the camera to the active file; manual camera movement pauses it until you click 👁 again
 - **Flight speed · smoothing · mouse sensitivity · invert Y** — pilot mode feel
 - **Gamepad in pilot mode** — fly with a DualSense/Xbox pad: left stick moves, right stick looks, L2/R2 descend/boost (on by default)
+- **Import hover** — metrics card on import specifiers, with Focus / Blast radius / Open links (on by default)
+- **Symbol CodeLens** — `⟡ focus · flow · impact` above analyzed functions and classes (on by default)
 
 ### Gamepad 🎮 (pilot mode)
 

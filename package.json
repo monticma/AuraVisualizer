@@ -569,6 +569,11 @@
           "default": true,
           "description": "Show the Aura CodeLens (⟡ focus · flow · impact) above the functions and classes of analyzed files. Clicking it offers focus in the 3D graph, the function flowchart and the blast radius."
         },
+        "auraVisualizer.hover": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a metrics card when hovering an import specifier: size, complexity, fan-in/out, architecture layer, risk — with Focus in Aura / Blast radius / Open links."
+        },
         "auraVisualizer.savedQueries": {
           "type": "array",
           "default": [],

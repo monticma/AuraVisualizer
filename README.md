@@ -458,8 +458,17 @@ Press `V` or click the **⇄ Compare** button to enter **Compare mode**. A secon
 
 Type in the search box (2+ characters) to find files by name or path. Results appear in a live dropdown — click to navigate.
 
-### Command Palette 🎛️
+### Import Hover 💬
 
+Hover an import and Aura answers in place — no need to open the graph:
+
+- Works on **import specifiers** of JS/TS/Vue (`from '…'`, `require('…')`, `import('…')`), Python (`import x`, `from x import`), C/C++ (`#include`), Java/Kotlin (`import a.b.C`), Go, Rust (`use`, `mod`), C# (`using`), Ruby/PHP (`require`), Lua and Bash (`source`)
+- The card shows the target's language, **LOC**, cyclomatic and cognitive complexity, **fan-out/fan-in**, architecture **layer** with its violation count and the **risk** bucket
+- Three actions: **⟡ Focus in Aura**, **💥 Blast radius**, **📂 Open file**
+- Specifiers resolve with the same confidence ladder as the graph edges; an ambiguous or unknown import shows **nothing**, and arbitrary text never triggers a hover
+- Metrics come from the in-memory graph and risk snapshot (no SQLite query), lines are cached per document version — turn it off with `auraVisualizer.hover` or the ⚙️ Settings checkbox
+
+### Command Palette 🎛️
 Three navigation gestures are one keystroke away from anywhere in VS Code (`Ctrl+Shift+P`):
 
 | Command | What it does |

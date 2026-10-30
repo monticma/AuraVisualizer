@@ -34,6 +34,7 @@ const SETTING_NORMALIZERS: Record<string, (v: unknown) => unknown> = {
     invertY: (v) => v === true,
     gamepadEnabled: (v) => v !== false,
     codeLens: (v) => v !== false,
+    hover: (v) => v !== false,
     autoRefresh: (v) => v === true,
     followEditor: (v) => v === true,
 };
@@ -1021,6 +1022,7 @@ export class WebviewProvider {
                     invertY: config.get<boolean>('invertY', false) === true,
                     gamepadEnabled: config.get<boolean>('gamepadEnabled', true) !== false,
                     codeLens: config.get<boolean>('codeLens', true) !== false,
+                    hover: config.get<boolean>('hover', true) !== false,
                     autoRefresh: config.get<boolean>('autoRefresh', true),
                     followEditor: config.get<boolean>('followEditor', true),
                 }
@@ -1089,6 +1091,7 @@ export class WebviewProvider {
                 invertY: config.get<boolean>('invertY', false) === true,
                 gamepadEnabled: config.get<boolean>('gamepadEnabled', true) !== false,
                 codeLens: config.get<boolean>('codeLens', true) !== false,
+                hover: config.get<boolean>('hover', true) !== false,
                 autoRefresh: config.get<boolean>('autoRefresh', true),
                 followEditor: config.get<boolean>('followEditor', true),
             });
@@ -2114,6 +2117,10 @@ export class WebviewProvider {
                     <input id="set-codeLens" data-setting="codeLens" type="checkbox" />
                 </div>
                 <div class="settings-row">
+                    <label for="set-hover">Import hover<span class="settings-hint">Metrics card on import specifiers (size, complexity, fan-in/out, layer, risk) with actions</span></label>
+                    <input id="set-hover" data-setting="hover" type="checkbox" />
+                </div>
+                <div class="settings-row">
                     <label>Dead code exemptions<span class="settings-hint">Framework/test rules always visible in the detail panel — defaults stay active</span></label>
                     <button id="dead-code-rules-open" class="settings-action-btn" type="button">Edit rules…</button>
                 </div>
@@ -2332,6 +2339,10 @@ export class WebviewProvider {
 
                 <h3>📂 Directory Filtering</h3>
                 <p>In the <strong>File Explorer</strong> panel, each directory has a checkbox to show/hide its files in the graph. Use the <strong>All</strong> / <strong>None</strong> buttons for batch selection. Directories are checked by default.</p>
+
+                <h3>💬 Import Hover</h3>
+                <p>Hover an <strong>import specifier</strong> (<code>from './x'</code>, <code>require('x')</code>, Python <code>import</code>, <code>#include</code>, Java/Kotlin, Go, Rust <code>use</code>, C# <code>using</code>, Ruby/PHP, Lua, Bash <code>source</code>) to get the target file's card in place: language, LOC, cyclomatic/cognitive complexity, fan-out/fan-in, architecture layer with its violations and the risk bucket. Three links follow — <strong>⟡ Focus in Aura</strong>, <strong>💥 Blast radius</strong>, <strong>📂 Open file</strong>.</p>
+                <p>Specifiers resolve with the same confidence ladder as the graph edges (relative → exact → extension → path suffix → basename); an ambiguous or unknown import shows nothing, and arbitrary text never produces a hover. Metrics come from the in-memory graph, so it is instant, and <code>auraVisualizer.hover</code> turns the feature off.</p>
 
                 <h3>🎛️ Command Palette</h3>
                 <p>From anywhere in VS Code: <strong>Aura: Focus File in Graph…</strong> (fuzzy picker over analyzed files — path, language, directory, LOC, fan-in/out, layer, violations), <strong>Aura: Apply Saved Query…</strong> (replays a query saved from the query bar with its stored mode, most recent first) and <strong>Aura: Add Warp Here</strong> (warp naming modal on the current camera pose). The file picker lists code only — documentation nodes are excluded — and caps at 5 000 entries.</p>
