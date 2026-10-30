@@ -586,6 +586,14 @@
             }
           },
           {
+            "id": "pilot-free-flight",
+            "title": "Fly Through the Graph",
+            "description": "Press **Space** to enter **pilot mode**: `WASD`/`QE` to move, mouse to look, wheel for speed, `Shift` to boost. A DualSense/Xbox pad works too — sticks move and look, analog L2/R2 descend and boost, **✕** resets the camera, **○** exits.\n\nThe orbit controls resume at the exact same view.",
+            "media": {
+              "markdown": "resources/walkthrough/pilot.md"
+            }
+          },
+          {
             "id": "function-flowcharts",
             "title": "Read a Function at a Glance",
             "description": "Click the **⑂** button next to a function in the detail panel to open its **flowchart**: branches, loops, switch cases and try/catch, built on demand from the source AST.\n\nClick any step to jump to its line, drill into calls, and export the chart as SVG.",
@@ -620,7 +628,7 @@
           {
             "id": "ai-integration",
             "title": "AI Integration (@aura, MCP, Export)",
-            "description": "Mention **@aura** in VS Code Chat, query the built-in **MCP server** (17 deterministic tools), or use **📤 Export** for a guided Markdown/JSON AI context with selectable sections and a token budget.\n\nWorks with GitHub Copilot and other MCP clients.",
+            "description": "Mention **@aura** in VS Code Chat, query the built-in **MCP server** (18 deterministic tools), or use **📤 Export** for a guided Markdown/JSON AI context with selectable sections and a token budget.\n\nWorks with GitHub Copilot and other MCP clients.",
             "media": {
               "markdown": "resources/walkthrough/ai-integration.md"
             }
