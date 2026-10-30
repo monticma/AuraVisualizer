@@ -47,6 +47,7 @@ import {
     type ArchEvaluation,
     type ArchRules,
 } from './arch/arch-core';
+import { buildArchitectureToolPayload } from './arch/arch-tool';
 
 let webviewProvider: WebviewProvider | undefined;
 let cachedGraphData: GraphData | undefined;
@@ -102,6 +103,24 @@ function applyParseFailure(path: string, reason?: string): void {
     if ((before || reason) && cachedGraphData) {
         refreshParseFailureMeta(cachedGraphData);
     }
+}
+
+/**
+ * `aura_get_architecture_violations` provider: evaluate the current rules and
+ * baseline against the cached graph, then shape the result for the model.
+ * Rules and baseline are workspace files, so this always reflects the latest
+ * saved state (no DB round-trip needed).
+ */
+function architectureToolPayload(input: Record<string, unknown> = {}): unknown {
+    if (!cachedGraphData) {
+        return { error: 'Aura has not analyzed this workspace yet. Run the "Aura: Visualize Codebase" command first, then retry.' };
+    }
+    if (!archRules) {
+        if (archRulesError) return { configured: false, error: archRulesError };
+        return buildArchitectureToolPayload(undefined, input);
+    }
+    const evaluation = evaluateArchitecture(cachedGraphData, archRules, { baseline: archBaseline });
+    return buildArchitectureToolPayload(evaluation, input);
 }
 
 /** Recompute PageRank in place and return the nodes whose score changed. */
@@ -324,8 +343,8 @@ export function activate(context: vscode.ExtensionContext): void {
     context.subscriptions.push(archStatusBarItem);
 
     // Language Model tools — exposes Aura's codebase graph to VS Code AI agents (Copilot Chat, etc.)
-    registerAuraLmTools(context, () => graphDb, () => ensureRiskSnapshot());
-    registerAuraChatParticipant(context, () => graphDb, () => ensureRiskSnapshot(), () => webviewProvider?.isOpen ?? false);
+    registerAuraLmTools(context, () => graphDb, () => ensureRiskSnapshot(), architectureToolPayload);
+    registerAuraChatParticipant(context, () => graphDb, () => ensureRiskSnapshot(), () => webviewProvider?.isOpen ?? false, architectureToolPayload);
 
     // Commands
     context.subscriptions.push(

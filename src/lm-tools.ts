@@ -32,7 +32,12 @@ function notAnalyzedResult(): vscode.LanguageModelToolResult {
 }
 
 /** Register all Aura LM tools. Returns via context.subscriptions. */
-export function registerAuraLmTools(context: vscode.ExtensionContext, getDb: GetDb, getRiskSnapshot?: () => RiskSnapshot | undefined): void {
+export function registerAuraLmTools(
+    context: vscode.ExtensionContext,
+    getDb: GetDb,
+    getRiskSnapshot?: () => RiskSnapshot | undefined,
+    getArchitecture?: (input: Record<string, unknown>) => unknown,
+): void {
     const register = <T>(name: string, invoke: (input: T) => vscode.LanguageModelToolResult): void => {
         context.subscriptions.push(
             vscode.lm.registerTool<T>(name, {
@@ -47,7 +52,7 @@ export function registerAuraLmTools(context: vscode.ExtensionContext, getDb: Get
             const db = getDb();
             if (!db) return notAnalyzedResult();
             try {
-                return jsonResult(runAuraTool(db, name, input as Record<string, unknown>, getRiskSnapshot));
+                return jsonResult(runAuraTool(db, name, input as Record<string, unknown>, getRiskSnapshot, getArchitecture));
             } catch (err) {
                 return jsonResult({ error: err instanceof Error ? err.message : String(err) });
             }
@@ -59,4 +64,5 @@ export function registerAuraLmTools(context: vscode.ExtensionContext, getDb: Get
     registerShared<{ limit?: number; sort_by?: string }>('aura_get_hotspots');
     registerShared<{ from: string; to: string }>('aura_find_path');
     registerShared<{ query: string; kind?: string }>('aura_search_symbols');
+    registerShared<{ layer?: string; include_baselined?: boolean; limit?: number }>('aura_get_architecture_violations');
 }

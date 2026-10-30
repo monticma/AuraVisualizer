@@ -48,6 +48,7 @@ export function registerAuraChatParticipant(
     getDb: () => GraphDB | undefined,
     getRiskSnapshot?: () => RiskSnapshot | undefined,
     isAuraVisible?: () => boolean,
+    getArchitecture?: (input: Record<string, unknown>) => unknown,
 ): void {
     const handler: vscode.ChatRequestHandler = async (request, _chatContext, stream, token) => {
         const db = getDb();
@@ -127,7 +128,7 @@ export function registerAuraChatParticipant(
                     stream.progress(`Aura · ${tc.name}`);
                     let result: unknown;
                     try {
-                        result = runAuraTool(db, tc.name, tc.input as Record<string, unknown>, getRiskSnapshot);
+                        result = runAuraTool(db, tc.name, tc.input as Record<string, unknown>, getRiskSnapshot, getArchitecture);
                     } catch (err) {
                         result = { error: err instanceof Error ? err.message : String(err) };
                     }

@@ -30,7 +30,7 @@ Filter buttons at the bottom show only languages present in your project.
 - **✏️ Dirty** — Show only files with uncommitted changes (git working tree) — those files also wear a thin amber ring by default
 - **📝 Notes** — Show/hide the note indicators — annotated files wear a pulsing note-colored ring + dot
 - **💠 Centrality** — Show/hide soft halos around the top 10% PageRank files (structural code only)
-- **🧩 Communities** — Open the community palette; cards show hub paths, total/visible counts, persisted renames and an **✨ Ask Aura** action
+- **🧩 Communities** — Open the community palette; cards show hub paths, total/visible counts, persisted renames and an **✨ Ask Aura** action. The header combobox switches the same palette to **🏛️ Layers** (one card per rule layer, same **✨** action)
 - **Recenter** (`F`) — Fit the entire graph in view and clear the current selection, glow and detail panel
 - **🗺️ Map** — Toggle the minimap — a real-time overview that rotates with the camera. Drag inside to pan the viewport.
 - **🌀 Warps** — Named camera bookmarks — capture the current view (📌) and fly back to it, quick slots on `Alt+Shift+1–9`

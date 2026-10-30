@@ -166,6 +166,34 @@
             "query"
           ]
         }
+      },
+      {
+        "name": "aura_get_architecture_violations",
+        "displayName": "Aura: Get Architecture Violations",
+        "modelDescription": "Evaluate the project layer rules (.aura/arch-rules.json) against the analyzed dependency graph. Returns per-layer globs and Ca/Ce/instability, new (non-baselined) deny/slice violations with severity, and aggregated layer cycles. Pass a layer name to restrict everything to that layer. Documentation is excluded.",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "getArchitectureViolations",
+        "icon": "$(law)",
+        "tags": [
+          "architecture"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "layer": {
+              "type": "string",
+              "description": "Optional layer name to restrict violations, metrics and cycles"
+            },
+            "include_baselined": {
+              "type": "boolean",
+              "description": "Include violations frozen in the baseline (default false)"
+            },
+            "limit": {
+              "type": "number",
+              "description": "Maximum violations to return (default 100)"
+            }
+          }
+        }
       }
     ],
     "chatParticipants": [

@@ -313,9 +313,12 @@ Architecture rules are a **fitness function**: they turn the dependency graph in
 | **Matrix / Chord** | **Group by → Architecture layer**; violating DSM cells turn red with ✖ |
 | **Table** | Sortable **Layer** column |
 | **Query DSL** | `layer == domain AND archviolations > 0`, `isarchviolator` |
+| **Ask Aura / AI** | **✨** on a layer card sends its globs, members, coupling, violations and cycles to `@aura`; the `aura_get_architecture_violations` LM tool (and MCP) returns the same evaluation with an optional layer filter |
 | **MCP** | `get_architecture_violations` returns new violations, layer metrics and cycles |
 
 Create the rules file from your top-level `src/` folders with **Aura: Create or Open Architecture Rules**. The **⚙️ Edit rules** button in the Architecture tab (also in **⚙️ Settings → Architecture rules**) opens a **structured editor**: add/reorder layers, toggle forbidden targets per deny rule, edit slices/shared globs, add `no-cycles`, exceptions and strict mode. Layer renames update every rule reference, and the exact analysis engine validates the form before saving (the raw JSON field stays available for `edgeTypes`). Saving re-evaluates immediately — no re-parse.
+
+The floating **Communities / Layers** palette shows one card per layer with its globs, member count and new violations. Click a card to hide that layer, or **✨** to ask `@aura` for an explanation: the request carries the authoritative member list, the rule globs, `Ca`/`Ce`/`I`, new vs baselined violations and aggregated cycles, so answers separate code fixes from rule changes. The **Unlayered** bucket can be toggled but has no ask action yet.
 
 ### Parse Failures ⚠️
 
@@ -631,8 +634,8 @@ Open **VS Code Chat** and mention `@aura` to ask about architecture, hotspots, i
 
 - **Slash commands:** `/explain`, `/impact`, `/path`, `/hotspots`, `/query`
 - **Answers** link files directly and offer actions: **Focus in Aura**, **Apply Aura Query**, **Open Risk**, **Open Aura**
-- **Ask Aura** buttons live directly in the UI: file detail (Explain / Impact / Refactor plan / Tests first), clusters, communities, the Risk dashboard and the explorer context menu
-- The legacy in-panel assistant is hidden — VS Code Chat is the main conversational surface
+- **Ask Aura** buttons live directly in the UI: file detail (Explain / Impact / Refactor plan / Tests first), clusters, communities, layers, the Risk dashboard and the explorer context menu
+- VS Code Chat is the **only** conversational surface: the old in-panel assistant (✨ button) was removed in favor of `@aura`
 
 ### Export an AI context
 

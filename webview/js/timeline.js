@@ -2,7 +2,7 @@
  * timeline.js — Time Travel: commit timeline (sliders, tooltips, progress),
  * history deltas, compare mode and the impact cascade overlay.
  *
- * Extracted from app.js (Lot 2a). Same pattern as views/warps/panels/chat:
+ * Extracted from app.js (Lot 2a). Same pattern as views/warps/panels:
  * IIFE + window.AuraTimeline + init(hooks). The diff sets are stable references
  * exposed through state(); the app.js render accessors read them via ttState().
  */

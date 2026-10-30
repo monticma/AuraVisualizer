@@ -594,6 +594,7 @@ var AuraArch = (() => {
       const total = ca + ce;
       return {
         name: layer.name,
+        paths: layer.paths.slice(),
         files: filesByLayer.get(layer.name) || 0,
         ca,
         ce,

@@ -7,7 +7,6 @@ import * as path from 'path';
 import { Worker } from 'worker_threads';
 import type { GraphData, GraphMeta, GraphLink } from '../analyzer/index';
 import type { GraphDB } from '../graph-db';
-import { runChatStream } from '../chat';
 import { normalizeRiskWindow } from '../risk/risk-core';
 import { parseDeadCodeRules } from '../analysis/dead-code';
 import { ARCH_RULES_FILE, parseArchRules } from '../arch/arch-core';
@@ -331,13 +330,6 @@ export class WebviewProvider {
                         }
                         break;
                     }
-                    case 'chatRequest': {
-                        const p = (message.payload || {}) as { id?: string; prompt?: string };
-                        if (p.id && p.prompt) {
-                            this.handleChatRequest(p.id, p.prompt);
-                        }
-                        break;
-                    }
                     case 'exportRiskReport': {
                         const p = (message.payload || {}) as { markdown?: string };
                         if (p.markdown) {
@@ -400,17 +392,6 @@ export class WebviewProvider {
             null,
             this.disposables
         );
-    }
-
-    private handleChatRequest(id: string, prompt: string): void {
-        const post = (type: string, payload: Record<string, unknown>) =>
-            this.panel?.webview.postMessage({ type, payload });
-        void runChatStream(() => this.getGraphDB(), prompt, {
-            onChunk: (text) => post('chatChunk', { id, text }),
-            onDone: (fullText) => post('chatDone', { id, fullText }),
-            onError: (message) => post('chatError', { id, message }),
-            onToolCall: (name) => post('chatTool', { id, name }),
-        }, this.getHostData.riskSnapshot);
     }
 
     private async handleExportRiskReport(markdown: string): Promise<void> {
@@ -1105,9 +1086,6 @@ export class WebviewProvider {
         const panelsUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'panels.js')
         );
-        const chatUri = webview.asWebviewUri(
-            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'chat.js')
-        );
         const forceGraphUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'lib', '3d-force-graph.min.js')
         );
@@ -1181,7 +1159,6 @@ export class WebviewProvider {
             <button class="tab-btn" data-tab="coupling">🔗 Co-change</button>
             <button id="qb-toggle" class="qb-toggle" title="Toggle query bar (Ctrl+K)">🔍</button>
             <button id="settings-toggle" type="button" class="qb-toggle" title="Aura settings">⚙️</button>
-            <button id="chat-toggle" type="button" class="qb-toggle chat-toggle" title="Toggle Aura Assistant (AI chat)" hidden>✨</button>
         </nav>
 
         <!-- Query Bar (collapsible) -->
@@ -1371,20 +1348,6 @@ export class WebviewProvider {
                 <ul id="panel-dependents" class="panel-list"></ul>
             </div>
         </details>
-    </aside>
-
-    <!-- Chat Panel (Aura Assistant) -->
-    <aside id="chat-panel" class="collapsed" aria-label="Aura Assistant">
-        <div class="chat-header">
-            <h3>✨ Aura Assistant</h3>
-            <button id="chat-clear" type="button" class="chat-btn" title="Clear conversation">🗑️</button>
-            <button id="chat-close" type="button" class="chat-btn" title="Close">✕</button>
-        </div>
-        <div id="chat-messages" class="chat-messages"></div>
-        <div class="chat-input-row">
-            <textarea id="chat-input" rows="2" placeholder="Ask about your codebase…" spellcheck="false"></textarea>
-            <button id="chat-send" type="button" class="chat-send" title="Send (Enter)">➤</button>
-        </div>
     </aside>
     </div><!-- /middle-row -->
 
@@ -2150,6 +2113,10 @@ export class WebviewProvider {
                 <h3>✨ What's New in 1.5.0</h3>
                 <p><strong>Architecture rules 🏛️</strong> turn layers into an executable fitness function: declare <code>layers</code>, <code>deny</code>, <code>slices</code>, <code>no-cycles</code> and <code>exceptions</code> in <code>.aura/arch-rules.json</code>. The <strong>🏛️ Architecture</strong> tab lists violations by rule with <strong>Ca/Ce/instability</strong> per layer; the <strong>Architecture layers</strong> heatmap turns forbidden edges red; the status bar shows the active file's violations. The floating palette switches between <strong>🧩 Communities</strong> and <strong>🏛️ Layers</strong>: click a layer card to hide it (Unlayered included when files fall outside every layer), and both selections are saved with the view state. Freeze legacy debt with a baseline so only new violations alert.</p>
                 <p><strong>⚠️ Parse failures</strong> are never fatal: a file Tree-sitter cannot parse cleanly keeps its node (imports stay visible), and a <strong>⚠ N parse failures</strong> badge in the stats bar opens the sampled paths and reasons. Click a path to reveal the node; <strong>Export report</strong> writes a Markdown summary.</p>
+                <p><strong>✨ Ask Aura on a layer</strong> sends the layer globs, authoritative members, Ca/Ce/instability, new vs baselined violations and layer cycles to <code>@aura</code> — the answer distinguishes code fixes from rule changes. The same evaluation is available to AI agents through the <code>aura_get_architecture_violations</code> tool (optional <code>layer</code> filter, baselined included on demand). The Unlayered bucket has no ask action.</p>
+
+                <h3>🤖 Where to Ask Aura</h3>
+                <p>AI lives in <strong>VS Code Chat</strong>, not inside the graph panel. Mention <code>@aura</code> for grounded answers (<code>/explain</code>, <code>/impact</code>, <code>/path</code>, <code>/hotspots</code>, <code>/query</code>), or click any <strong>✨ Ask Aura</strong> button — file detail, clusters, community cards, layer cards, Risk dashboard, explorer context menu — to pre-attach the current view context. The old in-panel assistant (✨ tab button) has been removed: there is a single conversational surface. External agents reach the same deterministic evaluation through the <strong>Language Model tools</strong> and the built-in <strong>MCP server</strong> (18 tools).</p>
 
                 <h3>🖱️ Interactive Exploration</h3>
                 <table class="help-table">
@@ -2382,7 +2349,6 @@ export class WebviewProvider {
     <script nonce="${nonce}" src="${exportUri}"></script>
     <script nonce="${nonce}" src="${spritesUri}"></script>
     <script nonce="${nonce}" src="${panelsUri}"></script>
-    <script nonce="${nonce}" src="${chatUri}"></script>
     <script nonce="${nonce}" src="${appUri}"></script>
 </body>
 </html>`;

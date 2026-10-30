@@ -20,7 +20,7 @@ Blue = low, Red = high. The legend bar shows the value range.
 
 Requires a rules file (see the **Enforce Architecture Layers** walkthrough step). Each node takes its layer color; files outside every layer are dimmed, documentation stays neutral, and forbidden file pairs are drawn as thick red edges (amber when frozen in the baseline). This is the fastest way to see an architectural erosion: the red edges are the exact imports the rule forbids.
 
-The floating palette switches between **🧩 Communities** and **🏛️ Layers** with its header combobox (it mirrors the heatmap selector). In Layers mode the cards follow the rule order — so each swatch matches the graph, the legend and the Architecture tab — and clicking one hides that layer; **All** / **None** apply to the list currently shown. An extra **Unlayered** card appears when files fall outside every layer. Selections are saved with the view state in both modes.
+The floating palette switches between **🧩 Communities** and **🏛️ Layers** with its header combobox (it mirrors the heatmap selector). In Layers mode the cards follow the rule order — so each swatch matches the graph, the legend and the Architecture tab — and clicking one hides that layer; **All** / **None** apply to the list currently shown. An extra **Unlayered** card appears when files fall outside every layer. Selections are saved with the view state in both modes. Each layer card also has a **✨ Ask Aura** action that sends its globs, members, coupling, violations and cycles to VS Code Chat (the **Unlayered** bucket has no ask action).
 
 ### Communities mode
 

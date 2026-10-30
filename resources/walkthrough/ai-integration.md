@@ -12,13 +12,15 @@ Open **VS Code Chat** and type `@aura ...` to ask about the codebase. Aura uses 
 
 Slash commands: `/explain`, `/impact`, `/path`, `/hotspots`, `/query`. Each answer links files and offers **Focus in Aura**, **Apply Aura Query**, **Open Risk** and **Open Aura** buttons.
 
-Contextual **Ask Aura** actions are also available in the file detail panel, clusters, community cards, the Risk dashboard and the explorer context menu — they open the chat with the current view context already attached. The community **✨** action sends the palette's exact member files as the authoritative scope; documentation remains excluded from architectural analysis.
+Contextual **Ask Aura** actions are also available in the file detail panel, clusters, community cards, layer cards, the Risk dashboard and the explorer context menu — they open VS Code Chat with the current view context already attached. The community **✨** action sends the palette's exact member files as the authoritative scope; the layer **✨** action sends the rule globs, members, `Ca`/`Ce`/`I`, new vs baselined violations and aggregated layer cycles. Documentation remains excluded from architectural analysis.
+
+Aura has **no in-panel assistant**: the graph panel is for exploration, and **VS Code Chat** is the single conversational surface.
 
 ### MCP Server
 
 The MCP server starts automatically and registers itself in `.vscode/mcp.json`. AI assistants (like GitHub Copilot) can then query your codebase graph.
 
-**Available tools (17):**
+**Available tools (18):**
 
 | Tool | What it does |
 |------|-------------|
@@ -39,6 +41,7 @@ The MCP server starts automatically and registers itself in `.vscode/mcp.json`. 
 | `search_docs` | Full-text search across project documentation (`.md`, `.markdown`, `.txt`, `.rst`) — returns ranked chunks with file path, section heading, and excerpt |
 | `resolve_context` | Ranked list of files most relevant to a natural-language task (deterministic, no LLM) |
 | `generate_documentation` | Full documentation payload in one call: overview, modules, hotspots, cycles, dead code |
+| `get_architecture_violations` | Evaluate `.aura/arch-rules.json` — new deny/slice violations, per-layer Ca/Ce/instability and aggregated layer cycles (optional `layer` filter, baselined included on demand) |
 
 ### Export for AI
 

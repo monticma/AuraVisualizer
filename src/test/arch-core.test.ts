@@ -329,6 +329,12 @@ describe('architecture metrics and cycles', () => {
         expect(ui.ca).toBe(0);
         expect(ui.ce).toBe(1);
         expect(ui.instability).toBe(1);
+
+        // Globs travel with the stats so AI tools and the palette can explain
+        // how the membership was decided.
+        expect(ui.paths).toEqual(['src/ui/**']);
+        expect(result.layers.find(l => l.name === 'application')!.paths)
+            .toEqual(['src/app/**', 'src/services/**']);
     });
 
     it('reports aggregated layer cycles once per no-cycles rule', () => {

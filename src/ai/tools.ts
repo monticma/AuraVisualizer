@@ -185,6 +185,18 @@ export const AURA_TOOLS: AuraTool[] = [
         description: 'Return architectural communities (modules) detected via the shared Louvain snapshot — groups of code files by dependency coupling. Documentation nodes and doc-reference edges are excluded; labels are full hub paths or user renames.',
         inputSchema: { type: 'object', properties: {} },
     },
+    {
+        name: 'aura_get_architecture_violations',
+        description: 'Evaluate the project layer rules (.aura/arch-rules.json) against the dependency graph. Returns per-layer globs and Ca/Ce/instability, new (non-baselined) deny/slice violations with severity, and aggregated layer cycles. Pass a layer name to restrict everything to that layer. Documentation is excluded.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                layer: { type: 'string', description: 'Optional layer name to restrict violations, metrics and cycles' },
+                include_baselined: { type: 'boolean', description: 'Include violations frozen in the baseline (default false)' },
+                limit: { type: 'number', description: 'Maximum violations to return (default 100)' },
+            },
+        },
+    },
 ];
 
 /** Resolve a file path or basename (e.g. "server.ts") to a full node id. */
@@ -223,7 +235,7 @@ function communityEntries(communities: ReturnType<GraphDB['getCommunitySnapshot'
     }));
 }
 /** Execute an Aura tool locally (deterministic, no LLM) against the GraphDB. */
-export function runAuraTool(db: GraphDB, name: string, input: Record<string, unknown>, getRiskSnapshot?: (input?: Record<string, unknown>) => RiskSnapshot | undefined): unknown {
+export function runAuraTool(db: GraphDB, name: string, input: Record<string, unknown>, getRiskSnapshot?: (input?: Record<string, unknown>) => RiskSnapshot | undefined, getArchitecture?: (input: Record<string, unknown>) => unknown): unknown {
     switch (name) {
         case 'aura_resolve_context':
             return resolveContext(db, input.task as string, (input.limit as number) || 8);
@@ -459,6 +471,14 @@ export function runAuraTool(db: GraphDB, name: string, input: Record<string, unk
                 total: named.length,
                 note: 'Architectural communities from the shared code-only Louvain snapshot. Labels are full hub paths (or user renames); documentation and doc-reference edges are excluded from membership, fan-in and centrality.',
             };
+        }
+        case 'aura_get_architecture_violations': {
+            // The evaluation lives in the host (rules + baseline are files, not DB
+            // state); the provider is injected by the extension.
+            if (!getArchitecture) {
+                return { error: 'Architecture rules are not available in this context.' };
+            }
+            return getArchitecture(input);
         }
         default:
             return { error: `Unknown tool: ${name}` };

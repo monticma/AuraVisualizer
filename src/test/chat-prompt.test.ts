@@ -81,6 +81,39 @@ describe('chat prompt helpers', () => {
         expect(text).not.toContain('filters:');
     });
 
+    it('marks architecture layer membership as rule-defined and authoritative', () => {
+        const text = describeAuraViewContext({
+            tab: 'graph',
+            layer: {
+                name: 'domain',
+                paths: ['src/domain/**', 'src/core/**'],
+                fileCount: 4,
+                files: ['src/domain/a.ts', 'src/core/b.ts'],
+                truncated: true,
+                ca: 2,
+                ce: 3,
+                instability: 0.6,
+                violations: 2,
+                newViolations: 1,
+                baselined: 1,
+                rules: ['domain-pure'],
+                violationSamples: [
+                    { rule: 'domain-pure', severity: 'error', source: 'src/domain/a.ts', target: 'src/ui/c.ts', baselined: false },
+                ],
+                cycles: [['domain', 'ui']],
+            },
+        });
+        expect(text).toContain('Architecture layer: "domain" — 4 code files');
+        expect(text).toContain('`src/domain/**`');
+        expect(text).toContain('coupling: Ca 2 · Ce 3 · instability 0.60');
+        expect(text).toContain('violations: 1 new, 1 baselined (rules: domain-pure)');
+        expect(text).toContain('first matching glob wins');
+        expect(text).toContain('never present a baselined violation as new');
+        expect(text).toContain('layer cycles: domain ↔ ui');
+        expect(text).toContain('`src/domain/a.ts` → `src/ui/c.ts` (domain-pure, error)');
+        expect(text).toContain('layer files: `src/domain/a.ts`, `src/core/b.ts` … (+2 not listed)');
+    });
+
     it('builds deterministic file facts for /explain', () => {
         const db = {
             getAllNodes: () => [{ id: 'src/a.ts', name: 'a.ts' }],

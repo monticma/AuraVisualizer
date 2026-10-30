@@ -392,12 +392,6 @@
                 if (message.payload) applyViewState(message.payload);
                 viewStateReady = true;
                 break;
-            case 'chatChunk':
-            case 'chatDone':
-            case 'chatError':
-            case 'chatTool':
-                if (window.AuraChat) window.AuraChat.handleHostMessage(message.type, message.payload);
-                break;
         }
     });
 
@@ -410,12 +404,6 @@
     // ============================================================
     function init() {
         // Satellite modules — inject live-state hooks (getters, so no staleness)
-        if (window.AuraChat) {
-            AuraChat.init({
-                postMessage: function (msg) { vscode.postMessage(msg); },
-                focusNode: focusNodeById
-            });
-        }
         if (window.AuraPanels) {
             AuraPanels.init({
                 getGraph: function () { return graph; },
@@ -532,7 +520,6 @@
             });
             AuraQueryBar.setup();
         }
-        if (window.AuraChat) AuraChat.setup();
         if (window.AuraRiskMap) {
             AuraRiskMap.init({
                 getGraphData: function () { return graphData; },
@@ -1332,8 +1319,15 @@
                     key: key,
                     name: stat.name,
                     color: layerColor(stat.name, i),
+                    // Globs drive the membership (first match wins, V2-20).
+                    paths: Array.isArray(stat.paths) ? stat.paths.slice() : [],
                     files: stat.files || 0,
+                    ca: stat.ca || 0,
+                    ce: stat.ce || 0,
+                    instability: typeof stat.instability === 'number' ? stat.instability : null,
+                    violations: stat.violations || 0,
                     newViolations: stat.newViolations || 0,
+                    baselined: stat.baselined || 0,
                     unlayered: false
                 };
                 layerOrder.push(key);
@@ -1554,6 +1548,7 @@
                     '<div class="community-card-head">' +
                         '<span class="community-swatch" style="background:' + info.color + '"></span>' +
                         '<span class="community-name" title="' + escapeHtml(info.name) + '">' + escapeHtml(info.name) + '</span>' +
+                        (info.unlayered ? '' : '<button type="button" class="community-ask" title="Ask Aura about this layer">✨</button>') +
                     '</div>' +
                     '<div class="community-card-meta">' +
                         '<span class="community-count">' + countText + '</span>' +
@@ -1561,6 +1556,16 @@
                 card.title = info.unlayered
                     ? 'Files outside every architecture layer (documentation excluded)'
                     : 'Layer "' + info.name + '" — click to show/hide it on the graph';
+
+                var layerAskBtn = card.querySelector('.community-ask');
+                if (layerAskBtn) {
+                    layerAskBtn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        var payload = buildLayerAskPayload(key);
+                        if (payload) vscode.postMessage({ type: 'askAura', payload: payload });
+                    });
+                }
 
                 card.addEventListener('click', function() {
                     if (activeLayers.has(key)) activeLayers.delete(key);
@@ -1572,6 +1577,69 @@
                 list.appendChild(card);
             })(layerOrder[i]);
         }
+    }
+
+    /**
+     * "Ask Aura" payload for one layer: authoritative members, rule globs,
+     * coupling metrics, violations (new vs baselined) and layer cycles.
+     */
+    function buildLayerAskPayload(key) {
+        var info = layerNames[key];
+        var meta = archEvaluation();
+        if (!info || info.unlayered || !meta) return null;
+
+        var members = [];
+        for (var i = 0; i < graphData.nodes.length; i++) {
+            if (layerGroupKey(graphData.nodes[i]) === key) members.push(graphData.nodes[i].id);
+        }
+        members.sort();
+        var total = members.length || info.files || 0;
+        var listed = members.slice(0, 200);
+
+        var violations = (meta.violations || []).filter(function(violation) {
+            return violation.sourceLayer === info.name || violation.targetLayer === info.name ||
+                violation.sourceGroup === info.name || violation.targetGroup === info.name;
+        });
+        var ruleIds = {};
+        for (var v = 0; v < violations.length; v++) ruleIds[violations[v].ruleId] = true;
+        var samples = violations.slice(0, 20).map(function(violation) {
+            return {
+                rule: violation.ruleId,
+                severity: violation.severity,
+                kind: violation.kind,
+                source: violation.source,
+                target: violation.target,
+                baselined: !!violation.baselined
+            };
+        });
+        var cycles = (meta.layerCycles || []).filter(function(cycle) {
+            return (cycle.layers || []).indexOf(info.name) !== -1;
+        }).map(function(cycle) { return cycle.layers; });
+
+        return {
+            prompt: 'Explain the architecture layer "' + info.name + '" selected in the Layers palette (' + total +
+                ' code files, documentation excluded). Its membership is defined by globs evaluated by Aura: treat the provided member list as authoritative and do not re-derive it. Cover its intended responsibility, afferent/efferent coupling (Ca/Ce/I), cohesion, the forbidden dependencies it actually violates (separating new violations from baselined debt), and concrete next actions — say clearly which ones are code moves vs. rule changes. Use at most 3 Aura tools (aura_get_architecture_violations returns the full list), then write the answer and cite files.',
+            context: {
+                tab: 'graph',
+                layer: {
+                    name: info.name,
+                    paths: info.paths || [],
+                    fileCount: total,
+                    files: listed,
+                    truncated: listed.length < total,
+                    ca: info.ca,
+                    ce: info.ce,
+                    instability: info.instability,
+                    violations: info.violations,
+                    newViolations: info.newViolations,
+                    baselined: info.baselined,
+                    rules: Object.keys(ruleIds).sort(),
+                    violationSamples: samples,
+                    cycles: cycles,
+                    unlayered: false
+                }
+            }
+        };
     }
 
     /** Inline rename: Enter/blur saves, Escape cancels, empty restores the hub path. */

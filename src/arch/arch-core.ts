@@ -172,6 +172,8 @@ export interface ArchViolation {
 
 export interface ArchLayerStat {
     name: string;
+    /** Globs that define the layer, in rule order (first match wins). */
+    paths: string[];
     files: number;
     /** Afferent coupling: distinct external files depending on this layer. */
     ca: number;
@@ -833,6 +835,7 @@ export function evaluateArchitecture(
         const total = ca + ce;
         return {
             name: layer.name,
+            paths: layer.paths.slice(),
             files: filesByLayer.get(layer.name) || 0,
             ca,
             ce,
