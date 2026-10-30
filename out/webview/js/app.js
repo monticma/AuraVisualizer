@@ -235,11 +235,12 @@
                     if (activeTab !== 'graph') switchTab('graph');
                     var brNode = findNode(message.payload.nodeId);
                     if (brNode) {
+                        cancelInitialFit();
                         handleBlastRadius(brNode, false);
-                        if (graph) {
+                        if (graph && hasFinitePosition(brNode)) {
                             graph.cameraPosition(
-                                { x: brNode.x, y: brNode.y, z: (brNode.z || 0) + 200 },
-                                { x: brNode.x, y: brNode.y, z: brNode.z || 0 },
+                                { x: brNode.x, y: brNode.y, z: brNode.z + 200 },
+                                { x: brNode.x, y: brNode.y, z: brNode.z },
                                 1000
                             );
                         }
@@ -375,6 +376,18 @@
             case 'flowData':
                 if (window.AuraFlowView) window.AuraFlowView.receive(message.payload);
                 break;
+            case 'openFlow':
+                // Host-driven flowchart (symbol CodeLens) — the view posts its
+                // own requestFlow and receives the flowData above.
+                if (window.AuraFlowView && message.payload) {
+                    window.AuraFlowView.open(
+                        message.payload.nodeId,
+                        message.payload.line,
+                        message.payload.language,
+                        message.payload.name
+                    );
+                }
+                break;
             case 'applyQuery':
                 if (window.AuraQueryBar && message.payload && typeof message.payload.expr === 'string') {
                     window.AuraQueryBar.applyFromHost(message.payload.expr, message.payload.mode);
@@ -389,14 +402,25 @@
                 if (window.AuraExport) window.AuraExport.capture(message.payload);
                 break;
             case 'restoreViewState':
-                if (message.payload) applyViewState(message.payload);
+                if (message.payload) {
+                    try { applyViewState(message.payload); } catch (e) { console.error('[aura] applyViewState failed:', e); }
+                }
                 viewStateReady = true;
+                // Filters, heatmap and layout are final only now: hand the graph
+                // over to the host after this frame so a queued focus / blast
+                // lands on the restored view instead of being undone by it.
+                requestAnimationFrame(function () { announceGraphRendered(); });
                 break;
         }
     });
 
-    // Tell the extension we're ready
-    vscode.postMessage({ type: 'ready' });
+    // Tell the extension we're ready — only after `init()` has run: the host
+    // answers with graphData, and a cold start used to deliver it to a webview
+    // whose satellite modules had no hooks yet (exception in handleGraphData →
+    // the loading overlay stayed on top of the graph).
+    function notifyReady() {
+        try { vscode.postMessage({ type: 'ready' }); } catch (_) { /* noop */ }
+    }
 
 
     // ============================================================
@@ -552,6 +576,7 @@
         }
         setupBottomBarsOffset();
         vscode.postMessage({ type: 'requestSavedQueries' });
+        notifyReady();
     }
 
     if (document.readyState === 'loading') {
@@ -560,7 +585,40 @@
         init();
     }
 
+    /**
+     * Tell the host a live ForceGraph3D instance is available. Queued focus /
+     * blast / flowchart messages are flushed then. Idempotent: the first call
+     * after a render wins, the others are no-ops.
+     */
+    function announceGraphRendered() {
+        if (!renderAnnouncePending) return;
+        renderAnnouncePending = false;
+        if (renderAnnounceTimer) { clearTimeout(renderAnnounceTimer); renderAnnounceTimer = 0; }
+        if (loadingOverlay) loadingOverlay.style.display = 'none';
+        try { vscode.postMessage({ type: 'graphRendered' }); } catch (_) { /* noop */ }
+    }
+
     function handleGraphData(data) {
+        // Hide the overlay as soon as the graph has painted, but only tell the
+        // host the graph is live once the saved view state has been restored:
+        // queued focus / blast messages must land on the final filters, heatmap
+        // and layout. `announceGraphRendered` is idempotent and has a fallback
+        // timer in case the host has no state to restore.
+        var hideOverlay = function () {
+            requestAnimationFrame(function() {
+                requestAnimationFrame(function() {
+                    if (loadingOverlay) {
+                        loadingOverlay.style.display = 'none';
+                    }
+                });
+            });
+        };
+        var armAnnounce = function () {
+            renderAnnouncePending = true;
+            if (renderAnnounceTimer) clearTimeout(renderAnnounceTimer);
+            renderAnnounceTimer = setTimeout(function () { announceGraphRendered(); }, 600);
+        };
+
         // Reset interaction state before re-init (retainContextWhenHidden keeps
         // the JS closure, so stale state survives refresh)
         clearPinnedFocus();   // also clears flowTrace timer
@@ -577,7 +635,9 @@
         buildLinkWidthIndex();
 
         // Re-evaluate active query against the new dataset
-        if (window.AuraQueryBar) AuraQueryBar.onGraphData();
+        if (window.AuraQueryBar) {
+            try { AuraQueryBar.onGraphData(); } catch (e) { console.error('[aura] query re-evaluation failed:', e); }
+        }
 
         headGraphData = JSON.parse(JSON.stringify(data));
         computeMetricRanges();
@@ -585,8 +645,12 @@
         syncLayersFromMetadata(false);
         updateStats(graphData.meta);
         updateLanguageButtons(graphData.nodes);
-        if (window.AuraRiskMap) AuraRiskMap.renderRiskDashboard();
-        if (window.AuraArchPanel) AuraArchPanel.render();
+        if (window.AuraRiskMap) {
+            try { AuraRiskMap.renderRiskDashboard(); } catch (e) { console.error('[aura] risk dashboard render failed:', e); }
+        }
+        if (window.AuraArchPanel) {
+            try { AuraArchPanel.render(); } catch (e) { console.error('[aura] arch panel render failed:', e); }
+        }
         try {
             // The composer and its passes belong to the previous graph instance.
             disposeBloomState();
@@ -596,15 +660,10 @@
             ensureSelectedNodeEffect();
         } catch (e) {
             console.error('[aura] initGraph error:', e);
+        } finally {
+            hideOverlay();
+            armAnnounce();
         }
-        // Hide overlay after the graph has rendered its first frame
-        requestAnimationFrame(function() {
-            requestAnimationFrame(function() {
-                if (loadingOverlay) {
-                    loadingOverlay.style.display = 'none';
-                }
-            });
-        });
         buildExplorerTree(graphData.nodes);
         // Refresh saved queries now that DB is definitely open
         try { vscode.postMessage({ type: 'requestSavedQueries' }); } catch (_) { /* noop */ }
@@ -2139,9 +2198,7 @@
         window.removeEventListener('blur', healMissedPointerUp);
         window.addEventListener('blur', healMissedPointerUp);
 
-        setTimeout(function() {
-            graph.zoomToFit(500, 50);
-        }, 1500);
+        scheduleInitialFit();
 
         // Handle webview resize (e.g. when side editor opens/closes).
         // Skip 0x0 sizes: while another tab is active the container is hidden and
@@ -3281,6 +3338,45 @@
         if (window.AuraDetail) AuraDetail.show(node);
     }
 
+    // ============================================================
+    // Initial framing
+    // ============================================================
+
+    /**
+     * Deferred fit-to-view that frames the whole graph once the layout has
+     * settled. It is cancelled as soon as something navigates on purpose —
+     * a CodeLens focus, a blast radius or a warp — otherwise it zooms back out
+     * 1.5 s after the graph appeared and undoes the user's navigation.
+     */
+    var initialFitTimer = 0;
+    var initialFitCancelled = false;
+
+    function scheduleInitialFit() {
+        if (initialFitTimer) clearTimeout(initialFitTimer);
+        initialFitCancelled = false;
+        initialFitTimer = setTimeout(function() {
+            initialFitTimer = 0;
+            if (initialFitCancelled || graphPaused || !graph) return;
+            graph.zoomToFit(500, 50);
+        }, 1500);
+    }
+
+    function cancelInitialFit() {
+        initialFitCancelled = true;
+        if (initialFitTimer) {
+            clearTimeout(initialFitTimer);
+            initialFitTimer = 0;
+        }
+    }
+
+    /** True when a node already has usable 3D coordinates. */
+    function hasFinitePosition(node) {
+        return !!node &&
+            typeof node.x === 'number' && isFinite(node.x) &&
+            typeof node.y === 'number' && isFinite(node.y) &&
+            typeof node.z === 'number' && isFinite(node.z);
+    }
+
     /** Close-up camera position for a node, matching a normal click (120 units). */
     function nodeCameraPose(node) {
         var distance = 120;
@@ -3289,12 +3385,52 @@
         return { x: node.x * ratio, y: node.y * ratio, z: node.z * ratio };
     }
 
+    /**
+     * A cold start can focus a node before the force engine has given it
+     * coordinates. Moving the camera onto NaN poisons it for ever (the scene
+     * background keeps painting, the graph becomes invisible), so wait for a
+     * finite position instead — bounded to ~1.5 s.
+     */
+    var pendingFocus = null;
+    var pendingFocusFrames = 0;
+
+    function deferFocus(nodeId, reveal) {
+        pendingFocus = { nodeId: nodeId, reveal: reveal };
+        if (pendingFocusFrames > 0) return; // retry loop already running
+        pendingFocusFrames = 90;
+        requestAnimationFrame(function retry() {
+            if (!pendingFocus) { pendingFocusFrames = 0; return; }
+            var target = findGraphNode(pendingFocus.nodeId);
+            if (target && hasFinitePosition(target)) {
+                var request = pendingFocus;
+                pendingFocus = null;
+                pendingFocusFrames = 0;
+                focusNodeById(request.nodeId, request.reveal);
+                return;
+            }
+            if (--pendingFocusFrames <= 0) {
+                console.warn('[aura] focus skipped: node has no position yet', pendingFocus && pendingFocus.nodeId);
+                pendingFocus = null;
+                return;
+            }
+            requestAnimationFrame(retry);
+        });
+    }
+
     function focusNodeById(nodeId, reveal) {
         if (!graph || !graphData) return;
         var node = findGraphNode(nodeId);
         if (!node) return;
 
         if (reveal) {
+            // The user asked for this file: never let the deferred fit-to-view
+            // zoom back out on top of it.
+            cancelInitialFit();
+            // Never fly onto a node the engine has not placed yet.
+            if (!hasFinitePosition(node)) {
+                deferFocus(nodeId, reveal);
+                return;
+            }
             // Match a normal graph click: select, fly close, open details.
             selectNodeLikeClick(node);
             graph.cameraPosition(nodeCameraPose(node), node, 1000);
@@ -3780,6 +3916,11 @@
      * after the graph data arrives.
      */
     var viewStateReady = false;
+
+    /** Set while a rendered graph still owes the host its `graphRendered` handshake. */
+    var renderAnnouncePending = false;
+    /** Fallback timer: announce even if the host has no view state to restore. */
+    var renderAnnounceTimer = 0;
 
     function saveViewState() {
         if (!viewStateReady) return;

@@ -27,6 +27,7 @@
 - **✨ Ask Aura on layers** — every layer card sends its globs, authoritative members, `Ca`/`Ce`/`I`, new vs baselined violations and aggregated cycles to `@aura`; the same evaluation is exposed as the `aura_get_architecture_violations` tool for LM agents and MCP.
 - **🎮 Gamepad in pilot mode** — fly the graph with a DualSense, DualShock or Xbox pad (any W3C *standard mapping*): left stick moves, right stick looks, the **analog** L2/R2 descend and boost, **✕** resets the camera, the touchpad re-aims at the centre, **d-pad ↑/↓** change the speed and **○** leaves the flight. Deadzone + response curve, pad name in the HUD, and `auraVisualizer.gamepadEnabled` to turn it off.
 - **Single conversational surface** — the old hidden in-panel assistant was removed; `@aura` in VS Code Chat, the Language Model tools and the MCP server are the supported AI surfaces.
+- **⟡ Symbol CodeLens** — every function and class of an analyzed file gets a `⟡ focus · flow · impact` lens in the editor: one click opens the 3D graph on that file, its flowchart, or its blast radius. Symbols come from the graph database (no language server needed) and `auraVisualizer.codeLens` turns the feature off.
 
 _Previously in 1.4.1: code-only communities, dead-code framework exemptions, PageRank centrality, complexity trends, yellow documentation labels, edge confidence and import aliases._
 
@@ -395,6 +396,16 @@ Switch from orbiting the graph to **flying through it** — first-person navigat
 - No roll (pitch clamped), smooth acceleration/damping, and single-letter shortcuts, hover and clicks are suspended while flying
 - Flight speed, smoothing, mouse sensitivity, Y-inversion and the gamepad toggle live in **⚙️ Settings**
 
+### Symbol CodeLens ⟡
+
+Stay in the editor — Aura puts itself above your code:
+
+- Every symbol of an **analyzed** file gets a `⟡ focus · flow · impact` lens (functions, methods, classes, interfaces, structs, enums, type aliases…). Files Aura never analyzed show **no** lens at all
+- Click it for a quick pick: **⟡ Focus in Aura** (centers the 3D graph on the file), **⑂ Show flowchart** (this function's control flow, same renderer as the graph panel) and **💥 Blast radius** (every impacted file, colored by depth)
+- Symbols and line numbers come from the graph database, so the lenses are instant and work even when no language server is running; a file analyzed without symbol rows falls back to the editor's document symbols
+- The three actions are ordinary commands — `Aura: Focus Symbol in Graph`, `Aura: Show Symbol Flowchart`, `Aura: Symbol Blast Radius` — so they can be bound to keys
+- Turn it off with `auraVisualizer.codeLens` (or the **CodeLens** checkbox in **⚙️ Settings**); at most 300 lenses per file
+
 ### Function Flowcharts ⑂
 
 Turn any function into a readable **control-flow chart** — without tracing `if`s and loops by eye:
@@ -516,6 +527,7 @@ The **⚙️ button** in the tab bar (next to 🔍 Query) opens an in-app settin
 | **Flight speed / smoothing** | Pilot mode base speed (scene-scaled) and acceleration damping |
 | **Mouse look sensitivity / invert Y** | Pilot mode mouse-look feel (also scales the gamepad stick look rate) |
 | **Gamepad in pilot mode** | Fly with a DualSense/Xbox pad (W3C standard mapping) — on by default, ignored outside pilot mode |
+| `auraVisualizer.codeLens` | `true` | `⟡ focus · flow · impact` CodeLens above the symbols of analyzed files |
 | **Follow editor** | Fly the camera to the file of the active editor (👁 toolbar toggle) |
 | **Auto-refresh on save** | Re-analyze changed files automatically |
 

@@ -33,6 +33,7 @@ const SETTING_NORMALIZERS: Record<string, (v: unknown) => unknown> = {
     mouseSensitivity: (v) => clampNumber(v, 0.0005, 0.01, 0.0022),
     invertY: (v) => v === true,
     gamepadEnabled: (v) => v !== false,
+    codeLens: (v) => v !== false,
     autoRefresh: (v) => v === true,
     followEditor: (v) => v === true,
 };
@@ -71,7 +72,15 @@ export class WebviewProvider {
     private pendingArchFocus: string | undefined;
     private pendingQuery: { expr: string; mode: 'highlight' | 'filter' | 'select' } | undefined;
     private pendingBlastRadius: string | undefined;
+    private pendingFlow: { nodeId: string; line: number; language: string; name?: string } | undefined;
     private webviewReady = false;
+    /**
+     * True once the webview reported that a graph was actually rendered.
+     * Focus / blast / flowchart messages need the ForceGraph3D instance, so they
+     * are queued until then (cold start: the panel opens before the analysis
+     * finishes, and the action used to be dropped).
+     */
+    private graphReady = false;
 
     private static readonly VIEW_STATE_KEY = 'aura.viewState';
 
@@ -129,6 +138,8 @@ export class WebviewProvider {
 
     private initPanel(): void {
         if (!this.panel) return;
+        this.webviewReady = false;
+        this.graphReady = false;
 
         this.panel.iconPath = vscode.Uri.joinPath(this.extensionUri, 'resources', 'aura-star-icon.png');
         this.panel.webview.html = this.getHtmlContent(this.panel.webview);
@@ -138,6 +149,7 @@ export class WebviewProvider {
         this.panel.onDidDispose(() => {
             this.panel = undefined;
             this.webviewReady = false;
+            this.graphReady = false;
             this.pendingDeltas = [];
             this.pendingNodeFocus = undefined;
             this.pendingFollowEditor = undefined;
@@ -175,14 +187,6 @@ export class WebviewProvider {
                             this.panel?.webview.postMessage({ type: 'riskFocusFile', payload: { nodeId: this.pendingFocus } });
                             this.pendingFocus = undefined;
                         }
-                        if (this.pendingNodeFocus) {
-                            this.panel?.webview.postMessage({ type: 'focusNode', payload: this.pendingNodeFocus });
-                            this.pendingNodeFocus = undefined;
-                        }
-                        if (this.pendingFollowEditor) {
-                            this.panel?.webview.postMessage({ type: 'followEditor', payload: { nodeId: this.pendingFollowEditor } });
-                            this.pendingFollowEditor = undefined;
-                        }
                         if (this.pendingShowRiskTab) {
                             this.panel?.webview.postMessage({ type: 'showRiskTab' });
                             this.pendingShowRiskTab = false;
@@ -199,16 +203,20 @@ export class WebviewProvider {
                             this.panel?.webview.postMessage({ type: 'applyQuery', payload: this.pendingQuery });
                             this.pendingQuery = undefined;
                         }
-                        if (this.pendingBlastRadius) {
-                            this.panel?.webview.postMessage({ type: 'blastRadius', payload: { nodeId: this.pendingBlastRadius } });
-                            this.pendingBlastRadius = undefined;
-                        }
                         const workingTree = this.getHostData.workingTree?.();
                         if (workingTree) {
                             this.panel?.webview.postMessage({ type: 'workingTree', payload: { files: workingTree } });
                         }
                         void this.sendAnnotations();
                         void this.sendWarps();
+                        // The flowchart only needs the scripts, not a graph.
+                        this.flushPendingFlow();
+                        break;
+                    case 'graphRendered':
+                        // The webview has a live ForceGraph3D instance: this is the
+                        // first moment focus / blast radius / flowchart can work.
+                        this.graphReady = true;
+                        this.flushGraphActions();
                         break;
                     case 'openFile':
                         if (message.payload) {
@@ -727,9 +735,37 @@ export class WebviewProvider {
     public sendGraphData(data: GraphData): void {
         this.attachCommunities(data);
         this.pendingData = data;
+        // A new dataset rebuilds the ForceGraph3D instance — graph-dependent
+        // messages must wait for the next `graphRendered` handshake.
+        this.graphReady = false;
         if (this.webviewReady) {
             this.panel?.webview.postMessage({ type: 'graphData', payload: data });
         }
+    }
+
+    /** Deliver the graph-dependent messages that were queued before a render. */
+    private flushGraphActions(): void {
+        if (!this.panel || !this.webviewReady) return;
+        if (this.pendingFollowEditor) {
+            this.panel.webview.postMessage({ type: 'followEditor', payload: { nodeId: this.pendingFollowEditor } });
+            this.pendingFollowEditor = undefined;
+        }
+        if (this.pendingNodeFocus) {
+            this.panel.webview.postMessage({ type: 'focusNode', payload: this.pendingNodeFocus });
+            this.pendingNodeFocus = undefined;
+        }
+        if (this.pendingBlastRadius) {
+            this.panel.webview.postMessage({ type: 'blastRadius', payload: { nodeId: this.pendingBlastRadius } });
+            this.pendingBlastRadius = undefined;
+        }
+        this.flushPendingFlow();
+    }
+
+    /** A flowchart request only needs the webview scripts — no 3D graph. */
+    private flushPendingFlow(): void {
+        if (!this.panel || !this.webviewReady || !this.pendingFlow) return;
+        this.panel.webview.postMessage({ type: 'openFlow', payload: this.pendingFlow });
+        this.pendingFlow = undefined;
     }
 
     /**
@@ -813,7 +849,7 @@ export class WebviewProvider {
     }
 
     public focusNode(nodeId: string, reveal: boolean = false): void {
-        if (this.webviewReady) {
+        if (this.webviewReady && this.graphReady) {
             this.panel?.webview.postMessage({ type: 'focusNode', payload: { nodeId, reveal } });
         } else {
             this.pendingNodeFocus = { nodeId, reveal };
@@ -822,10 +858,24 @@ export class WebviewProvider {
 
     /** Fly the camera to the active editor file (does not open the detail panel). */
     public followEditorFile(nodeId: string): void {
-        if (this.webviewReady) {
+        if (this.webviewReady && this.graphReady) {
             this.panel?.webview.postMessage({ type: 'followEditor', payload: { nodeId } });
         } else {
             this.pendingFollowEditor = nodeId;
+        }
+    }
+
+    /**
+     * Open the flowchart of a function (used by the symbol CodeLens). The
+     * webview answers with a `requestFlow` message, served by
+     * {@link handleFlowRequest}.
+     */
+    public openFlow(nodeId: string, line: number, language: string, name?: string): void {
+        const payload = { nodeId, line, language, name };
+        if (this.webviewReady && this.graphReady) {
+            this.panel?.webview.postMessage({ type: 'openFlow', payload });
+        } else {
+            this.pendingFlow = payload;
         }
     }
 
@@ -885,7 +935,7 @@ export class WebviewProvider {
     }
 
     public sendBlastRadius(nodeId: string): void {
-        if (this.webviewReady) {
+        if (this.webviewReady && this.graphReady) {
             this.panel?.webview.postMessage({ type: 'blastRadius', payload: { nodeId } });
         } else {
             this.pendingBlastRadius = nodeId;
@@ -930,6 +980,7 @@ export class WebviewProvider {
                     mouseSensitivity: clampNumber(config.get<number>('mouseSensitivity', 0.0022), 0.0005, 0.01, 0.0022),
                     invertY: config.get<boolean>('invertY', false) === true,
                     gamepadEnabled: config.get<boolean>('gamepadEnabled', true) !== false,
+                    codeLens: config.get<boolean>('codeLens', true) !== false,
                     autoRefresh: config.get<boolean>('autoRefresh', true),
                     followEditor: config.get<boolean>('followEditor', true),
                 }
@@ -997,6 +1048,7 @@ export class WebviewProvider {
                 mouseSensitivity: clampNumber(config.get<number>('mouseSensitivity', 0.0022), 0.0005, 0.01, 0.0022),
                 invertY: config.get<boolean>('invertY', false) === true,
                 gamepadEnabled: config.get<boolean>('gamepadEnabled', true) !== false,
+                codeLens: config.get<boolean>('codeLens', true) !== false,
                 autoRefresh: config.get<boolean>('autoRefresh', true),
                 followEditor: config.get<boolean>('followEditor', true),
             });
@@ -2018,6 +2070,10 @@ export class WebviewProvider {
                     <input id="set-gamepadEnabled" data-setting="gamepadEnabled" type="checkbox" />
                 </div>
                 <div class="settings-row">
+                    <label for="set-codeLens">Symbol CodeLens<span class="settings-hint">⟡ focus · flow · impact above the functions and classes of analyzed files</span></label>
+                    <input id="set-codeLens" data-setting="codeLens" type="checkbox" />
+                </div>
+                <div class="settings-row">
                     <label>Dead code exemptions<span class="settings-hint">Framework/test rules always visible in the detail panel — defaults stay active</span></label>
                     <button id="dead-code-rules-open" class="settings-action-btn" type="button">Edit rules…</button>
                 </div>
@@ -2123,6 +2179,7 @@ export class WebviewProvider {
                 <p><strong>⚠️ Parse failures</strong> are never fatal: a file Tree-sitter cannot parse cleanly keeps its node (imports stay visible), and a <strong>⚠ N parse failures</strong> badge in the stats bar opens the sampled paths and reasons. Click a path to reveal the node; <strong>Export report</strong> writes a Markdown summary.</p>
                 <p><strong>✨ Ask Aura on a layer</strong> sends the layer globs, authoritative members, Ca/Ce/instability, new vs baselined violations and layer cycles to <code>@aura</code> — the answer distinguishes code fixes from rule changes. The same evaluation is available to AI agents through the <code>aura_get_architecture_violations</code> tool (optional <code>layer</code> filter, baselined included on demand). The Unlayered bucket has no ask action.</p>
                 <p><strong>🎮 Gamepad in pilot mode</strong> — fly with a DualSense, DualShock or Xbox pad (W3C standard mapping): left stick moves, right stick looks, the analog <strong>L2</strong>/<strong>R2</strong> descend and boost, <strong>✕</strong> resets the camera, the touchpad re-aims at the centre, <strong>d-pad ↑/↓</strong> step the speed, <strong>Options</strong> resets it and <strong>○</strong> leaves the flight. Keyboard and pad add up, the pad name shows in the pilot HUD, and <code>auraVisualizer.gamepadEnabled</code> turns it off. See <strong>🚀 Pilot Mode</strong> below for the full mapping.</p>
+                <p><strong>⟡ Symbol CodeLens</strong> — analyzed files now show a <code>⟡ focus · flow · impact</code> lens above every function, method and class. One click opens a picker: <strong>Focus in Aura</strong> (centers the graph on the file), <strong>Show flowchart</strong> (that function's control flow) or <strong>Blast radius</strong>. Symbols and lines come from the graph database, so it works without a language server; files that were never analyzed show no lens. Turn it off with <code>auraVisualizer.codeLens</code>.</p>
 
                 <h3>🤖 Where to Ask Aura</h3>
                 <p>AI lives in <strong>VS Code Chat</strong>, not inside the graph panel. Mention <code>@aura</code> for grounded answers (<code>/explain</code>, <code>/impact</code>, <code>/path</code>, <code>/hotspots</code>, <code>/query</code>), or click any <strong>✨ Ask Aura</strong> button — file detail, clusters, community cards, layer cards, Risk dashboard, explorer context menu — to pre-attach the current view context. The old in-panel assistant (✨ tab button) has been removed: there is a single conversational surface. External agents reach the same deterministic evaluation through the <strong>Language Model tools</strong> and the built-in <strong>MCP server</strong> (18 tools).</p>

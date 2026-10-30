@@ -277,6 +277,21 @@
         "icon": "$(radio-tower)"
       },
       {
+        "command": "auraVisualizer.focusSymbol",
+        "title": "Aura: Focus Symbol in Graph",
+        "icon": "$(symbol-function)"
+      },
+      {
+        "command": "auraVisualizer.showSymbolFlow",
+        "title": "Aura: Show Symbol Flowchart",
+        "icon": "$(git-branch)"
+      },
+      {
+        "command": "auraVisualizer.blastSymbol",
+        "title": "Aura: Symbol Blast Radius",
+        "icon": "$(radio-tower)"
+      },
+      {
         "command": "auraVisualizer.archRules",
         "title": "Aura: Create or Open Architecture Rules",
         "icon": "$(law)"
@@ -505,6 +520,11 @@
           "type": "boolean",
           "default": true,
           "description": "Pilot mode: fly with a gamepad (DualSense, Xbox — W3C standard mapping). Left stick moves, right stick looks, L2 descends, R2 boosts. Ignored outside pilot mode."
+        },
+        "auraVisualizer.codeLens": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show the Aura CodeLens (⟡ focus · flow · impact) above the functions and classes of analyzed files. Clicking it offers focus in the 3D graph, the function flowchart and the blast radius."
         },
         "auraVisualizer.savedQueries": {
           "type": "array",

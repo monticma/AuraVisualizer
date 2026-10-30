@@ -19,6 +19,7 @@ import { GraphDB } from './graph-db';
 import { registerAuraLmTools } from './lm-tools';
 import { registerAuraChatParticipant } from './chat/participant';
 import { registerNavigationCommands } from './commands/navigation';
+import { AuraCodeLensProvider, registerSymbolCommands } from './codelens';
 import { registerAskAuraCommands } from './commands/ask-aura';
 import { buildArchReportInput, generateArchReport, withAiNarrative, type ArchReportExtras, type ArchReportModule } from './report/arch-report';
 import { generateArchitectureNarrative } from './report/ai-summary';
@@ -51,6 +52,7 @@ import { buildArchitectureToolPayload } from './arch/arch-tool';
 
 let webviewProvider: WebviewProvider | undefined;
 let cachedGraphData: GraphData | undefined;
+let codeLensProvider: AuraCodeLensProvider | undefined;
 let cachedFiles: FileInfo[] = [];
 let historyWorker: Worker | undefined;
 let commitIndex: CommitIndex | undefined;
@@ -229,6 +231,7 @@ function reloadArchitecture(): void {
         // settled node layout) instead of re-sending the whole dataset.
         webviewProvider?.sendArchUpdate(cachedGraphData);
         treeProvider?.update(cachedGraphData);
+        codeLensProvider?.refresh();
     }
     updateStatusBar();
 }
@@ -382,6 +385,25 @@ export function activate(context: vscode.ExtensionContext): void {
         focusInGraph: (relativePath: string) => webviewProvider?.focusNode(relativePath, true),
         blastRadiusInGraph: (relativePath: string) => webviewProvider?.sendBlastRadius(relativePath),
     }));
+
+    // Symbol CodeLens (V3-01): `⟡ focus · flow · impact` above the symbols of
+    // analyzed files. Symbols come from GraphDB, so an unanalyzed file shows
+    // no lens at all; the setting turns the whole feature off.
+    codeLensProvider = new AuraCodeLensProvider(
+        () => graphDb,
+        () => vscode.workspace.getConfiguration('auraVisualizer').get<boolean>('codeLens', true),
+    );
+    context.subscriptions.push(
+        codeLensProvider,
+        vscode.languages.registerCodeLensProvider({ scheme: 'file' }, codeLensProvider),
+        ...registerSymbolCommands({
+            revealGraph: () => openVisualizer(context),
+            focusInGraph: (relativePath: string) => webviewProvider?.focusNode(relativePath, true),
+            blastRadiusInGraph: (relativePath: string) => webviewProvider?.sendBlastRadius(relativePath),
+            openFlow: (relativePath: string, line: number, language: string, name?: string) =>
+                webviewProvider?.openFlow(relativePath, line, language, name),
+        }),
+    );
     context.subscriptions.push(...registerAskAuraCommands());
 
     // Watch for file changes (incremental)
@@ -404,6 +426,9 @@ export function activate(context: vscode.ExtensionContext): void {
             }
             if (e.affectsConfiguration('auraVisualizer.riskWindow')) {
                 invalidateRisk();
+            }
+            if (e.affectsConfiguration('auraVisualizer.codeLens')) {
+                codeLensProvider?.refresh();
             }
             if (e.affectsConfiguration('auraVisualizer.excludePaths')) {
                 void refreshAnalysis(context, true);
@@ -877,9 +902,9 @@ async function refreshAnalysis(context: vscode.ExtensionContext, force = false):
         }
 
         treeProvider?.update(cachedGraphData);
+        codeLensProvider?.refresh();
         updateStatusBar();
         void notifyScanComplete(context);
-
         // Persist graph to SQLite — already imported before the webview update so
         // the shared community snapshot is consistent with the graph on screen.
         try {
@@ -1049,7 +1074,10 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
                 webviewProvider.sendGraphDelta(delta as unknown as Record<string, unknown>);
             }
         }
-        if (cachedGraphData) treeProvider?.update(cachedGraphData);
+        if (cachedGraphData) {
+            treeProvider?.update(cachedGraphData);
+            codeLensProvider?.refresh();
+        }
         updateStatusBar();
         return;
     }
@@ -1214,7 +1242,10 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
         webviewProvider.sendGraphDelta(delta as unknown as Record<string, unknown>);
     }
 
-    if (cachedGraphData) treeProvider?.update(cachedGraphData);
+    if (cachedGraphData) {
+        treeProvider?.update(cachedGraphData);
+        codeLensProvider?.refresh();
+    }
     updateStatusBar();
 }
 
@@ -1809,8 +1840,9 @@ async function blastRadiusCurrentFile(context: vscode.ExtensionContext): Promise
             }
         }
     }
-    // Small delay to ensure graph is initialized before blast
-    setTimeout(() => webviewProvider?.sendBlastRadius(relativePath), 300);
+    // The provider queues the message until the webview has rendered a graph
+    // (cold start: the panel is created before the analysis finishes).
+    webviewProvider.sendBlastRadius(relativePath);
 }
 
 async function exportMetrics(): Promise<void> {
@@ -2115,6 +2147,8 @@ function setupGitStateWatcher(context: vscode.ExtensionContext): void {
 export function deactivate(): void {
     webviewProvider?.dispose();
     fileWatcher?.dispose();
+    codeLensProvider?.dispose();
+    codeLensProvider = undefined;
     if (refreshTimeout) clearTimeout(refreshTimeout);
     if (workingTreeTimer) clearTimeout(workingTreeTimer);
     if (startupWorkingTreeTimer) clearTimeout(startupWorkingTreeTimer);

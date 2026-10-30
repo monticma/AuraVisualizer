@@ -78,6 +78,18 @@ A DualSense, DualShock or Xbox pad works out of the box while flying — any pad
 
 Pads are polled only while flying, and a browser hides a pad until one of its buttons has been pressed once with the window focused. Commands: `auraVisualizer.gamepadEnabled`.
 
+### Editor CodeLens ⟡
+
+In analyzed files, every function, method and class carries a `⟡ focus · flow · impact` lens:
+
+| Action | Effect |
+|--------|--------|
+| **⟡ Focus in Aura** | Opens the panel and centers the 3D graph on this file |
+| **⑂ Show flowchart** | Control flow of this function, built from the AST |
+| **💥 Blast radius** | Every file impacted by this one, colored by depth |
+
+Symbols and lines come from the graph database — no language server needed — and a file that was never analyzed shows no lens. Commands: `Aura: Focus Symbol in Graph`, `Aura: Show Symbol Flowchart`, `Aura: Symbol Blast Radius`; switching it off is `auraVisualizer.codeLens` (or **⚙️ Settings**).
+
 ### Status bar
 
 The risk item (bottom right of the VS Code window) shows the risk of the file you are editing — its tooltip lists the written reasons. When your uncommitted changes touch high-risk files it becomes **⚠ N hotspots in your changes**; click it to reveal the file in the Risk tab.
