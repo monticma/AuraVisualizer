@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
     MAX_BLAST_TARGETS,
+    candidatePath,
     collectBlastTargets,
     collectUris,
     toNodeId,
@@ -102,5 +103,46 @@ describe('blast targets: resolution', () => {
     it('returns nothing when there is nothing to blast', () => {
         const targets = collectBlastTargets(undefined, undefined, undefined, ROOT, analyzed);
         expect(targets).toEqual({ ids: [], skipped: 0, outsideWorkspace: 0 });
+    });
+});
+
+describe('blast targets: command argument shapes', () => {
+    const analyzed = ['src/a.ts', 'src/b.ts'];
+
+    it('accepts a bare filesystem path (string)', () => {
+        const targets = collectBlastTargets('/work/aura/src/a.ts', undefined, undefined, ROOT, analyzed);
+        expect(targets.ids).toEqual(['src/a.ts']);
+    });
+
+    it('accepts a Source Control resource state ({ resourceUri })', () => {
+        const state = { resourceUri: { fsPath: '/work/aura/src/b.ts', scheme: 'file' }, contextValue: 'modified' };
+        const targets = collectBlastTargets(state, [state], undefined, ROOT, analyzed);
+        expect(targets.ids).toEqual(['src/b.ts']);
+    });
+
+    it('accepts a TextDocument-like object ({ uri })', () => {
+        const targets = collectBlastTargets({ uri: { fsPath: '/work/aura/src/a.ts' } }, undefined, undefined, ROOT, analyzed);
+        expect(targets.ids).toEqual(['src/a.ts']);
+    });
+
+    it('flattens a nested selection array', () => {
+        const targets = collectBlastTargets(
+            [[{ fsPath: '/work/aura/src/a.ts' }], { resourceUri: { fsPath: '/work/aura/src/b.ts' } }],
+            undefined, undefined, ROOT, analyzed,
+        );
+        expect(targets.ids).toEqual(['src/a.ts', 'src/b.ts']);
+    });
+
+    it('ignores unusable arguments instead of throwing', () => {
+        expect(collectBlastTargets(42, undefined, undefined, ROOT, analyzed).ids).toEqual([]);
+        expect(collectBlastTargets({}, undefined, undefined, ROOT, analyzed).ids).toEqual([]);
+        expect(collectBlastTargets({ resourceUri: {} }, undefined, undefined, ROOT, analyzed).ids).toEqual([]);
+        expect(collectBlastTargets('   ', undefined, undefined, ROOT, analyzed).ids).toEqual([]);
+    });
+
+    it('exposes the raw path of a candidate for diagnostics', () => {
+        expect(candidatePath({ resourceUri: { fsPath: '/x/y.ts' } })).toBe('/x/y.ts');
+        expect(candidatePath('/x/y.ts')).toBe('/x/y.ts');
+        expect(candidatePath(undefined)).toBeUndefined();
     });
 });

@@ -26,28 +26,60 @@ export interface BlastTargets {
 /** Hard cap — a 5 000-file SCM selection must not freeze the webview. */
 export const MAX_BLAST_TARGETS = 50;
 
+/**
+ * Extract a filesystem path from whatever VS Code handed the command.
+ *
+ * The same command is invoked from the Explorer (a `Uri`), the editor title
+ * (a `Uri`), the editor context menu (a `Uri`), Source Control (a
+ * `SourceControlResourceState`, i.e. `{ resourceUri }`) and the palette (nothing).
+ * Strings are accepted too, which keeps the helper easy to test.
+ */
+export function candidatePath(candidate: unknown, depth = 0): string | undefined {
+    if (candidate === undefined || candidate === null || depth > 4) return undefined;
+    if (typeof candidate === 'string') return candidate.trim() || undefined;
+    if (typeof candidate !== 'object') return undefined;
+    const record = candidate as Record<string, unknown>;
+    if (typeof record.fsPath === 'string' && record.fsPath) return record.fsPath;
+    for (const key of ['resourceUri', 'uri', 'resource', 'document', 'original', 'renameResourceUri']) {
+        const nested = candidatePath(record[key], depth + 1);
+        if (nested) return nested;
+    }
+    return undefined;
+}
+
+/** Flatten a command argument / selection into a list of candidate paths. */
+function collectPaths(value: unknown, out: string[], depth = 0): void {
+    if (value === undefined || value === null || depth > 3) return;
+    if (Array.isArray(value)) {
+        for (const entry of value) collectPaths(entry, out, depth + 1);
+        return;
+    }
+    const path = candidatePath(value);
+    if (path) out.push(path);
+}
+
+/** Collect filesystem paths from a command argument, the SCM selection and the active editor. */
+export function collectPathsFromCommand(
+    argument: unknown,
+    selection: unknown,
+    fallback: unknown,
+): string[] {
+    const out: string[] = [];
+    collectPaths(argument, out);
+    collectPaths(selection, out);
+    // Only fall back to the active editor when the caller passed nothing at all:
+    // a menu action always provides its resource.
+    if (!out.length) collectPaths(fallback, out);
+    return out;
+}
+
 /** Collect URIs from a command argument, the SCM selection and the active editor. */
 export function collectUris(
     argument: UriLike | UriLike[] | undefined,
     selection: UriLike[] | undefined,
     fallback: UriLike | undefined,
 ): UriLike[] {
-    const out: UriLike[] = [];
-    const push = (uri: UriLike | undefined): void => {
-        if (uri && typeof uri.fsPath === 'string' && uri.fsPath) out.push(uri);
-    };
-    if (Array.isArray(argument)) {
-        for (const uri of argument) push(uri);
-    } else {
-        push(argument);
-    }
-    if (Array.isArray(selection)) {
-        for (const uri of selection) push(uri);
-    }
-    // Only fall back to the active editor when the caller passed nothing at all:
-    // a menu action always provides its resource.
-    if (!out.length) push(fallback);
-    return out;
+    return collectPathsFromCommand(argument, selection, fallback).map(fsPath => ({ fsPath }));
 }
 
 /**
@@ -78,9 +110,9 @@ export function toNodeId(fsPath: string, workspaceRoot: string | undefined): str
  *   unknown ones, so a cold start does not silently drop the request.
  */
 export function collectBlastTargets(
-    argument: UriLike | UriLike[] | undefined,
-    selection: UriLike[] | undefined,
-    fallback: UriLike | undefined,
+    argument: unknown,
+    selection: unknown,
+    fallback: unknown,
     workspaceRoot: string | undefined,
     analyzedIds: readonly string[] | undefined,
     limit: number = MAX_BLAST_TARGETS,
@@ -89,8 +121,8 @@ export function collectBlastTargets(
     const targets: BlastTargets = { ids: [], skipped: 0, outsideWorkspace: 0 };
     const seen = new Set<string>();
 
-    for (const uri of collectUris(argument, selection, fallback)) {
-        const nodeId = toNodeId(uri.fsPath, workspaceRoot);
+    for (const fsPath of collectPathsFromCommand(argument, selection, fallback)) {
+        const nodeId = toNodeId(fsPath, workspaceRoot);
         if (!nodeId) {
             targets.outsideWorkspace++;
             continue;

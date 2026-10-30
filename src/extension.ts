@@ -366,7 +366,7 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('auraVisualizer.exportArchReport', () => exportArchReport()),
         vscode.commands.registerCommand('auraVisualizer.exportArchReportAI', () => exportArchReport(true)),
         vscode.commands.registerCommand('auraVisualizer.exportMetrics', () => exportMetrics()),
-        vscode.commands.registerCommand('auraVisualizer.blastRadius', (uri?: vscode.Uri | vscode.Uri[], selection?: vscode.Uri[]) =>
+        vscode.commands.registerCommand('auraVisualizer.blastRadius', (uri?: unknown, selection?: unknown) =>
             blastRadiusFromResources(context, uri, selection)),
         vscode.commands.registerCommand('auraVisualizer.statusBarRisk', (nodeId?: string) => focusRiskFromStatusBar(context, nodeId)),
         vscode.commands.registerCommand('auraVisualizer.statusBarArch', (nodeId?: string) => focusArchFromStatusBar(context, nodeId)),
@@ -1820,31 +1820,55 @@ function focusCurrentFile(): void {
     }
 }
 
+/** Short, log-safe description of what a menu handed the command (support aid). */
+function describeCommandArgument(value: unknown): unknown {
+    if (value === undefined || value === null) return value;
+    if (typeof value === 'string') return value.length > 120 ? value.slice(0, 120) + '…' : value;
+    if (Array.isArray(value)) return value.slice(0, 3).map(describeCommandArgument);
+    if (typeof value !== 'object') return typeof value;
+    const record = value as Record<string, unknown>;
+    const resourceUri = record.resourceUri as { fsPath?: string; scheme?: string } | undefined;
+    return {
+        keys: Object.keys(record).slice(0, 8),
+        fsPath: typeof record.fsPath === 'string' ? record.fsPath : undefined,
+        scheme: typeof record.scheme === 'string' ? record.scheme : undefined,
+        resourceUri: resourceUri && typeof resourceUri === 'object'
+            ? { fsPath: resourceUri.fsPath, scheme: resourceUri.scheme }
+            : undefined,
+    };
+}
+
 /**
  * Blast radius for one or several resources (V3-02).
  *
- * Called by the Source Control / editor title / explorer menus (they pass the
- * clicked `Uri`, SCM also passes the whole selection as a second argument) and
- * by the command palette without an argument, where it falls back to the active
- * editor. Files outside the workspace or outside the analyzed graph are ignored;
- * when nothing matches, the panel is not opened at all.
+ * Called by the Source Control / editor title / editor / explorer menus (they
+ * pass a `Uri` or a `SourceControlResourceState`, SCM also passes the whole
+ * selection as a second argument) and by the command palette without an
+ * argument, where it falls back to the active editor. Files outside the
+ * workspace or outside the analyzed graph are ignored; when nothing matches,
+ * the panel is not opened at all.
  */
 async function blastRadiusFromResources(
     context: vscode.ExtensionContext,
-    argument?: vscode.Uri | vscode.Uri[],
-    selection?: vscode.Uri[],
+    argument?: unknown,
+    selection?: unknown,
 ): Promise<void> {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     const targets = collectBlastTargets(
-        argument as { fsPath: string; scheme?: string } | { fsPath: string; scheme?: string }[] | undefined,
-        selection as { fsPath: string; scheme?: string }[] | undefined,
-        vscode.window.activeTextEditor?.document.uri as { fsPath: string; scheme?: string } | undefined,
+        argument,
+        selection,
+        vscode.window.activeTextEditor?.document.uri,
         workspaceFolder?.uri.fsPath,
         cachedGraphData?.nodes.map(node => node.id),
     );
 
     if (!targets.ids.length) {
         if (!workspaceFolder) return;
+        console.log('[aura] blastRadius: nothing to blast', JSON.stringify({
+            argument: describeCommandArgument(argument),
+            selection: Array.isArray(selection) ? selection.length : typeof selection,
+            targets,
+        }));
         if (cachedGraphData) {
             void vscode.window.showInformationMessage(
                 'Aura: no analyzed file in the selection — open the graph once so the file is part of the analysis.',
