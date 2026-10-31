@@ -580,7 +580,7 @@ For **C/C++ projects**, function-call links are only created between files conne
 Markdown, plain-text and reStructuredText files (`.md`, `.markdown`, `.txt`, `.rst`) are first-class nodes in the graph:
 
 - **Dotted `doc-reference` edges** automatically connect each doc file to the code files it mentions — detected from symbol names (functions, classes, methods, exports) and basename references like `extension.ts`. Doc edges do **not** count toward fan-in / fan-out, so hotspot metrics stay clean.
-- A **📄 Docs** filter button in the toolbar toggles documentation nodes on / off (hidden by default to keep the structural view focused).
+- A **📄 Docs** filter button in the toolbar toggles documentation nodes on / off (hidden by default to keep the structural view focused); its colour dot is the exact colour of the doc nodes (`#b0bec5`) — including in the **Architecture layers** and **Communities** heatmaps, where docs have no value and used to be dimmed to near-black
 - Doc content is chunked by heading and indexed in a local **FTS** full-text index — exposed to AI assistants through the `search_docs` MCP tool.
 
 ### Symbols in the File Explorer

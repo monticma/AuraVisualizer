@@ -2455,6 +2455,20 @@
         return 1;
     }
 
+    /**
+     * Documentation nodes inside a heatmap that carries no value for them
+     * (architecture layers, communities). They keep their language colour — the
+     * same one as the 📄 Docs filter dot — instead of a 7 %-white dim that read
+     * as a black node; they still dim like everyone else when the view is
+     * pinned, blasted or narrowed by a query.
+     */
+    function documentationHeatmapColor(node) {
+        var color = LANGUAGE_COLORS.documentation || '#b0bec5';
+        if (pinnedNode) return pinnedNodes.has(node) ? color : withAlpha(color, '15');
+        if (highlightNodes.size > 0 && !highlightNodes.has(node)) return withAlpha(color, '44');
+        return color;
+    }
+
     function getNodeColor(node) {
         // Query filter (highlight mode dims non-matching nodes)
         var qs = qsState();
@@ -2524,8 +2538,9 @@
 
         if (heatmapMode !== 'off') {
             if (heatmapMode === 'layers') {
-                // Documentation is outside architecture.
-                if (node.language === 'documentation') return '#ffffff12';
+                // Documentation is outside architecture: keep its language
+                // colour (the 📄 Docs filter dot) rather than a near-black dim.
+                if (node.language === 'documentation') return documentationHeatmapColor(node);
                 var archMeta = graphData && graphData.meta ? graphData.meta.arch : null;
                 if (!archMeta) return '#ffffff10';
                 // Palette selection: dims every layer the user switched off,
@@ -2551,8 +2566,9 @@
                 return layerBase;
             }
             if (heatmapMode === 'community') {
-                // Documentation is outside architecture: no community, neutral color.
-                if (node.language === 'documentation') return '#ffffff12';
+                // Documentation is outside architecture: no community, but it
+                // keeps its language colour so the node stays readable.
+                if (node.language === 'documentation') return documentationHeatmapColor(node);
                 var cid = communityMap[node.id];
                 var cColor = (cid !== undefined) ? (communityColors[cid] || '#ffffff') : '#ffffff';
                 var isActive = (cid !== undefined) && activeCommunities.has(cid);
