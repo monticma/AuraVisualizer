@@ -382,6 +382,16 @@ Save named camera bookmarks of the 3D view and fly back to them in one click:
 - **🏠 Home** — the first row always returns to the default fit-to-view
 - Stored in `.aura/warps.json`, local to the workspace (not committed)
 
+### Share a View 🔗
+
+**🔗 Link** (top bar, next to 🌀 Warps) copies a `vscode://monticma-aura.aura-visualizer-3D/open?state=…` link that reopens the **exact same view** on another machine or window of the same repository:
+
+- Carries the **tab**, every **filter** (languages, palettes, toggles, heatmap, edge confidence, co-change, sizes), the **camera pose** — anchored to the files in view, like a warp — and the **query bar expression** with its mode
+- Paste it in a chat, an issue, a PR or a README; opening it launches VS Code, opens the Aura panel and applies the view once the graph is rendered
+- Everything is validated on arrival: versioned payload, 8 KB cap, whitelisted keys, clamped numbers, finite camera coordinates — a corrupted or hand-edited link is refused with a message instead of breaking the panel
+- A link captured in another workspace still applies, with a warning naming the folder it came from
+- `Aura: Copy View Link` in the Command Palette does the same from the keyboard
+
 ### Follow Editor 👁
 
 Switch editor tabs and the 3D camera flies to the matching file — the same 800 ms close-up and selection as clicking its node:
@@ -645,6 +655,7 @@ You can also open the visualizer from the **Aura** icon in the Activity Bar or v
 | Aura: Reset Architecture Baseline | — | Clear the baseline — every violation alerts again |
 | Aura: Show Risk Map | — | Open the Risk tab, or reveal the clicked hotspot |
 | Aura: Show Architecture | — | Open the Architecture tab |
+| Aura: Copy View Link | — | Copy a `vscode://` link that reopens this exact view (tab, filters, camera, query) |
 
 ## Keyboard Shortcuts (in graph)
 

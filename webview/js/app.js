@@ -418,6 +418,12 @@
             case 'captureGraphImage':
                 if (window.AuraExport) window.AuraExport.capture(message.payload);
                 break;
+            case 'requestViewLink':
+                vscode.postMessage({ type: 'viewLinkState', payload: collectShareState() });
+                break;
+            case 'applyViewLink':
+                applyViewLinkPayload(message.payload);
+                break;
             case 'restoreViewState':
                 if (message.payload) {
                     try { applyViewState(message.payload); } catch (e) { console.error('[aura] applyViewState failed:', e); }
@@ -943,6 +949,14 @@
         if (exportBtn) {
             exportBtn.addEventListener('click', function() {
                 vscode.postMessage({ type: 'requestExport' });
+            });
+        }
+
+        // Shareable view link (V3-06): the host copies it to the clipboard.
+        var linkBtn = $('#btn-copy-link');
+        if (linkBtn) {
+            linkBtn.addEventListener('click', function() {
+                vscode.postMessage({ type: 'copyViewLink', payload: collectShareState() });
             });
         }
 
@@ -4008,6 +4022,43 @@
     function saveViewState() {
         if (!viewStateReady) return;
         vscode.postMessage({ type: 'saveViewState', payload: collectViewState() });
+    }
+
+    /**
+     * Everything a shared view link carries (V3-06): the persisted view state,
+     * the active tab, the live camera pose (anchored to files, so it survives a
+     * rebuilt layout) and the query bar expression. The host adds the version
+     * and the workspace hint before encoding.
+     */
+    function collectShareState() {
+        var share = { tab: activeTab, viewState: collectViewState() };
+        try {
+            if (window.AuraWarps && AuraWarps.capturePose) share.pose = AuraWarps.capturePose();
+        } catch (_) { /* no graph yet — the link still carries the filters */ }
+        try {
+            if (window.AuraQueryBar) {
+                var qs = AuraQueryBar.state();
+                if (qs && qs.active) share.query = { expr: AuraQueryBar.getExpression(), mode: qs.mode };
+            }
+        } catch (_) { /* noop */ }
+        return share;
+    }
+
+    /** Apply a decoded view link: filters → tab → camera pose → query. */
+    function applyViewLinkPayload(payload) {
+        if (!payload || typeof payload !== 'object') return;
+        if (payload.s) {
+            try { applyViewState(payload.s); } catch (e) { console.error('[aura] view link state failed:', e); }
+        }
+        if (payload.t) switchTab(payload.t);
+        if (payload.p && window.AuraWarps && AuraWarps.applyPose) {
+            try { AuraWarps.applyPose(payload.p); } catch (e) { console.error('[aura] view link pose failed:', e); }
+        }
+        if (payload.q && payload.q.expr && window.AuraQueryBar) {
+            try { AuraQueryBar.applyFromHost(payload.q.expr, payload.q.mode || 'filter'); } catch (e) {
+                console.error('[aura] view link query failed:', e);
+            }
+        }
     }
 
     function applyViewState(state) {

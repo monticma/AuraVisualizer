@@ -15,6 +15,7 @@ import { parseAnnotations, serializeAnnotations, withNote, withoutNote, type Ann
 import { saveOrCopyText, saveBinary } from '../export/save';
 import { makeWarp, parseWarps, removeWarp, serializeWarps, upsertWarp, type WarpList } from '../warps';
 import type { FunctionFlow } from '../flow/flow-core';
+import type { ViewLinkPayload } from '../deeplinks';
 
 /** Whitelist of webview-editable settings, with per-key validation. */
 const SETTING_NORMALIZERS: Record<string, (v: unknown) => unknown> = {
@@ -75,6 +76,10 @@ export class WebviewProvider {
     private pendingBlastRadius: string[] | undefined;
     private pendingFlow: { nodeId: string; line: number; language: string; name?: string } | undefined;
     private pendingCaptureWarp = false;
+    /** Decoded view link (V3-06) waiting for the next `graphRendered`. */
+    private pendingViewLink: ViewLinkPayload | undefined;
+    /** Pending answer to `requestViewLink` (palette "copy link" round-trip). */
+    private viewLinkResolver: ((state: Record<string, unknown> | undefined) => void) | undefined;
     private webviewReady = false;
     /**
      * True once the webview reported that a graph was actually rendered.
@@ -163,6 +168,8 @@ export class WebviewProvider {
             this.pendingQuery = undefined;
             this.pendingBlastRadius = undefined;
             this.pendingCaptureWarp = false;
+            this.pendingViewLink = undefined;
+            this.viewLinkResolver = undefined;
             this.disposables.forEach(d => d.dispose());
             this.disposables = [];
             this.onDisposeEmitter.fire();
@@ -276,6 +283,19 @@ export class WebviewProvider {
                         if (message.payload) {
                             this.workspaceState.update(WebviewProvider.VIEW_STATE_KEY, message.payload);
                         }
+                        break;
+                    case 'viewLinkState':
+                        // Answer to requestViewLink(): hand the live state to the
+                        // command that is waiting for it.
+                        if (this.viewLinkResolver) {
+                            const resolve = this.viewLinkResolver;
+                            this.viewLinkResolver = undefined;
+                            resolve(message.payload);
+                        }
+                        break;
+                    case 'copyViewLink':
+                        // Toolbar button: the state is already in the payload.
+                        void vscode.commands.executeCommand('auraVisualizer.copyViewLink', message.payload);
                         break;
                     case 'renameCommunity': {
                         const p = (message.payload || {}) as { key?: string; label?: string };
@@ -784,6 +804,10 @@ export class WebviewProvider {
             this.panel.webview.postMessage({ type: 'captureWarp' });
             this.pendingCaptureWarp = false;
         }
+        if (this.pendingViewLink) {
+            this.panel.webview.postMessage({ type: 'applyViewLink', payload: this.pendingViewLink });
+            this.pendingViewLink = undefined;
+        }
         this.flushPendingFlow();
     }
 
@@ -991,6 +1015,34 @@ export class WebviewProvider {
         } else {
             this.pendingBlastRadius = ids;
         }
+    }
+
+    /**
+     * Ask the webview for its live share state (V3-06). Resolves `undefined`
+     * when the panel is closed or does not answer, so the caller warns instead
+     * of copying a stale link.
+     */
+    public requestViewLink(): Promise<Record<string, unknown> | undefined> {
+        if (!this.panel || !this.webviewReady) return Promise.resolve(undefined);
+        return new Promise(resolve => {
+            this.viewLinkResolver = resolve;
+            this.panel?.webview.postMessage({ type: 'requestViewLink' });
+            setTimeout(() => {
+                if (this.viewLinkResolver === resolve) {
+                    this.viewLinkResolver = undefined;
+                    resolve(undefined);
+                }
+            }, 1500);
+        });
+    }
+
+    /** Apply a decoded deep link — queued until the next `graphRendered`. */
+    public applyViewLink(payload: ViewLinkPayload): void {
+        if (!this.panel || !this.webviewReady || !this.graphReady) {
+            this.pendingViewLink = payload;
+            return;
+        }
+        this.panel.webview.postMessage({ type: 'applyViewLink', payload });
     }
 
     /** Ask the webview to capture the current graph as a PNG. */
@@ -1247,6 +1299,7 @@ export class WebviewProvider {
                 <button id="btn-export" class="top-btn" title="Export AI context (Markdown/JSON) — selectable sections and token budget">📤 Export</button>
                 <button id="btn-minimap" class="top-btn" title="Toggle minimap">🗺️ Map</button>
                 <button id="btn-warps-panel" class="top-btn" title="Warp points — named camera bookmarks">🌀 Warps</button>
+                <button id="btn-copy-link" class="top-btn" title="Copy a vscode:// link that reopens this exact view — tab, filters, camera and query">🔗 Link</button>
                 <button id="btn-refresh" class="top-btn" title="Refresh analysis">🔄 Refresh</button>
                 <button id="btn-help" class="top-btn" title="Help & shortcuts">❓ Help</button>
             </div>
@@ -2317,6 +2370,9 @@ export class WebviewProvider {
 
                 <h3>🔁 Symbol Cycles</h3>
                 <p>Aura builds a function→function call graph from every resolved call site. <strong>Direct recursion</strong> (<code>walk() → walk()</code>) and <strong>mutual recursion</strong> (<code>parse() → validate() → parse()</code>) are shown in the detail panel's <strong>🔄 Symbol cycles</strong> section with the file and call line of every step, and the flowchart badge adds <strong>🔁 recursive</strong> or <strong>🔁 mutual recursion</strong>. Calls that resolve to several same-name candidates are marked <strong>ambiguous</strong> (confidence 0.5). Cycles are persisted in <code>.aura/graph.db</code> and exposed by the <code>find_cycles</code> MCP tool as <code>symbol_cycles</code>.</p>
+
+                <h3>🔗 Share a View</h3>
+                <p><strong>🔗 Link</strong> (top bar) copies a <code>vscode://</code> link that reopens this exact view elsewhere: active tab, every filter, the camera pose (anchored to the files in view, like a warp) and the query expression. Paste it in a chat or an issue — opening it launches VS Code, opens Aura and applies the view once the graph is rendered. The payload is versioned, capped at 8 KB and fully validated: a corrupted link shows a message instead of breaking the panel.</p>
 
                 <h3>⏳ Time Travel</h3>
                 <p>Navigate git history commit by commit. Changed files are color-coded: <span style="color:#00ff88">● green</span> = added, <span style="color:#ff2080">● pink</span> = removed, <span style="color:#ffff00">● yellow</span> = modified. Edges follow the same scheme. Press <kbd>V</kbd> or click <strong>⇄</strong> to enter <strong>Compare mode</strong> with a dual slider to diff any two commits.</p>

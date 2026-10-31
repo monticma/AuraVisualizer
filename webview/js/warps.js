@@ -565,6 +565,17 @@
         travelTo: function (warp) { syncCtx(); travelToWarp(warp); },
         // Smooth 800 ms camera flight to an explicit pose (follow-editor)
         flyToPose: function (pos, target) { syncCtx(); travelToPose(pos, target); },
+        // Full live pose — position, orientation, up vector, fov and anchor.
+        // Used by "copy view link" (V3-06).
+        capturePose: function () { syncCtx(); return captureWarpPose(); },
+        // Apply a shared pose: its file anchor is re-resolved against the
+        // current layout before the flight, exactly like clicking a warp.
+        applyPose: function (pose) {
+            syncCtx();
+            if (!pose || !pose.pos || !pose.target) return;
+            var resolved = resolveWarpPose(pose) || pose;
+            travelToPose(resolved.pos, resolved.target, pose.quat, pose.up, pose.fov);
+        },
         // Resolved pose (node-anchored warps rebuild against the current layout)
         resolvePose: function (warp) { syncCtx(); return resolveWarpPose(warp); },
         // Abort an in-flight warp flight (minimap drag, pilot take-off)

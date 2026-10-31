@@ -343,6 +343,11 @@
       {
         "command": "auraVisualizer.statusBarArch",
         "title": "Aura: Show Architecture"
+      },
+      {
+        "command": "auraVisualizer.copyViewLink",
+        "title": "Aura: Copy View Link",
+        "icon": "$(link)"
       }
     ],
     "viewsContainers": {
@@ -371,6 +376,11 @@
         },
         {
           "command": "auraVisualizer.open",
+          "when": "view == auraVisualizer.statsView",
+          "group": "navigation"
+        },
+        {
+          "command": "auraVisualizer.copyViewLink",
           "when": "view == auraVisualizer.statsView",
           "group": "navigation"
         }

@@ -31,6 +31,7 @@ import { registerNavigationCommands } from './commands/navigation';
 import { collectBlastTargets } from './commands/blast-targets';
 import { registerPaletteCommands } from './commands/palette';
 import { AuraHoverProvider } from './hover';
+import { buildViewLinkUri, decodeViewLink, sanitizeViewLinkPayload, stateParamFromQuery, VIEW_LINK_VERSION, type ViewLinkPayload } from './deeplinks';
 import { AuraCodeLensProvider, registerSymbolCommands } from './codelens';
 import { registerAskAuraCommands } from './commands/ask-aura';
 import { buildArchReportInput, generateArchReport, withAiNarrative, type ArchReportExtras, type ArchReportModule } from './report/arch-report';
@@ -367,11 +368,24 @@ export function activate(context: vscode.ExtensionContext): void {
     registerAuraLmTools(context, () => graphDb, () => ensureRiskSnapshot(), architectureToolPayload);
     registerAuraChatParticipant(context, () => graphDb, () => ensureRiskSnapshot(), () => webviewProvider?.isOpen ?? false, architectureToolPayload);
 
+    // Deep links (V3-06) — `vscode://<id>/open?state=…` reopens a shared view.
+    context.subscriptions.push(
+        vscode.window.registerUriHandler({ handleUri: uri => handleViewLink(context, uri) }),
+    );
+
     // Commands
     context.subscriptions.push(
         vscode.commands.registerCommand('auraVisualizer.open', () => openVisualizer(context)),
         vscode.commands.registerCommand('auraVisualizer.refresh', () => refreshAnalysis(context, true)),
         vscode.commands.registerCommand('auraVisualizer.focusFile', () => focusCurrentFile()),
+        vscode.commands.registerCommand('auraVisualizer.copyViewLink', async (state?: unknown) => {
+            // Toolbar button: the webview already sent its live state. Palette:
+            // ask the open panel for it so the link is never stale.
+            const live = state && typeof state === 'object'
+                ? state as Record<string, unknown>
+                : await webviewProvider?.requestViewLink();
+            await copyViewLink(context, live);
+        }),
         vscode.commands.registerCommand('auraVisualizer.openFileFromTree', (relativePath: string) => {
             const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
             if (!workspaceFolder) return;
@@ -2049,6 +2063,77 @@ function archReportExtras(): ArchReportExtras {
         console.warn('[aura] architecture report data unavailable:', err);
         return {};
     }
+}
+
+// ============================================================
+// Deep links — share the current view (V3-06)
+// ============================================================
+
+/**
+ * Normalise the state the webview handed over (or the one it just replayed)
+ * into a validated payload. The workspace hint lets the recipient see that a
+ * link comes from another project.
+ */
+function buildViewLinkPayload(context: vscode.ExtensionContext, state: Record<string, unknown> | undefined): ViewLinkPayload | undefined {
+    if (!state) return undefined;
+    const ws = vscode.workspace.workspaceFolders?.[0];
+    const pose = state.pose && typeof state.pose === 'object' ? state.pose : undefined;
+    const query = state.query && typeof state.query === 'object' ? state.query : undefined;
+    const viewState = state.viewState && typeof state.viewState === 'object' ? state.viewState : undefined;
+    return sanitizeViewLinkPayload({
+        v: VIEW_LINK_VERSION,
+        t: typeof state.tab === 'string' ? state.tab : undefined,
+        s: viewState,
+        p: pose,
+        q: query,
+        w: ws ? { name: path.basename(ws.uri.fsPath), files: cachedGraphData?.meta.totalFiles ?? 0 } : undefined,
+    });
+}
+
+/** Copy a `vscode://` link that reopens the current view. */
+async function copyViewLink(context: vscode.ExtensionContext, state: Record<string, unknown> | undefined): Promise<void> {
+    if (!state) {
+        void vscode.window.showWarningMessage('Aura: open the Aura panel first — a view link is built from the live view.');
+        return;
+    }
+    const payload = buildViewLinkPayload(context, state);
+    if (!payload) {
+        void vscode.window.showWarningMessage('Aura: there is nothing to share from this view yet.');
+        return;
+    }
+    const link = buildViewLinkUri(vscode.env.uriScheme, context.extension.id, payload);
+    await vscode.env.clipboard.writeText(link);
+    void vscode.window.showInformationMessage(
+        `Aura: view link copied (${link.length} chars) — paste it in a chat, an issue or a README.`,
+    );
+}
+
+/** Handle `vscode://<id>/open?state=…`: decode, open the panel, apply. */
+async function handleViewLink(context: vscode.ExtensionContext, uri: vscode.Uri): Promise<void> {
+    const route = uri.path.replace(/^\/+/u, '').replace(/\/+$/u, '');
+    if (route && route !== 'open') return;
+
+    const decoded = decodeViewLink(stateParamFromQuery(uri.query));
+    if (!decoded.ok) {
+        void vscode.window.showWarningMessage(`Aura: this view link is not valid (${decoded.reason}).`);
+        return;
+    }
+
+    await openVisualizer(context);
+    if (!webviewProvider) return;
+
+    const ws = vscode.workspace.workspaceFolders?.[0];
+    const current = ws ? path.basename(ws.uri.fsPath) : undefined;
+    const origin = decoded.payload.w?.name;
+    if (origin && current && origin !== current) {
+        void vscode.window.showWarningMessage(
+            `Aura: this link was captured in "${origin}" — applying it to "${current}" may not match.`,
+        );
+    }
+
+    // Queued by the provider until the next `graphRendered` handshake.
+    webviewProvider.applyViewLink(decoded.payload);
+    void vscode.window.setStatusBarMessage('Aura: view link applied', 3000);
 }
 
 async function exportGraphImage(context: vscode.ExtensionContext): Promise<void> {
