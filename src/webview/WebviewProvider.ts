@@ -1239,8 +1239,6 @@ export class WebviewProvider {
                     <span class="stat" id="stat-files">0 files</span>
                     <span class="stat-separator">·</span>
                     <span class="stat" id="stat-links">0 links</span>
-                    <span class="stat-separator">·</span>
-                    <span class="stat" id="stat-time">—</span>
                     <span class="stat-separator hidden" id="stat-parse-separator">·</span>
                     <span class="stat stat-warn hidden" id="stat-parse-failures" role="button" tabindex="0" title="Files that could not be parsed cleanly — click for details">⚠ 0 parse failures</span>
                 </div>
@@ -1248,6 +1246,7 @@ export class WebviewProvider {
                 <button id="btn-follow-editor" class="top-btn" aria-pressed="true" title="Follow editor (on) — camera flies to the active file">👁</button>
                 <button id="btn-export" class="top-btn" title="Export AI context (Markdown/JSON) — selectable sections and token budget">📤 Export</button>
                 <button id="btn-minimap" class="top-btn" title="Toggle minimap">🗺️ Map</button>
+                <button id="btn-warps-panel" class="top-btn" title="Warp points — named camera bookmarks">🌀 Warps</button>
                 <button id="btn-refresh" class="top-btn" title="Refresh analysis">🔄 Refresh</button>
                 <button id="btn-help" class="top-btn" title="Help & shortcuts">❓ Help</button>
             </div>
@@ -1848,7 +1847,6 @@ export class WebviewProvider {
             <button class="filter-btn" id="btn-centrality-halos" title="Show halos around the top 10% most central files (PageRank)">💠 Centrality</button>
             <button class="filter-btn" id="btn-stale-notes" title="No stale notes" disabled>⚠️ Stale</button>
             <button class="filter-btn" id="btn-cochange-links" title="Show virtual temporal-coupling links (co-change without a direct dependency)">🔗 Co-change</button>
-            <button class="filter-btn" id="btn-warps-panel" title="Warp points — named camera bookmarks">🌀 Warps</button>
             <button class="filter-btn" id="btn-group-dirs" title="Group by directory">📁 Groups</button>
             <button class="filter-btn" id="btn-path-mode" title="Find path between 2 nodes">🔗 Path</button>
             <button class="filter-btn" id="btn-labels" title="Show file names">🏷️ Names</button>

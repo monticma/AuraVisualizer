@@ -1048,15 +1048,10 @@
     }
 
     function updateStats(meta) {
+        // The top bar keeps only the two totals: per-language counts live inside
+        // the language buttons of the filter bar (updateLanguageButtons).
         $('#stat-files').textContent = meta.totalFiles + ' files';
         $('#stat-links').textContent = meta.totalLinks + ' links';
-
-        var parts = [];
-        var entries = Object.entries(meta.languageStats);
-        for (var i = 0; i < entries.length; i++) {
-            parts.push(entries[i][1].count + ' ' + entries[i][0]);
-        }
-        $('#stat-time').textContent = parts.join(', ');
 
         updateParseFailureBadge(meta);
     }
@@ -3830,19 +3825,31 @@
     // ============================================================
     // Filters
     // ============================================================
+    /** Write the file count inside a language button — the same badge 📝 Notes uses. */
+    function setLanguageCount(btn, count) {
+        var badge = btn.querySelector('.filter-count');
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'filter-count';
+            btn.appendChild(badge);
+        }
+        badge.textContent = String(count);
+    }
+
     function updateLanguageButtons(nodes, keepUserSelection) {
-        var presentLangs = new Set();
+        var langCounts = new Map();
         for (var i = 0; i < nodes.length; i++) {
             var langKey = nodes[i].language;
             if (langKey === 'c') langKey = nodes[i].extension === '.h' ? 'c-header' : 'c-source';
             else if (langKey === 'cpp') langKey = (nodes[i].extension === '.hpp' || nodes[i].extension === '.hxx' || nodes[i].extension === '.hh') ? 'cpp-header' : 'cpp-source';
-            presentLangs.add(langKey);
+            langCounts.set(langKey, (langCounts.get(langKey) || 0) + 1);
         }
         var langBtns = document.querySelectorAll('#language-filters .filter-btn');
         for (var j = 0; j < langBtns.length; j++) {
             var btn = langBtns[j];
             var lang = btn.dataset.lang;
-            if (presentLangs.has(lang)) {
+            setLanguageCount(btn, langCounts.get(lang) || 0);
+            if (langCounts.has(lang)) {
                 var wasHidden = (btn.style.display === 'none');
                 btn.style.display = '';
                 // Documentation is opt-in: only show the button, but don't auto-activate

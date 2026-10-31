@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Tests/docs** — 24 unit tests for glob semantics, deny/slices/cycles, baseline, coupling metrics and graph annotation; README, help, walkthrough (`Enforce Architecture Layers`), CHANGELOG and the Marketplace walkthrough updated.
 
 ### Changed
+- **Compact top bar, counted language buttons** — the per-language breakdown (`42 ts, 12 py, 8 css…`) no longer eats the top bar: it lives inside the language buttons of the filter bar, as a `filter-count` badge identical to the 📝 Notes one (`TS 42`). The top bar now only shows the two totals — files and links. **🌀 Warps** moved from the bottom filter bar to the top bar, right of **🗺️ Map**: it is a panel toggle like Map, not a graph filter, so it belongs with the other toolbar controls.
 - **Toolbar polish** — **📤 Export** moved next to **🗺️ Map** (between 👁 Follow editor and Map) and the 👁 button lost its oversized 36 × 36 icon variant, so every right-hand control now shares the same height as the 📷 PNG button.
 - Rules and baseline are side files: saving either re-evaluates immediately (`auraVisualizer.reloadArchRules`) without re-parsing the project or rewriting the DB. A syntax error leaves the rest of Aura working and is surfaced in the Architecture tab.
 

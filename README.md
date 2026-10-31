@@ -374,6 +374,7 @@ Toggle with the **🗺️ Map** button in the toolbar. A floating minimap displa
 
 Save named camera bookmarks of the 3D view and fly back to them in one click:
 
+- **🌀 Warps** (top bar, next to 🗺️ Map) opens the panel
 - **📌 capture** (in the panel header) — stores the current pose: camera position, **orientation** and view target — the exact view comes back to the pixel
 - **Layout-proof** — warps are anchored to the files in view (plus the layout scale), so they land on the same spot even though the force layout differs between sessions
 - **Click a warp** — smooth ~800 ms flight; **✏️ rename · 📌 re-capture · 🗑️ delete** per row
@@ -531,7 +532,7 @@ Toggle a tree-view panel showing all files organized by directory. Click a file 
 
 ### Filter by Language
 
-Toggle language buttons in the filter bar to show/hide files by type. Multiple languages can be active simultaneously.
+Toggle language buttons in the filter bar to show/hide files by type. Each button carries its **file count** (`TS 42`), so the top bar only keeps the two totals — overall files and links. Multiple languages can be active simultaneously.
 
 ### Adjustable Controls
 
