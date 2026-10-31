@@ -936,6 +936,16 @@ export class WebviewProvider {
         }
     }
 
+    /**
+     * Tab the webview last reported (`graph`, `risk`, `arch`, …). PNG capture is
+     * only meaningful on `graph`; `undefined` means the webview never saved its
+     * state, in which case the webview-side guard is the one that answers.
+     */
+    public getActiveTab(): string | undefined {
+        const state = this.workspaceState.get<{ tab?: unknown }>(WebviewProvider.VIEW_STATE_KEY);
+        return state && typeof state.tab === 'string' ? state.tab : undefined;
+    }
+
     /** Reveal a file in the Architecture tab (expand its rule, scroll, flash). */
     public focusArchFile(nodeId: string): void {
         if (this.webviewReady) {
@@ -1234,9 +1244,9 @@ export class WebviewProvider {
                     <span class="stat-separator hidden" id="stat-parse-separator">·</span>
                     <span class="stat stat-warn hidden" id="stat-parse-failures" role="button" tabindex="0" title="Files that could not be parsed cleanly — click for details">⚠ 0 parse failures</span>
                 </div>
+                <button id="btn-export-image" class="top-btn" title="Export a high-resolution PNG of the 3D graph (3D Graph tab)">📷</button>
+                <button id="btn-follow-editor" class="top-btn" aria-pressed="true" title="Follow editor (on) — camera flies to the active file">👁</button>
                 <button id="btn-export" class="top-btn" title="Export AI context (Markdown/JSON) — selectable sections and token budget">📤 Export</button>
-                <button id="btn-export-image" class="top-btn" title="Export a high-resolution PNG of the 3D graph">📷</button>
-                <button id="btn-follow-editor" class="top-btn icon-btn" aria-pressed="true" title="Follow editor (on) — camera flies to the active file">👁</button>
                 <button id="btn-minimap" class="top-btn" title="Toggle minimap">🗺️ Map</button>
                 <button id="btn-refresh" class="top-btn" title="Refresh analysis">🔄 Refresh</button>
                 <button id="btn-help" class="top-btn" title="Help & shortcuts">❓ Help</button>

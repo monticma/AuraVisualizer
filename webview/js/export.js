@@ -23,6 +23,12 @@
 
     function capture(options) {
         options = options || {};
+        if (hooks.getActiveTab && hooks.getActiveTab() !== 'graph') {
+            post('exportImageError', {
+                message: 'The 3D graph is only rendered on the 3D Graph tab — switch to it and try again.',
+            });
+            return;
+        }
         var graph = hooks.getGraph && hooks.getGraph();
         var container = hooks.getContainer && hooks.getContainer();
         if (!graph || !container) {

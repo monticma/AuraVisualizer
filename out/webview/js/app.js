@@ -504,6 +504,7 @@
             AuraExport.init({
                 getGraph: function () { return graph; },
                 getContainer: function () { return graphContainer; },
+                getActiveTab: function () { return activeTab; },
                 postMessage: function (msg) { vscode.postMessage(msg); }
             });
         }
@@ -5399,6 +5400,11 @@
         var timeBar = $('#timeline-bar');
         var overlays = ['#heatmap-legend', '#community-palette', '#minimap', '#warps-panel', '#tooltip'];
 
+        // The PNG capture grabs the WebGL canvas, which is display:none on every
+        // other tab — a hidden button is better than a blank picture.
+        var exportImageBtn = $('#btn-export-image');
+        if (exportImageBtn) exportImageBtn.classList.toggle('hidden', tabName !== 'graph');
+
         if (tabName !== 'graph') {
             if (prevTab === 'graph') {
                 if (filterBar) filterBar._wasVisible = filterBar.style.display !== 'none';
@@ -5462,6 +5468,10 @@
         }
         if (tabName === 'risk' && window.AuraRiskMap) AuraRiskMap.renderRiskDashboard();
         if (tabName === 'arch' && window.AuraArchPanel) AuraArchPanel.render();
+
+        // Keep the host in sync: the PNG command needs to know whether the 3D
+        // tab is the one on screen before it opens its dialogs.
+        saveViewState();
     }
 
     function pauseGraph() {

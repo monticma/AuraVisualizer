@@ -2059,6 +2059,16 @@ async function exportGraphImage(context: vscode.ExtensionContext): Promise<void>
     if (!webviewProvider) await openVisualizer(context);
     if (!webviewProvider) return;
 
+    // The capture reads the WebGL canvas: on any other tab the graph container is
+    // display:none and the PNG would be 1×1. Answer before opening the dialogs.
+    const activeTab = webviewProvider.getActiveTab();
+    if (activeTab && activeTab !== 'graph') {
+        void vscode.window.showWarningMessage(
+            'Aura: the PNG export captures the 3D graph — switch to the ✦ 3D Graph tab first.',
+        );
+        return;
+    }
+
     const resolution = await vscode.window.showQuickPick(
         [
             { label: 'PNG ×2', description: 'Recommended — sharp and reasonably small', value: 2 },
