@@ -359,6 +359,10 @@ function handleTool(db: GraphDB, name: string, args: Record<string, unknown>): u
                 depth: (args.depth as number) || 5,
                 dependencies: deps.map(d => ({ id: d.file, depth: d.depth })),
                 total: deps.length,
+                max_depth: result.max_depth ?? 0,
+                by_depth: result.by_depth ?? [],
+                longest_chain: result.longest_chain ?? [],
+                truncated: result.truncated === true,
             };
         }
         case 'find_dependents': {
@@ -371,6 +375,10 @@ function handleTool(db: GraphDB, name: string, args: Record<string, unknown>): u
                 depth: (args.depth as number) || 5,
                 blast_radius: blast.map(b => ({ id: b.file, depth: b.depth, risk: b.risk })),
                 total: blast.length,
+                max_depth: result.max_depth ?? 0,
+                by_depth: result.by_depth ?? [],
+                longest_chain: result.longest_chain ?? [],
+                truncated: result.truncated === true,
                 summary: `${high} high-risk, ${medium} medium-risk, ${low} low-risk`,
                 note: `Modifying this file impacts ${blast.length} file(s) transitively`,
             };

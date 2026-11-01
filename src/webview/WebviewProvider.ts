@@ -17,6 +17,7 @@ import { makeWarp, parseWarps, removeWarp, serializeWarps, upsertWarp, type Warp
 import type { FunctionFlow } from '../flow/flow-core';
 import type { ViewLinkPayload } from '../deeplinks';
 import type { BranchReviewPayload } from '../git/branch-diff-core';
+import type { TransitiveDirection, TransitiveResult } from '../analysis/transitive';
 
 /** Whitelist of webview-editable settings, with per-key validation. */
 const SETTING_NORMALIZERS: Record<string, (v: unknown) => unknown> = {
@@ -100,13 +101,14 @@ export class WebviewProvider {
     private getHostData: {
         riskSnapshot?: () => RiskSnapshot | undefined;
         workingTree?: () => Record<string, string>;
+        transitive?: (nodeId: string, direction: TransitiveDirection) => TransitiveResult | undefined;
     };
 
     constructor(
         extensionUri: vscode.Uri,
         workspaceState: vscode.Memento,
         getGraphDB: () => GraphDB | undefined = () => undefined,
-        getHostData: { riskSnapshot?: () => RiskSnapshot | undefined; workingTree?: () => Record<string, string> } = {},
+        getHostData: { riskSnapshot?: () => RiskSnapshot | undefined; workingTree?: () => Record<string, string>; transitive?: (nodeId: string, direction: TransitiveDirection) => TransitiveResult | undefined } = {},
     ) {
         this.extensionUri = extensionUri;
         this.workspaceState = workspaceState;
@@ -315,6 +317,18 @@ export class WebviewProvider {
                     case 'requestViewState':
                         this.sendSavedViewState();
                         break;
+                    case 'requestTransitive': {
+                        // Detail panel, transitive imports/dependents (V3-08).
+                        const p = (message.payload || {}) as { nodeId?: string; direction?: string };
+                        if (!p.nodeId) break;
+                        const direction: TransitiveDirection = p.direction === 'in' ? 'in' : 'out';
+                        const result = this.getHostData.transitive?.(p.nodeId, direction);
+                        this.panel?.webview.postMessage({
+                            type: 'transitiveResult',
+                            payload: { nodeId: p.nodeId, direction, result },
+                        });
+                        break;
+                    }
                     case 'requestArchRules':
                         void this.sendArchRules();
                         break;
@@ -1536,6 +1550,28 @@ export class WebviewProvider {
                 <ul id="panel-dependents" class="panel-list"></ul>
             </div>
         </details>
+        <details class="panel-section panel-collapsible" id="transitive-deps-section">
+            <summary class="panel-section-header">
+                <span class="panel-section-heading">🔗 Transitive imports</span>
+                <span id="transitive-deps-count" class="count-badge">—</span>
+            </summary>
+            <div class="panel-section-body">
+                <div class="transitive-summary" id="transitive-deps-summary">Expand to compute the transitive closure.</div>
+                <div class="transitive-chain hidden" id="transitive-deps-chain"></div>
+                <ul id="transitive-deps-list" class="panel-list transitive-list"></ul>
+            </div>
+        </details>
+        <details class="panel-section panel-collapsible" id="transitive-dependents-section">
+            <summary class="panel-section-header">
+                <span class="panel-section-heading">📥 Transitive dependents</span>
+                <span id="transitive-dependents-count" class="count-badge">—</span>
+            </summary>
+            <div class="panel-section-body">
+                <div class="transitive-summary" id="transitive-dependents-summary">Expand to compute the transitive closure.</div>
+                <div class="transitive-chain hidden" id="transitive-dependents-chain"></div>
+                <ul id="transitive-dependents-list" class="panel-list transitive-list"></ul>
+            </div>
+        </details>
     </aside>
     </div><!-- /middle-row -->
 
@@ -2335,6 +2371,7 @@ export class WebviewProvider {
 
                 <h3>🗂️ Detail Panel</h3>
                 <p>The detail panel is organized into collapsible sections: <strong>📋 File details</strong> groups metrics, <strong>Ask Aura</strong> actions and <strong>📝 Note</strong>; <strong>Symbols</strong>, <strong>Dependencies</strong> and <strong>Dependents</strong> use readable cards. Empty sections (no symbols, no dependency, no dependent) are hidden automatically, and every section can be folded from its header.</p>
+                <p><strong>🔗 Transitive imports</strong> and <strong>📥 Transitive dependents</strong> go further when you expand them: the closure is computed on demand (<code>Imports 42 files · depth 4</code>), the <strong>deepest chain</strong> is printed (<code>a.ts → b.ts → d.ts</code>) and every file gets a depth badge — direct ones in bold, click to select. Cycle-safe, capped at 500 files; <code>auraVisualizer.transitiveDepth</code> (1–10) sets how many hops are followed.</p>
 
                 <h3>🎹 Keyboard Shortcuts</h3>
                 <table class="help-table">

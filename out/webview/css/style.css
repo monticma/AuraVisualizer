@@ -93,6 +93,41 @@ html, body {
 }
 
 /* ============================================================
+   Transitive imports / dependents (V3-08)
+   ============================================================ */
+.transitive-summary {
+    font-size: 11px;
+    opacity: 0.75;
+    padding: 2px 0 6px;
+}
+.transitive-chain {
+    font-family: monospace;
+    font-size: 11px;
+    color: #93c5fd;
+    background: rgba(96, 165, 250, 0.08);
+    border-left: 2px solid rgba(96, 165, 250, 0.55);
+    border-radius: 4px;
+    padding: 4px 6px;
+    margin-bottom: 6px;
+    word-break: break-all;
+}
+.transitive-list .transitive-depth {
+    display: inline-block;
+    min-width: 18px;
+    margin-right: 6px;
+    padding: 0 4px;
+    border-radius: 8px;
+    background: rgba(96, 165, 250, 0.18);
+    color: #93c5fd;
+    font-size: 9px;
+    font-family: monospace;
+    text-align: center;
+}
+.transitive-list .transitive-direct {
+    font-weight: 600;
+}
+
+/* ============================================================
    Branch review strip (V3-07)
    ============================================================ */
 #review-bar {

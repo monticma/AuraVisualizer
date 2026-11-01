@@ -8,6 +8,7 @@
  */
 
 import type { GraphDB } from '../graph-db';
+import { transitiveClosure } from '../analysis/transitive';
 import { resolveContext } from '../mcp/context';
 import { topRiskHotspots, type RiskSnapshot } from '../risk/risk-service';
 
@@ -371,11 +372,19 @@ export function runAuraTool(db: GraphDB, name: string, input: Record<string, unk
                 return { error: `File not found: ${input.file}. Ask the user for the exact path, or use aura_search_symbols to find it.` };
             }
             const blast = db.getBlastRadius(resolved, (input.depth as number) || 5);
+            const closure = transitiveClosure(db.getEdges(), resolved, {
+                direction: 'in',
+                maxDepth: (input.depth as number) || 5,
+            });
             return {
                 file: input.file,
                 resolved_file: resolved,
                 dependents: blast.map(b => ({ file: b.id, depth: b.depth, risk: b.risk })),
                 total: blast.length,
+                max_depth: closure.maxDepth,
+                by_depth: closure.byDepth,
+                longest_chain: closure.longestChain,
+                truncated: closure.truncated,
             };
         }
         case 'aura_find_dependencies': {
@@ -384,11 +393,19 @@ export function runAuraTool(db: GraphDB, name: string, input: Record<string, unk
                 return { error: `File not found: ${input.file}. Ask the user for the exact path, or use aura_search_symbols to find it.` };
             }
             const deps = db.getDependencies(resolved, (input.depth as number) || 5);
+            const closure = transitiveClosure(db.getEdges(), resolved, {
+                direction: 'out',
+                maxDepth: (input.depth as number) || 5,
+            });
             return {
                 file: input.file,
                 resolved_file: resolved,
                 dependencies: deps.map(d => ({ file: d.id, depth: d.depth })),
                 total: deps.length,
+                max_depth: closure.maxDepth,
+                by_depth: closure.byDepth,
+                longest_chain: closure.longestChain,
+                truncated: closure.truncated,
             };
         }
         case 'aura_find_heritage': {

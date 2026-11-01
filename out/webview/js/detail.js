@@ -384,6 +384,8 @@
 
         renderSymbolCycles(node);
 
+        resetTransitiveSections(node.id);
+
         // Dependencies (outgoing)
         var deps = [];
         var currentLinks = hooks.getGraphData().links;
@@ -771,6 +773,7 @@
         });
         setupNoteEditor();
         setupAiActions();
+        setupTransitiveSections();
     }
 
     // ============================================================
@@ -959,12 +962,127 @@
     // ============================================================
     // Public API
     // ============================================================
+    // ============================================================
+    // Transitive imports / dependents (V3-08)
+    //
+    // Computed by the host (pure BFS in src/analysis/transitive.ts) and
+    // requested lazily: expanding the section for the first time asks for it,
+    // then it is cached per node + direction until the graph changes.
+    // ============================================================
+    var transitiveCache = Object.create(null);
+    var transitiveNodeId = null;
+
+    function transitivePrefix(direction) {
+        return direction === 'in' ? '#transitive-dependents-' : '#transitive-deps-';
+    }
+
+    function clearTransitiveCache() {
+        transitiveCache = Object.create(null);
+    }
+
+    function resetTransitiveSections(nodeId) {
+        transitiveNodeId = nodeId || null;
+        var dirs = ['out', 'in'];
+        for (var d = 0; d < dirs.length; d++) {
+            var prefix = transitivePrefix(dirs[d]);
+            var countEl = $(prefix + 'count');
+            if (countEl) countEl.textContent = '—';
+            var summaryEl = $(prefix + 'summary');
+            if (summaryEl) summaryEl.textContent = 'Expand to compute the transitive closure.';
+            var chainEl = $(prefix + 'chain');
+            if (chainEl) { chainEl.textContent = ''; chainEl.classList.add('hidden'); }
+            var listEl = $(prefix + 'list');
+            if (listEl) listEl.innerHTML = '';
+        }
+    }
+
+    function requestTransitive(direction) {
+        if (!transitiveNodeId) return;
+        var cached = transitiveCache[transitiveNodeId + '|' + direction];
+        if (cached) { renderTransitive(direction, cached); return; }
+        var summaryEl = $(transitivePrefix(direction) + 'summary');
+        if (summaryEl) summaryEl.textContent = 'Computing…';
+        hooks.postMessage({ type: 'requestTransitive', payload: { nodeId: transitiveNodeId, direction: direction } });
+    }
+
+    function onTransitiveResult(payload) {
+        if (!payload || !payload.nodeId || !payload.result) return;
+        transitiveCache[payload.nodeId + '|' + payload.direction] = payload.result;
+        if (payload.nodeId !== transitiveNodeId) return; // the user moved on
+        renderTransitive(payload.direction === 'in' ? 'in' : 'out', payload.result);
+    }
+
+    function renderTransitive(direction, result) {
+        var prefix = transitivePrefix(direction);
+        var countEl = $(prefix + 'count');
+        if (countEl) countEl.textContent = String(result.nodes.length);
+
+        var summaryEl = $(prefix + 'summary');
+        if (summaryEl) {
+            if (result.nodes.length === 0) {
+                summaryEl.textContent = direction === 'out' ? 'No indirect import.' : 'No indirect dependent.';
+            } else {
+                var label = direction === 'out' ? 'Imports' : 'Imported by';
+                var limit = result.truncated ? ' · truncated at ' + result.nodeLimit : '';
+                summaryEl.textContent = label + ' ' + result.nodes.length +
+                    (result.nodes.length === 1 ? ' file' : ' files') +
+                    ' · depth ' + result.maxDepth + limit;
+            }
+        }
+
+        var chainEl = $(prefix + 'chain');
+        if (chainEl) {
+            if (result.longestChain && result.longestChain.length > 1) {
+                chainEl.textContent = 'deepest chain: ' + result.longestChain.join(' → ');
+                chainEl.classList.remove('hidden');
+            } else {
+                chainEl.textContent = '';
+                chainEl.classList.add('hidden');
+            }
+        }
+
+        var listEl = $(prefix + 'list');
+        if (!listEl) return;
+        listEl.innerHTML = '';
+        var nodes = (hooks.getGraphData() && hooks.getGraphData().nodes) || [];
+        var byId = Object.create(null);
+        for (var n = 0; n < nodes.length; n++) byId[nodes[n].id] = nodes[n];
+        var maxRows = 300;
+        for (var i = 0; i < result.nodes.length && i < maxRows; i++) {
+            (function(entry) {
+                var li = document.createElement('li');
+                li.className = 'transitive-item' + (entry.depth === 1 ? ' transitive-direct' : '');
+                li.title = 'Depth ' + entry.depth + (entry.parent ? ' · via ' + entry.parent : '');
+                var depthEl = document.createElement('span');
+                depthEl.className = 'transitive-depth';
+                depthEl.textContent = 'd' + entry.depth;
+                li.appendChild(depthEl);
+                li.appendChild(document.createTextNode(entry.id));
+                var target = byId[entry.id];
+                if (target) {
+                    li.style.cursor = 'pointer';
+                    li.addEventListener('click', function() { hooks.selectNode(target); });
+                }
+                listEl.appendChild(li);
+            })(result.nodes[i]);
+        }
+    }
+
+    function setupTransitiveSections() {
+        var outSection = document.getElementById('transitive-deps-section');
+        var inSection = document.getElementById('transitive-dependents-section');
+        if (outSection) outSection.addEventListener('toggle', function() { if (outSection.open) requestTransitive('out'); });
+        if (inSection) inSection.addEventListener('toggle', function() { if (inSection.open) requestTransitive('in'); });
+    }
+
     window.AuraDetail = {
         init: function (h) { hooks = h || {}; },
         setup: setupPanelClose,
         show: showDetailPanel,
         showMultiSelect: showMultiSelectPanel,
         refreshEditor: updateNoteEditor,
-        refreshStaleBadge: refreshStaleBadge
+        refreshStaleBadge: refreshStaleBadge,
+        onTransitiveResult: onTransitiveResult,
+        clearTransitiveCache: clearTransitiveCache
     };
 })();

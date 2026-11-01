@@ -34,6 +34,7 @@ import { AuraHoverProvider } from './hover';
 import { buildViewLinkUri, decodeViewLink, sanitizeViewLinkPayload, stateParamFromQuery, VIEW_LINK_VERSION, type ViewLinkPayload } from './deeplinks';
 import { readBranchDiff } from './git/branch-diff';
 import { buildReviewPayload, computeComplexityDeltas, type BranchDiff } from './git/branch-diff-core';
+import { DEFAULT_TRANSITIVE_DEPTH, MAX_TRANSITIVE_DEPTH, transitiveClosure, type TransitiveDirection } from './analysis/transitive';
 import { AuraCodeLensProvider, registerSymbolCommands } from './codelens';
 import { registerAskAuraCommands } from './commands/ask-aura';
 import { buildArchReportInput, generateArchReport, withAiNarrative, type ArchReportExtras, type ArchReportModule } from './report/arch-report';
@@ -1719,6 +1720,16 @@ function hostDataAccessors() {
     return {
         riskSnapshot: () => ensureRiskSnapshot(),
         workingTree: () => buildWorkingTreePayload() as Record<string, string>,
+        transitive: (nodeId: string, direction: TransitiveDirection) => {
+            if (!cachedGraphData) return undefined;
+            const edges = cachedGraphData.links.map(link => ({
+                source: typeof link.source === 'object' ? (link.source as GraphNode).id : link.source,
+                target: typeof link.target === 'object' ? (link.target as GraphNode).id : link.target,
+            }));
+            const configured = vscode.workspace.getConfiguration('auraVisualizer').get<number>('transitiveDepth', DEFAULT_TRANSITIVE_DEPTH);
+            const maxDepth = Math.min(MAX_TRANSITIVE_DEPTH, Math.max(1, Math.floor(configured)));
+            return transitiveClosure(edges, nodeId, { direction, maxDepth });
+        },
     };
 }
 

@@ -863,6 +863,11 @@ export class GraphDB {
 
     // ── Queries ────────────────────────────────────────────────
 
+    /** Every edge as a plain pair — feeds the pure transitive closure (V3-08). */
+    getEdges(): { source: string; target: string }[] {
+        return queryAll<{ source: string; target: string }>(this.ensureDb(), 'SELECT source, target FROM edges');
+    }
+
     /** Transitive dependencies of a file (what it depends on). */
     getDependencies(fileId: string, maxDepth: number = 5): DepRow[] {
         return queryAll<DepRow>(this.ensureDb(), `

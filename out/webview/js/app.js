@@ -427,6 +427,9 @@
             case 'reviewBranch':
                 applyReviewPayload(message.payload);
                 break;
+            case 'transitiveResult':
+                if (window.AuraDetail && AuraDetail.onTransitiveResult) AuraDetail.onTransitiveResult(message.payload);
+                break;
             case 'restoreViewState':
                 if (message.payload) {
                     try { applyViewState(message.payload); } catch (e) { console.error('[aura] applyViewState failed:', e); }
@@ -652,6 +655,8 @@
     }
 
     function handleGraphData(data) {
+        // The closure depends on the whole edge set: a new dataset invalidates it.
+        if (window.AuraDetail && AuraDetail.clearTransitiveCache) AuraDetail.clearTransitiveCache();
         // Hide the overlay as soon as the graph has painted, but only tell the
         // host the graph is live once the saved view state has been restored:
         // queued focus / blast messages must land on the final filters, heatmap
@@ -751,6 +756,7 @@
             // No graph yet — can't apply delta, need full data
             return;
         }
+        if (window.AuraDetail && AuraDetail.clearTransitiveCache) AuraDetail.clearTransitiveCache();
 
         var removedSet = new Set(delta.removedNodeIds || []);
         var changedMap = {};

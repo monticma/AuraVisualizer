@@ -485,6 +485,13 @@
           "default": "",
           "description": "Branch used by 'Aura: Review Current Branch' as the comparison base. Empty = auto-detect: main, then master"
         },
+        "auraVisualizer.transitiveDepth": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 10,
+          "description": "How many import hops the 'Transitive imports / dependents' sections of the detail panel (and the dependency MCP tools) follow"
+        },
         "auraVisualizer.linkStyle": {
           "type": "string",
           "enum": [

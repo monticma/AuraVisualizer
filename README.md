@@ -119,6 +119,7 @@ Click a file node to open a collapsible detail panel:
 - **📋 File details** groups the file metrics (including **Layer**), **Ask Aura** actions and the **📝 Note** editor in one foldable section
 - **🏛️ Architecture** lists the file's layer and every outgoing rule violation with its severity, target and link types (baselined ones stay visible)
 - **Symbols**, **Dependencies** and **Dependents** are collapsible too, and render as readable cards (name/signature/metrics on separate lines, path + type + confidence for edges)
+- **🔗 Transitive imports** / **📥 Transitive dependents** — expand one to get the full closure computed on demand: `Imports 42 files · depth 4`, the **deepest chain** (`extension.ts → codelens.ts → graph-db.ts`) and one row per file with its depth badge (direct files in bold, click to select). Cycle-safe, deterministic, capped at 500 files; `auraVisualizer.transitiveDepth` (1–10, default 5) sets how many hops are followed. The same closure enriches the `find_dependencies` / `find_dependents` MCP tools with `max_depth`, `by_depth`, `longest_chain` and `truncated`
 - Empty sections are hidden automatically — no empty Dependents block, no Symbols block for a file without symbols
 - Section open/closed state is kept while the webview stays open
 
@@ -759,6 +760,7 @@ All settings live under `auraVisualizer.*` — the most common ones are also edi
 | `auraVisualizer.autoRefresh` | `true` | Auto-refresh on file save |
 | `auraVisualizer.statusBar` | `true` | Show Aura's status bar badges — file/link counter, active-file risk, `⚠ N hotspots in your changes`, architecture violations (one switch for all of them) |
 | `auraVisualizer.reviewBase` | `""` | Branch compared by **Aura: Review Current Branch** — empty = auto-detect `main`, then `master` |
+| `auraVisualizer.transitiveDepth` | `5` | Import hops followed by **Transitive imports / dependents** in the detail panel and by the dependency MCP tools (1–10) |
 | `auraVisualizer.followEditor` | `true` | Fly the 3D camera to the active editor file; manual camera movement pauses following until the 👁 toolbar button is clicked again |
 | `auraVisualizer.riskWindow` | `90` | Git history window (30 / 90 / 365 days) used by the Risk Map, the status bar and `get_hotspots` |
 | `auraVisualizer.riskCentrality` | `false` | Use the PageRank centrality percentile instead of fan-in in the risk score |
