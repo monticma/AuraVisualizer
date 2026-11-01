@@ -465,6 +465,8 @@ Navigate your project's git history commit by commit. A timeline bar at the bott
 
 Press `V` or click the **⇄ Compare** button to enter **Compare mode**. A second slider appears — drag both sliders to diff any two commits. Files that changed between those commits are highlighted; unchanged nodes are dimmed. Compare mode shows the cumulative diff across the selected range.
 
+**Reviewing your branch:** run **Aura: Review Current Branch** (Command Palette, or the compare icon in the **Source Control** title bar). Aura asks git for `git diff main...HEAD` — merge-base, `--find-renames`, `--numstat` — and shows a strip over the graph: `main...HEAD · 12 files · +340 −120 · Δcomplex +18`, with **💥 Blast** (multi-source impact from every touched file) and **⇄ Compare**, which pre-fills the dual slider with the merge-base and HEAD so the visual diff is the existing Compare mode. Renamed files are one entry instead of a delete + an add, and the Δcomplexity only appears when the Time Travel scan covers the branch. Set `auraVisualizer.reviewBase` to compare against another branch (default: `main`, then `master`).
+
 ### Search
 
 Type in the search box (2+ characters) to find files by name or path. Results appear in a live dropdown — click to navigate.
@@ -656,6 +658,7 @@ You can also open the visualizer from the **Aura** icon in the Activity Bar or v
 | Aura: Show Risk Map | — | Open the Risk tab, or reveal the clicked hotspot |
 | Aura: Show Architecture | — | Open the Architecture tab |
 | Aura: Copy View Link | — | Copy a `vscode://` link that reopens this exact view (tab, filters, camera, query) |
+| Aura: Review Current Branch | — | Diff the branch against its merge-base: touched files, ±lines, Δcomplexity, blast and compare |
 
 ## Keyboard Shortcuts (in graph)
 
@@ -755,6 +758,7 @@ All settings live under `auraVisualizer.*` — the most common ones are also edi
 | `auraVisualizer.maxFiles` | `500` | Maximum number of files to analyze |
 | `auraVisualizer.autoRefresh` | `true` | Auto-refresh on file save |
 | `auraVisualizer.statusBar` | `true` | Show Aura's status bar badges — file/link counter, active-file risk, `⚠ N hotspots in your changes`, architecture violations (one switch for all of them) |
+| `auraVisualizer.reviewBase` | `""` | Branch compared by **Aura: Review Current Branch** — empty = auto-detect `main`, then `master` |
 | `auraVisualizer.followEditor` | `true` | Fly the 3D camera to the active editor file; manual camera movement pauses following until the 👁 toolbar button is clicked again |
 | `auraVisualizer.riskWindow` | `90` | Git history window (30 / 90 / 365 days) used by the Risk Map, the status bar and `get_hotspots` |
 | `auraVisualizer.riskCentrality` | `false` | Use the PageRank centrality percentile instead of fan-in in the risk score |

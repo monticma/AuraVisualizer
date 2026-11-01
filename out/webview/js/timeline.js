@@ -930,6 +930,53 @@
         updateTimelineLabel();
     }
 
+    /**
+     * Pre-fill the compare sliders from commit hashes (V3-07 branch review).
+     * `toHash` may be 'HEAD'. Returns false when a commit is not in the index
+     * yet — the caller keeps its summary and shows a hint instead of a diff.
+     */
+    function setCompareRange(fromHash, toHash) {
+        if (!timelineSlider || !timelineFromSlider || !timelineCommits.length || !fromHash) return false;
+        var maxPos = parseInt(timelineSlider.max);
+        if (!isFinite(maxPos)) return false;
+
+        var fromIdx = -1;
+        for (var i = 0; i < timelineCommits.length; i++) {
+            if (timelineCommits[i] && timelineCommits[i].hash === fromHash) { fromIdx = i; break; }
+        }
+        if (fromIdx < 0) return false;
+
+        var toPos = maxPos;
+        if (toHash && toHash !== 'HEAD') {
+            var toIdx = -1;
+            for (var j = 0; j < timelineCommits.length; j++) {
+                if (timelineCommits[j] && timelineCommits[j].hash === toHash) { toIdx = j; break; }
+            }
+            if (toIdx < 0) return false;
+            toPos = (maxPos - 1) - toIdx;
+        }
+
+        var fromPos = (maxPos - 1) - fromIdx;
+        if (fromPos >= toPos) return false; // nothing between the two
+
+        if (!timelineCompareMode) {
+            timelineCompareMode = true;
+            if (timelineCompareBtn) timelineCompareBtn.classList.add('active');
+            timelineFromSlider.classList.remove('hidden');
+            if (timelineFromControls) timelineFromControls.classList.remove('hidden');
+        }
+        timelineFromSlider.min = timelineSlider.min;
+        timelineFromSlider.max = maxPos;
+        timelineFromSlider.value = fromPos;
+        timelineFromPos = fromPos;
+        timelineSavedFromPos = fromPos;
+        timelineSlider.value = toPos;
+        timelineSavedToPos = toPos;
+        syncState();
+        navigateToCommit(toPos);
+        return true;
+    }
+
     // ============================================================
     // Public API
     // ============================================================
@@ -945,6 +992,8 @@
         getDeltas: function () { return timelineDeltas; },
         getScannedCount: function () { return timelineScannedCount; },
         toggleImpact: function () { toggleImpactMode(); },
+        // Pre-fill the compare sliders from commit hashes (branch review)
+        setCompareRange: setCompareRange,
         toggleCompare: function () {
             if (!timelineBar || timelineBar.classList.contains('hidden')) return;
             toggleCompareMode();

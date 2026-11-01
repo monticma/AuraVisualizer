@@ -29,4 +29,6 @@ Navigate your project's git history and watch the dependency graph evolve over t
 
 Press `V` or click the **⇄ Compare** button to enter **Compare mode**. A second slider appears — drag both sliders to diff any two commits. Files changed between those commits are highlighted; unchanged nodes and edges are dimmed. This shows the cumulative structural impact across a range of commits.
 
+**Review your branch:** the command **Aura: Review Current Branch** (also in the Source Control title bar) asks git what `main...HEAD` changed and shows a summary strip over the graph — files, `+/−` lines, Δcomplexity — then pre-fills Compare with the merge-base and HEAD. **💥 Blast** seeds the impact cascade from every touched file.
+
 This is useful for understanding how your codebase architecture evolved and when complexity was introduced.

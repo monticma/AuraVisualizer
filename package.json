@@ -348,6 +348,11 @@
         "command": "auraVisualizer.copyViewLink",
         "title": "Aura: Copy View Link",
         "icon": "$(link)"
+      },
+      {
+        "command": "auraVisualizer.reviewBranch",
+        "title": "Aura: Review Current Branch",
+        "icon": "$(git-compare)"
       }
     ],
     "viewsContainers": {
@@ -396,6 +401,13 @@
         {
           "command": "auraVisualizer.blastRadius",
           "when": "config.git.enabled && gitOpenRepositoryCount != 0",
+          "group": "navigation"
+        }
+      ],
+      "scm/title": [
+        {
+          "command": "auraVisualizer.reviewBranch",
+          "when": "gitOpenRepositoryCount != 0",
           "group": "navigation"
         }
       ],
@@ -467,6 +479,11 @@
           "type": "boolean",
           "default": true,
           "description": "Show Aura's status bar badges: the file/link counter, the risk of the active file, the ⚠ N hotspots in your changes alert, and architecture violations. One switch for all of them"
+        },
+        "auraVisualizer.reviewBase": {
+          "type": "string",
+          "default": "",
+          "description": "Branch used by 'Aura: Review Current Branch' as the comparison base. Empty = auto-detect: main, then master"
         },
         "auraVisualizer.linkStyle": {
           "type": "string",

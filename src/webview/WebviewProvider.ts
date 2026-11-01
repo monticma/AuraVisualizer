@@ -16,6 +16,7 @@ import { saveOrCopyText, saveBinary } from '../export/save';
 import { makeWarp, parseWarps, removeWarp, serializeWarps, upsertWarp, type WarpList } from '../warps';
 import type { FunctionFlow } from '../flow/flow-core';
 import type { ViewLinkPayload } from '../deeplinks';
+import type { BranchReviewPayload } from '../git/branch-diff-core';
 
 /** Whitelist of webview-editable settings, with per-key validation. */
 const SETTING_NORMALIZERS: Record<string, (v: unknown) => unknown> = {
@@ -78,6 +79,8 @@ export class WebviewProvider {
     private pendingCaptureWarp = false;
     /** Decoded view link (V3-06) waiting for the next `graphRendered`. */
     private pendingViewLink: ViewLinkPayload | undefined;
+    /** Branch review summary (V3-07) waiting for the next `graphRendered`. */
+    private pendingReview: BranchReviewPayload | undefined;
     /** Pending answer to `requestViewLink` (palette "copy link" round-trip). */
     private viewLinkResolver: ((state: Record<string, unknown> | undefined) => void) | undefined;
     private webviewReady = false;
@@ -169,6 +172,7 @@ export class WebviewProvider {
             this.pendingBlastRadius = undefined;
             this.pendingCaptureWarp = false;
             this.pendingViewLink = undefined;
+            this.pendingReview = undefined;
             this.viewLinkResolver = undefined;
             this.disposables.forEach(d => d.dispose());
             this.disposables = [];
@@ -808,6 +812,10 @@ export class WebviewProvider {
             this.panel.webview.postMessage({ type: 'applyViewLink', payload: this.pendingViewLink });
             this.pendingViewLink = undefined;
         }
+        if (this.pendingReview) {
+            this.panel.webview.postMessage({ type: 'reviewBranch', payload: this.pendingReview });
+            this.pendingReview = undefined;
+        }
         this.flushPendingFlow();
     }
 
@@ -1043,6 +1051,15 @@ export class WebviewProvider {
             return;
         }
         this.panel.webview.postMessage({ type: 'applyViewLink', payload });
+    }
+
+    /** Show the branch-review strip and drive the compare sliders. */
+    public reviewBranch(payload: BranchReviewPayload): void {
+        if (!this.panel || !this.webviewReady || !this.graphReady) {
+            this.pendingReview = payload;
+            return;
+        }
+        this.panel.webview.postMessage({ type: 'reviewBranch', payload });
     }
 
     /** Ask the webview to capture the current graph as a PNG. */
@@ -1347,6 +1364,17 @@ export class WebviewProvider {
 
         <!-- Middle Row: Explorer + Graph + Detail -->
         <div id="middle-row" class="tab-content active" data-tab="graph">
+            <!-- Branch review summary (V3-07) — driven by git, over the graph -->
+            <div id="review-bar" class="hidden">
+                <span class="review-label" id="review-label">main...HEAD</span>
+                <span class="review-stat" id="review-files">0 files</span>
+                <span class="review-stat" id="review-lines">+0 −0</span>
+                <span class="review-stat hidden" id="review-delta"></span>
+                <button id="review-blast" class="review-btn" title="Blast radius from every file the branch touched">💥 Blast</button>
+                <button id="review-compare" class="review-btn" title="Load the branch diff in Compare mode">⇄ Compare</button>
+                <button id="review-close" class="review-btn" title="Close the review summary">✕</button>
+            </div>
+
             <!-- Explorer Panel -->
             <aside id="explorer-panel" class="collapsed">
                 <div class="explorer-header"><h3>Files</h3><span class="explorer-btns"><button id="explorer-all" title="Check all">All</button><button id="explorer-none" title="Uncheck all">None</button></span></div>
@@ -2376,6 +2404,7 @@ export class WebviewProvider {
 
                 <h3>⏳ Time Travel</h3>
                 <p>Navigate git history commit by commit. Changed files are color-coded: <span style="color:#00ff88">● green</span> = added, <span style="color:#ff2080">● pink</span> = removed, <span style="color:#ffff00">● yellow</span> = modified. Edges follow the same scheme. Press <kbd>V</kbd> or click <strong>⇄</strong> to enter <strong>Compare mode</strong> with a dual slider to diff any two commits.</p>
+                <p><strong>Reviewing a branch</strong> — run <em>Aura: Review Current Branch</em> (or the compare icon in the Source Control title bar): Aura reads <code>git diff main...HEAD</code> and shows a strip over the graph with the touched files, <code>+/−</code> lines and the complexity delta, seeds <strong>💥 Blast</strong> from those files and pre-fills <strong>⇄ Compare</strong> with the merge-base and HEAD.</p>
 
                 <h3>✏️ Git Working Tree</h3>
                 <p>Files with uncommitted changes wear a thin <span style="color:#ffb300">● amber ring</span> in the graph — read straight from <code>git status</code> (modified, staged, untracked, renamed, conflicts). The detail panel shows the exact state on its <strong>Git</strong> line.</p>

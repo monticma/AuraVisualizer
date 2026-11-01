@@ -92,6 +92,59 @@ html, body {
     position: relative;
 }
 
+/* ============================================================
+   Branch review strip (V3-07)
+   ============================================================ */
+#review-bar {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 160;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border: 1px solid rgba(96, 165, 250, 0.55);
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.86);
+    backdrop-filter: blur(8px);
+    font-size: 12px;
+    white-space: nowrap;
+    max-width: calc(100% - 24px);
+    overflow: hidden;
+}
+.review-label {
+    font-weight: 600;
+    color: #93c5fd;
+}
+.review-stat {
+    opacity: 0.85;
+}
+#review-delta.up {
+    color: #ff8a80;
+}
+#review-delta.down {
+    color: #81c784;
+}
+.review-btn {
+    background: transparent;
+    border: 1px solid var(--aura-border);
+    color: var(--aura-fg);
+    opacity: 0.75;
+    padding: 2px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.review-btn:hover {
+    opacity: 1;
+    background: rgba(96, 165, 250, 0.1);
+    border-color: var(--aura-accent);
+}
+
 
 /* ============================================================
    Query Bar

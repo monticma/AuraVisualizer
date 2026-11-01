@@ -424,6 +424,9 @@
             case 'applyViewLink':
                 applyViewLinkPayload(message.payload);
                 break;
+            case 'reviewBranch':
+                applyReviewPayload(message.payload);
+                break;
             case 'restoreViewState':
                 if (message.payload) {
                     try { applyViewState(message.payload); } catch (e) { console.error('[aura] applyViewState failed:', e); }
@@ -550,6 +553,7 @@
         setupFollowEditor();
         setupExplorer();
         setupParseFailures();
+        setupReviewBar();
         if (window.AuraTimeline) AuraTimeline.setup();
         setupTabs();
         if (window.AuraQueryBar) {
@@ -929,6 +933,82 @@
         if (selectedNode && window.AuraDetail && detailEl && !detailEl.classList.contains('collapsed')) {
             AuraDetail.show(selectedNode);
         }
+    }
+
+    /**
+     * Branch review (V3-07): a compact strip over the graph that shows what git
+     * says the branch changed, drives the existing Time Travel compare with the
+     * merge-base and seeds a multi-source blast from the touched files.
+     */
+    var reviewState = null;
+
+    function hideReviewBar() {
+        var bar = $('#review-bar');
+        if (bar) bar.classList.add('hidden');
+        reviewState = null;
+    }
+
+    function reviewCompareHint(ok) {
+        var bar = $('#review-bar');
+        if (!bar) return;
+        bar.title = ok
+            ? 'Branch diff loaded in Compare mode (merge-base → HEAD)'
+            : 'History not indexed yet — the compare sliders need the Time Travel scan to finish';
+    }
+
+    function applyReviewPayload(payload) {
+        if (!payload || !Array.isArray(payload.files) || !payload.totals) return;
+        reviewState = payload;
+        var bar = $('#review-bar');
+        if (!bar) return;
+        if (activeTab !== 'graph') switchTab('graph');
+
+        var label = $('#review-label');
+        if (label) label.textContent = (payload.base || 'base') + '...HEAD';
+        var filesEl = $('#review-files');
+        if (filesEl) filesEl.textContent = payload.totals.files + (payload.totals.files === 1 ? ' file' : ' files');
+        var linesEl = $('#review-lines');
+        if (linesEl) linesEl.textContent = '+' + payload.totals.additions + ' −' + payload.totals.deletions;
+
+        var deltaEl = $('#review-delta');
+        if (deltaEl) {
+            var delta = 0;
+            for (var i = 0; i < payload.files.length; i++) {
+                if (typeof payload.files[i].complexityDelta === 'number') delta += payload.files[i].complexityDelta;
+            }
+            if (delta !== 0) {
+                deltaEl.textContent = 'Δcomplex ' + (delta > 0 ? '+' : '') + delta;
+                deltaEl.classList.toggle('up', delta > 0);
+                deltaEl.classList.toggle('down', delta < 0);
+                deltaEl.classList.remove('hidden');
+            } else {
+                deltaEl.classList.add('hidden');
+            }
+        }
+
+        bar.classList.remove('hidden');
+        var ok = !!(window.AuraTimeline && AuraTimeline.setCompareRange && AuraTimeline.setCompareRange(payload.mergeBase, 'HEAD'));
+        reviewCompareHint(ok);
+    }
+
+    function setupReviewBar() {
+        var blastBtn = $('#review-blast');
+        if (blastBtn) {
+            blastBtn.addEventListener('click', function() {
+                if (reviewState && Array.isArray(reviewState.seeds) && reviewState.seeds.length > 0) {
+                    startMultiNodeBlast(reviewState.seeds);
+                }
+            });
+        }
+        var compareBtn = $('#review-compare');
+        if (compareBtn) {
+            compareBtn.addEventListener('click', function() {
+                if (!reviewState || !window.AuraTimeline || !AuraTimeline.setCompareRange) return;
+                reviewCompareHint(!!AuraTimeline.setCompareRange(reviewState.mergeBase, 'HEAD'));
+            });
+        }
+        var closeBtn = $('#review-close');
+        if (closeBtn) closeBtn.addEventListener('click', hideReviewBar);
     }
 
     function setupRefresh() {

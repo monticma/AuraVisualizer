@@ -32,6 +32,8 @@ import { collectBlastTargets } from './commands/blast-targets';
 import { registerPaletteCommands } from './commands/palette';
 import { AuraHoverProvider } from './hover';
 import { buildViewLinkUri, decodeViewLink, sanitizeViewLinkPayload, stateParamFromQuery, VIEW_LINK_VERSION, type ViewLinkPayload } from './deeplinks';
+import { readBranchDiff } from './git/branch-diff';
+import { buildReviewPayload, computeComplexityDeltas, type BranchDiff } from './git/branch-diff-core';
 import { AuraCodeLensProvider, registerSymbolCommands } from './codelens';
 import { registerAskAuraCommands } from './commands/ask-aura';
 import { buildArchReportInput, generateArchReport, withAiNarrative, type ArchReportExtras, type ArchReportModule } from './report/arch-report';
@@ -397,6 +399,7 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('auraVisualizer.exportArchReport', () => exportArchReport()),
         vscode.commands.registerCommand('auraVisualizer.exportArchReportAI', () => exportArchReport(true)),
         vscode.commands.registerCommand('auraVisualizer.exportMetrics', () => exportMetrics()),
+        vscode.commands.registerCommand('auraVisualizer.reviewBranch', () => reviewCurrentBranch(context)),
         vscode.commands.registerCommand('auraVisualizer.blastRadius', (uri?: unknown, selection?: unknown) =>
             blastRadiusFromResources(context, uri, selection)),
         vscode.commands.registerCommand('auraVisualizer.statusBarRisk', (nodeId?: string) => focusRiskFromStatusBar(context, nodeId)),
@@ -2134,6 +2137,77 @@ async function handleViewLink(context: vscode.ExtensionContext, uri: vscode.Uri)
     // Queued by the provider until the next `graphRendered` handshake.
     webviewProvider.applyViewLink(decoded.payload);
     void vscode.window.setStatusBarMessage('Aura: view link applied', 3000);
+}
+
+// ============================================================
+// Branch review (V3-07) — git-native summary over Time Travel compare
+// ============================================================
+
+/**
+ * Hashes of the commits between HEAD and the merge-base, restricted to what the
+ * history scan actually indexed. An empty set means "no complexity delta" — a
+ * made-up zero would be worse than saying nothing.
+ */
+function reviewRangeHashes(mergeBase: string): Set<string> {
+    const hashes = new Set<string>();
+    for (const commit of commitIndex?.commits ?? []) {
+        if (commit.hash === mergeBase) return hashes;
+        hashes.add(commit.hash);
+    }
+    return new Set<string>();
+}
+
+/**
+ * `Aura: Review Current Branch` — ask git what the branch changed, then hand a
+ * summary to the panel. The visual diff itself is the existing Time Travel
+ * Compare mode: the webview pre-fills its sliders with the merge-base and HEAD.
+ */
+async function reviewCurrentBranch(context: vscode.ExtensionContext): Promise<void> {
+    const ws = vscode.workspace.workspaceFolders?.[0];
+    if (!ws) {
+        void vscode.window.showWarningMessage('Aura: open a folder first.');
+        return;
+    }
+
+    const configured = vscode.workspace.getConfiguration('auraVisualizer').get<string>('reviewBase', '');
+    let diff: BranchDiff;
+    try {
+        diff = await readBranchDiff(ws.uri.fsPath, configured);
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        void vscode.window.showWarningMessage(`Aura: ${message}.`);
+        return;
+    }
+    if (diff.files.length === 0) {
+        void vscode.window.showInformationMessage(`Aura: no changes versus ${diff.base}.`);
+        return;
+    }
+
+    await openVisualizer(context);
+    if (!webviewProvider) return;
+
+    const nodeIds = new Set<string>();
+    const currentComplexity = new Map<string, number>();
+    for (const node of cachedGraphData?.nodes ?? []) {
+        nodeIds.add(node.id);
+        currentComplexity.set(node.id, node.complexity ?? 1);
+    }
+    const range = reviewRangeHashes(diff.mergeBase);
+    const complexityDeltas = range.size > 0
+        ? computeComplexityDeltas(cachedDeltas, range, currentComplexity)
+        : new Map<string, number>();
+
+    const payload = buildReviewPayload(
+        diff,
+        repoPath => toWorkspaceRelative(repoPath, ws.uri.fsPath, diff.repoRoot),
+        nodeIds,
+        complexityDeltas,
+    );
+    webviewProvider.reviewBranch(payload);
+    void vscode.window.setStatusBarMessage(
+        `Aura: reviewing ${diff.base}...HEAD — ${payload.totals.files} files, +${payload.totals.additions} −${payload.totals.deletions}`,
+        4000,
+    );
 }
 
 async function exportGraphImage(context: vscode.ExtensionContext): Promise<void> {
