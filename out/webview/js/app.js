@@ -3033,6 +3033,26 @@
         });
     }
 
+    /**
+     * A node can be absent from the rendered dataset: documentation is opt-in
+     * and any language button can be switched off. Such a node has no force
+     * position, and focusing it used to write NaN into the camera — the graph
+     * then disappeared for good. Turn its language back on before selecting.
+     */
+    function revealFilteredNode(node) {
+        if (!node || !node.language) return false;
+        var key = languageFilterKey(node);
+        if (activeLanguages.has(key)) return false; // only the language removes a node
+        var btn = document.querySelector('#language-filters .filter-btn[data-lang="' + key + '"]');
+        if (!btn) return false;
+        activeLanguages.add(key);
+        btn.classList.add('active');
+        btn.style.display = '';
+        applyFilters();
+        saveViewState();
+        return true;
+    }
+
     function handleNodeClick(node, event) {
         if (window.AuraFlight && window.AuraFlight.isActive()) return; // pilot: clicks suspended
         if (!node) return;
@@ -3088,9 +3108,19 @@
             return;
         }
 
-        // Normal click: clear multi-selection, select single
+        // Normal click: clear multi-selection, select single. A node that the
+        // language / directory filters keep out of the dataset has no position
+        // yet: reveal it (or wait for the position) instead of moving the camera
+        // onto NaN, which makes the whole scene disappear.
+        var revealed = revealFilteredNode(node);
         selectNodeLikeClick(node);
-        graph.cameraPosition(nodeCameraPose(node), node, 1000);
+        if (revealed) {
+            deferFocus(node.id, true);
+        } else if (hasFinitePosition(node)) {
+            graph.cameraPosition(nodeCameraPose(node), node, 1000);
+        } else {
+            deferFocus(node.id, true);
+        }
     }
 
     function updateMultiSelectedLinks() {

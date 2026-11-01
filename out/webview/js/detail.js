@@ -994,6 +994,14 @@
             var listEl = $(prefix + 'list');
             if (listEl) listEl.innerHTML = '';
         }
+        // Clicking a transitive row selects another file: the sections stay
+        // open, and a `toggle` event only fires on a state change — an open
+        // section has to re-ask for the new node by itself.
+        if (!transitiveNodeId) return;
+        var outSection = document.getElementById('transitive-deps-section');
+        if (outSection && outSection.open) requestTransitive('out');
+        var inSection = document.getElementById('transitive-dependents-section');
+        if (inSection && inSection.open) requestTransitive('in');
     }
 
     function requestTransitive(direction) {
