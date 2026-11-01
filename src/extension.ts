@@ -30,6 +30,7 @@ import { registerAuraChatParticipant } from './chat/participant';
 import { registerNavigationCommands } from './commands/navigation';
 import { collectBlastTargets } from './commands/blast-targets';
 import { registerPaletteCommands } from './commands/palette';
+import { registerSymbolPaletteCommands } from './commands/symbol-palette';
 import { AuraHoverProvider } from './hover';
 import { buildViewLinkUri, decodeViewLink, sanitizeViewLinkPayload, stateParamFromQuery, VIEW_LINK_VERSION, type ViewLinkPayload } from './deeplinks';
 import { readBranchDiff } from './git/branch-diff';
@@ -471,6 +472,19 @@ export function activate(context: vscode.ExtensionContext): void {
             }
         },
     }));
+
+    // Aura: Find Symbol… (V3-09) — QuickPick over the symbol index, then the
+    // webview explodes the file and marks the exact symbol.
+    context.subscriptions.push(...registerSymbolPaletteCommands(
+        {
+            revealGraph: () => openVisualizer(context),
+            focusSymbolInGraph: (fileId, symbolName) => webviewProvider?.focusSymbolInGraph(fileId, symbolName),
+        },
+        {
+            symbols: (query, kind, limit) => (graphDb ? graphDb.searchSymbols(query, kind, limit) : []),
+            kindCounts: query => (graphDb ? graphDb.symbolKindCounts(query) : []),
+        },
+    ));
 
     // Watch for file changes (incremental)
     setupFileWatcher(context);

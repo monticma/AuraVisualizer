@@ -430,6 +430,11 @@
             case 'transitiveResult':
                 if (window.AuraDetail && AuraDetail.onTransitiveResult) AuraDetail.onTransitiveResult(message.payload);
                 break;
+            case 'focusSymbolInGraph':
+                if (message.payload && message.payload.fileId) {
+                    focusSymbolInGraph(message.payload.fileId, message.payload.symbolName || '');
+                }
+                break;
             case 'restoreViewState':
                 if (message.payload) {
                     try { applyViewState(message.payload); } catch (e) { console.error('[aura] applyViewState failed:', e); }
@@ -468,7 +473,8 @@
                 showCommunityPalette: showCommunityPalette,
                 hideCommunityPalette: hideCommunityPalette,
                 refreshCommunityPaletteCounts: refreshCommunityPaletteCounts,
-                selectNode: handleNodeClick
+                selectNode: handleNodeClick,
+                focusSymbol: focusSymbolInGraph
             });
             AuraPanels.setupSearch();
         }
@@ -3521,6 +3527,69 @@
             }
         }
         return null;
+    }
+
+    /**
+     * Node lookup over the LIVE dataset — includes the exploded symbol nodes
+     * (`file::symbol`) that only exist in `graph.graphData()`, not in the
+     * analysis payload.
+     */
+    function findLiveNode(nodeId) {
+        if (!graph || !nodeId) return findGraphNode(nodeId);
+        var nodes = [];
+        try { nodes = (graph.graphData() || {}).nodes || []; } catch (_) { nodes = []; }
+        for (var i = 0; i < nodes.length; i++) {
+            if (nodes[i] && nodes[i].id === nodeId) return nodes[i];
+        }
+        return findGraphNode(nodeId);
+    }
+
+    /** One-shot ripple on a node — marks where a search landed (V3-09). */
+    function pulseNode(nodeId) {
+        if (!graph || !window.AuraSprites || !AuraSprites.ripple) return;
+        var target = findLiveNode(nodeId);
+        if (!target || !hasFinitePosition(target) || !target.__threeObj) return;
+        var sprite = AuraSprites.ripple(Math.cbrt(getNodeSize(target) || 1) * 8);
+        if (!sprite) return;
+        sprite.position.set(0, 0, 0);
+        target.__threeObj.add(sprite);
+    }
+
+    /**
+     * Aura: Find Symbol… (V3-09) — reveal the file, fly to it, explode it and
+     * mark the exact symbol with a ripple. Search jumps only: ordinary clicks
+     * stay quiet.
+     */
+    function focusSymbolInGraph(fileId, symbolName) {
+        if (!graph || !graphData || !fileId) return false;
+        var node = findGraphNode(fileId);
+        if (!node) return false;
+        if (activeTab !== 'graph') switchTab('graph');
+        revealFilteredNode(node);
+        selectNodeLikeClick(node);
+        cancelInitialFit();
+        if (hasFinitePosition(node)) graph.cameraPosition(nodeCameraPose(node), node, 800);
+        else deferFocus(node.id, true);
+
+        var wanted = symbolName ? node.id + '::' + symbolName : '';
+        var symbols = node.symbols;
+        var hasSymbols = !!(symbols && ((symbols.functions && symbols.functions.length) || (symbols.structs && symbols.structs.length)));
+        if (wanted && hasSymbols && window.AuraStructure) {
+            AuraStructure.explodeFile(node);
+            // The exploded nodes join the live dataset on the next frame.
+            requestAnimationFrame(function () {
+                var symbolNode = findLiveNode(wanted);
+                if (symbolNode) {
+                    selectedNode = symbolNode;
+                    graph.nodeThreeObject(graph.nodeThreeObject());
+                    updateExplorerSelection();
+                }
+                pulseNode(symbolNode ? wanted : node.id);
+            });
+            return true;
+        }
+        pulseNode(node.id);
+        return true;
     }
 
     /** Selection + visual refresh + detail panel, exactly like a normal click. */

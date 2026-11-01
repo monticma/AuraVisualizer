@@ -331,6 +331,69 @@
     }
 
     // ============================================================
+    // Search ripple — one-shot ring marking where a search landed (V3-09)
+    // ============================================================
+    var RIPPLE_MS = 700;
+    var RIPPLE_SCALE_START = 0.9;
+    var RIPPLE_SCALE_END = 4.5;
+    var rippleTexture = null;
+
+    function getRippleTexture() {
+        if (rippleTexture) return rippleTexture;
+        var T = window.THREE;
+        var size = 128;
+        var canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        var ctx = canvas.getContext('2d');
+        var gradient = ctx.createRadialGradient(size / 2, size / 2, size * 0.2, size / 2, size / 2, size * 0.5);
+        gradient.addColorStop(0, 'rgba(147, 197, 253, 0)');
+        gradient.addColorStop(0.45, 'rgba(147, 197, 253, 0.08)');
+        gradient.addColorStop(0.72, 'rgba(147, 197, 253, 0.85)');
+        gradient.addColorStop(1, 'rgba(147, 197, 253, 0)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, size, size);
+        rippleTexture = new T.CanvasTexture(canvas);
+        return rippleTexture;
+    }
+
+    /**
+     * One-shot ring: grows and fades over ~700 ms, then removes itself from the
+     * scene and disposes its material. Driven by onBeforeRender like the note
+     * pulse — no global timer, and the sprite dies with its parent node so a
+     * rebuilt graph cannot leak it.
+     */
+    function getRippleSprite(baseScale) {
+        var T = window.THREE;
+        if (!T) return null;
+        var base = Math.max(6, (baseScale || 10) * RIPPLE_SCALE_START);
+        var material = new T.SpriteMaterial({
+            map: getRippleTexture(),
+            transparent: true,
+            depthTest: false,
+            depthWrite: false,
+            blending: T.AdditiveBlending,
+        });
+        var sprite = new T.Sprite(material);
+        sprite.scale.set(base, base, 1);
+        var started = performance.now();
+        sprite.onBeforeRender = function () {
+            var t = Math.min(1, (performance.now() - started) / RIPPLE_MS);
+            var scale = base * (RIPPLE_SCALE_START + (RIPPLE_SCALE_END - RIPPLE_SCALE_START) * t);
+            this.scale.set(scale, scale, 1);
+            this.material.opacity = 0.85 * (1 - t) * (1 - t);
+            this.updateMatrixWorld(true);
+            if (t >= 1) {
+                this.onBeforeRender = null;
+                this.visible = false;
+                if (this.parent) this.parent.remove(this);
+                this.material.dispose();
+            }
+        };
+        return sprite;
+    }
+
+    // ============================================================
     // Public API
     // ============================================================
     window.AuraSprites = {
@@ -342,6 +405,7 @@
         noteDot: getNoteDotSprite,
         noteRing: getNoteRingSprite,
         attachPulse: attachNotePulse,
+        ripple: getRippleSprite,
         cloneWithMaterial: cloneSpriteWithMaterial,
         /** Drop a cached label (file re-analysed). */
         invalidateLabel: function (name) {

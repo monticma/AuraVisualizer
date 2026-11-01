@@ -1044,13 +1044,23 @@ export class GraphDB {
     }
 
     /** Search symbols by name (LIKE match). */
-    searchSymbols(query: string, kind?: string): { nodeId: string; name: string; kind: string; line: number; visibility: string; isStatic: boolean; isAsync: boolean; cognitive: number | null; maintainability: number | null }[] {
+    searchSymbols(query: string, kind?: string, limit: number = 100): { nodeId: string; name: string; kind: string; line: number; visibility: string; isStatic: boolean; isAsync: boolean; cognitive: number | null; maintainability: number | null }[] {
         const db = this.ensureDb();
+        const cappedLimit = Math.min(1000, Math.max(1, Math.floor(limit)));
         const sql = 'SELECT node_id AS nodeId, name, kind, line, visibility, is_static AS isStatic, is_async AS isAsync, cognitive, maintainability FROM symbols WHERE name LIKE ?' +
-            (kind ? ' AND kind = ?' : '') + ' ORDER BY name LIMIT 100';
+            (kind ? ' AND kind = ?' : '') + ' ORDER BY name LIMIT ' + cappedLimit;
         const params = kind ? [`%${query}%`, kind] : [`%${query}%`];
         const rows = queryAll<{ nodeId: string; name: string; kind: string; line: number; visibility: string; isStatic: number; isAsync: number; cognitive: number | null; maintainability: number | null }>(db, sql, params);
         return rows.map(r => ({ ...r, isStatic: !!r.isStatic, isAsync: !!r.isAsync, visibility: r.visibility || 'public' }));
+    }
+
+    /** Symbol count per kind — drives the kind chips of the symbol picker. */
+    symbolKindCounts(query: string = ''): { kind: string; count: number }[] {
+        return queryAll<{ kind: string; count: number }>(
+            this.ensureDb(),
+            'SELECT kind, COUNT(*) AS count FROM symbols WHERE name LIKE ? GROUP BY kind ORDER BY kind',
+            [`%${query}%`],
+        );
     }
 
     /** Get heritage edges (extends, implements). */

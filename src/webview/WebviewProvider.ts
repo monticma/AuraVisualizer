@@ -82,6 +82,8 @@ export class WebviewProvider {
     private pendingViewLink: ViewLinkPayload | undefined;
     /** Branch review summary (V3-07) waiting for the next `graphRendered`. */
     private pendingReview: BranchReviewPayload | undefined;
+    /** Symbol search jump (V3-09) waiting for the next `graphRendered`. */
+    private pendingSymbolFocus: { fileId: string; symbolName: string } | undefined;
     /** Pending answer to `requestViewLink` (palette "copy link" round-trip). */
     private viewLinkResolver: ((state: Record<string, unknown> | undefined) => void) | undefined;
     private webviewReady = false;
@@ -175,6 +177,7 @@ export class WebviewProvider {
             this.pendingCaptureWarp = false;
             this.pendingViewLink = undefined;
             this.pendingReview = undefined;
+            this.pendingSymbolFocus = undefined;
             this.viewLinkResolver = undefined;
             this.disposables.forEach(d => d.dispose());
             this.disposables = [];
@@ -830,6 +833,10 @@ export class WebviewProvider {
             this.panel.webview.postMessage({ type: 'reviewBranch', payload: this.pendingReview });
             this.pendingReview = undefined;
         }
+        if (this.pendingSymbolFocus) {
+            this.panel.webview.postMessage({ type: 'focusSymbolInGraph', payload: this.pendingSymbolFocus });
+            this.pendingSymbolFocus = undefined;
+        }
         this.flushPendingFlow();
     }
 
@@ -1074,6 +1081,16 @@ export class WebviewProvider {
             return;
         }
         this.panel.webview.postMessage({ type: 'reviewBranch', payload });
+    }
+
+    /** Reveal a file, explode it and mark one of its symbols (V3-09). */
+    public focusSymbolInGraph(fileId: string, symbolName: string): void {
+        if (!fileId) return;
+        if (!this.panel || !this.webviewReady || !this.graphReady) {
+            this.pendingSymbolFocus = { fileId, symbolName };
+            return;
+        }
+        this.panel.webview.postMessage({ type: 'focusSymbolInGraph', payload: { fileId, symbolName } });
     }
 
     /** Ask the webview to capture the current graph as a PNG. */
@@ -2435,6 +2452,9 @@ export class WebviewProvider {
 
                 <h3>🔁 Symbol Cycles</h3>
                 <p>Aura builds a function→function call graph from every resolved call site. <strong>Direct recursion</strong> (<code>walk() → walk()</code>) and <strong>mutual recursion</strong> (<code>parse() → validate() → parse()</code>) are shown in the detail panel's <strong>🔄 Symbol cycles</strong> section with the file and call line of every step, and the flowchart badge adds <strong>🔁 recursive</strong> or <strong>🔁 mutual recursion</strong>. Calls that resolve to several same-name candidates are marked <strong>ambiguous</strong> (confidence 0.5). Cycles are persisted in <code>.aura/graph.db</code> and exposed by the <code>find_cycles</code> MCP tool as <code>symbol_cycles</code>.</p>
+
+                <h3>🔎 Find Symbol</h3>
+                <p>The top-right search box lists files first, then matching <strong>symbols</strong> (⚡ <code>path:line</code>): clicking a symbol explodes its file and ripples the exact function. From anywhere in VS Code, <strong>Aura: Find Symbol…</strong> opens a QuickPick over the whole symbol index — kind chips (<code>function (82)</code>, <code>method (140)</code>…) as the first rows, live filtering, ↑↓ then Enter to jump to the exploded symbol.</p>
 
                 <h3>🔗 Share a View</h3>
                 <p><strong>🔗 Link</strong> (top bar) copies a <code>vscode://</code> link that reopens this exact view elsewhere: active tab, every filter, the camera pose (anchored to the files in view, like a warp) and the query expression. Paste it in a chat or an issue — opening it launches VS Code, opens Aura and applies the view once the graph is rendered. The payload is versioned, capped at 8 KB and fully validated: a corrupted link shows a message instead of breaking the panel.</p>

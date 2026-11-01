@@ -149,16 +149,31 @@
             }
 
             var results = [];
-            for (var i = 0; i < hooks.getGraphData().nodes.length; i++) {
-                var n = hooks.getGraphData().nodes[i];
-                if (n.name.toLowerCase().indexOf(query) !== -1 ||
-                    n.path.toLowerCase().indexOf(query) !== -1) {
+            var symbolHits = [];
+            var nodes = hooks.getGraphData().nodes;
+            for (var i = 0; i < nodes.length; i++) {
+                var n = nodes[i];
+                if (results.length < 10 &&
+                    (n.name.toLowerCase().indexOf(query) !== -1 ||
+                     n.path.toLowerCase().indexOf(query) !== -1)) {
                     results.push(n);
-                    if (results.length >= 10) break;
+                }
+                // Symbol search (V3-09): the file rows stay first, then the
+                // matching functions/structs of the analysed files.
+                if (symbolHits.length < 10 && n.symbols) {
+                    var lists = [n.symbols.functions || [], n.symbols.structs || []];
+                    for (var l = 0; l < lists.length && symbolHits.length < 10; l++) {
+                        for (var s = 0; s < lists[l].length && symbolHits.length < 10; s++) {
+                            var sym = lists[l][s];
+                            if (sym && sym.name && sym.name.toLowerCase().indexOf(query) !== -1) {
+                                symbolHits.push({ node: n, symbol: sym });
+                            }
+                        }
+                    }
                 }
             }
 
-            if (results.length === 0) {
+            if (results.length === 0 && symbolHits.length === 0) {
                 searchResults.classList.add('hidden');
                 return;
             }
@@ -183,6 +198,26 @@
                     });
                     searchResults.appendChild(item);
                 })(results[r]);
+            }
+
+            for (var s2 = 0; s2 < symbolHits.length; s2++) {
+                (function(hit) {
+                    var item = document.createElement('div');
+                    item.className = 'search-result-item search-result-symbol';
+                    item.innerHTML =
+                        '<span>⚡</span>' +
+                        '<div>' +
+                            '<div class="result-name">' + highlightMatch(hit.symbol.name, query) + '</div>' +
+                            '<div class="result-path">' + escapeHtml(hit.node.path) + ':' + (hit.symbol.line || 0) + '</div>' +
+                        '</div>';
+                    item.title = 'Explode ' + hit.node.name + ' and mark ' + hit.symbol.name;
+                    item.addEventListener('click', function() {
+                        if (hooks.focusSymbol) hooks.focusSymbol(hit.node.id, hit.symbol.name);
+                        searchResults.classList.add('hidden');
+                        searchInput.value = hit.symbol.name;
+                    });
+                    searchResults.appendChild(item);
+                })(symbolHits[s2]);
             }
 
             searchResults.classList.remove('hidden');

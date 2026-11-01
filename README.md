@@ -470,7 +470,9 @@ Press `V` or click the **⇄ Compare** button to enter **Compare mode**. A secon
 
 ### Search
 
-Type in the search box (2+ characters) to find files by name or path. Results appear in a live dropdown — click to navigate.
+Type in the search box (2+ characters) to find files by name or path — and, since V3-09, **symbols** too: matching functions/structs appear after the file rows (⚡ icon, `path:line`) and clicking one explodes the file in the graph and marks that exact function with a one-shot ripple. Results appear in a live dropdown — click to navigate.
+
+From anywhere in VS Code, **Aura: Find Symbol…** opens a QuickPick over the whole symbol index: kind chips (`function (82)`, `method (140)`, …) as the first rows of the list, live filtering as you type, ↑↓ to navigate, Enter to jump (graph opens on the file, exploded, symbol highlighted and rippled). 10 000 symbols stay instant: the query is capped at 200 rows and the kind chips come from a single `GROUP BY`.
 
 ### Import Hover 💬
 
@@ -659,6 +661,7 @@ You can also open the visualizer from the **Aura** icon in the Activity Bar or v
 | Aura: Show Risk Map | — | Open the Risk tab, or reveal the clicked hotspot |
 | Aura: Show Architecture | — | Open the Architecture tab |
 | Aura: Copy View Link | — | Copy a `vscode://` link that reopens this exact view (tab, filters, camera, query) |
+| Aura: Find Symbol… | — | QuickPick over every indexed symbol, with kind chips → graph focus + explosion + ripple |
 | Aura: Review Current Branch | — | Diff the branch against its merge-base: touched files, ±lines, Δcomplexity, blast and compare |
 
 ## Keyboard Shortcuts (in graph)
