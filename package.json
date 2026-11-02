@@ -636,6 +636,11 @@
           "default": false,
           "description": "Refresh the agent-facing context files after every analysis: .aura/HOTSPOTS.md, .aura/hotspots.json and the delimited aura:begin/aura:end block of AGENTS.md, .github/copilot-instructions.md or CLAUDE.md. Off by default — run 'Aura: Generate Agent Context' once to create the block, then enable this to keep it current."
         },
+        "auraVisualizer.edgeClickSelect": {
+          "type": "boolean",
+          "default": true,
+          "description": "Clicking an edge also multi-selects both of its endpoints (aggregate stats in the detail panel). Turn off to only frame and glow the edge. Clicking an edge always frames both nodes and lights the edge with a pink glow."
+        },
         "auraVisualizer.savedQueries": {
           "type": "array",
           "default": [],

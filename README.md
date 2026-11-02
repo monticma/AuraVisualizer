@@ -112,7 +112,7 @@ Aura computes a **PageRank** centrality over the structural **code** graph (`sou
 | **Click** | Select node, show detail panel, focus camera |
 | **Double-click** | Open file in VS Code editor |
 | **Right-click** | Pin focus — isolate file + neighbors up to N depth |
-| **Click an edge** | Frame both endpoints — the camera keeps its angle and pulls back just enough to fit the pair; the edge stays highlighted until the next click |
+| **Click an edge** | Frame both endpoints and **glow the edge pink** — the camera keeps its angle and pulls back just enough to fit the pair; the edge stays lit until the next click. Both files are multi-selected too, so the detail panel shows their aggregate stats (`auraVisualizer.edgeClickSelect` turns the selection off) |
 | **Shift+Right-click** | Blast radius — show impact (all dependents) with depth coloring |
 | **Shift+Click** | Multi-select — aggregate stats for multiple files |
 | **Scroll** | Zoom in / out |
@@ -595,6 +595,7 @@ The **⚙️ button** in the tab bar (next to 🔍 Query) opens an in-app settin
 | **Gamepad in pilot mode** | Fly with a DualSense/Xbox pad (W3C standard mapping) — on by default, ignored outside pilot mode |
 | `auraVisualizer.codeLens` | `true` | `⟡ focus · flow · impact` CodeLens above the symbols of analyzed files |
 | `auraVisualizer.agentContext` | Refresh `.aura/HOTSPOTS.md`, `.aura/hotspots.json` and the `aura:begin` block after every analysis (off — the command is enough until you opt in) |
+| `auraVisualizer.edgeClickSelect` | Clicking an edge also multi-selects both endpoints (`true`); turn off to only frame and glow the edge |
 | **Follow editor** | Fly the camera to the file of the active editor (👁 toolbar toggle) |
 | **Auto-refresh on save** | Re-analyze changed files automatically |
 

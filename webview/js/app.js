@@ -35,6 +35,8 @@
     var highlightLinks = new Set();
     var focusedLink = null;    // edge clicked last (V3-11) — drawn brighter until another click
     var LINK_PICK_PRECISION = 6; // raycast tolerance when picking an edge (default is 1 px)
+    var EDGE_GLOW_COLOR = 0xff4fa3; // pink glow laid along the clicked edge
+    var edgeClickSelectBoth = (window.AURA_CONFIG && window.AURA_CONFIG.edgeClickSelect) !== false;
     var activeLanguages = new Set(['c-source', 'c-header', 'cpp-source', 'cpp-header', 'javascript', 'typescript', 'python', 'css', 'html', 'java', 'go', 'rust', 'csharp', 'php', 'vue', 'bash', 'lua']);
     var dagMode = false;
     var showOrphans = false;
@@ -1110,6 +1112,7 @@
                     if (this.type === 'checkbox') value = this.checked;
                     else if (this.type === 'number' || this.type === 'range') value = parseFloat(this.value);
                     else value = this.value;
+                    applyLocalSetting(key, value);
                     vscode.postMessage({ type: 'updateSetting', payload: { key: key, value: value } });
                 });
             }
@@ -2324,6 +2327,7 @@
         // Remember what was fed so a no-op filter change never re-feeds it.
         lastFeedKey = feedKeyFor(filtered);
         focusedLink = null; // links are rebuilt with the dataset
+        disposeEdgeGlow();
 
         // Apply spread forces
         applySpreadForces();
@@ -2776,7 +2780,7 @@
 
     function getLinkColor(link) {
         // V3-11 — the edge clicked last stays lit so the framed pair is obvious.
-        if (focusedLink && link === focusedLink) return '#ffd166';
+        if (focusedLink && link === focusedLink) return '#ff4fa3';
         if (link && link._cochange) return '#e879f9';
         if (showOrphans) return '#ffffff02';
         if (showDeadCode) return '#ffffff08';
@@ -3187,6 +3191,7 @@
         // already cleared when the pointer left the node).
         var hadLinkWidthState = multiSelectedLinks.size > 0 || flowTraceMode;
         focusedLink = null;
+        disposeEdgeGlow();
         selectedNode = null;
         multiSelectedNodes.clear();
         multiSelectedLinks.clear();
@@ -3753,21 +3758,144 @@
 
     /** Drop the edge highlight — a node or background click takes over. */
     function clearFocusedLink() {
+        disposeEdgeGlow();
         if (!focusedLink) return;
         focusedLink = null;
         if (graph) graph.linkColor(graph.linkColor());
     }
 
     /**
+     * The in-app ⚙️ modal only posts the setting to the host; keep the live
+     * webview in sync so a toggle takes effect without reopening the panel.
+     */
+    function applyLocalSetting(key, value) {
+        if (window.AURA_CONFIG) window.AURA_CONFIG[key] = value;
+        if (key === 'edgeClickSelect') edgeClickSelectBoth = value !== false;
+    }
+
+    // --- Edge glow --------------------------------------------------------
+    // A cylinder drawn twice with additive materials (bright core + soft halo)
+    // along the clicked edge. Additive blending glows on any GPU, unlike the
+    // bloom pass which only exists in the "bloom" selected-node effect.
+    var edgeGlow = null;   // { group, scene, source, target, up, raf }
+
+    function disposeEdgeGlow() {
+        if (!edgeGlow) return;
+        var glow = edgeGlow;
+        edgeGlow = null;
+        if (glow.raf) cancelAnimationFrame(glow.raf);
+        try { glow.scene.remove(glow.group); } catch (_) { /* scene already gone */ }
+        glow.group.traverse(function(obj) {
+            if (obj.geometry && typeof obj.geometry.dispose === 'function') obj.geometry.dispose();
+            if (obj.material && typeof obj.material.dispose === 'function') obj.material.dispose();
+        });
+    }
+
+    /** Follow the two endpoints frame by frame (the force engine keeps moving). */
+    function updateEdgeGlow(glow) {
+        var T = window.THREE;
+        if (!T || !glow) return;
+        var from = glow.source;
+        var to = glow.target;
+        if (!hasFinitePosition(from) || !hasFinitePosition(to)) return;
+        var start = new T.Vector3(from.x, from.y, from.z);
+        var direction = new T.Vector3(to.x, to.y, to.z).sub(start);
+        var length = direction.length();
+        if (!(length > 1e-3)) {
+            glow.group.visible = false;
+            return;
+        }
+        glow.group.visible = true;
+        glow.group.position.copy(start).addScaledVector(direction, 0.5);
+        glow.group.quaternion.setFromUnitVectors(glow.up, direction.normalize());
+        glow.group.scale.set(1, length, 1);   // the cylinder is 1 unit tall
+    }
+
+    function startEdgeGlow(link) {
+        disposeEdgeGlow();
+        var T = window.THREE;
+        if (!T || !graph || typeof graph.scene !== 'function') return false;
+        var source = resolveLinkEnd(link.source);
+        var target = resolveLinkEnd(link.target);
+        if (!source || !target || source === target) return false;
+        if (!hasFinitePosition(source) || !hasFinitePosition(target)) return false;
+
+        var scene = graph.scene();
+        if (!scene || typeof scene.add !== 'function') return false;
+
+        // Thickness follows the node sizes so tiny files still get a visible rod.
+        var base = (Math.cbrt(getNodeSize(source) || 1) + Math.cbrt(getNodeSize(target) || 1)) / 2;
+        var coreRadius = Math.min(2.2, Math.max(0.45, base * 0.30));
+        var haloRadius = coreRadius * 3.2;
+
+        var group = new T.Group();
+        group.renderOrder = 2;
+        group.add(new T.Mesh(
+            new T.CylinderGeometry(coreRadius, coreRadius, 1, 12, 1, true),
+            new T.MeshBasicMaterial({
+                color: EDGE_GLOW_COLOR,
+                transparent: true,
+                opacity: 0.95,
+                blending: T.AdditiveBlending,
+                depthWrite: false,
+                side: T.DoubleSide
+            })
+        ));
+        group.add(new T.Mesh(
+            new T.CylinderGeometry(haloRadius, haloRadius, 1, 12, 1, true),
+            new T.MeshBasicMaterial({
+                color: EDGE_GLOW_COLOR,
+                transparent: true,
+                opacity: 0.16,
+                blending: T.AdditiveBlending,
+                depthWrite: false,
+                side: T.DoubleSide
+            })
+        ));
+        scene.add(group);
+
+        var glow = { group: group, scene: scene, source: source, target: target, up: new T.Vector3(0, 1, 0), raf: 0 };
+        edgeGlow = glow;
+        updateEdgeGlow(glow);
+
+        function tick() {
+            if (edgeGlow !== glow) return;   // disposed in the meantime
+            updateEdgeGlow(glow);
+            glow.raf = requestAnimationFrame(tick);
+        }
+        glow.raf = requestAnimationFrame(tick);
+        return true;
+    }
+
+    /** Select both endpoints so the aggregate stats of the pair show up. */
+    function selectEdgePair(source, target) {
+        if (!graph || !source || !target || source === target) return false;
+        multiSelectedNodes.clear();
+        multiSelectedNodes.add(source);
+        multiSelectedNodes.add(target);
+        selectedNode = null;
+        updateMultiSelectedLinks();
+        refreshGraphVisuals();
+        updateExplorerSelection();
+        if (window.AuraDetail) AuraDetail.showMultiSelect();
+        return true;
+    }
+
+    /**
      * V3-11 — clicking an edge frames both of its endpoints: the camera keeps
-     * its viewing direction, pulls back just enough to fit the pair, and the
-     * edge stays highlighted until another click.
+     * its viewing direction, pulls back just enough to fit the pair, the edge
+     * glows pink until another click and (optionally) both endpoints are
+     * multi-selected so their aggregate stats show up.
      */
     function handleLinkClick(link) {
         if (!graph || !link) return null;
         if (window.AuraFlight && window.AuraFlight.isActive()) return null; // pilot: clicks suspended
         setFocusedLink(link);
-        return frameNodes([resolveLinkEnd(link.source), resolveLinkEnd(link.target)], 800);
+        var source = resolveLinkEnd(link.source);
+        var target = resolveLinkEnd(link.target);
+        startEdgeGlow(link);
+        if (edgeClickSelectBoth) selectEdgePair(source, target);
+        return frameNodes([source, target], 800);
     }
 
     /**

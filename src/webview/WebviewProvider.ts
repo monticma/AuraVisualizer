@@ -40,6 +40,7 @@ const SETTING_NORMALIZERS: Record<string, (v: unknown) => unknown> = {
     hover: (v) => v !== false,
     autoRefresh: (v) => v === true,
     followEditor: (v) => v === true,
+    edgeClickSelect: (v) => v !== false,
 };
 
 function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
@@ -1204,6 +1205,7 @@ export class WebviewProvider {
                 hover: config.get<boolean>('hover', true) !== false,
                 autoRefresh: config.get<boolean>('autoRefresh', true),
                 followEditor: config.get<boolean>('followEditor', true),
+                edgeClickSelect: config.get<boolean>('edgeClickSelect', true) !== false,
             });
         } catch { return '{}'; }
     }
@@ -2235,6 +2237,10 @@ export class WebviewProvider {
                     <input id="set-followEditor" data-setting="followEditor" type="checkbox" />
                 </div>
                 <div class="settings-row">
+                    <label for="set-edgeClickSelect">Select both nodes on edge click<span class="settings-hint">Clicking an edge always frames both files and glows the edge pink; this also multi-selects them</span></label>
+                    <input id="set-edgeClickSelect" data-setting="edgeClickSelect" type="checkbox" />
+                </div>
+                <div class="settings-row">
                     <label for="set-flightSpeed">Flight speed<span class="settings-hint">Pilot mode base speed (×, scene-scaled)</span></label>
                     <input id="set-flightSpeed" data-setting="flightSpeed" type="number" min="0.25" max="4" step="0.05" />
                 </div>
@@ -2590,7 +2596,7 @@ export class WebviewProvider {
                     <tr><td><span style="color:#b0bec5">┈┈</span> <strong>doc-reference</strong></td><td>Symbol / filename mention inside a <code>.md</code> / <code>.txt</code> / <code>.rst</code> file</td></tr>
                     <tr><td><span style="color:#e879f9">━━</span> <strong>co-change</strong></td><td>Virtual temporal-coupling link (not a code dependency)</td></tr>
                 </table>
-                <p><strong>Clicking an edge</strong> frames both of its endpoints: the camera keeps the angle you are looking from and pulls back just far enough for the pair to fit (bounding sphere + FOV, 20 % padding). The clicked edge turns amber and stays lit until you click a node, the background or another edge. Edges are picked with a wider raycast tolerance than their 1–2 px width, so they are easy to hit.</p>
+                <p><strong>Clicking an edge</strong> frames both of its endpoints and draws a <strong>pink glow</strong> along it: the camera keeps the angle you are looking from and pulls back just enough for the pair to fit (bounding sphere + FOV, 20 % padding). The glow is a pair of additive cylinders that follow the nodes frame by frame, so it works on any GPU — unlike the bloom pass, which needs the <em>bloom</em> selected-node effect. Both files are multi-selected as well (aggregate stats in the detail panel); <code>auraVisualizer.edgeClickSelect</code> turns that selection off. The highlight clears on the next click. Edges are picked with a wider raycast tolerance than their 1–2 px width, so they are easy to hit.</p>
 
                 <h3>📄 Documentation in the Graph</h3>
                 <p>Markdown, plain-text and reStructuredText files (<code>.md</code>, <code>.markdown</code>, <code>.txt</code>, <code>.rst</code>) are first-class nodes. They are <strong>hidden by default</strong> — toggle the <strong>📄 Docs</strong> button in the toolbar to show them.</p>
