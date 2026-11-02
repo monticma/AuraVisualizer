@@ -17,8 +17,14 @@
 
 ---
 
-## What's New in 1.5.0
+## What's New in 1.5.1
 
+- **🔗 Shareable view links** — **🔗 Link** (toolbar) or `Aura: Copy View Link` copies a `vscode://` URI that reopens the exact view: tab, every filter, the file-anchored camera pose and the query. Versioned, 8 KB-capped and fully validated on arrival.
+- **🌿 Branch review** — `Aura: Review Current Branch` runs `git diff main...HEAD` (renames followed, no shell) and shows a strip over the graph: files, `+/−` lines, Δcomplexity, with **💥 Blast** and a **⇄ Compare** that pre-fills the Time Travel sliders. `auraVisualizer.reviewBase` picks the base.
+- **🔗 Transitive imports** — the detail panel gains **Transitive imports / dependents**: closure on demand, deepest chain, depth badges, click to select; the same closure enriches `find_dependencies` / `find_dependents` (`max_depth`, `by_depth`, `longest_chain`).
+- **🔎 Find Symbol** — `Aura: Find Symbol…` is a QuickPick over every indexed symbol with **kind chips**, live filtering and ↑↓; selecting one reveals the file, **explodes** it and marks the exact function with a one-shot ripple. The graph search box now returns symbols too.
+- **💥 Blast radius from the code · 🎛️ Enriched Command Palette · 💬 Import hover · ⟡ Symbol CodeLens · 🛡️ One status-bar switch** — impact analysis, file/query/warp palettes, import metrics on hover, per-symbol lenses and a single `auraVisualizer.statusBar` toggle for every badge.
+- **Fixed in 1.5.1** — documentation nodes that rendered almost black in the layers/communities heatmaps, a blank PNG export from any non-3D tab, transitive sections that went blank after a click, and a filtered-out file whose focus used to poison the camera.
 - **Architecture rules 🏛️** — declare layers, deny rules, sibling `slices`, aggregated `no-cycles`, exceptions and a baseline in `.aura/arch-rules.json`. A pure engine shared by the extension, the webview (`window.AuraArch`) and MCP evaluates violations and Martin coupling (`Ca`/`Ce`/`I`) on every analysis. New surfaces: **🏛️ Architecture** tab, **Architecture layers** heatmap with red forbidden edges, layer grouping in Matrix/Chord/Table, status-bar violations for the active file, detail-panel section, query fields and the `get_architecture_violations` MCP tool. Documentation stays outside the model.
 - **Adoption baseline** — freeze legacy violations in `.aura/arch-baseline.json`; only new ones alert.
 - **Rules editors** — the Architecture tab and **⚙️ Settings → Architecture rules** use a structured editor (layers, deny targets, slices, cycles, exceptions) with validation before saving. Dead-code exemptions get the same treatment: reason, exact names, regex, globs, languages and kinds are edited as forms, reordered, and validated by the analysis parser; raw JSON stays available as an escape hatch.
