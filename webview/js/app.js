@@ -3774,10 +3774,16 @@
     }
 
     // --- Edge glow --------------------------------------------------------
-    // A cylinder drawn twice with additive materials (bright core + soft halo)
-    // along the clicked edge. Additive blending glows on any GPU, unlike the
-    // bloom pass which only exists in the "bloom" selected-node effect.
-    var edgeGlow = null;   // { group, scene, source, target, up, raf }
+    // Two shells (bright core + wide halo) with additive blending along the
+    // clicked edge — that glows on any GPU, unlike the bloom pass which only
+    // exists in the "bloom" selected-node effect.
+    //
+    // Curved links are tube meshes built from a QuadraticBezierCurve3 that
+    // three-forcegraph keeps on `link.__curve`; the glow follows that exact
+    // curve (TubeGeometry) instead of cutting a straight chord across it, and
+    // falls back to a cylinder in straight mode.
+    var edgeGlow = null;   // { group, scene, link, source, target, core, halo, ... }
+    var EDGE_GLOW_SEGMENTS = 48;
 
     function disposeEdgeGlow() {
         if (!edgeGlow) return;
@@ -3791,10 +3797,95 @@
         });
     }
 
-    /** Follow the two endpoints frame by frame (the force engine keeps moving). */
+    /** Radius of the link tube drawn by three-forcegraph: `linkWidth / 2`. */
+    function linkTubeRadius(link) {
+        var width = 1;
+        try { width = getLinkWidth(link); } catch (_) { width = 1; }
+        if (!(width > 0)) width = 1;
+        return Math.ceil(10 * width) / 10 / 2;
+    }
+
+    /**
+     * The curve the library actually draws: it recomputes and stores it on
+     * `link.__curve` on every tick. The same control point is rebuilt here as a
+     * fallback, so a click right after a style change still curves.
+     */
+    function currentLinkCurve(glow) {
+        var link = glow.link;
+        if (link && link.__curve && typeof link.__curve.getPoint === 'function') return link.__curve;
+
+        var cfg = window.AURA_CONFIG || {};
+        if (cfg.linkStyle !== 'curved') return null;
+        var T = window.THREE;
+        var from = glow.source;
+        var to = glow.target;
+        if (!T || !hasFinitePosition(from) || !hasFinitePosition(to)) return null;
+        var curvature = typeof cfg.linkCurvature === 'number' ? cfg.linkCurvature : 0.25;
+        if (!(curvature > 0)) return null;
+
+        var start = new T.Vector3(from.x, from.y || 0, from.z || 0);
+        var end = new T.Vector3(to.x, to.y || 0, to.z || 0);
+        if (!(start.distanceTo(end) > 1e-3)) return null;
+        // three-forcegraph: control = midpoint + normal(direction) * length * curvature
+        var direction = new T.Vector3().subVectors(end, start);
+        var horizontal = (end.x - start.x) !== 0 || (end.y - start.y) !== 0;
+        var control = direction.clone().multiplyScalar(curvature)
+            .cross(horizontal ? new T.Vector3(0, 0, 1) : new T.Vector3(0, 1, 0))
+            .add(new T.Vector3().addVectors(start, end).divideScalar(2));
+        return new T.QuadraticBezierCurve3(start, control, end);
+    }
+
+    /** Cheap identity of a curve — a new object is created on every tick. */
+    function curveSignature(curve) {
+        var parts = [];
+        for (var i = 0; i < 4; i++) {
+            var point = curve && curve['v' + i];
+            if (point) parts.push(point.x.toFixed(2), point.y.toFixed(2), point.z.toFixed(2));
+        }
+        return parts.join(',');
+    }
+
+    /** Swap the shells between cylinder and tube geometry when the style flips. */
+    function setGlowMode(glow, mode) {
+        var T = window.THREE;
+        if (!T || glow.mode === mode) return;
+        glow.mode = mode;
+        glow.signature = '';
+        glow.core.geometry.dispose();
+        glow.halo.geometry.dispose();
+        if (mode === 'cylinder') {
+            glow.core.geometry = new T.CylinderGeometry(glow.coreRadius, glow.coreRadius, 1, 16, 1, true);
+            glow.halo.geometry = new T.CylinderGeometry(glow.haloRadius, glow.haloRadius, 1, 16, 1, true);
+        } else {
+            glow.core.geometry = new T.BufferGeometry();
+            glow.halo.geometry = new T.BufferGeometry();
+        }
+    }
+
+    /** Follow the link frame by frame (the force engine keeps moving the nodes). */
     function updateEdgeGlow(glow) {
         var T = window.THREE;
         if (!T || !glow) return;
+
+        var curve = currentLinkCurve(glow);
+        if (curve) {
+            setGlowMode(glow, 'tube');
+            glow.group.visible = true;
+            glow.group.position.set(0, 0, 0);
+            glow.group.quaternion.identity();
+            glow.group.scale.set(1, 1, 1);   // the tube is already in world space
+            var signature = curveSignature(curve);
+            if (signature !== glow.signature) {
+                glow.signature = signature;
+                glow.core.geometry.dispose();
+                glow.halo.geometry.dispose();
+                glow.core.geometry = new T.TubeGeometry(curve, EDGE_GLOW_SEGMENTS, glow.coreRadius, 8, false);
+                glow.halo.geometry = new T.TubeGeometry(curve, EDGE_GLOW_SEGMENTS, glow.haloRadius, 8, false);
+            }
+            return;
+        }
+
+        setGlowMode(glow, 'cylinder');
         var from = glow.source;
         var to = glow.target;
         if (!hasFinitePosition(from) || !hasFinitePosition(to)) return;
@@ -3823,38 +3914,52 @@
         var scene = graph.scene();
         if (!scene || typeof scene.add !== 'function') return false;
 
-        // Thickness follows the node sizes so tiny files still get a visible rod.
+        // Enclose the tube the library draws (its radius is linkWidth / 2) and
+        // stay readable on tiny files.
         var base = (Math.cbrt(getNodeSize(source) || 1) + Math.cbrt(getNodeSize(target) || 1)) / 2;
-        var coreRadius = Math.min(2.2, Math.max(0.45, base * 0.30));
+        var coreRadius = Math.max(linkTubeRadius(link) * 1.15, Math.min(2.2, Math.max(0.45, base * 0.30)));
         var haloRadius = coreRadius * 3.2;
+
+        var coreMaterial = new T.MeshBasicMaterial({
+            color: EDGE_GLOW_COLOR,
+            transparent: true,
+            opacity: 0.95,
+            blending: T.AdditiveBlending,
+            depthWrite: false,
+            side: T.DoubleSide
+        });
+        var haloMaterial = new T.MeshBasicMaterial({
+            color: EDGE_GLOW_COLOR,
+            transparent: true,
+            opacity: 0.16,
+            blending: T.AdditiveBlending,
+            depthWrite: false,
+            side: T.DoubleSide
+        });
 
         var group = new T.Group();
         group.renderOrder = 2;
-        group.add(new T.Mesh(
-            new T.CylinderGeometry(coreRadius, coreRadius, 1, 12, 1, true),
-            new T.MeshBasicMaterial({
-                color: EDGE_GLOW_COLOR,
-                transparent: true,
-                opacity: 0.95,
-                blending: T.AdditiveBlending,
-                depthWrite: false,
-                side: T.DoubleSide
-            })
-        ));
-        group.add(new T.Mesh(
-            new T.CylinderGeometry(haloRadius, haloRadius, 1, 12, 1, true),
-            new T.MeshBasicMaterial({
-                color: EDGE_GLOW_COLOR,
-                transparent: true,
-                opacity: 0.16,
-                blending: T.AdditiveBlending,
-                depthWrite: false,
-                side: T.DoubleSide
-            })
-        ));
+        var core = new T.Mesh(new T.BufferGeometry(), coreMaterial);
+        var halo = new T.Mesh(new T.BufferGeometry(), haloMaterial);
+        group.add(core);
+        group.add(halo);
         scene.add(group);
 
-        var glow = { group: group, scene: scene, source: source, target: target, up: new T.Vector3(0, 1, 0), raf: 0 };
+        var glow = {
+            group: group,
+            scene: scene,
+            link: link,
+            source: source,
+            target: target,
+            core: core,
+            halo: halo,
+            coreRadius: coreRadius,
+            haloRadius: haloRadius,
+            mode: '',
+            signature: '',
+            up: new T.Vector3(0, 1, 0),
+            raf: 0
+        };
         edgeGlow = glow;
         updateEdgeGlow(glow);
 
@@ -3893,8 +3998,10 @@
         setFocusedLink(link);
         var source = resolveLinkEnd(link.source);
         var target = resolveLinkEnd(link.target);
-        startEdgeGlow(link);
+        // Selection first: it thickens the link, and the glow radius encloses
+        // whatever tube the graph ends up drawing.
         if (edgeClickSelectBoth) selectEdgePair(source, target);
+        startEdgeGlow(link);
         return frameNodes([source, target], 800);
     }
 

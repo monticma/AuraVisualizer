@@ -12,7 +12,7 @@ Filter buttons at the bottom show only languages present in your project.
 
 **Mouse controls:**
 - 🖱️ **Click** — Select a node, see details in the side panel
-- 🖱️ **Click an edge** — Frame both endpoints and glow the edge pink; the camera keeps its angle and pulls back just enough to fit them. Both files are multi-selected for aggregate stats (`auraVisualizer.edgeClickSelect` turns that off)
+- 🖱️ **Click an edge** — Frame both endpoints and glow the edge pink (the glow follows the link, curved or straight); the camera keeps its angle and pulls back just enough to fit them. Both files are multi-selected for aggregate stats (`auraVisualizer.edgeClickSelect` turns that off)
 - 🖱️ **Double-click** — Open the file in VS Code
 - 🖱️ **Right-click** — Pin focus on a file and its neighbors (depth 1–5)
 - 🖱️ **Shift+Right-click** — Blast radius — show all files impacted by this one, colored by depth
