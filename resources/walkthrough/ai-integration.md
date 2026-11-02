@@ -53,3 +53,13 @@ Use the **📤 Export** button (or command *Aura: Export Graph for AI*) to build
 - Save the result or copy it directly into a chat prompt.
 
 For a raw graph, use the MCP `generate_documentation` tool or `get_architecture` / `get_hotspots` instead.
+
+### Agent context files
+
+An assistant that opens a repository it has never seen does not know which files are dangerous. **Aura: Generate Agent Context** writes that knowledge where agents actually look:
+
+- `.aura/hotspots.json` — the exact `get_hotspots` payload (score, bucket, reasons, fan-in/out);
+- `.aura/HOTSPOTS.md` — the same data as a readable table (`.aura/` is git-ignored, this copy stays local);
+- a short block between `<!-- aura:begin -->` and `<!-- aura:end -->` in the first instruction file that exists — `AGENTS.md`, `.github/copilot-instructions.md`, then `CLAUDE.md`.
+
+The block lists the top 10 hotspots with their reasons plus the repository health line (cycles, dead exports, architecture violations). Regenerating replaces only what is between the markers, so the prose around it is never touched, and only paths and metrics are written — never source code. If no instruction file exists the command offers to create `AGENTS.md`; the automatic refresh (`auraVisualizer.agentContext`, off by default) only ever updates a file that already exists.

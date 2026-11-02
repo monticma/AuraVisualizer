@@ -272,6 +272,11 @@
         "icon": "$(table)"
       },
       {
+        "command": "auraVisualizer.generateAgentContext",
+        "title": "Aura: Generate Agent Context",
+        "icon": "$(file-code)"
+      },
+      {
         "command": "auraVisualizer.focusFileByName",
         "title": "Aura: Focus File in Graph…",
         "icon": "$(go-to-file)"
@@ -625,6 +630,11 @@
           "type": "boolean",
           "default": true,
           "description": "Show a metrics card when hovering an import specifier: size, complexity, fan-in/out, architecture layer, risk — with Focus in Aura / Blast radius / Open links."
+        },
+        "auraVisualizer.agentContext": {
+          "type": "boolean",
+          "default": false,
+          "description": "Refresh the agent-facing context files after every analysis: .aura/HOTSPOTS.md, .aura/hotspots.json and the delimited aura:begin/aura:end block of AGENTS.md, .github/copilot-instructions.md or CLAUDE.md. Off by default — run 'Aura: Generate Agent Context' once to create the block, then enable this to keep it current."
         },
         "auraVisualizer.savedQueries": {
           "type": "array",

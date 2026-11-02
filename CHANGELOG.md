@@ -5,6 +5,11 @@ All notable changes to Aura Visualizer are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Agent context files (V3-10)** — **Aura: Generate Agent Context** writes the risk knowledge an AI assistant never has when it opens an unfamiliar repository: `.aura/hotspots.json` (the exact `get_hotspots` payload), `.aura/HOTSPOTS.md` (readable table, `.aura/` is git-ignored) and a short block between `<!-- aura:begin -->` and `<!-- aura:end -->` in the first instruction file that exists — `AGENTS.md`, `.github/copilot-instructions.md`, then `CLAUDE.md`. The block lists the top 10 hotspots with their reasons plus the repository health line (cycles, dead exports, architecture violations) and is **idempotent**: regenerating replaces only what sits between the markers, so the prose around it is never touched, a half-broken block is repaired instead of duplicated, and CRLF files keep their line endings. Only paths and metrics are written — never source code. If no instruction file exists the command offers to create `AGENTS.md`; `auraVisualizer.agentContext` (off by default) refreshes everything silently after each analysis and only ever updates a file that already exists. The generators live in a pure, `vscode`-free `agent-context` module (31 tests).
+
 ## [1.5.1] - 2026-11-02
 
 ### Added

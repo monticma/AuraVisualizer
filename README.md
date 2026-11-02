@@ -490,6 +490,21 @@ Hover an import and Aura answers in place — no need to open the graph:
 - Specifiers resolve with the same confidence ladder as the graph edges; an ambiguous or unknown import shows **nothing**, and arbitrary text never triggers a hover
 - Metrics come from the in-memory graph and risk snapshot (no SQLite query), lines are cached per document version — turn it off with `auraVisualizer.hover` or the ⚙️ Settings checkbox
 
+### Agent Context Files 🤖
+
+An AI assistant that lands in an unfamiliar repository has no idea which files are dangerous. **Aura: Generate Agent Context** writes exactly that, from the same risk engine as the Risk Map:
+
+| Output | Content |
+|--------|---------|
+| `.aura/hotspots.json` | the `aura_get_hotspots` payload (score, bucket, reasons, fan-in/out) |
+| `.aura/HOTSPOTS.md` | the same data as a readable table — `.aura/` is git-ignored, this is a local cache |
+| `AGENTS.md` / `.github/copilot-instructions.md` / `CLAUDE.md` | a short `aura:begin` … `aura:end` block with the top 10 hotspots, scores and reasons |
+
+- The block is injected between the two markers: regenerating never duplicates it and never touches the prose around it
+- Only **paths and metrics** are written — never source code
+- The first instruction file that already exists wins (in that order); if none exists the command offers to create `AGENTS.md`, and it always asks before touching a tracked file
+- `auraVisualizer.agentContext` (off by default) refreshes everything silently after each analysis — that automatic path only updates a file that already exists
+
 ### Command Palette 🎛️
 Three navigation gestures are one keystroke away from anywhere in VS Code (`Ctrl+Shift+P`):
 
@@ -498,6 +513,7 @@ Three navigation gestures are one keystroke away from anywhere in VS Code (`Ctrl
 | **Aura: Focus File in Graph…** | Fuzzy picker over the analyzed files (path, language, directory, LOC, fan-in/out, layer, violations) — selection focuses the node and opens its detail panel |
 | **Aura: Apply Saved Query…** | Replay a query saved from the query bar, with its stored mode (filter / highlight / select); most recent first |
 | **Aura: Add Warp Here** | Opens the warp naming modal on the current camera pose (same flow as 📌 in the Warps panel) |
+| **Aura: Generate Agent Context** | Writes `.aura/HOTSPOTS.md`, `.aura/hotspots.json` and the `aura:begin` block of your agent instruction file (V3-10) |
 
 Files are code only (documentation nodes are excluded) and the picker caps at 5 000 entries — typing a path fragment narrows it down.
 
@@ -577,6 +593,7 @@ The **⚙️ button** in the tab bar (next to 🔍 Query) opens an in-app settin
 | **Mouse look sensitivity / invert Y** | Pilot mode mouse-look feel (also scales the gamepad stick look rate) |
 | **Gamepad in pilot mode** | Fly with a DualSense/Xbox pad (W3C standard mapping) — on by default, ignored outside pilot mode |
 | `auraVisualizer.codeLens` | `true` | `⟡ focus · flow · impact` CodeLens above the symbols of analyzed files |
+| `auraVisualizer.agentContext` | Refresh `.aura/HOTSPOTS.md`, `.aura/hotspots.json` and the `aura:begin` block after every analysis (off — the command is enough until you opt in) |
 | **Follow editor** | Fly the camera to the file of the active editor (👁 toolbar toggle) |
 | **Auto-refresh on save** | Re-analyze changed files automatically |
 

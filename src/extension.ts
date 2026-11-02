@@ -14,7 +14,20 @@ import { isGitRepo, getGitRoot, getGitHead, getWorkingTreeFiles, type GitFileSta
 import { computeFingerprint, fingerprintFromMeta, fingerprintMetaEntries, hashAnalysisConfig, planAnalysis, type AnalysisFingerprint } from './analyzer/fingerprint';
 import type { CommitIndex, CommitDelta } from './analyzer/types';
 import { normalizeRiskWindow } from './risk/risk-core';
-import { buildRiskSnapshot, type RiskSnapshot, type RiskFileEntry } from './risk/risk-service';
+import { buildRiskSnapshot, topRiskHotspots, type RiskSnapshot, type RiskFileEntry } from './risk/risk-service';
+import {
+    AGENT_CONTEXT_JSON,
+    AGENT_CONTEXT_MARKDOWN,
+    AGENT_CONTEXT_TARGETS,
+    AGENT_MARKDOWN_LIMIT,
+    agentContextMessage,
+    injectAgentBlock,
+    pickAgentContextTarget,
+    renderAgentBlock,
+    renderHotspotsJson,
+    renderHotspotsMarkdown,
+    type AgentContextInput,
+} from './agent-context';
 import {
     hotspotBadgeText,
     hotspotTooltipSummary,
@@ -401,6 +414,7 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('auraVisualizer.exportArchReport', () => exportArchReport()),
         vscode.commands.registerCommand('auraVisualizer.exportArchReportAI', () => exportArchReport(true)),
         vscode.commands.registerCommand('auraVisualizer.exportMetrics', () => exportMetrics()),
+        vscode.commands.registerCommand('auraVisualizer.generateAgentContext', () => writeAgentContext({ interactive: true })),
         vscode.commands.registerCommand('auraVisualizer.reviewBranch', () => reviewCurrentBranch(context)),
         vscode.commands.registerCommand('auraVisualizer.blastRadius', (uri?: unknown, selection?: unknown) =>
             blastRadiusFromResources(context, uri, selection)),
@@ -989,6 +1003,7 @@ async function refreshAnalysis(context: vscode.ExtensionContext, force = false):
         codeLensProvider?.refresh();
         updateStatusBar();
         void notifyScanComplete(context);
+        if (isAgentContextEnabled()) void writeAgentContext({ interactive: false });
         // Persist graph to SQLite — already imported before the webview update so
         // the shared community snapshot is consistent with the graph on screen.
         try {
@@ -1471,6 +1486,104 @@ async function notifyScanComplete(context: vscode.ExtensionContext): Promise<voi
         ? Array.from(snapshot.byId.values()).sort((a, b) => b.score - a.score)[0]
         : undefined;
     await focusRiskFromStatusBar(context, top?.id);
+}
+
+// ============================================================
+// Agent context files (V3-10) — risk knowledge for AI assistants
+// ============================================================
+
+/**
+ * `auraVisualizer.agentContext` — refresh the agent-facing context files after
+ * every analysis. Off by default: writing into a *tracked* file (AGENTS.md…) has
+ * to be a deliberate choice, so the automatic path never creates one.
+ */
+function isAgentContextEnabled(): boolean {
+    return vscode.workspace.getConfiguration('auraVisualizer').get<boolean>('agentContext', false) === true;
+}
+
+function buildAgentContextInput(snapshot: RiskSnapshot): AgentContextInput {
+    const payload = topRiskHotspots(snapshot, AGENT_MARKDOWN_LIMIT);
+    const meta = cachedGraphData?.meta;
+    return {
+        hotspots: payload.hotspots,
+        windowDays: payload.window_days,
+        total: payload.total,
+        generatedAt: new Date().toISOString(),
+        cycles: meta?.cycles?.length ?? 0,
+        deadCode: meta?.deadExportsTotal ?? 0,
+        archViolations: meta?.arch?.counts.newTotal ?? 0,
+    };
+}
+
+/**
+ * Write `.aura/HOTSPOTS.md`, `.aura/hotspots.json` and the delimited
+ * `aura:begin`/`aura:end` block of the repo's instruction file (V3-10).
+ *
+ * `interactive` is the palette/command path: it may create `AGENTS.md` after a
+ * confirmation and reports what changed. The automatic path is silent, keeps
+ * only existing instruction files and never asks anything.
+ */
+async function writeAgentContext(options: { interactive: boolean }): Promise<void> {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+        if (options.interactive) void vscode.window.showWarningMessage('Aura: no workspace folder open.');
+        return;
+    }
+    const snapshot = ensureRiskSnapshot();
+    if (!snapshot || snapshot.byId.size === 0) {
+        if (options.interactive) {
+            void vscode.window.showWarningMessage('Aura: no risk data yet — run the analysis first (Ctrl+Shift+A).');
+        }
+        return;
+    }
+
+    const root = workspaceFolder.uri.fsPath;
+    const existing = AGENT_CONTEXT_TARGETS.filter(relative => existsSync(path.join(root, relative)));
+    const target = pickAgentContextTarget(existing);
+    if (target.create && !options.interactive) return;
+
+    if (target.create) {
+        const choice = await vscode.window.showInformationMessage(
+            `Aura: no agent instruction file found. Create ${target.path} with a risk summary for your AI assistant?`,
+            { modal: true },
+            'Create',
+        );
+        if (choice !== 'Create') return;
+    }
+
+    const input = buildAgentContextInput(snapshot);
+    const targetUri = vscode.Uri.joinPath(workspaceFolder.uri, target.path);
+    let current = '';
+    try {
+        current = Buffer.from(await vscode.workspace.fs.readFile(targetUri)).toString('utf-8');
+    } catch {
+        current = '';
+    }
+
+    const updated = injectAgentBlock(current, renderAgentBlock(input));
+    if (updated !== current) {
+        await vscode.workspace.fs.createDirectory(vscode.Uri.file(path.dirname(targetUri.fsPath)));
+        await vscode.workspace.fs.writeFile(targetUri, Buffer.from(updated, 'utf-8'));
+    }
+
+    // Local, git-ignored twins under .aura/ — the same data for tools and humans.
+    await saveText('Agent hotspots', renderHotspotsMarkdown(input), {
+        fileName: AGENT_CONTEXT_MARKDOWN,
+        notify: false,
+    });
+    await saveText('Agent hotspots', renderHotspotsJson(topRiskHotspots(snapshot, AGENT_MARKDOWN_LIMIT)), {
+        fileName: AGENT_CONTEXT_JSON,
+        notify: false,
+    });
+
+    if (!options.interactive) return;
+    const choice = await vscode.window.showInformationMessage(
+        agentContextMessage(target.path, input),
+        'Open file',
+    );
+    if (choice === 'Open file') {
+        await vscode.window.showTextDocument(targetUri, { preview: true });
+    }
 }
 
 // ============================================================
