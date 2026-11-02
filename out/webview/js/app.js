@@ -464,7 +464,13 @@
     // ============================================================
     // Initialization
     // ============================================================
-    function init() {
+    /**
+     * Wire every satellite and panel control. Guarded by `init()`: one broken
+     * module used to abort the whole boot, which meant `ready` was never posted
+     * and the panel stayed empty for ever (the host queues `graphData` until
+     * then). A failure is loud in the console but no longer fatal.
+     */
+    function initUi() {
         // Satellite modules — inject live-state hooks (getters, so no staleness)
         if (window.AuraPanels) {
             AuraPanels.init({
@@ -619,6 +625,19 @@
         }
         setupBottomBarsOffset();
         vscode.postMessage({ type: 'requestSavedQueries' });
+    }
+
+    /**
+     * Boot the webview. `ready` is always posted, even when a satellite throws:
+     * the host answers `ready` with `graphData`, so a silent failure here used to
+     * leave the 3D view empty instead of showing whatever still works.
+     */
+    function init() {
+        try {
+            initUi();
+        } catch (e) {
+            console.error('[aura] init failed — the panel continues with a partial UI:', e);
+        }
         notifyReady();
     }
 
