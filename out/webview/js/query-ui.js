@@ -574,6 +574,8 @@
         refreshGraphAfterQuery();
         if (pushToHistory) pushHistory(queryExpr);
         syncQueryState();
+        // V3-12 — let the app record the place in the navigation trail.
+        if (typeof hooks.onApplied === 'function') hooks.onApplied(queryExpr, queryMode);
     }
 
     function setQueryBarOpen(open) {

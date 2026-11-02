@@ -567,6 +567,7 @@
         setupExplorer();
         setupParseFailures();
         setupReviewBar();
+        setupBreadcrumbs();
         if (window.AuraTimeline) AuraTimeline.setup();
         setupTabs();
         if (window.AuraQueryBar) {
@@ -581,6 +582,7 @@
                 getMultiSelectedNodes: function () { return multiSelectedNodes; },
                 getPinnedNodes: function () { return pinnedNodes; },
                 getCochangeScore: getCochangeScore,
+                onApplied: pushBreadcrumbQuery,
                 postMessage: function (msg) { vscode.postMessage(msg); }
             });
             AuraQueryBar.setup();
@@ -1025,6 +1027,190 @@
         }
         var closeBtn = $('#review-close');
         if (closeBtn) closeBtn.addEventListener('click', hideReviewBar);
+    }
+
+    // ============================================================
+    // Navigation trail — breadcrumbs (V3-12)
+    // ============================================================
+
+    /** True while a place is being restored: pushes must stay silent. */
+    var breadcrumbRestoring = false;
+
+    function breadcrumbCore() { return window.AuraBreadcrumbCore || null; }
+
+    /** Current focus mode, for the entry snapshot. */
+    function currentFocusKind() {
+        if (multiSelectedNodes.size > 1) return 'multi';
+        if (blastMode) return 'blast';
+        if (pinnedNode) return 'pin';
+        return 'none';
+    }
+
+    function currentQuerySnapshot() {
+        if (!window.AuraQueryBar || !AuraQueryBar.state) return null;
+        var state = AuraQueryBar.state();
+        if (!state || !state.active) return null;
+        var expr = AuraQueryBar.getExpression ? AuraQueryBar.getExpression() : '';
+        if (!expr) return null;
+        return { expr: expr, mode: state.mode || 'filter' };
+    }
+
+    /**
+     * Record the current spot. Every entry carries ids and numbers only — the
+     * live node objects are re-resolved by id when the place is restored, so a
+     * dataset rebuild can never leave a dead reference in the trail.
+     */
+    function pushBreadcrumb(entry) {
+        if (breadcrumbRestoring || !window.AuraBreadcrumbs || !entry) return;
+        var core = breadcrumbCore();
+        if (!core) return;
+        var full = {
+            tab: activeTab,
+            nodeIds: [],
+            focusKind: 'none',
+        };
+        for (var key in entry) {
+            if (Object.prototype.hasOwnProperty.call(entry, key)) full[key] = entry[key];
+        }
+        if (full.focusKind === 'pin') full.depth = focusDepth;
+        var query = currentQuerySnapshot();
+        if (query) full.query = query;
+        try {
+            if (window.AuraWarps && AuraWarps.capturePose) full.pose = AuraWarps.capturePose();
+        } catch (_) { /* cold start: no camera yet, the entry is still useful */ }
+        AuraBreadcrumbs.push(full);
+    }
+
+    var BREADCRUMB_FOCUS_ICON = { none: '⟡', pin: '📌', blast: '💥', multi: '🔗' };
+
+    /** A file / symbol jump (click, explorer, search, CodeLens, follow editor). */
+    function pushBreadcrumbNode(node, focusKind) {
+        if (!node || !node.id) return;
+        var core = breadcrumbCore();
+        if (!core) return;
+        var kind = focusKind || currentFocusKind();
+        var label = node._isCluster
+            ? 'Cluster: ' + (node.id || '')
+            : core.fileName(node.id);
+        if (kind === 'pin') label = 'Pinned: ' + label;
+        else if (kind === 'blast') label = 'Blast: ' + label;
+        pushBreadcrumb({
+            icon: BREADCRUMB_FOCUS_ICON[kind] || '⟡',
+            label: label,
+            detail: node.path || node.id,
+            focusKind: kind,
+            nodeIds: [node.id]
+        });
+    }
+
+    /** Both endpoints of a clicked edge. */
+    function pushBreadcrumbPair(source, target) {        if (!source || !target) return;
+        var core = breadcrumbCore();
+        if (!core) return;
+        pushBreadcrumb({
+            icon: '🔗',
+            label: core.fileName(source.id) + ' ↔ ' + core.fileName(target.id),
+            detail: source.id + ' ↔ ' + target.id,
+            focusKind: 'multi',
+            nodeIds: [source.id, target.id]
+        });
+    }
+
+    /** A query applied from the bar (hook `onApplied` of AuraQueryBar). */
+    function pushBreadcrumbQuery(expr, mode) {
+        var core = breadcrumbCore();
+        if (!core || !expr) return;
+        pushBreadcrumb({
+            icon: '🔍',
+            label: core.truncateText(expr, 24),
+            detail: 'Query (' + (mode || 'filter') + '): ' + expr,
+            focusKind: currentFocusKind(),
+            nodeIds: selectedNode ? [selectedNode.id] : []
+        });
+    }
+
+    /** A saved warp was flown to (hook `onTravel` of AuraWarps). */
+    function pushBreadcrumbWarp(warp) {
+        if (!warp || !warp.name) return;
+        pushBreadcrumb({
+            icon: '🌀',
+            label: String(warp.name),
+            detail: 'Warp point',
+            focusKind: currentFocusKind(),
+            nodeIds: []
+        });
+    }
+
+    /**
+     * Put the graph back where a trail entry says. Every navigation helper is
+     * muted through `breadcrumbRestoring` so restoring never pushes again.
+     */
+    function restoreBreadcrumb(entry) {
+        if (!entry) return;
+        breadcrumbRestoring = true;
+        try {
+            if (entry.tab && entry.tab !== activeTab) switchTab(entry.tab);
+
+            // 1. Reset the transient focus (pin / blast / path / impact).
+            clearPinnedFocus();
+            multiSelectedNodes.clear();
+            multiSelectedLinks.clear();
+            highlightNodes.clear();
+            highlightLinks.clear();
+            selectedNode = null;
+            if (window.AuraTimeline && AuraTimeline.clearImpact) AuraTimeline.clearImpact();
+
+            // 2. Re-apply the query exactly as it was (or drop it).
+            if (window.AuraQueryBar) {
+                if (entry.query && entry.query.expr) {
+                    AuraQueryBar.applyFromHost(entry.query.expr, entry.query.mode || 'filter');
+                } else if (AuraQueryBar.state && AuraQueryBar.state().active) {
+                    AuraQueryBar.applyFromHost('');
+                }
+            }
+
+            // 3. Focus: pin / blast / multi / plain selection.
+            var nodes = [];
+            for (var i = 0; i < (entry.nodeIds || []).length; i++) {
+                var found = findGraphNode(entry.nodeIds[i]);
+                if (found) nodes.push(found);
+            }
+            if (entry.focusKind === 'pin' && nodes[0]) {
+                if (typeof entry.depth === 'number') focusDepth = entry.depth;
+                handleNodeRightClick(nodes[0], true);
+            } else if (entry.focusKind === 'blast' && nodes[0]) {
+                handleBlastRadius(nodes[0], true);
+            } else if (entry.focusKind === 'multi' && nodes.length > 1) {
+                selectNodesByIds(nodes);
+            } else if (nodes[0]) {
+                selectNodeLikeClick(nodes[0]);
+                deferFocus(nodes[0].id, true);
+            }
+
+            // 4. Camera last, so a flight does not fight the focus above.
+            if (entry.pose && window.AuraWarps && AuraWarps.applyPose) {
+                AuraWarps.applyPose(entry.pose);
+            }
+        } finally {
+            // Let the queued focus / query callbacks finish before listening again.
+            requestAnimationFrame(function () { breadcrumbRestoring = false; });
+        }
+    }
+
+    /** Multi-select an explicit list of nodes (restore path). */
+    function selectNodesByIds(nodes) {
+        multiSelectedNodes.clear();
+        for (var i = 0; i < nodes.length; i++) multiSelectedNodes.add(nodes[i]);
+        selectedNode = null;
+        updateMultiSelectedLinks();
+        refreshGraphVisuals();
+        updateExplorerSelection();
+        if (window.AuraDetail) AuraDetail.showMultiSelect();
+    }
+
+    function setupBreadcrumbs() {
+        if (!window.AuraBreadcrumbs) return;
+        AuraBreadcrumbs.setup({ onRestore: restoreBreadcrumb });
     }
 
     function setupRefresh() {
@@ -3132,6 +3318,7 @@
         // onto NaN, which makes the whole scene disappear.
         var revealed = revealFilteredNode(node);
         selectNodeLikeClick(node);
+        pushBreadcrumbNode(node);
         if (revealed) {
             deferFocus(node.id, true);
         } else if (hasFinitePosition(node)) {
@@ -3284,6 +3471,7 @@
         }
 
         refreshFocusVisuals(wasBlast);
+        pushBreadcrumbNode(node, 'pin');
     }
 
     // ============================================================
@@ -3354,6 +3542,7 @@
         }
 
         refreshFocusVisuals(wasBlast);
+        pushBreadcrumbNode(node, 'blast');
     }
 
     function handleBackgroundRightClick() {
@@ -3368,8 +3557,7 @@
         pinnedLinks.clear();
         blastMode = false;
         blastDepths = {};
-        clearFlowTrace();
-    }
+        clearFlowTrace();    }
 
     // ============================================================
     // Flow Trace — animate function call propagation across files
@@ -4002,6 +4190,7 @@
         // whatever tube the graph ends up drawing.
         if (edgeClickSelectBoth) selectEdgePair(source, target);
         startEdgeGlow(link);
+        pushBreadcrumbPair(source, target);
         return frameNodes([source, target], 800);
     }
 
@@ -4053,6 +4242,7 @@
             }
             // Match a normal graph click: select, fly close, open details.
             selectNodeLikeClick(node);
+            pushBreadcrumbNode(node);
             graph.cameraPosition(nodeCameraPose(node), node, 1000);
         } else {
             selectedNode = node;
@@ -4949,7 +5139,8 @@
                 findNode: findNode,
                 postMessage: function (msg) { vscode.postMessage(msg); },
                 saveViewState: saveViewState,
-                schedulePaletteSave: schedulePaletteSave
+                schedulePaletteSave: schedulePaletteSave,
+                onTravel: pushBreadcrumbWarp
             });
             AuraWarps.setup();
         }
@@ -5436,6 +5627,13 @@
                 return;
             }
 
+            // Alt+← — step back in the navigation trail (V3-12).
+            if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey &&
+                (e.key === 'ArrowLeft' || e.code === 'ArrowLeft')) {
+                if (window.AuraBreadcrumbs && AuraBreadcrumbs.back()) e.preventDefault();
+                return;
+            }
+
             // Never steal VS Code chords such as Ctrl+Shift+P or Ctrl+K.
             if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
 
@@ -5522,6 +5720,10 @@
                     // Timeline: next commit
                     if (window.AuraTimeline && window.AuraTimeline.stepNext()) e.preventDefault();
                     break;
+                case 'backspace':
+                    // Navigation trail: back to the previous place (V3-12)
+                    if (window.AuraBreadcrumbs && AuraBreadcrumbs.back()) e.preventDefault();
+                    break;
                 case 'escape':
                     // Reset: clear selection, pinned focus, path mode, heatmap
                     selectedNode = null;
@@ -5560,6 +5762,7 @@
                          .linkColor(graph.linkColor())
                          .linkDirectionalParticles(graph.linkDirectionalParticles())
                          .nodeThreeObject(graph.nodeThreeObject());
+                    pushBreadcrumb({ icon: '⟲', label: 'Reset', detail: 'Everything cleared (Esc)', focusKind: 'none' });
                     break;
             }
         });

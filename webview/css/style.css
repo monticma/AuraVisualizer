@@ -182,6 +182,99 @@ html, body {
 
 
 /* ============================================================
+   Navigation trail — breadcrumbs (V3-12)
+   ============================================================ */
+#breadcrumb-bar {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 155;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: calc(100% - 32px);
+    padding: 4px 8px;
+    border: 1px solid rgba(147, 197, 253, 0.35);
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.86);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    font-size: 11px;
+    overflow: hidden;
+}
+#breadcrumb-bar.hidden {
+    display: none;
+}
+/* The branch-review strip owns the top slot while it is on screen. */
+#review-bar:not(.hidden) ~ #breadcrumb-bar {
+    top: 52px;
+}
+.breadcrumb-trail {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    overflow: hidden;
+    flex-wrap: nowrap;
+}
+.breadcrumb-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 170px;
+    padding: 2px 8px;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    background: rgba(147, 197, 253, 0.08);
+    color: var(--aura-fg);
+    font-size: 11px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.breadcrumb-chip:hover {
+    background: rgba(147, 197, 253, 0.18);
+    border-color: var(--aura-accent);
+}
+.breadcrumb-chip.current {
+    background: rgba(147, 197, 253, 0.22);
+    border-color: rgba(147, 197, 253, 0.55);
+    font-weight: 600;
+    cursor: default;
+}
+.breadcrumb-icon {
+    opacity: 0.85;
+}
+.breadcrumb-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.breadcrumb-sep {
+    opacity: 0.35;
+    font-size: 10px;
+}
+.breadcrumb-btn {
+    flex: 0 0 auto;
+    padding: 1px 6px;
+    border: 1px solid var(--aura-border);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--aura-fg);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.breadcrumb-btn:hover:not(:disabled) {
+    background: rgba(96, 165, 250, 0.12);
+    border-color: var(--aura-accent);
+}
+.breadcrumb-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+}
+
+
+/* ============================================================
    Query Bar
    ============================================================ */
 #query-bar {

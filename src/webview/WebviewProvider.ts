@@ -1299,6 +1299,12 @@ export class WebviewProvider {
         const forceGraphUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'lib', '3d-force-graph.min.js')
         );
+        const breadcrumbCoreUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'breadcrumb-core.js')
+        );
+        const breadcrumbsUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'breadcrumbs.js')
+        );
         const threeUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'lib', 'three.global.js')
         );
@@ -1406,6 +1412,13 @@ export class WebviewProvider {
                 <button id="review-blast" class="review-btn" title="Blast radius from every file the branch touched">💥 Blast</button>
                 <button id="review-compare" class="review-btn" title="Load the branch diff in Compare mode">⇄ Compare</button>
                 <button id="review-close" class="review-btn" title="Close the review summary">✕</button>
+            </div>
+
+            <!-- Navigation trail (V3-12) — one chip per visited place -->
+            <div id="breadcrumb-bar" class="hidden">
+                <button id="breadcrumb-back" class="breadcrumb-btn" title="Back to the previous place (Backspace)">⟵</button>
+                <div id="breadcrumb-trail" class="breadcrumb-trail"></div>
+                <button id="breadcrumb-clear" class="breadcrumb-btn" title="Clear the trail">✕</button>
             </div>
 
             <!-- Explorer Panel -->
@@ -2415,8 +2428,13 @@ export class WebviewProvider {
                     <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>Timeline: previous / next commit</td></tr>
                     <tr><td><kbd>Space</kbd></td><td>Toggle pilot mode (free flight)</td></tr>
                     <tr><td><kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>1</kbd>–<kbd>9</kbd></td><td>Fly to the warp point on that quick slot</td></tr>
+                    <tr><td><kbd>Backspace</kbd> / <kbd>Alt</kbd>+<kbd>←</kbd></td><td>Navigation trail: back to the previous place</td></tr>
                     <tr><td><kbd>Escape</kbd></td><td>Reset all selections and modes (in pilot: exit the flight)</td></tr>
                 </table>
+
+                <h3>🧭 Navigation Trail</h3>
+                <p>Every jump — a file click, a search hit, a CodeLens focus, a pin, a blast radius, an applied query, a warp or a shared view — is recorded on a thin strip over the graph: <code>⟡ extension.ts › 📌 Pinned: codelens.ts › 🔍 layer=web › 🌀 Architecture</code>. Click a chip to <strong>return</strong> to that place (selection, pin/blast mode, query, tab and camera pose) and drop everything after it; <strong>⟵</strong>, <kbd>Backspace</kbd> or <kbd>Alt</kbd>+<kbd>←</kbd> steps back one place.</p>
+                <p>Consecutive duplicates are collapsed and the last <strong>20</strong> places are kept, so clicking the same file twice never fills the trail. Entries store <strong>ids and numbers only</strong> — never live node or Three.js objects — so a re-analysis can never leave a dead reference behind. The strip stays hidden until there is a second place to go back to; <strong>✕</strong> clears it, and <kbd>Esc</kbd> records a <strong>Reset</strong> place so even a full reset is reversible. Unlike 🌀 Warps (named, persisted poses) and 🔗 View links (shared views), the trail is the session's own history.</p>
 
                 <h3>🌡️ Heatmap Modes</h3>
                 <table class="help-table">
@@ -2620,6 +2638,7 @@ export class WebviewProvider {
     <script nonce="${nonce}" src="${riskUri}"></script>
     <script nonce="${nonce}" src="${archCoreUri}"></script>
     <script nonce="${nonce}" src="${deadCodeCoreUri}"></script>
+    <script nonce="${nonce}" src="${breadcrumbCoreUri}"></script>
     <script nonce="${nonce}" src="${flightCoreUri}"></script>
     <script nonce="${nonce}" src="${flightUri}"></script>
     <script nonce="${nonce}" src="${flowUri}"></script>
@@ -2634,6 +2653,7 @@ export class WebviewProvider {
     <script nonce="${nonce}" src="${exportUri}"></script>
     <script nonce="${nonce}" src="${spritesUri}"></script>
     <script nonce="${nonce}" src="${panelsUri}"></script>
+    <script nonce="${nonce}" src="${breadcrumbsUri}"></script>
     <script nonce="${nonce}" src="${appUri}"></script>
 </body>
 </html>`;

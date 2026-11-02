@@ -400,6 +400,20 @@ Save named camera bookmarks of the 3D view and fly back to them in one click:
 - A link captured in another workspace still applies, with a warning naming the folder it came from
 - `Aura: Copy View Link` in the Command Palette does the same from the keyboard
 
+### Navigation Trail 🧭
+
+Every jump — a file click, a search hit, a CodeLens focus, a pin, a blast radius, an applied query, a warp, a shared link — is recorded on a **trail** shown as a thin strip over the graph:
+
+```
+⟵  ⟡ extension.ts  ›  📌 Pinned: codelens.ts  ›  🔍 layer=web  ›  🌀 Architecture
+```
+
+- Click a chip to **return** to that place (selection, pin/blast mode, query, tab and camera pose) and drop everything after it; **⟵** or **Backspace** / **Alt+←** steps back one place
+- Consecutive duplicates are collapsed and the trail keeps the **last 20** places — visiting the same file twice in a row never fills it
+- Entries store **ids and numbers only** (never live node or Three.js objects), so a re-analysis can never leave a dead reference behind
+- The strip stays hidden until there is a second place to go back to; **✕** clears it
+- Complements 🌀 Warps (named, persisted poses) and 🔗 View links (shared views): the trail is the **session's own history**
+
 ### Follow Editor 👁
 
 Switch editor tabs and the 3D camera flies to the matching file — the same 800 ms close-up and selection as clicking its node:
@@ -709,6 +723,7 @@ You can also open the visualizer from the **Aura** icon in the Activity Bar or v
 | `Space` | Toggle pilot mode (free flight) |
 | `Alt`+`Shift`+`1`–`9` | Fly to the warp point on that quick slot |
 | `←` `→` | Timeline: previous / next commit |
+| `Backspace` or `Alt`+`←` | Navigation trail: back to the previous place |
 | `Escape` | Reset all — clear selections, heatmaps, timeline |
 
 ---

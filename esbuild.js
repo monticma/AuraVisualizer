@@ -138,6 +138,17 @@ async function copyWebviewAssets() {
         tsconfig: 'tsconfig.json',
     });
 
+    // Breadcrumb core — navigation trail (V3-12), bundled as window.AuraBreadcrumbCore.
+    await esbuild.build({
+        entryPoints: [path.join(__dirname, 'src', 'navigation', 'breadcrumb-core.ts')],
+        bundle: true,
+        format: 'iife',
+        globalName: 'AuraBreadcrumbCore',
+        outfile: path.join(webviewDest, 'js', 'breadcrumb-core.js'),
+        logLevel: 'silent',
+        tsconfig: 'tsconfig.json',
+    });
+
     // Trend core — complexity trends, bundled as window.AuraTrend.
     await esbuild.build({
         entryPoints: [path.join(__dirname, 'src', 'analysis', 'trend.ts')],

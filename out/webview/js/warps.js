@@ -263,6 +263,8 @@
         if (window.AuraFlight && window.AuraFlight.isActive()) window.AuraFlight.stop();
         var resolved = resolveWarpPose(warp);
         travelToPose(resolved.pos, resolved.target, warp.quat, warp.up, warp.fov);
+        // V3-12 — let the app record the place in the navigation trail.
+        if (typeof hooks.onTravel === 'function') hooks.onTravel(warp);
     }
 
     function findWarp(id) {
