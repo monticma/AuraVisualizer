@@ -1075,9 +1075,15 @@
         if (full.focusKind === 'pin') full.depth = focusDepth;
         var query = currentQuerySnapshot();
         if (query) full.query = query;
-        try {
-            if (window.AuraWarps && AuraWarps.capturePose) full.pose = AuraWarps.capturePose();
-        } catch (_) { /* cold start: no camera yet, the entry is still useful */ }
+        // A place that defines its own camera target (a focused file, a framed
+        // pair) must not carry the *pre-jump* pose: restoring it would fight the
+        // focus flight and leave the camera where it was before the jump.
+        if (!full.poseless && !full.pose) {
+            try {
+                if (window.AuraWarps && AuraWarps.capturePose) full.pose = AuraWarps.capturePose();
+            } catch (_) { /* cold start: no camera yet, the entry is still useful */ }
+        }
+        delete full.poseless;
         AuraBreadcrumbs.push(full);
     }
 
@@ -1099,7 +1105,9 @@
             label: label,
             detail: node.path || node.id,
             focusKind: kind,
-            nodeIds: [node.id]
+            nodeIds: [node.id],
+            // The focus owns the camera: restoring re-centres on the file.
+            poseless: true
         });
     }
 
@@ -1112,7 +1120,9 @@
             label: core.fileName(source.id) + ' ↔ ' + core.fileName(target.id),
             detail: source.id + ' ↔ ' + target.id,
             focusKind: 'multi',
-            nodeIds: [source.id, target.id]
+            nodeIds: [source.id, target.id],
+            // The pair is re-framed on restore instead of replaying a stale pose.
+            poseless: true
         });
     }
 
@@ -1132,12 +1142,20 @@
     /** A saved warp was flown to (hook `onTravel` of AuraWarps). */
     function pushBreadcrumbWarp(warp) {
         if (!warp || !warp.name) return;
+        // Store the warp's *own* resolved pose: the live camera is still at the
+        // departure point while the flight is running.
+        var pose = null;
+        try {
+            if (window.AuraWarps && AuraWarps.resolvePose) pose = AuraWarps.resolvePose(warp);
+        } catch (_) { pose = null; }
         pushBreadcrumb({
             icon: '🌀',
             label: String(warp.name),
             detail: 'Warp point',
             focusKind: currentFocusKind(),
-            nodeIds: []
+            nodeIds: [],
+            pose: pose,
+            poseless: !pose
         });
     }
 
@@ -1182,6 +1200,8 @@
                 handleBlastRadius(nodes[0], true);
             } else if (entry.focusKind === 'multi' && nodes.length > 1) {
                 selectNodesByIds(nodes);
+                // No stored pose for a pair: re-frame it exactly like the click did.
+                if (!entry.pose) frameNodes(nodes, 800);
             } else if (nodes[0]) {
                 selectNodeLikeClick(nodes[0]);
                 deferFocus(nodes[0].id, true);
