@@ -33,6 +33,8 @@
     var lastHoverId = null;    // dedupe: 3d-force-graph re-fires hover after object rebuilds
     var highlightNodes = new Set();
     var highlightLinks = new Set();
+    var focusedLink = null;    // edge clicked last (V3-11) — drawn brighter until another click
+    var LINK_PICK_PRECISION = 6; // raycast tolerance when picking an edge (default is 1 px)
     var activeLanguages = new Set(['c-source', 'c-header', 'cpp-source', 'cpp-header', 'javascript', 'typescript', 'python', 'css', 'html', 'java', 'go', 'rust', 'csharp', 'php', 'vue', 'bash', 'lua']);
     var dagMode = false;
     var showOrphans = false;
@@ -2310,6 +2312,8 @@
             .onNodeHover(handleNodeHover)
             .onNodeClick(handleNodeClick)
             .onNodeRightClick(handleNodeRightClick)
+            .onLinkClick(handleLinkClick)
+            .linkHoverPrecision(LINK_PICK_PRECISION)
             .onBackgroundClick(handleBackgroundClick)
             .onBackgroundRightClick(handleBackgroundRightClick)
             .warmupTicks(100)
@@ -2319,6 +2323,7 @@
 
         // Remember what was fed so a no-op filter change never re-feeds it.
         lastFeedKey = feedKeyFor(filtered);
+        focusedLink = null; // links are rebuilt with the dataset
 
         // Apply spread forces
         applySpreadForces();
@@ -2770,6 +2775,8 @@
     }
 
     function getLinkColor(link) {
+        // V3-11 — the edge clicked last stays lit so the framed pair is obvious.
+        if (focusedLink && link === focusedLink) return '#ffd166';
         if (link && link._cochange) return '#e879f9';
         if (showOrphans) return '#ffffff02';
         if (showDeadCode) return '#ffffff08';
@@ -3062,6 +3069,7 @@
     function handleNodeClick(node, event) {
         if (window.AuraFlight && window.AuraFlight.isActive()) return; // pilot: clicks suspended
         if (!node) return;
+        clearFocusedLink();
 
         if (pathMode) {
             if (pathNodes.length === 0) {
@@ -3178,6 +3186,7 @@
         // expensive link-object rebuild when nothing did (hover highlights were
         // already cleared when the pointer left the node).
         var hadLinkWidthState = multiSelectedLinks.size > 0 || flowTraceMode;
+        focusedLink = null;
         selectedNode = null;
         multiSelectedNodes.clear();
         multiSelectedLinks.clear();
@@ -3651,6 +3660,114 @@
         var radius = Math.hypot(node.x, node.y, node.z);
         var ratio = radius > 1e-6 ? 1 + distance / radius : 1;
         return { x: node.x * ratio, y: node.y * ratio, z: node.z * ratio };
+    }
+
+    // ============================================================
+    // Edge click → frame both endpoints (V3-11)
+    // ============================================================
+
+    /** One link endpoint: already a node object, or still an id. */
+    function resolveLinkEnd(end) {
+        if (end && typeof end === 'object') return end;
+        if (!graph) return null;
+        var live = null;
+        try { live = findNode(end); } catch (_) { live = null; }
+        return live || findGraphNode(end);
+    }
+
+    /**
+     * Move the camera so every given node fits, keeping the direction the user
+     * is already looking from. Returns the applied pose (`null` when no node
+     * has coordinates yet) — the smoke harness asserts the framing on it.
+     */
+    function frameNodes(nodes, duration) {
+        if (!graph || !nodes) return null;
+        var points = [];
+        for (var i = 0; i < nodes.length; i++) {
+            var node = nodes[i];
+            if (hasFinitePosition(node) && points.indexOf(node) === -1) points.push(node);
+        }
+        if (points.length === 0) return null;
+
+        cancelInitialFit();
+
+        if (points.length === 1) {
+            var only = points[0];
+            var single = { x: only.x, y: only.y, z: only.z };
+            graph.cameraPosition(nodeCameraPose(only), single, duration);
+            return { position: nodeCameraPose(only), target: single, radius: 0 };
+        }
+
+        // Bounding box of the set → centre + radius of the enclosing sphere.
+        var minX = Infinity, minY = Infinity, minZ = Infinity;
+        var maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+        for (var b = 0; b < points.length; b++) {
+            minX = Math.min(minX, points[b].x); maxX = Math.max(maxX, points[b].x);
+            minY = Math.min(minY, points[b].y); maxY = Math.max(maxY, points[b].y);
+            minZ = Math.min(minZ, points[b].z); maxZ = Math.max(maxZ, points[b].z);
+        }
+        var center = { x: (minX + maxX) / 2, y: (minY + maxY) / 2, z: (minZ + maxZ) / 2 };
+        var radius = 0;
+        for (var c = 0; c < points.length; c++) {
+            radius = Math.max(radius, Math.hypot(
+                points[c].x - center.x,
+                points[c].y - center.y,
+                points[c].z - center.z
+            ));
+        }
+        radius = Math.max(radius, 12); // two coincident nodes still get a sane distance
+
+        // Distance that fits the sphere in both the vertical and horizontal FOV.
+        var camera = null;
+        try { camera = graph.camera(); } catch (_) { camera = null; }
+        var fov = (camera && camera.fov) ? camera.fov : 50;
+        var aspect = (camera && camera.aspect) ? camera.aspect : 1;
+        var vFov = (fov * Math.PI) / 180;
+        var hFov = 2 * Math.atan(Math.tan(vFov / 2) * aspect);
+        var distance = (radius / Math.sin(Math.min(vFov, hFov) / 2)) * 1.2; // 20 % padding
+
+        // Keep the current viewing direction; fall back to +Z when degenerate.
+        var from = null;
+        try { from = graph.cameraPosition(); } catch (_) { from = null; }
+        var dx = (from && isFinite(from.x) ? from.x : center.x) - center.x;
+        var dy = (from && isFinite(from.y) ? from.y : center.y) - center.y;
+        var dz = (from && isFinite(from.z) ? from.z : center.z + 1) - center.z;
+        var length = Math.hypot(dx, dy, dz);
+        if (!(length > 1e-6)) { dx = 0; dy = 0; dz = 1; length = 1; }
+
+        var position = {
+            x: center.x + (dx / length) * distance,
+            y: center.y + (dy / length) * distance,
+            z: center.z + (dz / length) * distance
+        };
+        graph.cameraPosition(position, center, duration);
+        return { position: position, target: center, radius: radius, distance: distance };
+    }
+
+    /** Repaint links after the focused edge changed. */
+    function setFocusedLink(link) {
+        if (focusedLink === link) return;
+        focusedLink = link;
+        if (graph) graph.linkColor(graph.linkColor());
+    }
+
+    /** Drop the edge highlight — a node or background click takes over. */
+    function clearFocusedLink() {
+        if (!focusedLink) return;
+        focusedLink = null;
+        if (graph) graph.linkColor(graph.linkColor());
+    }
+
+    /**
+     * V3-11 — clicking an edge frames both of its endpoints: the camera keeps
+     * its viewing direction, pulls back just enough to fit the pair, and the
+     * edge stays highlighted until another click.
+     */
+    function handleLinkClick(link) {
+        if (!graph || !link) return null;
+        if (window.AuraFlight && window.AuraFlight.isActive()) return null; // pilot: clicks suspended
+        setFocusedLink(link);
+        return frameNodes([resolveLinkEnd(link.source), resolveLinkEnd(link.target)], 800);
     }
 
     /**

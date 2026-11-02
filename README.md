@@ -112,6 +112,7 @@ Aura computes a **PageRank** centrality over the structural **code** graph (`sou
 | **Click** | Select node, show detail panel, focus camera |
 | **Double-click** | Open file in VS Code editor |
 | **Right-click** | Pin focus — isolate file + neighbors up to N depth |
+| **Click an edge** | Frame both endpoints — the camera keeps its angle and pulls back just enough to fit the pair; the edge stays highlighted until the next click |
 | **Shift+Right-click** | Blast radius — show impact (all dependents) with depth coloring |
 | **Shift+Click** | Multi-select — aggregate stats for multiple files |
 | **Scroll** | Zoom in / out |

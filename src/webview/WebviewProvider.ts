@@ -2590,6 +2590,7 @@ export class WebviewProvider {
                     <tr><td><span style="color:#b0bec5">┈┈</span> <strong>doc-reference</strong></td><td>Symbol / filename mention inside a <code>.md</code> / <code>.txt</code> / <code>.rst</code> file</td></tr>
                     <tr><td><span style="color:#e879f9">━━</span> <strong>co-change</strong></td><td>Virtual temporal-coupling link (not a code dependency)</td></tr>
                 </table>
+                <p><strong>Clicking an edge</strong> frames both of its endpoints: the camera keeps the angle you are looking from and pulls back just far enough for the pair to fit (bounding sphere + FOV, 20 % padding). The clicked edge turns amber and stays lit until you click a node, the background or another edge. Edges are picked with a wider raycast tolerance than their 1–2 px width, so they are easy to hit.</p>
 
                 <h3>📄 Documentation in the Graph</h3>
                 <p>Markdown, plain-text and reStructuredText files (<code>.md</code>, <code>.markdown</code>, <code>.txt</code>, <code>.rst</code>) are first-class nodes. They are <strong>hidden by default</strong> — toggle the <strong>📄 Docs</strong> button in the toolbar to show them.</p>
