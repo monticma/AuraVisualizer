@@ -402,7 +402,7 @@ Save named camera bookmarks of the 3D view and fly back to them in one click:
 
 ### Navigation Trail 🧭
 
-Every jump — a file click, a search hit, a CodeLens focus, a pin, a blast radius, an applied query, a warp, a shared link — is recorded on a **trail** shown as a thin strip over the graph:
+**Off by default** — turn it on with `auraVisualizer.breadcrumbs` (or the **Navigation trail** checkbox in ⚙️ Settings). Once enabled, every jump — a file click, a search hit, a CodeLens focus, a pin, a blast radius, an applied query, a warp, a shared link — is recorded on a **trail** shown as a thin strip over the graph:
 
 ```
 ⟵  ⟡ extension.ts  ›  📌 Pinned: codelens.ts  ›  🔍 layer=web  ›  🌀 Architecture
@@ -610,6 +610,7 @@ The **⚙️ button** in the tab bar (next to 🔍 Query) opens an in-app settin
 | `auraVisualizer.codeLens` | `true` | `⟡ focus · flow · impact` CodeLens above the symbols of analyzed files |
 | `auraVisualizer.agentContext` | Refresh `.aura/HOTSPOTS.md`, `.aura/hotspots.json` and the `aura:begin` block after every analysis (off — the command is enough until you opt in) |
 | `auraVisualizer.edgeClickSelect` | Clicking an edge also multi-selects both endpoints (`true`); turn off to only frame and glow the edge |
+| `auraVisualizer.breadcrumbs` | Record visited places on the navigation trail over the graph (off by default) |
 | **Follow editor** | Fly the camera to the file of the active editor (👁 toolbar toggle) |
 | **Auto-refresh on save** | Re-analyze changed files automatically |
 

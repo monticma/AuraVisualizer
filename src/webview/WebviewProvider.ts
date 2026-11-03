@@ -41,6 +41,7 @@ const SETTING_NORMALIZERS: Record<string, (v: unknown) => unknown> = {
     autoRefresh: (v) => v === true,
     followEditor: (v) => v === true,
     edgeClickSelect: (v) => v !== false,
+    breadcrumbs: (v) => v === true,
 };
 
 function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
@@ -1206,6 +1207,7 @@ export class WebviewProvider {
                 autoRefresh: config.get<boolean>('autoRefresh', true),
                 followEditor: config.get<boolean>('followEditor', true),
                 edgeClickSelect: config.get<boolean>('edgeClickSelect', true) !== false,
+                breadcrumbs: config.get<boolean>('breadcrumbs', false) === true,
             });
         } catch { return '{}'; }
     }
@@ -2254,6 +2256,10 @@ export class WebviewProvider {
                     <input id="set-edgeClickSelect" data-setting="edgeClickSelect" type="checkbox" />
                 </div>
                 <div class="settings-row">
+                    <label for="set-breadcrumbs">Navigation trail<span class="settings-hint">Record every visited place over the graph — click a chip or press Backspace to go back</span></label>
+                    <input id="set-breadcrumbs" data-setting="breadcrumbs" type="checkbox" />
+                </div>
+                <div class="settings-row">
                     <label for="set-flightSpeed">Flight speed<span class="settings-hint">Pilot mode base speed (×, scene-scaled)</span></label>
                     <input id="set-flightSpeed" data-setting="flightSpeed" type="number" min="0.25" max="4" step="0.05" />
                 </div>
@@ -2433,7 +2439,7 @@ export class WebviewProvider {
                 </table>
 
                 <h3>🧭 Navigation Trail</h3>
-                <p>Every jump — a file click, a search hit, a CodeLens focus, a pin, a blast radius, an applied query, a warp or a shared view — is recorded on a thin strip over the graph: <code>⟡ extension.ts › 📌 Pinned: codelens.ts › 🔍 layer=web › 🌀 Architecture</code>. Click a chip to <strong>return</strong> to that place (selection, pin/blast mode, query, tab and camera pose) and drop everything after it; <strong>⟵</strong>, <kbd>Backspace</kbd> or <kbd>Alt</kbd>+<kbd>←</kbd> steps back one place.</p>
+                <p><strong>Off by default</strong> — enable it with <code>auraVisualizer.breadcrumbs</code> or the <strong>Navigation trail</strong> checkbox in ⚙️ Settings. Once on, every jump — a file click, a search hit, a CodeLens focus, a pin, a blast radius, an applied query, a warp or a shared view — is recorded on a thin strip over the graph: <code>⟡ extension.ts › 📌 Pinned: codelens.ts › 🔍 layer=web › 🌀 Architecture</code>. Click a chip to <strong>return</strong> to that place (selection, pin/blast mode, query, tab and camera pose) and drop everything after it; <strong>⟵</strong>, <kbd>Backspace</kbd> or <kbd>Alt</kbd>+<kbd>←</kbd> steps back one place.</p>
                 <p>Consecutive duplicates are collapsed and the last <strong>20</strong> places are kept, so clicking the same file twice never fills the trail. Entries store <strong>ids and numbers only</strong> — never live node or Three.js objects — so a re-analysis can never leave a dead reference behind. The strip stays hidden until there is a second place to go back to; <strong>✕</strong> clears it, and <kbd>Esc</kbd> records a <strong>Reset</strong> place so even a full reset is reversible. Unlike 🌀 Warps (named, persisted poses) and 🔗 View links (shared views), the trail is the session's own history.</p>
 
                 <h3>🌡️ Heatmap Modes</h3>

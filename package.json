@@ -641,6 +641,11 @@
           "default": true,
           "description": "Clicking an edge also multi-selects both of its endpoints (aggregate stats in the detail panel). Turn off to only frame and glow the edge. Clicking an edge always frames both nodes and lights the edge with a pink glow."
         },
+        "auraVisualizer.breadcrumbs": {
+          "type": "boolean",
+          "default": false,
+          "description": "Record every place you visit — file focus, pin, blast radius, query, warp, clicked edge — on a navigation trail shown over the graph. Click a chip (or press Backspace / Alt+Left) to go back to that exact selection, query, tab and camera pose. Off by default."
+        },
         "auraVisualizer.savedQueries": {
           "type": "array",
           "default": [],

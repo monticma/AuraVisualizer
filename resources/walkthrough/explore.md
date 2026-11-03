@@ -23,7 +23,7 @@ Filter buttons at the bottom show only languages present in your project.
 
 **Toolbar buttons:**
 - **👁 Follow** — fly the camera to the active editor file and select it exactly like a click (fixed 120-unit close-up). A manual camera move pauses following until you click 👁 again.
-- **Navigation trail** — the strip over the graph lists where you have been (file, pin, blast, query, warp). Click a chip to return there, or press `Backspace` / `Alt+←` to step back; it stays hidden until there is somewhere to go back to.
+- **Navigation trail** — **off by default** (`auraVisualizer.breadcrumbs`): when enabled, the strip over the graph lists where you have been (file, pin, blast, query, warp). Click a chip to return there, or press `Backspace` / `Alt+←` to step back; it stays hidden until there is somewhere to go back to.
 - **📤 Export** — guided AI context export: Markdown or JSON, selectable sections and token budget.
 - **Labels** (`L`) — Show/hide file names above nodes
 - **DAG** (`D`) — Hierarchical top-down layout

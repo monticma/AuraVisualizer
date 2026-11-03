@@ -37,6 +37,7 @@
     var LINK_PICK_PRECISION = 6; // raycast tolerance when picking an edge (default is 1 px)
     var EDGE_GLOW_COLOR = 0xff4fa3; // pink glow laid along the clicked edge
     var edgeClickSelectBoth = (window.AURA_CONFIG && window.AURA_CONFIG.edgeClickSelect) !== false;
+    var breadcrumbsEnabled = (window.AURA_CONFIG && window.AURA_CONFIG.breadcrumbs) === true;
     var activeLanguages = new Set(['c-source', 'c-header', 'cpp-source', 'cpp-header', 'javascript', 'typescript', 'python', 'css', 'html', 'java', 'go', 'rust', 'csharp', 'php', 'vue', 'bash', 'lua']);
     var dagMode = false;
     var showOrphans = false;
@@ -1080,6 +1081,7 @@
      * dataset rebuild can never leave a dead reference in the trail.
      */
     function pushBreadcrumb(entry) {
+        if (!breadcrumbsEnabled) return;
         if (breadcrumbRestoring || !window.AuraBreadcrumbs || !entry) return;
         var core = breadcrumbCore();
         if (!core) return;
@@ -1250,6 +1252,8 @@
     function setupBreadcrumbs() {
         if (!window.AuraBreadcrumbs) return;
         AuraBreadcrumbs.setup({ onRestore: restoreBreadcrumb });
+        // Off by default: the trail only starts recording once the setting is on.
+        if (!breadcrumbsEnabled) AuraBreadcrumbs.clear();
     }
 
     function setupRefresh() {
@@ -3998,6 +4002,10 @@
     function applyLocalSetting(key, value) {
         if (window.AURA_CONFIG) window.AURA_CONFIG[key] = value;
         if (key === 'edgeClickSelect') edgeClickSelectBoth = value !== false;
+        if (key === 'breadcrumbs') {
+            breadcrumbsEnabled = value === true;
+            if (!breadcrumbsEnabled && window.AuraBreadcrumbs) AuraBreadcrumbs.clear();
+        }
     }
 
     // --- Edge glow --------------------------------------------------------
@@ -5669,7 +5677,7 @@
             // Alt+← — step back in the navigation trail (V3-12).
             if (e.altKey && !e.ctrlKey && !e.metaKey && !e.shiftKey &&
                 (e.key === 'ArrowLeft' || e.code === 'ArrowLeft')) {
-                if (window.AuraBreadcrumbs && AuraBreadcrumbs.back()) e.preventDefault();
+                if (breadcrumbsEnabled && window.AuraBreadcrumbs && AuraBreadcrumbs.back()) e.preventDefault();
                 return;
             }
 
@@ -5761,7 +5769,7 @@
                     break;
                 case 'backspace':
                     // Navigation trail: back to the previous place (V3-12)
-                    if (window.AuraBreadcrumbs && AuraBreadcrumbs.back()) e.preventDefault();
+                    if (breadcrumbsEnabled && window.AuraBreadcrumbs && AuraBreadcrumbs.back()) e.preventDefault();
                     break;
                 case 'escape':
                     // Reset: clear selection, pinned focus, path mode, heatmap
