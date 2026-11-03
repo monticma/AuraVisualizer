@@ -36,6 +36,9 @@
     var focusedLink = null;    // edge clicked last (V3-11) — drawn brighter until another click
     var LINK_PICK_PRECISION = 6; // raycast tolerance when picking an edge (default is 1 px)
     var EDGE_GLOW_COLOR = 0xff4fa3; // pink glow laid along the clicked edge
+    var FOCUS_DISTANCE_DEFAULT = 120; // scene units between camera and focused node
+    var FOCUS_DISTANCE_MIN = 40;
+    var FOCUS_DISTANCE_MAX = 400;
     var edgeClickSelectBoth = (window.AURA_CONFIG && window.AURA_CONFIG.edgeClickSelect) !== false;
     var breadcrumbsEnabled = (window.AURA_CONFIG && window.AURA_CONFIG.breadcrumbs) === true;
     var activeLanguages = new Set(['c-source', 'c-header', 'cpp-source', 'cpp-header', 'javascript', 'typescript', 'python', 'css', 'html', 'java', 'go', 'rust', 'csharp', 'php', 'vue', 'bash', 'lua']);
@@ -1109,7 +1112,6 @@
     }
 
     var BREADCRUMB_FOCUS_ICON = { none: '⟡', pin: '📌', blast: '💥', multi: '🔗' };
-
     /** A file / symbol jump (click, explorer, search, CodeLens, follow editor). */
     function pushBreadcrumbNode(node, focusKind) {
         if (!node || !node.id) return;
@@ -1333,6 +1335,13 @@
                     speedValueEl.textContent = parseFloat(this.value).toFixed(1);
                 });
             }
+            var focusSliderEl = $('#set-focusDistance');
+            var focusValueEl = $('#set-focusDistance-value');
+            if (focusSliderEl && focusValueEl) {
+                focusSliderEl.addEventListener('input', function() {
+                    focusValueEl.textContent = String(Math.round(parseFloat(this.value) || FOCUS_DISTANCE_DEFAULT));
+                });
+            }
             var settingControls = settingsModalEl.querySelectorAll('[data-setting]');
             for (var sc = 0; sc < settingControls.length; sc++) {
                 settingControls[sc].addEventListener('change', function() {
@@ -1364,6 +1373,11 @@
             var sliderValEl = $('#set-rotateSpeed-value');
             if (sliderEl && sliderValEl) {
                 sliderValEl.textContent = parseFloat(sliderEl.value || '1').toFixed(1);
+            }
+            var focusSlider = $('#set-focusDistance');
+            var focusVal = $('#set-focusDistance-value');
+            if (focusSlider && focusVal) {
+                focusVal.textContent = String(Math.round(parseFloat(focusSlider.value) || FOCUS_DISTANCE_DEFAULT));
             }
         }
 
@@ -3890,9 +3904,22 @@
             typeof node.z === 'number' && isFinite(node.z);
     }
 
-    /** Close-up camera position for a node, matching a normal click (120 units). */
+    /**
+     * `auraVisualizer.focusDistance` — how far from a node the camera parks when
+     * focusing it (click, CodeLens, search jump, follow editor). Clamped here so
+     * a hand-edited setting can never park the camera inside or light-years away
+     * from the graph.
+     */
+    function focusDistance() {
+        var cfg = window.AURA_CONFIG || {};
+        var value = typeof cfg.focusDistance === 'number' && isFinite(cfg.focusDistance)
+            ? cfg.focusDistance : FOCUS_DISTANCE_DEFAULT;
+        return Math.min(FOCUS_DISTANCE_MAX, Math.max(FOCUS_DISTANCE_MIN, value));
+    }
+
+    /** Close-up camera position for a node, matching a normal click. */
     function nodeCameraPose(node) {
-        var distance = 120;
+        var distance = focusDistance();
         var radius = Math.hypot(node.x, node.y, node.z);
         var ratio = radius > 1e-6 ? 1 + distance / radius : 1;
         return { x: node.x * ratio, y: node.y * ratio, z: node.z * ratio };
@@ -4397,7 +4424,8 @@
                 pose = AuraPilot.followPose(
                     { x: cam.position.x, y: cam.position.y, z: cam.position.z },
                     { x: orbit.x, y: orbit.y, z: orbit.z },
-                    { x: node.x, y: node.y, z: node.z }
+                    { x: node.x, y: node.y, z: node.z },
+                    focusDistance()
                 );
             }
         } catch (e) { pose = null; }

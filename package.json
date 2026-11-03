@@ -646,6 +646,13 @@
           "default": false,
           "description": "Record every place you visit — file focus, pin, blast radius, query, warp, clicked edge — on a navigation trail shown over the graph. Click a chip (or press Backspace / Alt+Left) to go back to that exact selection, query, tab and camera pose. Off by default."
         },
+        "auraVisualizer.focusDistance": {
+          "type": "number",
+          "default": 120,
+          "minimum": 40,
+          "maximum": 400,
+          "description": "Distance (scene units) the camera stops at when you focus a file — click a node, CodeLens focus, search jump, follow editor. Lower = closer close-up, higher = more surrounding context."
+        },
         "auraVisualizer.savedQueries": {
           "type": "array",
           "default": [],

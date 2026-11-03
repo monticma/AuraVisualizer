@@ -109,7 +109,7 @@ Aura computes a **PageRank** centrality over the structural **code** graph (`sou
 
 | Action | Effect |
 |--------|--------|
-| **Click** | Select node, show detail panel, focus camera |
+| **Click** | Select node, show detail panel, focus camera (`auraVisualizer.focusDistance`, default 120 units) |
 | **Double-click** | Open file in VS Code editor |
 | **Right-click** | Pin focus — isolate file + neighbors up to N depth |
 | **Click an edge** | Frame both endpoints and **glow the edge pink** — the glow follows the link itself (the Bézier tube in curved mode), the camera keeps its angle and pulls back just enough to fit the pair; the edge stays lit until the next click. Both files are multi-selected too, so the detail panel shows their aggregate stats (`auraVisualizer.edgeClickSelect` turns the selection off) |
@@ -419,7 +419,7 @@ Save named camera bookmarks of the 3D view and fly back to them in one click:
 Switch editor tabs and the 3D camera flies to the matching file — the same 800 ms close-up and selection as clicking its node:
 
 - The **👁** toolbar button toggles following; the choice is saved in the view state and as `auraVisualizer.followEditor`
-- The file is **selected** like a click: glow, explorer selection and detail panel, with a fixed 120-unit camera distance (no creeping zoom when alternating files)
+- The file is **selected** like a click: glow, explorer selection and detail panel, with a fixed camera distance (no creeping zoom when alternating files)
 - Any manual orbit, pan or zoom **pauses** following so the camera never fights you — click 👁 again to resume
 - Files outside the analyzed graph are ignored
 
@@ -611,6 +611,7 @@ The **⚙️ button** in the tab bar (next to 🔍 Query) opens an in-app settin
 | `auraVisualizer.agentContext` | Refresh `.aura/HOTSPOTS.md`, `.aura/hotspots.json` and the `aura:begin` block after every analysis (off — the command is enough until you opt in) |
 | `auraVisualizer.edgeClickSelect` | Clicking an edge also multi-selects both endpoints (`true`); turn off to only frame and glow the edge |
 | `auraVisualizer.breadcrumbs` | Record visited places on the navigation trail over the graph (off by default) |
+| `auraVisualizer.focusDistance` | Distance (scene units, 40–400, default 120) the camera stops at when focusing a file — click, search jump, follow editor |
 | **Follow editor** | Fly the camera to the file of the active editor (👁 toolbar toggle) |
 | **Auto-refresh on save** | Re-analyze changed files automatically |
 

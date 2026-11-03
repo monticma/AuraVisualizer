@@ -42,6 +42,7 @@ const SETTING_NORMALIZERS: Record<string, (v: unknown) => unknown> = {
     followEditor: (v) => v === true,
     edgeClickSelect: (v) => v !== false,
     breadcrumbs: (v) => v === true,
+    focusDistance: (v) => clampNumber(v, 40, 400, 120),
 };
 
 function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
@@ -1208,6 +1209,7 @@ export class WebviewProvider {
                 followEditor: config.get<boolean>('followEditor', true),
                 edgeClickSelect: config.get<boolean>('edgeClickSelect', true) !== false,
                 breadcrumbs: config.get<boolean>('breadcrumbs', false) === true,
+                focusDistance: clampNumber(config.get<number>('focusDistance', 120), 40, 400, 120),
             });
         } catch { return '{}'; }
     }
@@ -2256,6 +2258,13 @@ export class WebviewProvider {
                     <input id="set-edgeClickSelect" data-setting="edgeClickSelect" type="checkbox" />
                 </div>
                 <div class="settings-row">
+                    <label for="set-focusDistance">Focus distance<span class="settings-hint">How close the camera stops on a click, search jump or follow editor (scene units)</span></label>
+                    <span class="settings-slider-wrap">
+                        <input type="range" id="set-focusDistance" data-setting="focusDistance" min="40" max="400" step="10" value="120">
+                        <span id="set-focusDistance-value">120</span>
+                    </span>
+                </div>
+                <div class="settings-row">
                     <label for="set-breadcrumbs">Navigation trail<span class="settings-hint">Record every visited place over the graph — click a chip or press Backspace to go back</span></label>
                     <input id="set-breadcrumbs" data-setting="breadcrumbs" type="checkbox" />
                 </div>
@@ -2401,7 +2410,7 @@ export class WebviewProvider {
 
                 <h3>🖱️ Interactive Exploration</h3>
                 <table class="help-table">
-                    <tr><td><kbd>Click</kbd></td><td>Select node, show detail panel, focus camera</td></tr>
+                    <tr><td><kbd>Click</kbd></td><td>Select node, show detail panel, focus camera (distance set by <code>auraVisualizer.focusDistance</code>)</td></tr>
                     <tr><td><kbd>Double-click</kbd></td><td>Open file in VS Code editor</td></tr>
                     <tr><td><kbd>Right-click</kbd></td><td>Pin focus — isolate file + neighbors up to N depth</td></tr>
                     <tr><td><kbd>Shift+Right-click</kbd></td><td>Blast radius — show impact (all dependents) with depth coloring</td></tr>
@@ -2411,6 +2420,7 @@ export class WebviewProvider {
                     <tr><td><kbd>Hold LMB / RMB</kbd></td><td>Pilot mode — fly forward / backward while looking around</td></tr>
                     <tr><td><kbd>Background click</kbd></td><td>Clear all selections</td></tr>
                 </table>
+                <p><strong>Focus distance</strong> — how far from the node the camera parks when you focus it: a click, a search jump, a CodeLens focus, a breadcrumb restore or the 👁 follow editor. <code>auraVisualizer.focusDistance</code> (40–400 scene units, default <strong>120</strong>) or the <strong>Focus distance</strong> slider in ⚙️ Settings: lower for a tight close-up, higher to keep the surrounding neighbourhood in view. Edge clicks size their own framing instead, and warps / view links replay their stored pose.</p>
 
                 <h3>🗂️ Detail Panel</h3>
                 <p>The detail panel is organized into collapsible sections: <strong>📋 File details</strong> groups metrics, <strong>Ask Aura</strong> actions and <strong>📝 Note</strong>; <strong>Symbols</strong>, <strong>Dependencies</strong> and <strong>Dependents</strong> use readable cards. Empty sections (no symbols, no dependency, no dependent) are hidden automatically, and every section can be folded from its header.</p>
