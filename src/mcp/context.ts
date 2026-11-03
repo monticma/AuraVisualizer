@@ -10,6 +10,7 @@
  */
 
 import type { GraphDB } from '../graph-db';
+import { withAnchor } from '../ai/anchors';
 
 /** Common English task verbs / noise words that don't identify files. */
 const STOPWORDS = new Set([
@@ -191,8 +192,8 @@ export function resolveContext(db: GraphDB, task: string, limit: number = 10): R
                     fan_out: detail.fan_out,
                 }
                 : undefined,
-            anchors: [...a.symbols.values()],
-            doc_hits: a.docHits,
+            anchors: [...a.symbols.values()].map(s => withAnchor(s, file, s.line)),
+            doc_hits: a.docHits.map(h => withAnchor(h, file, h.line)),
             neighborhood: detail
                 ? {
                     dependencies: detail.dependencies.slice(0, 12),

@@ -11,6 +11,7 @@ import type { GraphDB } from '../graph-db';
 import { transitiveClosure } from '../analysis/transitive';
 import { resolveContext } from '../mcp/context';
 import { topRiskHotspots, type RiskSnapshot } from '../risk/risk-service';
+import { withAnchor } from './anchors';
 
 /** A private tool the model can call, executed locally against the GraphDB. */
 export interface AuraTool {
@@ -267,7 +268,10 @@ export function runAuraTool(db: GraphDB, name: string, input: Record<string, unk
             const dead = db.getDeadCode();
             const exempted = db.getExemptedCode();
             return {
-                symbols: dead.map(d => ({ file: d.nodeId, symbol: d.symbol, kind: d.kind })),
+                symbols: dead.map(d => withAnchor(
+                    { file: d.nodeId, symbol: d.symbol, kind: d.kind, line: d.line },
+                    d.nodeId, d.line,
+                )),
                 total: dead.length,
                 exempted: exempted.map(e => ({ file: e.nodeId, symbol: e.symbol, kind: e.kind, reason: e.reason })),
                 exempted_total: exempted.length,
@@ -333,7 +337,10 @@ export function runAuraTool(db: GraphDB, name: string, input: Record<string, unk
         case 'aura_search_symbols': {
             const results = db.searchSymbols(input.query as string, input.kind as string | undefined);
             return {
-                results: results.map(r => ({ file: r.nodeId, symbol: r.name, kind: r.kind, line: r.line, visibility: r.visibility, is_static: r.isStatic, is_async: r.isAsync, cognitive: r.cognitive, maintainability: r.maintainability })),
+                results: results.map(r => withAnchor(
+                    { file: r.nodeId, symbol: r.name, kind: r.kind, line: r.line, visibility: r.visibility, is_static: r.isStatic, is_async: r.isAsync },
+                    r.nodeId, r.line,
+                )),
                 total: results.length,
             };
         }
@@ -341,7 +348,10 @@ export function runAuraTool(db: GraphDB, name: string, input: Record<string, unk
             const results = db.searchDocs(input.query as string, (input.limit as number) || 10);
             return {
                 query: input.query,
-                results: results.map(r => ({ file: r.fileId, section: r.section, line: r.lineStart, score: r.score, excerpt: r.content.length > 600 ? r.content.slice(0, 600) + '…' : r.content })),
+                results: results.map(r => withAnchor(
+                    { file: r.fileId, section: r.section, line: r.lineStart, score: r.score, excerpt: r.content.length > 200 ? r.content.slice(0, 200) + '…' : r.content },
+                    r.fileId, r.lineStart,
+                )),
                 total: results.length,
                 note: results.length === 0
                     ? 'No documentation matched. The project may not have indexed any Markdown / text / rst files yet.'
@@ -362,7 +372,10 @@ export function runAuraTool(db: GraphDB, name: string, input: Record<string, unk
         case 'aura_find_unused_functions': {
             const unused = db.getUnusedFunctions(input.file as string | undefined, input.include_methods !== false);
             return {
-                functions: unused.map(u => ({ file: u.nodeId, name: u.name, kind: u.kind, line: u.line, visibility: u.visibility })),
+                functions: unused.map(u => withAnchor(
+                    { file: u.nodeId, name: u.name, kind: u.kind, line: u.line, visibility: u.visibility },
+                    u.nodeId, u.line,
+                )),
                 total: unused.length,
             };
         }
@@ -376,10 +389,16 @@ export function runAuraTool(db: GraphDB, name: string, input: Record<string, unk
                 direction: 'in',
                 maxDepth: (input.depth as number) || 5,
             });
+            const calls = db.getCallSites(resolved, 'in', 25);
             return {
                 file: input.file,
                 resolved_file: resolved,
                 dependents: blast.map(b => ({ file: b.id, depth: b.depth, risk: b.risk })),
+                call_sites: calls.map(c => withAnchor(
+                    { from: c.callerFile + ':' + c.callerName, to: c.calleeName, line: c.line },
+                    c.callerFile, c.line,
+                )),
+                call_sites_total: calls.length,
                 total: blast.length,
                 max_depth: closure.maxDepth,
                 by_depth: closure.byDepth,
@@ -397,10 +416,16 @@ export function runAuraTool(db: GraphDB, name: string, input: Record<string, unk
                 direction: 'out',
                 maxDepth: (input.depth as number) || 5,
             });
+            const calls = db.getCallSites(resolved, 'out', 25);
             return {
                 file: input.file,
                 resolved_file: resolved,
                 dependencies: deps.map(d => ({ file: d.id, depth: d.depth })),
+                call_sites: calls.map(c => withAnchor(
+                    { from: c.callerName, to: c.calleeFile + ':' + c.calleeName, line: c.line },
+                    c.callerFile, c.line,
+                )),
+                call_sites_total: calls.length,
                 total: deps.length,
                 max_depth: closure.maxDepth,
                 by_depth: closure.byDepth,
@@ -416,7 +441,10 @@ export function runAuraTool(db: GraphDB, name: string, input: Record<string, unk
             const edges = db.getHeritage(resolved || undefined);
             return {
                 file: input.file || 'all',
-                heritage: edges.map(e => ({ source: e.source, target: e.target, type: e.type, label: e.label })),
+                heritage: edges.map(e => withAnchor(
+                    { source: e.source, target: e.target, type: e.type, label: e.label, line: e.line },
+                    e.source, e.line,
+                )),
                 total: edges.length,
             };
         }

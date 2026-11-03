@@ -955,9 +955,9 @@ export class GraphDB {
     }
 
     /** All dead code (uncalled exports). */
-    getDeadCode(): { nodeId: string; symbol: string; kind: string }[] {
-        return queryAll<{ nodeId: string; symbol: string; kind: string }>(this.ensureDb(),
-            'SELECT node_id AS nodeId, name AS symbol, kind FROM symbols WHERE is_dead = 1 ORDER BY node_id'
+    getDeadCode(): { nodeId: string; symbol: string; kind: string; line: number | null }[] {
+        return queryAll<{ nodeId: string; symbol: string; kind: string; line: number | null }>(this.ensureDb(),
+            'SELECT node_id AS nodeId, name AS symbol, kind, line FROM symbols WHERE is_dead = 1 ORDER BY node_id, line'
         );
     }
 
@@ -1080,17 +1080,43 @@ export class GraphDB {
         );
     }
 
-    /** Get heritage edges (extends, implements). */
-    getHeritage(fileId?: string): EdgeRow[] {
+    /**
+     * Heritage edges (extends, implements), each with the line of the symbol the
+     * relation is named after (`label`) when the cache still has it — that is
+     * what lets the MCP payload carry a `path:line` anchor (V3-15).
+     */
+    getHeritage(fileId?: string): (EdgeRow & { line: number | null })[] {
         const db = this.ensureDb();
+        const select = "SELECT e.source, e.target, e.type, e.label, e.confidence,"
+            + " (SELECT s.line FROM symbols s WHERE s.node_id = e.source AND s.name = e.label LIMIT 1) AS line"
+            + " FROM edges e WHERE e.type IN ('extends', 'implements')";
         if (fileId) {
-            return queryAll<EdgeRow>(db,
-                "SELECT * FROM edges WHERE type IN ('extends', 'implements') AND (source = ? OR target = ?) ORDER BY source, type",
+            return queryAll<EdgeRow & { line: number | null }>(db,
+                `${select} AND (e.source = ? OR e.target = ?) ORDER BY e.source, e.type`,
                 [fileId, fileId]
             );
         }
-        return queryAll<EdgeRow>(db,
-            "SELECT * FROM edges WHERE type IN ('extends', 'implements') ORDER BY source, type"
+        return queryAll<EdgeRow & { line: number | null }>(db, `${select} ORDER BY e.source, e.type`);
+    }
+
+    /**
+     * Direct cross-file call sites (`function_calls.call_line`), for the tools
+     * that answer "what does this file depend on" (V3-15). `direction: 'out'`
+     * lists the calls this file makes, `'in'` the calls made into it.
+     */
+    getCallSites(
+        fileId: string,
+        direction: 'out' | 'in' = 'out',
+        limit: number = 50,
+    ): { callerFile: string; callerName: string; calleeFile: string; calleeName: string; line: number }[] {
+        const capped = Math.min(500, Math.max(1, Math.floor(limit) || 50));
+        const column = direction === 'in' ? 'callee_file' : 'caller_file';
+        return queryAll<{ callerFile: string; callerName: string; calleeFile: string; calleeName: string; line: number }>(
+            this.ensureDb(),
+            'SELECT caller_file AS callerFile, caller_name AS callerName, callee_file AS calleeFile,'
+            + ' callee_name AS calleeName, call_line AS line FROM function_calls'
+            + ` WHERE ${column} = ? AND caller_file <> callee_file ORDER BY call_line LIMIT ${capped}`,
+            [fileId],
         );
     }
 

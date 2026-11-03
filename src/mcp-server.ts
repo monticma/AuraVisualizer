@@ -26,6 +26,7 @@ import { readFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { GraphDB } from './graph-db';
 import { runAuraTool } from './ai/tools';
+import { withAnchor } from './ai/anchors';
 import { buildRiskSnapshot, type RiskServiceCommit } from './risk/risk-service';
 import {
     ARCH_BASELINE_FILE,
@@ -363,6 +364,7 @@ function handleTool(db: GraphDB, name: string, args: Record<string, unknown>): u
                 by_depth: result.by_depth ?? [],
                 longest_chain: result.longest_chain ?? [],
                 truncated: result.truncated === true,
+                call_sites: result.call_sites ?? [],
             };
         }
         case 'find_dependents': {
@@ -380,6 +382,7 @@ function handleTool(db: GraphDB, name: string, args: Record<string, unknown>): u
                 longest_chain: result.longest_chain ?? [],
                 truncated: result.truncated === true,
                 summary: `${high} high-risk, ${medium} medium-risk, ${low} low-risk`,
+                call_sites: result.call_sites ?? [],
                 note: `Modifying this file impacts ${blast.length} file(s) transitively`,
             };
         }
@@ -397,10 +400,16 @@ function handleTool(db: GraphDB, name: string, args: Record<string, unknown>): u
             return result;
         }
         case 'find_dead_code': {
-            const symbols = (result.symbols ?? []) as { file: string; symbol: string; kind: string }[];
+            const symbols = (result.symbols ?? []) as { file: string; symbol: string; kind: string; line?: number | null; anchor?: string }[];
             const exempted = (result.exempted ?? []) as { file: string; symbol: string; kind: string; reason: string }[];
-            const byFile: Record<string, string[]> = {};
-            for (const d of symbols) (byFile[d.file] ??= []).push(`${d.symbol} (${d.kind})`);
+            const byFile: Record<string, { name: string; kind: string; line: number | null; anchor?: string }[]> = {};
+            for (const d of symbols) {
+                // V3-15 — keep the verified anchor when the cache knows the line.
+                (byFile[d.file] ??= []).push(withAnchor(
+                    { name: d.symbol, kind: d.kind, line: d.line ?? null },
+                    d.file, d.line,
+                ) as { name: string; kind: string; line: number | null; anchor?: string });
+            }
             return {
                 files: Object.entries(byFile).map(([file, list]) => ({ file, symbols: list })),
                 totalSymbols: symbols.length,
@@ -411,9 +420,12 @@ function handleTool(db: GraphDB, name: string, args: Record<string, unknown>): u
         }
         case 'find_unused_functions': {
             const functions = (result.functions ?? []) as { file: string; name: string; kind: string; line: number; visibility: string }[];
-            const byFile: Record<string, { name: string; kind: string; line: number; visibility: string }[]> = {};
+            const byFile: Record<string, { name: string; kind: string; line: number; visibility: string; anchor?: string }[]> = {};
             for (const f of functions) {
-                (byFile[f.file] ??= []).push({ name: f.name, kind: f.kind, line: f.line, visibility: f.visibility });
+                (byFile[f.file] ??= []).push(withAnchor(
+                    { name: f.name, kind: f.kind, line: f.line, visibility: f.visibility },
+                    f.file, f.line,
+                ));
             }
             return {
                 files: Object.entries(byFile).map(([file, list]) => ({ file, functions: list })),
