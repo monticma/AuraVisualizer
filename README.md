@@ -771,10 +771,14 @@ The MCP server exposes your codebase graph to AI tools via stdio transport. It r
 | `aura://nodes` | All files with full metrics |
 | `aura://node/{id}` | Detail for a specific file — symbols, dependencies, dependents |
 
-**Tools (18):**
+**Tools (22):**
 
 | Tool | Parameters | Description |
 |------|-----------|-------------|
+| `build` | — | **Readiness check** — analysis timestamp + age, file/link counts, commit analysed vs current `HEAD`, `stale` flag (`null` when undecidable) and the reason. Call it before trusting any metric. |
+| `explain_file` | `file` | **One-call file briefing** — metrics, risk score with reasons, cycles, dead/unused symbols, incoming/outgoing call sites, dependencies/dependents, heritage, co-change partners and the architectural community. |
+| `hotspots_in_changes` | `base`, `limit` | **Risk inside the change set** — working-tree diff by default, branch vs merge base when `base` is given; each row carries `+/-` and its risk reasons, riskiest first. |
+| `list_repositories` | — | **Which repo/worktree is served** — root, database path, analysis age, `HEAD`, staleness and every `git worktree` with its branch. |
 | `find_dependencies` | `file`, `depth` | Transitive dependency tree + the direct `call_sites` behind each edge |
 | `find_dependents` | `file`, `depth` | Impact analysis — blast radius with risk levels + the direct `call_sites` behind each edge |
 | `find_path` | `from`, `to` | Shortest dependency path between two files |
@@ -794,7 +798,9 @@ The MCP server exposes your codebase graph to AI tools via stdio transport. It r
 | `generate_documentation` | `hotspot_limit` | Full documentation payload: overview, modules, hotspots, cycles, dead code, inter-module links |
 | `get_architecture_violations` | `limit`, `include_baselined` | Evaluate `.aura/arch-rules.json` — new deny/slice violations, per-layer Ca/Ce/instability and aggregated layer cycles; documentation excluded |
 
-**Every payload is anchored.** As soon as a tool knows a line, the entry carries `file`, `line` **and** a ready-to-cite `anchor` field (`"src/risk/risk-core.ts:142"`) — nothing to concatenate on the agent side. That covers `search_symbols`, `search_docs`, `find_dead_code`, `find_unused_functions`, `find_heritage` and `resolve_context`. `find_dependencies` and `find_dependents` also return the direct `call_sites` (`from`, `to`, `line`, `anchor`) behind each edge, so the agent jumps straight to the call instead of grepping for it.
+**Every payload is anchored.** As soon as a tool knows a line, the entry carries `file`, `line` **and** a ready-to-cite `anchor` field (`"src/risk/risk-core.ts:142"`) — nothing to concatenate on the agent side. That covers `search_symbols`, `search_docs`, `find_dead_code`, `find_unused_functions`, `find_heritage`, `resolve_context` and `explain_file`. `find_dependencies` and `find_dependents` also return the direct `call_sites` (`from`, `to`, `line`, `anchor`) behind each edge, so the agent jumps straight to the call instead of grepping for it.
+
+**The server ships operating instructions.** On `initialize`, Aura returns an `instructions` block telling the agent to call `build` first, prefer the indexed tools over shell `git`/`grep`, quote the anchors, and say so when the graph is stale — so the workflow survives without any per-project prompt.
 
 ---
 

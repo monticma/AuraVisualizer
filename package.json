@@ -194,6 +194,86 @@
             }
           }
         }
+      },
+      {
+        "name": "aura_build",
+        "displayName": "Aura: Build Status",
+        "modelDescription": "Readiness check: is the analyzed graph still in sync with the checkout? Returns the analysis timestamp and age, file/link counts, the commit analyzed vs the current HEAD, a stale flag (null when undecidable) and the reason. Call this first when a task needs trustworthy graph data.",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "buildStatus",
+        "icon": "$(pulse)",
+        "tags": [
+          "codebase",
+          "architecture"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {}
+        }
+      },
+      {
+        "name": "aura_explain_file",
+        "displayName": "Aura: Explain File",
+        "modelDescription": "One-call file briefing: language, size, complexity, fan-in/out, page rank, risk score with reasons, cycles, dead or unused symbols, incoming/outgoing call sites, dependencies/dependents, heritage, co-change partners and the architectural community. Use it instead of chaining several find tools to understand a single file.",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "explainFile",
+        "icon": "$(symbol-file)",
+        "tags": [
+          "codebase",
+          "architecture"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "file": {
+              "type": "string",
+              "description": "File path or basename, e.g. \"src/graph-db.ts\" or \"graph-db.ts\""
+            }
+          },
+          "required": [
+            "file"
+          ]
+        }
+      },
+      {
+        "name": "aura_hotspots_in_changes",
+        "displayName": "Aura: Hotspots In Changes",
+        "modelDescription": "Risky files inside the current changes, ranked by risk score. Defaults to the uncommitted working tree; pass base to review a branch against its merge base. Each row carries the diff size (+/-) and the risk reasons.",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "hotspotsInChanges",
+        "icon": "$(diff-modified)",
+        "tags": [
+          "codebase",
+          "review"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "base": {
+              "type": "string",
+              "description": "Optional branch or commit to diff against (e.g. \"main\"). Omit to review the working tree."
+            },
+            "limit": {
+              "type": "number",
+              "description": "Maximum files to return (default 25)"
+            }
+          }
+        }
+      },
+      {
+        "name": "aura_list_repositories",
+        "displayName": "Aura: List Repositories",
+        "modelDescription": "Describe the workspace Aura is serving: root path, database path, analysis timestamp, file/link counts, current git HEAD, staleness, and every git worktree with its branch.",
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "listRepositories",
+        "icon": "$(repo)",
+        "tags": [
+          "codebase"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {}
+        }
       }
     ],
     "chatParticipants": [

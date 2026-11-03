@@ -11,7 +11,7 @@
 
 import * as vscode from 'vscode';
 import type { GraphDB } from './graph-db';
-import { runAuraTool } from './ai/tools';
+import { runAuraToolAsync } from './ai/tools';
 import type { RiskSnapshot } from './risk/risk-service';
 
 type GetDb = () => GraphDB | undefined;
@@ -38,7 +38,7 @@ export function registerAuraLmTools(
     getRiskSnapshot?: () => RiskSnapshot | undefined,
     getArchitecture?: (input: Record<string, unknown>) => unknown,
 ): void {
-    const register = <T>(name: string, invoke: (input: T) => vscode.LanguageModelToolResult): void => {
+    const register = <T>(name: string, invoke: (input: T) => vscode.ProviderResult<vscode.LanguageModelToolResult>): void => {
         context.subscriptions.push(
             vscode.lm.registerTool<T>(name, {
                 invoke: (options) => invoke(options.input),
@@ -46,13 +46,21 @@ export function registerAuraLmTools(
         );
     };
 
+    /** Root the tools describe; the first workspace folder matches the scan root. */
+    const root = (): string => vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
+
     /** Register a tool whose handler is the shared Aura registry implementation. */
     const registerShared = <T>(name: string): void => {
-        register<T>(name, (input) => {
+        register<T>(name, async (input) => {
             const db = getDb();
             if (!db) return notAnalyzedResult();
             try {
-                return jsonResult(runAuraTool(db, name, input as Record<string, unknown>, getRiskSnapshot, getArchitecture));
+                return jsonResult(await runAuraToolAsync(db, name, input as Record<string, unknown>, {
+                    root: root(),
+                    dbPath: vscode.Uri.joinPath(vscode.Uri.file(root()), '.aura', 'graph.db').fsPath,
+                    getRiskSnapshot,
+                    getArchitecture,
+                }));
             } catch (err) {
                 return jsonResult({ error: err instanceof Error ? err.message : String(err) });
             }
@@ -65,4 +73,8 @@ export function registerAuraLmTools(
     registerShared<{ from: string; to: string }>('aura_find_path');
     registerShared<{ query: string; kind?: string }>('aura_search_symbols');
     registerShared<{ layer?: string; include_baselined?: boolean; limit?: number }>('aura_get_architecture_violations');
+    registerShared<Record<string, never>>('aura_build');
+    registerShared<{ file: string }>('aura_explain_file');
+    registerShared<{ base?: string; limit?: number }>('aura_hotspots_in_changes');
+    registerShared<Record<string, never>>('aura_list_repositories');
 }

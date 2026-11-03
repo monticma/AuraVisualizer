@@ -10,8 +10,11 @@
 import type { GraphDB } from '../graph-db';
 import { transitiveClosure } from '../analysis/transitive';
 import { resolveContext } from '../mcp/context';
-import { topRiskHotspots, type RiskSnapshot } from '../risk/risk-service';
+import { topRiskHotspots, type RiskFileEntry, type RiskSnapshot } from '../risk/risk-service';
+import { readBranchDiff } from '../git/branch-diff';
+import { readCurrentHead, readWorkingTreeChanges, readWorktrees } from '../git/git-info';
 import { withAnchor } from './anchors';
+import { buildStatusPayload, mergeChangesWithRisk, type ChangedFile } from './tool-core';
 
 /** A private tool the model can call, executed locally against the GraphDB. */
 export interface AuraTool {
@@ -198,6 +201,38 @@ export const AURA_TOOLS: AuraTool[] = [
                 limit: { type: 'number', description: 'Maximum violations to return (default 100)' },
             },
         },
+    },
+    {
+        name: 'aura_build',
+        description: 'Readiness check: is the analysed graph still in sync with the checkout? Returns the analysis timestamp and age, file/link counts, the commit analysed vs the current HEAD, a stale flag (null when undecidable) and the reason. Call this FIRST when a task needs trustworthy graph data, and re-run "Aura: Visualize Codebase" when stale is true.',
+        inputSchema: { type: 'object', properties: {} },
+    },
+    {
+        name: 'aura_explain_file',
+        description: 'One-call file briefing: language, size, complexity, fan-in/out, page rank, risk score with reasons, cycles, dead or unused symbols, incoming/outgoing call sites, dependencies/dependents, heritage, co-change partners and the architectural community. Use it instead of chaining several find_* calls when you need to understand a single file.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                file: { type: 'string', description: 'File path or basename, e.g. "src/graph-db.ts" or "graph-db.ts"' },
+            },
+            required: ['file'],
+        },
+    },
+    {
+        name: 'aura_hotspots_in_changes',
+        description: 'Risky files inside the current changes, ranked by risk score. Defaults to the uncommitted working tree; pass "base" to review a branch against its merge base instead. Each row carries the diff size (+/-) and the risk reasons, so it answers "what should I double-check in this change set?".',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                base: { type: 'string', description: 'Optional branch or commit to diff against (e.g. "main"). Omit to review the working tree.' },
+                limit: { type: 'number', description: 'Maximum files to return (default 25)' },
+            },
+        },
+    },
+    {
+        name: 'aura_list_repositories',
+        description: 'Describe the workspace Aura is serving: root path, database path, analysis timestamp, file/link counts, current git HEAD, staleness, and every git worktree with its branch. Use it when a task must know which repository or worktree it is working on.',
+        inputSchema: { type: 'object', properties: {} },
     },
 ];
 
@@ -527,5 +562,204 @@ export function runAuraTool(db: GraphDB, name: string, input: Record<string, unk
         }
         default:
             return { error: `Unknown tool: ${name}` };
+    }
+}
+
+/** Everything the git-backed tools need from the host (paths + live providers). */
+export interface AuraToolDeps {
+    /** Workspace / repository root the graph was built from. */
+    root: string;
+    /** `.aura/graph.db` path, for `aura_list_repositories`. */
+    dbPath?: string;
+    getRiskSnapshot?: (input?: Record<string, unknown>) => RiskSnapshot | undefined;
+    getArchitecture?: (input: Record<string, unknown>) => unknown;
+}
+
+/** Risk entry → the short view the tools expose. */
+function riskView(entry: RiskFileEntry) {
+    return {
+        score: entry.score,
+        bucket: entry.bucket,
+        reasons: entry.reasons.map(r => r.text),
+    };
+}
+
+/** `aura_build` — is the analysed graph still in sync with the checkout? */
+async function buildTool(db: GraphDB, deps: AuraToolDeps) {
+    const status = buildStatusPayload({
+        meta: db.getAllMeta(),
+        currentHead: await readCurrentHead(deps.root),
+    });
+    return {
+        ...status,
+        root: deps.root || null,
+        database: deps.dbPath || null,
+        note: status.stale === true
+            ? 'The graph does not describe the current commit: metrics, links and risk scores may be outdated. Ask the user to re-run the analysis before trusting precise numbers.'
+            : 'Graph data and checkout match — values can be quoted as-is.',
+    };
+}
+
+/** `aura_explain_file` — one aggregated briefing for a single file. */
+function explainFileTool(db: GraphDB, input: Record<string, unknown>, deps: AuraToolDeps) {
+    const resolved = resolveFileArg(db, String(input.file || ''));
+    if (!resolved) {
+        return { error: `File not found: ${input.file}. Ask the user for the exact path, or use aura_search_symbols to find it.` };
+    }
+    const detail = db.getNodeDetail(resolved);
+    if (!detail) return { error: `File not found in the graph: ${resolved}` };
+
+    const snapshot = deps.getRiskSnapshot?.();
+    const riskEntry = snapshot?.byId.get(resolved);
+
+    const cycles = db.getCycles().filter(cycle => cycle.includes(resolved));
+    const dead = db.getDeadCode().filter(d => d.nodeId === resolved);
+    const unused = db.getUnusedFunctions(resolved, true);
+    const outgoing = db.getCallSites(resolved, 'out', 25);
+    const incoming = db.getCallSites(resolved, 'in', 25);
+    const heritage = db.getHeritage(resolved);
+    const cochange = db.getCochange(500, 0)
+        .filter(pair => pair.file_a === resolved || pair.file_b === resolved)
+        .slice(0, 10)
+        .map(pair => ({
+            file: pair.file_a === resolved ? pair.file_b : pair.file_a,
+            cochanges: pair.cochanges,
+            jaccard: pair.jaccard,
+            linked: !!pair.linked,
+        }));
+    const communities = db.getCommunities();
+    const labels = db.getCommunityLabels();
+    const communityId = communities.find(c => c.nodeId === resolved)?.community;
+    const groups = new Map<string, number>();
+    for (const symbol of detail.symbols) {
+        groups.set(symbol.kind, (groups.get(symbol.kind) || 0) + 1);
+    }
+
+    return {
+        file: input.file,
+        resolved_file: resolved,
+        language: detail.language,
+        lines: detail.lines,
+        size_bytes: detail.size,
+        complexity: detail.complexity,
+        cognitive: detail.cognitive,
+        fan_in: detail.fan_in,
+        fan_out: detail.fan_out,
+        pagerank: detail.pagerank,
+        directory: detail.group_name,
+        last_modified: detail.last_modified ? new Date(detail.last_modified).toISOString() : null,
+        risk: riskEntry
+            ? { ...riskView(riskEntry), percentile: riskEntry.scorePct, top_label: riskEntry.topLabel, metrics: { lines: riskEntry.lines, complexity: riskEntry.complexity, fan_in: riskEntry.fanIn, fan_out: riskEntry.fanOut, churn: riskEntry.churn, authors: riskEntry.authorCount } }
+            : null,
+        risk_window_days: snapshot?.windowDays ?? null,
+        symbols: {
+            total: detail.symbols.length,
+            kinds: Array.from(groups.entries()).map(([kind, count]) => ({ kind, count })),
+        },
+        dead_exports: dead.map(d => withAnchor({ symbol: d.symbol, kind: d.kind, line: d.line }, resolved, d.line)),
+        unused_functions: unused.map(u => withAnchor({ name: u.name, kind: u.kind, line: u.line, visibility: u.visibility }, resolved, u.line)),
+        call_sites: {
+            outgoing: outgoing.map(c => withAnchor({ to: c.calleeFile + ':' + c.calleeName, line: c.line }, c.callerFile, c.line)),
+            incoming: incoming.map(c => withAnchor({ from: c.callerFile + ':' + c.callerName, line: c.line }, c.callerFile, c.line)),
+            outgoing_total: outgoing.length,
+            incoming_total: incoming.length,
+        },
+        dependencies: detail.dependencies.slice(0, 40),
+        dependents: detail.dependents.slice(0, 40),
+        dependents_total: detail.dependents.length,
+        dependencies_total: detail.dependencies.length,
+        heritage: heritage.map(e => withAnchor({ source: e.source, target: e.target, type: e.type, line: e.line }, e.source === resolved ? e.source : e.target, e.line)),
+        cycles: cycles.map(cycle => ({ files: cycle, length: cycle.length })),
+        cochange,
+        community: communityId === undefined ? null : { id: communityId, name: labels[String(communityId)] || null },
+        note: 'Aggregated briefing: risk first, then structure, then history. Anchors are "file:line" and safe to quote in a review.',
+    };
+}
+
+/** `aura_hotspots_in_changes` — risk × changed files. */
+async function hotspotsInChangesTool(db: GraphDB, input: Record<string, unknown>, deps: AuraToolDeps) {
+    const base = typeof input.base === 'string' ? input.base.trim() : '';
+    const limit = (input.limit as number) || 25;
+    let changed: ChangedFile[];
+    let scope: string;
+    if (base) {
+        try {
+            const diff = await readBranchDiff(deps.root, base);
+            changed = diff.files.map(f => ({ file: f.path, status: String(f.status), additions: f.additions, deletions: f.deletions }));
+            scope = `branch changes since ${diff.mergeBase.slice(0, 7)}`;
+        } catch (error) {
+            return { error: `Could not diff against "${base}": ${(error as Error).message}` };
+        }
+    } else {
+        changed = await readWorkingTreeChanges(deps.root);
+        scope = 'uncommitted working tree';
+    }
+
+    const snapshot = deps.getRiskSnapshot?.();
+    const merged = mergeChangesWithRisk(
+        changed,
+        file => {
+            const id = resolveFileArg(db, file);
+            const entry = id ? snapshot?.byId.get(id) : undefined;
+            return entry ? riskView(entry) : null;
+        },
+        limit,
+    );
+
+    return {
+        scope,
+        base: base || null,
+        changes: merged.changes,
+        total: merged.total,
+        additions: merged.additions,
+        deletions: merged.deletions,
+        risky: merged.risky,
+        note: merged.total === 0
+            ? 'Nothing changed — the working tree is clean and matches HEAD.'
+            : 'Ranked by risk score (files unknown to the graph come last). Start with the first row.',
+    };
+}
+
+/** `aura_list_repositories` — which repo/worktree is Aura serving? */
+async function listRepositoriesTool(db: GraphDB, deps: AuraToolDeps) {
+    const status = buildStatusPayload({
+        meta: db.getAllMeta(),
+        currentHead: await readCurrentHead(deps.root),
+    });
+    const worktrees = deps.root ? await readWorktrees(deps.root) : [];
+    return {
+        root: deps.root || null,
+        database: deps.dbPath || null,
+        analyzed_at: status.analyzed_at,
+        age_minutes: status.age_minutes,
+        files: status.files,
+        links: status.links,
+        head_at_analysis: status.head_at_analysis,
+        head_now: status.head_now,
+        stale: status.stale,
+        worktrees,
+        worktrees_total: worktrees.length,
+        note: worktrees.length > 1
+            ? 'Several worktrees share this repository — check which path the task refers to before editing files.'
+            : 'Single-worktree repository.',
+    };
+}
+
+/**
+ * Async entry point for every Aura tool: the git-backed tools (V3-16) need
+ * `await`, the deterministic GraphDB ones are delegated to `runAuraTool`.
+ */
+export async function runAuraToolAsync(db: GraphDB, name: string, input: Record<string, unknown>, deps: AuraToolDeps): Promise<unknown> {
+    switch (name) {
+        case 'aura_build':
+            return buildTool(db, deps);
+        case 'aura_explain_file':
+            return explainFileTool(db, input, deps);
+        case 'aura_hotspots_in_changes':
+            return hotspotsInChangesTool(db, input, deps);
+        case 'aura_list_repositories':
+            return listRepositoriesTool(db, deps);
+        default:
+            return runAuraTool(db, name, input, deps.getRiskSnapshot, deps.getArchitecture);
     }
 }

@@ -25,7 +25,7 @@ import initSqlJs from 'sql.js';
 import { readFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { GraphDB } from './graph-db';
-import { runAuraTool } from './ai/tools';
+import { runAuraToolAsync } from './ai/tools';
 import { withAnchor } from './ai/anchors';
 import { buildRiskSnapshot, type RiskServiceCommit } from './risk/risk-service';
 import {
@@ -238,6 +238,38 @@ const TOOLS = [
             },
         },
     },
+    {
+        name: 'build',
+        description: 'Readiness check: is the analysed graph still in sync with the checkout? Returns the analysis timestamp and age, file/link counts, the commit analysed vs the current HEAD, a stale flag (null when undecidable) and the reason. Call this FIRST when a task needs trustworthy graph data; when stale is true, ask for a new analysis before quoting precise metrics.',
+        inputSchema: { type: 'object' as const, properties: {} },
+    },
+    {
+        name: 'explain_file',
+        description: 'One-call file briefing: language, size, complexity, fan-in/out, page rank, risk score with reasons, cycles, dead or unused symbols, incoming/outgoing call sites, dependencies/dependents, heritage, co-change partners and the architectural community. Use it instead of chaining several find_* calls when you need to understand a single file.',
+        inputSchema: {
+            type: 'object' as const,
+            properties: {
+                file: { type: 'string', description: 'File path or basename, e.g. "src/graph-db.ts" or "graph-db.ts"' },
+            },
+            required: ['file'],
+        },
+    },
+    {
+        name: 'hotspots_in_changes',
+        description: 'Risky files inside the current changes, ranked by risk score. Defaults to the uncommitted working tree; pass "base" to review a branch against its merge base. Each row carries the diff size (+/-) and the risk reasons — use it to answer "what should I double-check in this change set?".',
+        inputSchema: {
+            type: 'object' as const,
+            properties: {
+                base: { type: 'string', description: 'Optional branch or commit to diff against (e.g. "main"). Omit to review the working tree.' },
+                limit: { type: 'number', description: 'Maximum files to return (default 25)' },
+            },
+        },
+    },
+    {
+        name: 'list_repositories',
+        description: 'Describe the workspace Aura is serving: root path, database path, analysis timestamp, file/link counts, current git HEAD, staleness, and every git worktree with its branch. Use it when a task must know which repository or worktree it is working on.',
+        inputSchema: { type: 'object' as const, properties: {} },
+    },
 ];
 
 // ── Tool handlers ──────────────────────────────────────────────
@@ -279,9 +311,13 @@ const AURA_TOOL_BY_MCP: Record<string, string> = {
     find_unused_functions: 'aura_find_unused_functions',
     search_docs: 'aura_search_docs',
     resolve_context: 'aura_resolve_context',
+    build: 'aura_build',
+    explain_file: 'aura_explain_file',
+    hotspots_in_changes: 'aura_hotspots_in_changes',
+    list_repositories: 'aura_list_repositories',
 };
 
-function handleTool(db: GraphDB, name: string, args: Record<string, unknown>): unknown {
+async function handleTool(db: GraphDB, name: string, args: Record<string, unknown>): Promise<unknown> {
     if (name === 'get_architecture_violations') {
         const root = resolve(dirname(DB_PATH!), '..');
         const rulesPath = join(root, ARCH_RULES_FILE);
@@ -349,7 +385,11 @@ function handleTool(db: GraphDB, name: string, args: Record<string, unknown>): u
             : 90;
         return loadRiskSnapshot(db, days);
     };
-    const result = runAuraTool(db, auraName, input, riskSnapshot) as Record<string, unknown>;
+    const result = await runAuraToolAsync(db, auraName, input, {
+        root: resolve(dirname(DB_PATH!), '..'),
+        dbPath: DB_PATH!,
+        getRiskSnapshot: riskSnapshot,
+    }) as Record<string, unknown>;
     if (result && typeof result.error === 'string') throw new Error(result.error);
 
     switch (name) {
@@ -463,6 +503,10 @@ function handleTool(db: GraphDB, name: string, args: Record<string, unknown>): u
         case 'find_heritage':
         case 'get_architecture':
         case 'generate_documentation':
+        case 'build':
+        case 'explain_file':
+        case 'hotspots_in_changes':
+        case 'list_repositories':
             return result;
         default:
             throw new Error(`Unknown tool: ${name}`);
@@ -485,12 +529,24 @@ async function main(): Promise<void> {
     db.openSync(SQL, DB_PATH!);
 
     const server = new Server(
-        { name: 'aura', version: '1.1.0' },
+        { name: 'aura', version: '1.2.0' },
         {
             capabilities: {
                 resources: {},
                 tools: {},
             },
+            instructions: [
+                'aura serves a pre-analysed dependency graph of THIS workspace: files, symbols, cycles,',
+                'risk scores, git history and prose docs. Prefer these tools over shelling out to git,',
+                'grep or find for structural questions — they are deterministic and already indexed.',
+                'Workflow: (1) call `build` first to confirm the graph is in sync with the checkout;',
+                '(2) `resolve_context` to locate task-relevant files, `search_symbols` / `explain_file`',
+                'to understand one file, `find_dependents` before editing a widely imported file,',
+                '(3) `hotspots_in_changes` before reviewing a change set, `find_path` for "how do A and B',
+                'connect", `search_docs` for prose. Every row carries a `file:line` anchor: quote it so',
+                'the user can verify the claim. When `build` reports `stale: true`, say so and ask for a',
+                'new analysis instead of presenting outdated metrics as current.',
+            ].join(' '),
         },
     );
 
@@ -593,7 +649,7 @@ async function main(): Promise<void> {
     server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const { name, arguments: args } = request.params;
         try {
-            const result = handleTool(db, name, args ?? {});
+            const result = await handleTool(db, name, args ?? {});
             return {
                 content: [{
                     type: 'text' as const,

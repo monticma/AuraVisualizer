@@ -20,10 +20,14 @@ Aura has **no in-panel assistant**: the graph panel is for exploration, and **VS
 
 The MCP server starts automatically and registers itself in `.vscode/mcp.json`. AI assistants (like GitHub Copilot) can then query your codebase graph.
 
-**Available tools (18):**
+**Available tools (22):**
 
 | Tool | What it does |
 |------|-------------|
+| `build` | Readiness check — is the graph still in sync with the checkout? Returns the analysis age, file/link counts, the commit analysed vs `HEAD` and a `stale` flag with its reason |
+| `explain_file` | One-call briefing for a file: metrics, risk score with reasons, cycles, dead code, call sites, dependencies, heritage, co-change partners, community |
+| `hotspots_in_changes` | Risky files inside the current changes (working tree by default, or a branch with `base`), riskiest first with their `+/-` |
+| `list_repositories` | Which repository/worktree Aura serves — root, database, analysis age, `HEAD`, staleness, `git worktree` list |
 | `find_dependencies` | What does a file depend on? (transitive, includes inheritance) |
 | `find_dependents` | Blast radius — what files would be affected by a change? (with risk levels) |
 | `find_path` | Shortest path between two files |
@@ -44,6 +48,8 @@ The MCP server starts automatically and registers itself in `.vscode/mcp.json`. 
 | `get_architecture_violations` | Evaluate `.aura/arch-rules.json` — new deny/slice violations, per-layer Ca/Ce/instability and aggregated layer cycles (optional `layer` filter, baselined included on demand) |
 
 Every symbol-bearing answer carries a `file`, a `line` and a ready-to-cite `anchor` (`"src/risk/risk-core.ts:142"`), and the dependency tools also return the direct `call_sites` behind each edge — the agent opens the exact line instead of searching the repository.
+
+The server also sends **operating instructions** on connect: call `build` first, prefer the indexed tools over shell `git`/`grep`, quote the anchors, and report staleness instead of presenting outdated numbers as current.
 
 
 ### Export for AI

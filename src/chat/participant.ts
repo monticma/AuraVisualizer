@@ -10,7 +10,7 @@ import { existsSync } from 'fs';
 import { relative } from 'path';
 import type { GraphDB } from '../graph-db';
 import type { RiskSnapshot } from '../risk/risk-service';
-import { AURA_TOOLS, resolveFileArg, runAuraTool } from '../ai/tools';
+import { AURA_TOOLS, resolveFileArg, runAuraToolAsync } from '../ai/tools';
 import { buildAuraSystemPrompt } from '../ai/prompts';
 import { resolveNavigationPath, type NavigationPath } from '../commands/navigation-core';
 import { describeAuraViewContext, getAuraViewContext, setAuraViewContext, type AuraViewContext } from './context';
@@ -128,7 +128,11 @@ export function registerAuraChatParticipant(
                     stream.progress(`Aura · ${tc.name}`);
                     let result: unknown;
                     try {
-                        result = runAuraTool(db, tc.name, tc.input as Record<string, unknown>, getRiskSnapshot, getArchitecture);
+                        result = await runAuraToolAsync(db, tc.name, tc.input as Record<string, unknown>, {
+                            root: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd(),
+                            getRiskSnapshot,
+                            getArchitecture,
+                        });
                     } catch (err) {
                         result = { error: err instanceof Error ? err.message : String(err) };
                     }
