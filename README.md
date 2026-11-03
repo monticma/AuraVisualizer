@@ -483,6 +483,8 @@ Navigate your project's git history commit by commit. A timeline bar at the bott
 | `I` | Toggle impact cascade from changed files |
 | `Escape` | Return to HEAD |
 
+**Shallow clones** — a `git clone --depth 1` checkout (`actions/checkout` does this by default in CI) only exposes one commit, so churn, co-change and complexity trends would be silently underestimated. Aura detects it (`git rev-parse --is-shallow-repository`, with a `.git/shallow` fallback for older git) and shows a banner at the top of the Time Travel tab — plus a caption under **Codebase Health** in the Risk tab — with the fix: `git fetch --unshallow` (one click to copy). Nothing runs behind your back.
+
 ### Visual Diff Between Commits 🔀
 
 Press `V` or click the **⇄ Compare** button to enter **Compare mode**. A second slider appears — drag both sliders to diff any two commits. Files that changed between those commits are highlighted; unchanged nodes are dimmed. Compare mode shows the cumulative diff across the selected range.

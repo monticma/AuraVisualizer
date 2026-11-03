@@ -578,6 +578,7 @@
         setupParseFailures();
         setupReviewBar();
         setupBreadcrumbs();
+        setupShallowWarning();
         if (window.AuraTimeline) AuraTimeline.setup();
         setupTabs();
         if (window.AuraQueryBar) {
@@ -738,6 +739,7 @@
         syncLayersFromMetadata(false);
         updateStats(graphData.meta);
         updateLanguageButtons(graphData.nodes);
+        updateShallowWarning(graphData.meta && graphData.meta.git);
         if (window.AuraRiskMap) {
             try { AuraRiskMap.renderRiskDashboard(); } catch (e) { console.error('[aura] risk dashboard render failed:', e); }
         }
@@ -1055,7 +1057,6 @@
     // ============================================================
     // Navigation trail — breadcrumbs (V3-12)
     // ============================================================
-
     /** True while a place is being restored: pushes must stay silent. */
     var breadcrumbRestoring = false;
 
@@ -1256,6 +1257,69 @@
         AuraBreadcrumbs.setup({ onRestore: restoreBreadcrumb });
         // Off by default: the trail only starts recording once the setting is on.
         if (!breadcrumbsEnabled) AuraBreadcrumbs.clear();
+    }
+
+    // ============================================================
+    // Shallow-clone warning (V3-14)
+    // ============================================================
+
+    /** Set by the ✕ button: hidden for this session only. */
+    var shallowDismissed = false;
+
+    /**
+     * A shallow checkout makes churn / co-change / trends silently wrong: the
+     * banner lives at the top of the Time Travel tab and a caption sits under
+     * the Risk dashboard. Texts come from the shared `shallow-core` bundle so
+     * they cannot drift from the ones the host tests.
+     */
+    function updateShallowWarning(gitInfo) {
+        var core = window.AuraShallow || null;
+        var bar = $('#shallow-bar');
+        var caption = $('#risk-git-caption');
+        var info = gitInfo && gitInfo.shallow === true ? gitInfo : null;
+
+        if (!info || shallowDismissed || !core) {
+            if (bar) bar.classList.add('hidden');
+            if (caption) {
+                caption.textContent = '';
+                caption.classList.add('hidden');
+            }
+            return;
+        }
+
+        var banner = core.shallowBannerText(info);
+        var riskCaption = core.shallowRiskCaption(info);
+        var textEl = $('#shallow-text');
+        if (textEl) textEl.textContent = banner;
+        var commandEl = $('#shallow-command');
+        if (commandEl) commandEl.textContent = core.SHALLOW_FIX_COMMAND;
+        if (bar) bar.classList.toggle('hidden', !banner);
+        if (caption) {
+            caption.textContent = riskCaption;
+            caption.classList.toggle('hidden', !riskCaption);
+        }
+    }
+
+    function setupShallowWarning() {
+        var copyBtn = $('#shallow-copy');
+        if (copyBtn) {
+            copyBtn.addEventListener('click', function() {
+                var command = (window.AuraShallow && window.AuraShallow.SHALLOW_FIX_COMMAND)
+                    || 'git fetch --unshallow';
+                vscode.postMessage({ type: 'copyToClipboard', payload: { text: command } });
+                copyBtn.textContent = 'Copied';
+                setTimeout(function() { copyBtn.textContent = 'Copy'; }, 1200);
+                copyBtn.blur();
+            });
+        }
+        var closeBtn = $('#shallow-close');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', function() {
+                shallowDismissed = true;
+                updateShallowWarning(null);
+                closeBtn.blur();
+            });
+        }
     }
 
     function setupRefresh() {

@@ -138,6 +138,17 @@ async function copyWebviewAssets() {
         tsconfig: 'tsconfig.json',
     });
 
+    // Shallow-clone core — warning wording (V3-14), bundled as window.AuraShallow.
+    await esbuild.build({
+        entryPoints: [path.join(__dirname, 'src', 'git', 'shallow-core.ts')],
+        bundle: true,
+        format: 'iife',
+        globalName: 'AuraShallow',
+        outfile: path.join(webviewDest, 'js', 'shallow-core.js'),
+        logLevel: 'silent',
+        tsconfig: 'tsconfig.json',
+    });
+
     // Breadcrumb core — navigation trail (V3-12), bundled as window.AuraBreadcrumbCore.
     await esbuild.build({
         entryPoints: [path.join(__dirname, 'src', 'navigation', 'breadcrumb-core.ts')],

@@ -18,6 +18,10 @@ Navigate your project's git history and watch the dependency graph evolve over t
 | `I` | Toggle impact cascade from changed files |
 | `Escape` | Return to HEAD (current state) |
 
+### Shallow clone?
+
+If the repository was cloned with `--depth 1` (the default of `actions/checkout` in CI), only one commit exists locally and every history metric is partial. Aura says so: a **⚠️ banner** at the top of the Time Travel tab and a caption under **Codebase Health** in the Risk tab, both offering `git fetch --unshallow` (click **Copy**). The warning disappears by itself once the history is complete.
+
 ### What you see
 
 - **Added files** glow green, **removed files** glow pink, **modified files** glow yellow

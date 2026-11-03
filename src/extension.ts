@@ -47,6 +47,7 @@ import { registerSymbolPaletteCommands } from './commands/symbol-palette';
 import { AuraHoverProvider } from './hover';
 import { buildViewLinkUri, decodeViewLink, sanitizeViewLinkPayload, stateParamFromQuery, VIEW_LINK_VERSION, type ViewLinkPayload } from './deeplinks';
 import { readBranchDiff } from './git/branch-diff';
+import { readGitHistoryInfo } from './git/shallow';
 import { buildReviewPayload, computeComplexityDeltas, type BranchDiff } from './git/branch-diff-core';
 import { DEFAULT_TRANSITIVE_DEPTH, MAX_TRANSITIVE_DEPTH, transitiveClosure, type TransitiveDirection } from './analysis/transitive';
 import { AuraCodeLensProvider, registerSymbolCommands } from './codelens';
@@ -951,6 +952,10 @@ async function refreshAnalysis(context: vscode.ExtensionContext, force = false):
 
         cachedGraphData = result.graphData;
         cachedFiles = result.files;
+        // V3-14 — a shallow checkout makes churn / co-change / trends lie: flag it
+        // before the graph is persisted (the flag travels with the cached meta)
+        // and before it reaches the webview.
+        await attachGitHistoryInfo(cachedGraphData, rootPath);
         // V2-17: the worker sends the full failure list; keep it for incremental
         // edits and rebuild the capped report carried by meta.
         parseFailureIndex = new Map((result.parseFailures || []).map(failure => [failure.path, failure.reason]));
@@ -2164,6 +2169,20 @@ async function exportArchReport(includeAiNarrative = false): Promise<void> {
         });
     } else {
         await saveOrCopyText('Architecture report', finalReport, 'architecture.md', { Markdown: ['md'] });
+    }
+}
+
+/**
+ * V3-14 — attach the shallow-clone flag to the graph meta. Two cheap git calls;
+ * any failure (no repository, git missing) simply leaves the flag absent.
+ */
+async function attachGitHistoryInfo(data: GraphData, rootPath: string): Promise<void> {
+    try {
+        const info = await readGitHistoryInfo(rootPath);
+        if (info) data.meta.git = info;
+        else delete data.meta.git;
+    } catch (err) {
+        console.warn('[aura] shallow-clone probe failed:', err);
     }
 }
 

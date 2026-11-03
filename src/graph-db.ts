@@ -459,6 +459,7 @@ export class GraphDB {
                 ['parseFailures', JSON.stringify(data.meta.parseFailures || null)],
                 ['languageStats', JSON.stringify(data.meta.languageStats)],
                 ['groups', JSON.stringify(data.meta.groups)],
+                ['git', JSON.stringify(data.meta.git || null)],
             ];
             for (const [key, value] of metaEntries) {
                 db.run('INSERT INTO meta (key, value) VALUES (?, ?)', [key, value]);
@@ -819,8 +820,7 @@ export class GraphDB {
         const groups: string[] = meta['groups'] ? JSON.parse(meta['groups']) : [];
 
         // Parse-failure report (V2-17): persisted as JSON; absent when clean.
-        let parseFailures: GraphMeta['parseFailures'];
-        if (meta['parseFailures']) {
+        let parseFailures: GraphMeta['parseFailures'];        if (meta['parseFailures']) {
             try {
                 const parsed = JSON.parse(meta['parseFailures']);
                 if (parsed && typeof parsed.total === 'number' && Array.isArray(parsed.samples)) {
@@ -831,12 +831,28 @@ export class GraphDB {
             }
         }
 
+        // Shallow-clone flag (V3-14): persisted as JSON; absent on a full history.
+        let gitInfo: GraphMeta['git'];
+        if (meta['git']) {
+            try {
+                const parsed = JSON.parse(meta['git']);
+                if (parsed && parsed.shallow === true) {
+                    gitInfo = {
+                        shallow: true,
+                        commits: typeof parsed.commits === 'number' && isFinite(parsed.commits)
+                            ? Math.max(0, Math.floor(parsed.commits)) : 0,
+                    };
+                }
+            } catch {
+                // Corrupt cache entry — ignore.
+            }
+        }
+
         return {
             meta: {
                 projectName: meta['projectName'] || '',
                 analyzedAt: meta['analyzedAt'] || '',
-                totalFiles: parseInt(meta['totalFiles'] || '0'),
-                totalLinks: parseInt(meta['totalLinks'] || '0'),
+                totalFiles: parseInt(meta['totalFiles'] || '0'),                totalLinks: parseInt(meta['totalLinks'] || '0'),
                 totalRelationsFound: parseInt(meta['totalRelationsFound'] || '0'),
                 functionCallLinks: parseInt(meta['functionCallLinks'] || '0'),
                 heritageLinks: parseInt(meta['heritageLinks'] || '0'),
@@ -848,6 +864,7 @@ export class GraphDB {
                 cycles,
                 symbolCycles,
                 ...(parseFailures ? { parseFailures } : {}),
+                ...(gitInfo ? { git: gitInfo } : {}),
                 languageStats: langStats,
                 groups,
             },

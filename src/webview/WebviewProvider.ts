@@ -424,6 +424,12 @@ export class WebviewProvider {
                         }
                         break;
                     }
+                    case 'copyToClipboard': {
+                        // Shallow-clone warning (V3-14) copies `git fetch --unshallow`.
+                        const p = (message.payload || {}) as { text?: string };
+                        if (p.text) void vscode.env.clipboard.writeText(String(p.text));
+                        break;
+                    }
                     case 'openSettings':
                         void vscode.commands.executeCommand('workbench.action.openSettings', '@ext:monticma-aura.aura-visualizer-3D');
                         break;
@@ -1306,6 +1312,9 @@ export class WebviewProvider {
         const breadcrumbCoreUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'breadcrumb-core.js')
         );
+        const shallowCoreUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'shallow-core.js')
+        );
         const breadcrumbsUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'breadcrumbs.js')
         );
@@ -1634,6 +1643,7 @@ export class WebviewProvider {
         <div id="risk-content">
             <div class="risk-section" id="risk-health">
                 <h3>Codebase Health</h3>
+                <p id="risk-git-caption" class="risk-git-caption hidden"></p>
                 <div class="risk-health-grid">
                     <div class="risk-health-metric">
                         <div class="risk-health-score" id="risk-health-score">—</div>
@@ -1802,6 +1812,14 @@ export class WebviewProvider {
 
     <!-- Timeline Chart View -->
     <div id="timeline-view" class="tab-content" data-tab="timeline">
+        <!-- Shallow-clone warning (V3-14) — history-derived metrics are partial -->
+        <div id="shallow-bar" class="hidden">
+            <span class="shallow-icon">⚠️</span>
+            <span id="shallow-text" class="shallow-text"></span>
+            <code id="shallow-command" class="shallow-command">git fetch --unshallow</code>
+            <button id="shallow-copy" class="shallow-btn" title="Copy the fix command">Copy</button>
+            <button id="shallow-close" class="shallow-btn" title="Hide for this session">✕</button>
+        </div>
         <div class="tchart-toolbar">
             <div class="tchart-controls">
                 <label>Metric: <select id="tchart-metric">
@@ -2503,6 +2521,7 @@ export class WebviewProvider {
                 <h3>⏳ Time Travel</h3>
                 <p>Navigate git history commit by commit. Changed files are color-coded: <span style="color:#00ff88">● green</span> = added, <span style="color:#ff2080">● pink</span> = removed, <span style="color:#ffff00">● yellow</span> = modified. Edges follow the same scheme. Press <kbd>V</kbd> or click <strong>⇄</strong> to enter <strong>Compare mode</strong> with a dual slider to diff any two commits.</p>
                 <p><strong>Reviewing a branch</strong> — run <em>Aura: Review Current Branch</em> (or the compare icon in the Source Control title bar): Aura reads <code>git diff main...HEAD</code> and shows a strip over the graph with the touched files, <code>+/−</code> lines and the complexity delta, seeds <strong>💥 Blast</strong> from those files and pre-fills <strong>⇄ Compare</strong> with the merge-base and HEAD.</p>
+                <p><strong>Shallow clone</strong> — a <code>--depth 1</code> checkout (<code>actions/checkout</code>'s CI default) only has one commit, so churn, co-change and complexity trends would be silently underestimated. Aura detects it once per analysis (<code>git rev-parse --is-shallow-repository</code>, with a <code>.git/shallow</code> fallback) and shows a <strong>⚠️ banner</strong> at the top of this tab plus a caption under <strong>Codebase Health</strong> in the Risk tab, with <code>git fetch --unshallow</code> and a <strong>Copy</strong> button. Nothing runs behind your back, and the banner clears itself once the history is complete.</p>
 
                 <h3>✏️ Git Working Tree</h3>
                 <p>Files with uncommitted changes wear a thin <span style="color:#ffb300">● amber ring</span> in the graph — read straight from <code>git status</code> (modified, staged, untracked, renamed, conflicts). The detail panel shows the exact state on its <strong>Git</strong> line.</p>
@@ -2655,6 +2674,7 @@ export class WebviewProvider {
     <script nonce="${nonce}" src="${archCoreUri}"></script>
     <script nonce="${nonce}" src="${deadCodeCoreUri}"></script>
     <script nonce="${nonce}" src="${breadcrumbCoreUri}"></script>
+    <script nonce="${nonce}" src="${shallowCoreUri}"></script>
     <script nonce="${nonce}" src="${flightCoreUri}"></script>
     <script nonce="${nonce}" src="${flightUri}"></script>
     <script nonce="${nonce}" src="${flowUri}"></script>

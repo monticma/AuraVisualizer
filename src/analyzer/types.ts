@@ -3,6 +3,7 @@
  */
 
 import type { ArchEvaluation } from '../arch/arch-core';
+import type { GitHistoryInfo } from '../git/shallow-core';
 
 export interface FileInfo {
     id: string;
@@ -198,6 +199,8 @@ export interface GraphMeta {
     arch?: ArchEvaluation;
     /** Parse error of `.aura/arch-rules.json`, surfaced in the Architecture tab. */
     archError?: string;
+    /** Shallow-clone warning (V3-14); absent when the history is complete. */
+    git?: GitHistoryInfo;
     languageStats: Record<string, LanguageStat>;
     groups: string[];
 }
