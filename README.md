@@ -775,13 +775,13 @@ The MCP server exposes your codebase graph to AI tools via stdio transport. It r
 
 | Tool | Parameters | Description |
 |------|-----------|-------------|
-| `find_dependencies` | `file`, `depth` | Transitive dependency tree |
-| `find_dependents` | `file`, `depth` | Impact analysis — blast radius with risk levels |
+| `find_dependencies` | `file`, `depth` | Transitive dependency tree + the direct `call_sites` behind each edge |
+| `find_dependents` | `file`, `depth` | Impact analysis — blast radius with risk levels + the direct `call_sites` behind each edge |
 | `find_path` | `from`, `to` | Shortest dependency path between two files |
 | `find_cycles` | — | Circular dependencies — file-level cycles plus function-level `symbol_cycles` (recursion/mutual recursion with call lines) |
 | `find_orphan_files` | `limit` | Files that nothing imports |
 | `find_dead_code` | — | Unused exports across the codebase; framework/test exemptions are returned separately with their reasons |
-| `find_unused_functions` | `file`, `include_methods` | Functions/methods never called anywhere |
+| `find_unused_functions` | `file`, `include_methods` | Functions/methods never called anywhere, with their line |
 | `get_hotspots` | `limit`, `sort_by`, `window_days` | At-risk files ranked by the repository-relative risk score (percentile-based) with written reasons; raw metric sorts still available via `sort_by` |
 | `get_largest_files` | `limit` | Largest files by lines of code |
 | `get_cochange` | `limit`, `min_score` | Temporal-coupling pairs — files changing together without a direct dependency (Jaccard score) |
@@ -793,6 +793,8 @@ The MCP server exposes your codebase graph to AI tools via stdio transport. It r
 | `resolve_context` | `task`, `limit` | Ranked list of files most relevant to a natural-language task (deterministic, no LLM) |
 | `generate_documentation` | `hotspot_limit` | Full documentation payload: overview, modules, hotspots, cycles, dead code, inter-module links |
 | `get_architecture_violations` | `limit`, `include_baselined` | Evaluate `.aura/arch-rules.json` — new deny/slice violations, per-layer Ca/Ce/instability and aggregated layer cycles; documentation excluded |
+
+**Every payload is anchored.** As soon as a tool knows a line, the entry carries `file`, `line` **and** a ready-to-cite `anchor` field (`"src/risk/risk-core.ts:142"`) — nothing to concatenate on the agent side. That covers `search_symbols`, `search_docs`, `find_dead_code`, `find_unused_functions`, `find_heritage` and `resolve_context`. `find_dependencies` and `find_dependents` also return the direct `call_sites` (`from`, `to`, `line`, `anchor`) behind each edge, so the agent jumps straight to the call instead of grepping for it.
 
 ---
 

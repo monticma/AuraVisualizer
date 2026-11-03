@@ -43,6 +43,9 @@ The MCP server starts automatically and registers itself in `.vscode/mcp.json`. 
 | `generate_documentation` | Full documentation payload in one call: overview, modules, hotspots, cycles, dead code |
 | `get_architecture_violations` | Evaluate `.aura/arch-rules.json` — new deny/slice violations, per-layer Ca/Ce/instability and aggregated layer cycles (optional `layer` filter, baselined included on demand) |
 
+Every symbol-bearing answer carries a `file`, a `line` and a ready-to-cite `anchor` (`"src/risk/risk-core.ts:142"`), and the dependency tools also return the direct `call_sites` behind each edge — the agent opens the exact line instead of searching the repository.
+
+
 ### Export for AI
 
 Use the **📤 Export** button (or command *Aura: Export Graph for AI*) to build a focused context for an LLM:
