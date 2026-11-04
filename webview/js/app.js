@@ -6080,26 +6080,38 @@
     }
 
     /**
-     * Feed a visibility subset without re-heating the engine: filters only
-     * change what is drawn, not where the remaining nodes sit. A regular feed
-     * runs the synchronous warmup (100/220 ticks at alpha 1) then a live
-     * cooldown, which drifts every node — read as a small rotation of the whole
-     * graph. Zeroed budgets keep the settled positions; they are restored right
-     * after the feed so later interactions still settle normally.
+     * Feed a visibility subset without a live settle: filters only change what
+     * is drawn, so the settled positions of the remaining nodes are reused
+     * instead of reheating the engine (a live cooldown drifts the whole graph,
+     * read as a small rotation).
+     *
+     * Two repairs happen first, both invisible to the user:
+     * - nodes that never entered the simulation get a deterministic seed;
+     * - when the feed re-admits enough nodes, a **synchronous** warmup rebalances
+     *   the layout, because seeding cannot move a node the filter orphaned in a
+     *   meaningless spot. The ticks run inside the data digest, before the first
+     *   paint, so nothing is animated — the graph simply appears coherent.
      */
     function feedGraphFrozen(dataset) {
         if (!graph) return;
         lastFeedKey = feedKeyFor(dataset);
         disposeRipples();
-        // Nodes re-admitted by a filter never entered the simulation: they carry
-        // no coordinates, d3 would drop them on its tiny spiral around the origin
-        // and the 0-tick budget below would freeze them there ("everything piled
-        // in the middle" until the Spread slider re-heats the engine). Seed them
-        // next to their positioned neighbours first — settled nodes never move.
+
+        var previousIds = new Set();
+        var previousNodes = [];
+        try { previousNodes = (graph.graphData() || {}).nodes || []; } catch (_) { previousNodes = []; }
+        for (var p = 0; p < previousNodes.length; p++) previousIds.add(previousNodes[p].id);
+        var added = 0;
+        for (var i = 0; i < dataset.nodes.length; i++) {
+            if (!previousIds.has(dataset.nodes[i].id)) added++;
+        }
+
         if (window.AuraSeed && AuraSeed.seedMissingNodes) {
             AuraSeed.seedMissingNodes(dataset.nodes, dataset.links);
         }
-        graph.warmupTicks(0);
+        var ticks = (window.AuraSeed && AuraSeed.reflowTicks) ? AuraSeed.reflowTicks(added) : 0;
+
+        graph.warmupTicks(ticks);
         graph.cooldownTicks(0);
         graph.graphData(dataset);
         setTimeout(function () { applyEngineBudget(); }, 200);

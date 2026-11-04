@@ -5,6 +5,8 @@ import {
     layoutStats,
     seedDirection,
     seedMissingNodes,
+    reflowTicks,
+    REFLOW_MAX_TICKS,
     type SeedNode,
 } from '../graph/seed-core';
 
@@ -163,5 +165,31 @@ describe('seedMissingNodes', () => {
         expect(seedMissingNodes([], [])).toEqual({
             seeded: 0, fromNeighbours: 0, fromSphere: 0, radius: 0, extent: 0, unit: 0, medianEdge: null,
         });
+    });
+});
+
+
+describe('reflowTicks', () => {
+    it('does nothing for a handful of nodes (the seeds are enough)', () => {
+        expect(reflowTicks(0)).toBe(0);
+        expect(reflowTicks(1)).toBe(0);
+        expect(reflowTicks(4)).toBe(0);
+    });
+
+    it('starts at 10 ticks once the batch is significant', () => {
+        expect(reflowTicks(5)).toBe(10);
+        expect(reflowTicks(19)).toBe(10);
+    });
+
+    it('adds one tick per 20 re-admitted nodes, capped', () => {
+        expect(reflowTicks(40)).toBe(12);
+        expect(reflowTicks(171)).toBe(18);
+        expect(reflowTicks(1000)).toBe(REFLOW_MAX_TICKS);
+    });
+
+    it('ignores garbage (never a surprise reflow)', () => {
+        expect(reflowTicks(NaN)).toBe(0);
+        expect(reflowTicks(Infinity)).toBe(0);
+        expect(reflowTicks(-3)).toBe(0);
     });
 });

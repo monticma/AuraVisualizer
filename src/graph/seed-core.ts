@@ -70,6 +70,34 @@ const HUB_GROWTH_CAP = 6;
 const GROUP_DEPTH_MIN = 0.35;
 const GROUP_DEPTH_SPAN = 0.35;
 
+/**
+ * Seeding places *new* nodes; it cannot repair a node that the filter left in a
+ * meaningless spot (a file orphaned while its headers were hidden keeps its
+ * position, however far the repulsion pushed it). Measured on a 762-node graph,
+ * the worst edge stayed at 1300 units until the forces ran.
+ *
+ * A filter feed that re-admits nodes therefore runs a **synchronous** warmup:
+ * the ticks happen inside the data digest, before the first paint, so the graph
+ * is rebalanced without any visible animation. 10 ticks bring the worst edge
+ * back to the full-settle baseline; more than 20 buy nothing.
+ */
+export const REFLOW_MIN_ADDED = 5;
+export const REFLOW_BASE_TICKS = 10;
+export const REFLOW_MAX_TICKS = 30;
+/** One extra tick per this many nodes re-admitted. */
+export const REFLOW_ADDED_PER_TICK = 20;
+
+/**
+ * Warmup ticks for a feed that adds `added` nodes.
+ * 0 below the threshold (a handful of nodes land correctly from their seeds),
+ * then 10 ticks + 1 per 20 nodes, capped at 30.
+ */
+export function reflowTicks(added: number): number {
+    const count = Number(added);
+    if (!isFinite(count) || count < REFLOW_MIN_ADDED) return 0;
+    return Math.min(REFLOW_MAX_TICKS, REFLOW_BASE_TICKS + Math.floor(count / REFLOW_ADDED_PER_TICK));
+}
+
 /** Deterministic 32-bit hash (FNV-1a) — same id always yields the same seed. */
 export function hashString(value: string): number {
     let hash = 0x811c9dc5;

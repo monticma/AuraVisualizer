@@ -21,11 +21,16 @@ var AuraSeed = (() => {
   // src/graph/seed-core.ts
   var seed_core_exports = {};
   __export(seed_core_exports, {
+    REFLOW_ADDED_PER_TICK: () => REFLOW_ADDED_PER_TICK,
+    REFLOW_BASE_TICKS: () => REFLOW_BASE_TICKS,
+    REFLOW_MAX_TICKS: () => REFLOW_MAX_TICKS,
+    REFLOW_MIN_ADDED: () => REFLOW_MIN_ADDED,
     groupKeyOf: () => groupKeyOf,
     hashString: () => hashString,
     isPositioned: () => isPositioned,
     layoutStats: () => layoutStats,
     medianEdgeLength: () => medianEdgeLength,
+    reflowTicks: () => reflowTicks,
     seedDirection: () => seedDirection,
     seedMissingNodes: () => seedMissingNodes
   });
@@ -37,6 +42,16 @@ var AuraSeed = (() => {
   var HUB_GROWTH_CAP = 6;
   var GROUP_DEPTH_MIN = 0.35;
   var GROUP_DEPTH_SPAN = 0.35;
+  var REFLOW_MIN_ADDED = 5;
+  var REFLOW_BASE_TICKS = 10;
+  var REFLOW_MAX_TICKS = 30;
+  var REFLOW_ADDED_PER_TICK = 20;
+  function reflowTicks(added) {
+    const count = Number(added);
+    if (!isFinite(count) || count < REFLOW_MIN_ADDED)
+      return 0;
+    return Math.min(REFLOW_MAX_TICKS, REFLOW_BASE_TICKS + Math.floor(count / REFLOW_ADDED_PER_TICK));
+  }
   function hashString(value) {
     let hash = 2166136261;
     const text = String(value == null ? "" : value);
