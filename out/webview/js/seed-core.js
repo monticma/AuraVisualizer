@@ -21,13 +21,22 @@ var AuraSeed = (() => {
   // src/graph/seed-core.ts
   var seed_core_exports = {};
   __export(seed_core_exports, {
+    groupKeyOf: () => groupKeyOf,
     hashString: () => hashString,
     isPositioned: () => isPositioned,
     layoutStats: () => layoutStats,
+    medianEdgeLength: () => medianEdgeLength,
     seedDirection: () => seedDirection,
     seedMissingNodes: () => seedMissingNodes
   });
   var FALLBACK_EXTENT = 40;
+  var LOCAL_EDGE_FACTOR = 0.6;
+  var MIN_SEED_UNIT = 3;
+  var MAX_SEED_UNIT_SHARE = 0.05;
+  var HUB_GROWTH = 0.3;
+  var HUB_GROWTH_CAP = 6;
+  var GROUP_DEPTH_MIN = 0.35;
+  var GROUP_DEPTH_SPAN = 0.35;
   function hashString(value) {
     let hash = 2166136261;
     const text = String(value == null ? "" : value);
@@ -73,6 +82,32 @@ var AuraSeed = (() => {
   function endpointId(end) {
     return typeof end === "object" && end ? String(end.id) : String(end);
   }
+  function groupKeyOf(id) {
+    const text = String(id == null ? "" : id).replace(/\\/g, "/");
+    const slash = text.indexOf("/");
+    return slash > 0 ? text.slice(0, slash) : "";
+  }
+  function medianEdgeLength(nodes, links) {
+    if (!links || links.length === 0)
+      return null;
+    const byId = /* @__PURE__ */ new Map();
+    for (const node of nodes)
+      byId.set(node.id, node);
+    const lengths = [];
+    for (const link of links) {
+      const source = byId.get(endpointId(link.source));
+      const target = byId.get(endpointId(link.target));
+      if (!isPositioned(source) || !isPositioned(target))
+        continue;
+      const distance = Math.hypot(source.x - target.x, source.y - target.y, source.z - target.z);
+      if (isFinite(distance) && distance > 0)
+        lengths.push(distance);
+    }
+    if (lengths.length === 0)
+      return null;
+    lengths.sort((a, b) => a - b);
+    return lengths[Math.floor(lengths.length / 2)];
+  }
   function buildAdjacency(links) {
     const adjacency = /* @__PURE__ */ new Map();
     const push = (from, to) => {
@@ -93,14 +128,29 @@ var AuraSeed = (() => {
     return adjacency;
   }
   function seedMissingNodes(nodes, links = [], options = {}) {
-    const result = { seeded: 0, fromNeighbours: 0, fromSphere: 0, radius: 0, extent: 0 };
+    const result = {
+      seeded: 0,
+      fromNeighbours: 0,
+      fromSphere: 0,
+      radius: 0,
+      extent: 0,
+      unit: 0,
+      medianEdge: null
+    };
     if (!Array.isArray(nodes) || nodes.length === 0)
       return result;
     const stats = layoutStats(nodes);
     const extent = typeof options.extent === "number" && options.extent > 0 ? options.extent : stats.extent;
     const radius = extent * 0.5;
+    const medianEdge = medianEdgeLength(nodes, links);
+    const unit = Math.min(
+      extent * MAX_SEED_UNIT_SHARE,
+      Math.max(MIN_SEED_UNIT, (medianEdge === null ? extent * 0.12 : medianEdge) * LOCAL_EDGE_FACTOR)
+    );
     result.extent = extent;
     result.radius = radius;
+    result.unit = unit;
+    result.medianEdge = medianEdge;
     const missing = nodes.filter((node) => node && !isPositioned(node)).sort((a, b) => a.id.localeCompare(b.id));
     if (missing.length === 0)
       return result;
@@ -109,6 +159,22 @@ var AuraSeed = (() => {
     for (const node of nodes)
       byId.set(node.id, node);
     const perHub = /* @__PURE__ */ new Map();
+    const groupCentres = /* @__PURE__ */ new Map();
+    function groupCentre(key) {
+      const cached = groupCentres.get(key);
+      if (cached)
+        return cached;
+      const direction = seedDirection("@group:" + key);
+      const depthHash = hashString("@depth:" + key) / 4294967295;
+      const depth = extent * (GROUP_DEPTH_MIN + GROUP_DEPTH_SPAN * depthHash);
+      const centre = {
+        x: stats.centroid.x + direction.x * depth,
+        y: stats.centroid.y + direction.y * depth,
+        z: stats.centroid.z + direction.z * depth
+      };
+      groupCentres.set(key, centre);
+      return centre;
+    }
     for (const node of missing) {
       const neighbours = adjacency.get(node.id) || [];
       let baseX = stats.centroid.x;
@@ -135,10 +201,17 @@ var AuraSeed = (() => {
         baseZ = sumZ / count;
         const seen = perHub.get(anchorId) || 0;
         perHub.set(anchorId, seen + 1);
-        distance = extent * (0.1 + 0.06 * Math.min(seen, 5));
+        distance = unit * (1 + HUB_GROWTH * Math.min(seen, HUB_GROWTH_CAP));
         result.fromNeighbours++;
       } else {
-        distance = radius;
+        const key = groupKeyOf(node.id);
+        const centre = groupCentre(key);
+        baseX = centre.x;
+        baseY = centre.y;
+        baseZ = centre.z;
+        const seen = perHub.get("@group:" + key) || 0;
+        perHub.set("@group:" + key, seen + 1);
+        distance = unit * (1 + HUB_GROWTH * Math.min(seen, HUB_GROWTH_CAP));
         result.fromSphere++;
       }
       node.x = baseX + direction.x * distance;

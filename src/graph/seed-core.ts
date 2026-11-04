@@ -42,10 +42,33 @@ export interface SeedResult {
     radius: number;
     /** Extent of the settled layout (max distance from its centroid). */
     extent: number;
+    /** Spacing of the seed cloud (median edge length × factor, clamped). */
+    unit: number;
+    /** Median settled edge length; null when no edge had both ends placed. */
+    medianEdge: number | null;
 }
 
 /** Radius used when nothing is positioned yet (empty or fully hidden graph). */
 const FALLBACK_EXTENT = 40;
+
+/**
+ * Scale of the seed cloud against the graph's own spacing. Measured on a real
+ * 762-node repository: seeding at a share of the whole scene extent (10-40 %)
+ * stretched the 90th-percentile edge from 228 to 436 units — the "spaghetti"
+ * every re-shown batch produced. Anchoring the radius to the **median edge
+ * length** of the settled layout keeps the percentiles at their baseline
+ * (p50 133 vs 138, p90 225 vs 228).
+ */
+const LOCAL_EDGE_FACTOR = 0.6;
+/** Never smaller than a few units, never wider than 5 % of the scene. */
+const MIN_SEED_UNIT = 3;
+const MAX_SEED_UNIT_SHARE = 0.05;
+/** Each extra node arriving on the same hub widens the cloud a little. */
+const HUB_GROWTH = 0.3;
+const HUB_GROWTH_CAP = 6;
+/** Depth of a neighbourhood-less group inside the scene (share of the extent). */
+const GROUP_DEPTH_MIN = 0.35;
+const GROUP_DEPTH_SPAN = 0.35;
 
 /** Deterministic 32-bit hash (FNV-1a) — same id always yields the same seed. */
 export function hashString(value: string): number {
@@ -108,6 +131,34 @@ function endpointId(end: SeedLink['source']): string {
     return typeof end === 'object' && end ? String(end.id) : String(end);
 }
 
+/** Top-level folder of a path — the grouping hint for neighbourhood-less nodes. */
+export function groupKeyOf(id: string): string {
+    const text = String(id == null ? '' : id).replace(/\\/g, '/');
+    const slash = text.indexOf('/');
+    return slash > 0 ? text.slice(0, slash) : '';
+}
+
+/**
+ * Median length of the edges whose **two ends are already placed** — the graph's
+ * own spacing, which is what a new node has to match.
+ */
+export function medianEdgeLength(nodes: readonly SeedNode[], links: readonly SeedLink[]): number | null {
+    if (!links || links.length === 0) return null;
+    const byId = new Map<string, SeedNode>();
+    for (const node of nodes) byId.set(node.id, node);
+    const lengths: number[] = [];
+    for (const link of links) {
+        const source = byId.get(endpointId(link.source));
+        const target = byId.get(endpointId(link.target));
+        if (!isPositioned(source) || !isPositioned(target)) continue;
+        const distance = Math.hypot(source.x - target.x, source.y - target.y, source.z - target.z);
+        if (isFinite(distance) && distance > 0) lengths.push(distance);
+    }
+    if (lengths.length === 0) return null;
+    lengths.sort((a, b) => a - b);
+    return lengths[Math.floor(lengths.length / 2)];
+}
+
 /** id → neighbour ids, built once per feed from the visible links. */
 function buildAdjacency(links: readonly SeedLink[]): Map<string, string[]> {
     const adjacency = new Map<string, string[]>();
@@ -137,14 +188,31 @@ export function seedMissingNodes(
     links: readonly SeedLink[] = [],
     options: { extent?: number } = {},
 ): SeedResult {
-    const result: SeedResult = { seeded: 0, fromNeighbours: 0, fromSphere: 0, radius: 0, extent: 0 };
+    const result: SeedResult = {
+        seeded: 0,
+        fromNeighbours: 0,
+        fromSphere: 0,
+        radius: 0,
+        extent: 0,
+        unit: 0,
+        medianEdge: null,
+    };
     if (!Array.isArray(nodes) || nodes.length === 0) return result;
 
     const stats = layoutStats(nodes);
     const extent = typeof options.extent === 'number' && options.extent > 0 ? options.extent : stats.extent;
     const radius = extent * 0.5;
+    const medianEdge = medianEdgeLength(nodes, links);
+    // Match the graph's own spacing, not the scene size: a share of the extent
+    // flings nodes of a big repository far from their hub (measured spaghetti).
+    const unit = Math.min(
+        extent * MAX_SEED_UNIT_SHARE,
+        Math.max(MIN_SEED_UNIT, (medianEdge === null ? extent * 0.12 : medianEdge) * LOCAL_EDGE_FACTOR),
+    );
     result.extent = extent;
     result.radius = radius;
+    result.unit = unit;
+    result.medianEdge = medianEdge;
 
     const missing = nodes.filter(node => node && !isPositioned(node)).sort((a, b) => a.id.localeCompare(b.id));
     if (missing.length === 0) return result;
@@ -154,6 +222,25 @@ export function seedMissingNodes(
     for (const node of nodes) byId.set(node.id, node);
     /** How many nodes were already seeded around one anchor (spreads the cloud). */
     const perHub = new Map<string, number>();
+    /** Centre of the region given to each folder that has no placed neighbour. */
+    const groupCentres = new Map<string, { x: number; y: number; z: number }>();
+
+    function groupCentre(key: string): { x: number; y: number; z: number } {
+        const cached = groupCentres.get(key);
+        if (cached) return cached;
+        const direction = seedDirection('@group:' + key);
+        // Different folders get different depths, so a whole language coming back
+        // fills the volume instead of forming one ball in the middle.
+        const depthHash = hashString('@depth:' + key) / 0xffffffff;
+        const depth = extent * (GROUP_DEPTH_MIN + GROUP_DEPTH_SPAN * depthHash);
+        const centre = {
+            x: stats.centroid.x + direction.x * depth,
+            y: stats.centroid.y + direction.y * depth,
+            z: stats.centroid.z + direction.z * depth,
+        };
+        groupCentres.set(key, centre);
+        return centre;
+    }
 
     for (const node of missing) {
         const neighbours = adjacency.get(node.id) || [];
@@ -180,12 +267,22 @@ export function seedMissingNodes(
             baseZ = sumZ / count;
             const seen = perHub.get(anchorId) || 0;
             perHub.set(anchorId, seen + 1);
-            // Grow the cloud around a busy hub instead of stacking every node
-            // on the same point: 10 % of the layout, up to ~40 %.
-            distance = extent * (0.1 + 0.06 * Math.min(seen, 5));
+            // Widen the cloud around a busy hub instead of stacking every node
+            // on the same point.
+            distance = unit * (1 + HUB_GROWTH * Math.min(seen, HUB_GROWTH_CAP));
             result.fromNeighbours++;
         } else {
-            distance = radius;
+            // No placed neighbour (a whole language coming back): gather them per
+            // folder, at a depth of their own — a single shell around the centroid
+            // reads as one dense ball in the middle of the scene.
+            const key = groupKeyOf(node.id);
+            const centre = groupCentre(key);
+            baseX = centre.x;
+            baseY = centre.y;
+            baseZ = centre.z;
+            const seen = perHub.get('@group:' + key) || 0;
+            perHub.set('@group:' + key, seen + 1);
+            distance = unit * (1 + HUB_GROWTH * Math.min(seen, HUB_GROWTH_CAP));
             result.fromSphere++;
         }
 

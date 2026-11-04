@@ -71,20 +71,64 @@ describe('seedMissingNodes', () => {
         const hub = node('hub', 100, 0, 0);
         const fresh = node('fresh');
         const result = seedMissingNodes([hub, fresh], [{ source: 'hub', target: 'fresh' }]);
-        expect(result).toEqual(expect.objectContaining({ seeded: 1, fromNeighbours: 1, fromSphere: 0 }));
+        expect(result).toEqual(expect.objectContaining({ seeded: 1, fromNeighbours: 1, fromSphere: 0, medianEdge: null }));
         expect(isPositioned(fresh)).toBe(true);
-        // Within 40 % of the layout extent (extent here is 0 → fallback 40 → max 16).
-        expect(Math.abs((fresh.x as number) - 100)).toBeLessThanOrEqual(16);
-        expect(Math.abs(fresh.y as number)).toBeLessThanOrEqual(16);
+        // No settled edge to measure → fallback spacing, capped at 5 % of the
+        // (fallback) extent of 40, i.e. 2 units.
+        expect(result.unit).toBe(2);
+        expect(Math.abs((fresh.x as number) - 100)).toBeLessThanOrEqual(2.001);
+        expect(Math.abs(fresh.y as number)).toBeLessThanOrEqual(2.001);
     });
 
-    it('places orphans on a sphere around the layout centroid', () => {
-        const nodes = [node('a', 0, 0, 0), node('b', 20, 0, 0), node('orphan')];
+    it('scales the seed cloud on the median settled edge length', () => {
+        // Two placed nodes 200 units apart give a median edge of 200 → 0.6 × 200
+        // = 120, capped at 5 % of the extent (extent = 100 here → 5).
+        const left = node('left', 0, 0, 0);
+        const right = node('right', 200, 0, 0);
+        const fresh = node('fresh');
+        const result = seedMissingNodes([left, right, fresh], [
+            { source: 'left', target: 'right' },
+            { source: 'left', target: 'fresh' },
+        ]);
+        expect(result.medianEdge).toBe(200);
+        expect(result.extent).toBe(100);
+        expect(result.unit).toBe(5);   // 5 % of the extent wins over 0.6 × 200
+        expect(result.fromNeighbours).toBe(1);
+        const dist = Math.hypot((fresh.x as number) - 0, fresh.y as number, fresh.z as number);
+        expect(dist).toBeCloseTo(5, 4);
+    });
+
+    it('gathers neighbourhood-less nodes by folder, away from the centroid', () => {
+        const nodes = [
+            node('a', 0, 0, 0),
+            node('b', 20, 0, 0),
+            node('webview/js/orphan.js'),
+            node('webview/js/other.js'),
+        ];
         const result = seedMissingNodes(nodes, [{ source: 'a', target: 'b' }]);
-        expect(result).toEqual(expect.objectContaining({ seeded: 1, fromSphere: 1, fromNeighbours: 0 }));
-        const orphan = nodes[2];
-        // Extent = 10 around centroid (10,0,0) → radius 5.
-        expect(Math.hypot((orphan.x as number) - 10, orphan.y as number, orphan.z as number)).toBeCloseTo(5, 5);
+        expect(result).toEqual(expect.objectContaining({ seeded: 2, fromSphere: 2, fromNeighbours: 0 }));
+        // The centroid is (10,0,0) and the extent 10: the folder lands 3.5–7
+        // units away from it, never on top of it, and its members stay clustered
+        // around that centre.
+        const one = nodes[2];
+        const two = nodes[3];
+        const d1 = Math.hypot((one.x as number) - 10, one.y as number, one.z as number);
+        const d2 = Math.hypot((two.x as number) - 10, two.y as number, two.z as number);
+        expect(d1).toBeGreaterThanOrEqual(3.5);
+        expect(d1).toBeLessThanOrEqual(7.5);
+        expect(d2).toBeGreaterThanOrEqual(3.5);
+        const between = Math.hypot((one.x as number) - (two.x as number), (one.y as number) - (two.y as number), (one.z as number) - (two.z as number));
+        expect(between).toBeLessThanOrEqual(result.unit * 2);
+    });
+
+    it('spreads different folders apart', () => {
+        const nodes = [
+            node('a', 0, 0, 0), node('b', 100, 0, 0),
+            node('src/one.js'), node('vendor/two.js'),
+        ];
+        seedMissingNodes(nodes, [{ source: 'a', target: 'b' }]);
+        const d = Math.hypot((nodes[2].x as number) - (nodes[3].x as number), (nodes[2].y as number) - (nodes[3].y as number), (nodes[2].z as number) - (nodes[3].z as number));
+        expect(d).toBeGreaterThan(5);   // two regions, not one shared ball
     });
 
     it('spreads several nodes arriving on the same hub', () => {
@@ -116,6 +160,8 @@ describe('seedMissingNodes', () => {
     });
 
     it('handles an empty dataset', () => {
-        expect(seedMissingNodes([], [])).toEqual({ seeded: 0, fromNeighbours: 0, fromSphere: 0, radius: 0, extent: 0 });
+        expect(seedMissingNodes([], [])).toEqual({
+            seeded: 0, fromNeighbours: 0, fromSphere: 0, radius: 0, extent: 0, unit: 0, medianEdge: null,
+        });
     });
 });
