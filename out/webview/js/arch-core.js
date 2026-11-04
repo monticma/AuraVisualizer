@@ -113,14 +113,14 @@ var AuraArch = (() => {
     }
     return out;
   }
-  function globToRegExp(pattern) {
-    return new RegExp("^" + globSource(pattern) + "$");
+  function globToRegExp(pattern, options = {}) {
+    return new RegExp("^" + globSource(pattern) + "$", options.caseSensitive ? "" : "i");
   }
   function globMatch(path, pattern) {
     return globToRegExp(pattern).test(normalizeArchPath(path));
   }
   function compileGlobs(patterns) {
-    return patterns.map(globToRegExp);
+    return patterns.map((pattern) => globToRegExp(pattern));
   }
   function matchesAny(path, regexps) {
     for (const re of regexps)

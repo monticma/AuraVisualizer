@@ -477,8 +477,59 @@
         }
     }
 
-    function buildFormHtml(model) {
-        var html = '';
+    /**
+     * How many graph files a layer's globs capture. A glob that matches nothing
+     * used to be invisible: the layer card just said “0 files” and nothing tied
+     * it back to the rule that never matched (`src/Agent/**` on a `Src/`
+     * checkout). Returns null when the graph or the glob engine is unavailable.
+     */
+    function countLayerFiles(layer) {
+        var d = data();
+        if (!d || !d.nodes || !window.AuraArch || !AuraArch.globToRegExp) return null;
+        var normalize = AuraArch.normalizeArchPath || function (v) { return String(v == null ? '' : v); };
+        var regexps = [];
+        var paths = (layer && layer.paths) || [];
+        for (var p = 0; p < paths.length; p++) {
+            try { regexps.push(AuraArch.globToRegExp(paths[p])); } catch (_) { /* invalid glob: ignored */ }
+        }
+        if (regexps.length === 0) return 0;
+        var count = 0;
+        for (var i = 0; i < d.nodes.length; i++) {
+            var node = d.nodes[i];
+            if (!node || node._isSymbol || node._isCluster) continue;
+            if (node.language === 'documentation') continue;
+            var path = normalize(node.path || node.id || '');
+            for (var r = 0; r < regexps.length; r++) {
+                if (regexps[r].test(path)) { count++; break; }
+            }
+        }
+        return count;
+    }
+
+    /** `<span>` shown next to a layer row: “12 files”, or a warning at zero. */
+    function layerMatchHtml(layer) {
+        var count = countLayerFiles(layer);
+        if (count === null) return '';
+        if (count === 0) {
+            return '<span class="arch-editor-match warn" title="No graph file matches these globs — check the path and its case">⚠ 0 file</span>';
+        }
+        return '<span class="arch-editor-match" title="Files captured by these globs">' + count + (count === 1 ? ' file' : ' files') + '</span>';
+    }
+
+    /** Live refresh of one row's badge while its paths are typed. */
+    function updateLayerMatchBadge(input, layer) {
+        var row = input && input.parentNode;
+        var badge = row ? row.querySelector('.arch-editor-match') : null;
+        if (!badge) return;
+        var html = layerMatchHtml(layer);
+        if (!html) return;
+        var holder = document.createElement('span');
+        holder.innerHTML = html;
+        var next = holder.firstChild;
+        if (next) badge.parentNode.replaceChild(next, badge);
+    }
+
+    function buildFormHtml(model) {        var html = '';
         var layers = model.layers;
 
         // Layers ----------------------------------------------------
@@ -489,6 +540,8 @@
             '</div>' +
             '<p class="arch-editor-hint">Matched in order — the first matching glob wins. ' +
                 '<code>*</code> stays inside one segment, <code>**</code> crosses directories, <code>?</code> matches one character. ' +
+                'Matching ignores case, so <code>src/Agent/**</code> also captures <code>Src/Agent/…</code>. ' +
+                'Each row shows how many files its globs capture — <strong>⚠ 0 file</strong> means the glob never matched. ' +
                 'Files outside every layer are reported as <code>unlayered</code>.</p>';
 
         if (layers.length === 0) {
@@ -503,6 +556,7 @@
                 html += '<div class="arch-editor-layer-row">' +
                     '<input class="arch-editor-input" data-layer-name="' + i + '" data-old-name="' + escapeHtml(layer.name) + '" value="' + escapeHtml(layer.name) + '" placeholder="layer name" spellcheck="false">' +
                     '<input class="arch-editor-input" data-layer-paths="' + i + '" value="' + escapeHtml(layer.paths.join(', ')) + '" placeholder="src/ui/**, src/components/**" spellcheck="false">' +
+                    layerMatchHtml(layer) +
                     '<div class="arch-editor-row-actions">' +
                         '<button type="button" data-layer-up="' + i + '" title="Move up" ' + (i === 0 ? 'disabled' : '') + '>↑</button>' +
                         '<button type="button" data-layer-down="' + i + '" title="Move down" ' + (i === layers.length - 1 ? 'disabled' : '') + '>↓</button>' +
@@ -675,7 +729,9 @@
 
         qsa('[data-layer-paths]').forEach(function (input) {
             input.addEventListener('input', function () {
-                model.layers[parseInt(this.getAttribute('data-layer-paths'), 10)].paths = parseList(this.value);
+                var layer = model.layers[parseInt(this.getAttribute('data-layer-paths'), 10)];
+                layer.paths = parseList(this.value);
+                updateLayerMatchBadge(this, layer);
                 refreshEditor();
             });
         });

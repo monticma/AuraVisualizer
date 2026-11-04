@@ -4444,9 +4444,18 @@ select option {
 }
 .arch-editor-layer-row {
     display: grid;
-    grid-template-columns: minmax(140px, 1fr) minmax(220px, 2.2fr) auto;
+    grid-template-columns: minmax(140px, 1fr) minmax(220px, 2.2fr) auto auto;
     gap: 8px;
     align-items: center;
+}
+.arch-editor-match {
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground, #9aa4b2);
+    white-space: nowrap;
+}
+.arch-editor-match.warn {
+    color: #ff8a65;
+    font-weight: 600;
 }
 .arch-editor-input,
 .arch-editor-textarea,

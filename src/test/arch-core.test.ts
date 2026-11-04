@@ -5,6 +5,7 @@ import {
     buildArchRulesTemplate,
     evaluateArchitecture,
     globMatch,
+    globToRegExp,
     parseArchBaseline,
     parseArchRules,
     serializeArchBaseline,
@@ -59,6 +60,14 @@ describe('architecture glob matching', () => {
     it('normalizes backslashes and leading ./', () => {
         expect(globMatch('.\\src\\ui\\A.ts', 'src/ui/**')).toBe(true);
         expect(globMatch('./src/ui/A.ts', 'src/ui/**')).toBe(true);
+    });
+
+    it('ignores case (Src/ on disk, src/ in the rule)', () => {
+        expect(globMatch('Src/Agent/Plugins/Components/Aligner/AlignerState.h', 'src/Agent/Plugins/**')).toBe(true);
+        expect(globMatch('Include/ThorV2.h', 'include/**')).toBe(true);
+        expect(globMatch('SRC/ui/Button.ts', 'src/ui/*.ts')).toBe(true);
+        expect(globMatch('src/UI/Button.ts', 'Src/ui/**')).toBe(true);
+        expect(globToRegExp('src/ui/**', { caseSensitive: true }).test('Src/ui/A.ts')).toBe(false);
     });
 
     it('captures one slice segment', () => {

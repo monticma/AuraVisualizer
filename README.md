@@ -311,7 +311,7 @@ Architecture rules are a **fitness function**: they turn the dependency graph in
 }
 ```
 
-- **`layers`** — first matching glob wins (`*`, `**`, `?`); files matched by no layer are reported as `unlayered` (never silently ignored)
+- **`layers`** — first matching glob wins (`*`, `**`, `?`); matching is **case-insensitive** (`src/Agent/**` also captures `Src/Agent/…`) and the layers editor shows how many files each row captures; files matched by no layer are reported as `unlayered` (never silently ignored)
 - **`from` + `deny`** — every real edge in that direction is a violation; `"*"` means any other layer
 - **`slices`** — sibling folders captured by the pattern may not import each other; `shared` globs are allowed
 - **`no-cycles`** — Tarjan SCCs on the aggregated file → layer graph

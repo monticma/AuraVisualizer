@@ -288,9 +288,14 @@ function globSource(pattern: string): string {
  *   `*`  → any run of characters inside one path segment
  *   `**` → any run including `/`; `**\/` also matches zero directories
  *   `?`  → one character inside a segment
+ *
+ * Matching is **case-insensitive**: `src/Agent/**` matches `Src/Agent/x.h`. A
+ * Windows or macOS checkout of `Src/…` was silently producing empty layers as
+ * soon as a rule was written with another casing, and the visualizer must not
+ * depend on the OS's filesystem semantics.
  */
-export function globToRegExp(pattern: string): RegExp {
-    return new RegExp('^' + globSource(pattern) + '$');
+export function globToRegExp(pattern: string, options: { caseSensitive?: boolean } = {}): RegExp {
+    return new RegExp('^' + globSource(pattern) + '$', options.caseSensitive ? '' : 'i');
 }
 
 /** True when a workspace-relative path matches the glob. */
@@ -299,7 +304,7 @@ export function globMatch(path: string, pattern: string): boolean {
 }
 
 function compileGlobs(patterns: string[]): RegExp[] {
-    return patterns.map(globToRegExp);
+    return patterns.map(pattern => globToRegExp(pattern));
 }
 
 function matchesAny(path: string, regexps: RegExp[]): boolean {
