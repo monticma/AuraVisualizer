@@ -1053,6 +1053,7 @@ ${JSON.stringify(s,null,2)}`);let a=i[o]();return new Language(INTERNAL,a)})}}cl
             </div>
             <div class="help-modal-body arch-editor-body">
                 <p class="arch-editor-intro">Layers are matched in order (first match wins). Rules reference layers by name; renaming a layer updates every rule, and the same validation engine as the analysis checks the result before saving. Rule ids are referenced by the baseline \u2014 renaming an id makes its baselined violations new again.</p>
+                <p class="arch-editor-intro"><strong>\uFF0B Add layer</strong> seeds a ready-to-save layer (<code>layer-1</code> \u2192 <code>src/layer-1/**</code>) and selects the name so you can type over it. Deleting a layer also drops the deny rules that started from it (they no longer mean anything) and removes it from every <code>deny</code> list, so the editor never gets stuck on an unsavable state \u2014 and when Save is disabled its tooltip says exactly what to fix.</p>
                 <div id="arch-rules-error" class="dead-code-rules-error"></div>
                 <div id="arch-editor-status" class="arch-editor-status"></div>
                 <div id="arch-editor-form"></div>

@@ -355,9 +355,15 @@
         status.className = 'arch-editor-status ' + (valid ? 'valid' : 'invalid');
     }
 
-    function setSaveEnabled(enabled) {
+    function setSaveEnabled(enabled, reason) {
         var save = $('#arch-rules-save');
-        if (save) save.disabled = !enabled;
+        if (!save) return;
+        save.disabled = !enabled;
+        // A disabled button with no explanation is a dead end: the user sees
+        // "I cannot save" but not what to fix. Mirror the validation message.
+        save.title = enabled
+            ? 'Save .aura/arch-rules.json'
+            : (reason ? 'Cannot save: ' + reason : 'Fix the rules before saving');
     }
 
     function serializeModel() {
@@ -380,8 +386,9 @@
             return true;
         } catch (err) {
             editor.valid = false;
-            setEditorError(err && err.message ? err.message : 'Invalid rules.');
-            setSaveEnabled(false);
+            var message = err && err.message ? err.message : 'Invalid rules.';
+            setEditorError(message);
+            setSaveEnabled(false, message);
             return false;
         }
     }
@@ -413,6 +420,15 @@
     function severityOptions(current) {
         return '<option value="warn"' + (current === 'warn' ? ' selected' : '') + '>warn</option>' +
             '<option value="error"' + (current === 'error' ? ' selected' : '') + '>error</option>';
+    }
+
+    /** A layer name nobody uses yet (`layer-1`, `layer-2`, …). */
+    function nextLayerName() {
+        var used = {};
+        for (var i = 0; i < editor.model.layers.length; i++) used[editor.model.layers[i].name] = true;
+        var n = 1;
+        while (used['layer-' + n]) n++;
+        return 'layer-' + n;
     }
 
     function nextRuleId(prefix) {
@@ -447,7 +463,10 @@
 
     /** Layer names are the rule references: keep both sides in sync. */
     function renameLayerReferences(oldName, newName) {
-        if (!oldName || oldName === newName) return;
+        // Never propagate an empty name: clearing the field while typing used to
+        // empty `from` on every rule that referenced the layer, which left the
+        // model invalid for good (and the Save button disabled forever).
+        if (!oldName || !newName || oldName === newName) return;
         for (var i = 0; i < editor.model.rules.length; i++) {
             var rule = editor.model.rules[i];
             if (rule.kind !== 'deny') continue;
@@ -686,16 +705,22 @@
                 model.layers.splice(index, 1);
                 if (removed) {
                     // Layer names are the rule references. Drop the removed
-                    // target from deny lists; a rule that started from it is
-                    // left with an empty `from` and reported by validation.
+                    // target from deny lists, and drop the rules that *started*
+                    // from it: keeping them with an empty `from` made the model
+                    // invalid, so the Save button stayed disabled with no
+                    // obvious way out.
+                    var keptRules = [];
                     for (var r = 0; r < model.rules.length; r++) {
                         var rule = model.rules[r];
-                        if (rule.kind !== 'deny') continue;
-                        if (rule.from === removed) rule.from = '';
-                        rule.deny = rule.deny.filter(function (target) {
-                            return target !== removed;
-                        });
+                        if (rule.kind === 'deny') {
+                            if (rule.from === removed) continue;
+                            rule.deny = rule.deny.filter(function (target) {
+                                return target !== removed;
+                            });
+                        }
+                        keptRules.push(rule);
                     }
+                    model.rules = keptRules;
                 }
                 renderEditor();
             });
@@ -703,10 +728,18 @@
 
         var addLayer = $('#arch-add-layer');
         if (addLayer) addLayer.addEventListener('click', function () {
-            model.layers.push({ name: '', paths: [] });
+            // Seed a valid layer instead of a blank one: `{ name: '', paths: [] }`
+            // fails validation as soon as it is serialised, so the Save button
+            // went disabled the moment you clicked Add — before typing anything.
+            var name = nextLayerName();
+            model.layers.push({ name: name, paths: ['src/' + name + '/**'] });
             renderEditor();
             var inputs = qsa('[data-layer-name]');
-            if (inputs.length) inputs[inputs.length - 1].focus();
+            if (inputs.length) {
+                var last = inputs[inputs.length - 1];
+                last.focus();
+                last.select();
+            }
         });
         var seedLayers = $('#arch-seed-layers');
         if (seedLayers) seedLayers.addEventListener('click', function () {
