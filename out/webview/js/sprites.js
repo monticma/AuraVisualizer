@@ -333,9 +333,10 @@
     // ============================================================
     // Search ripple — one-shot ring marking where a search landed (V3-09)
     // ============================================================
-    var RIPPLE_MS = 700;
+    var RIPPLE_MS = 1200;
     var RIPPLE_SCALE_START = 0.9;
     var RIPPLE_SCALE_END = 4.5;
+    var RIPPLE_PEAK_OPACITY = 0.9;
     var rippleTexture = null;
 
     function getRippleTexture() {
@@ -358,37 +359,70 @@
     }
 
     /**
-     * One-shot ring: grows and fades over ~700 ms, then removes itself from the
-     * scene and disposes its material. Driven by onBeforeRender like the note
-     * pulse — no global timer, and the sprite dies with its parent node so a
-     * rebuilt graph cannot leak it.
+     * One-shot ring: grows and fades, then removes itself and disposes its
+     * material.
+     *
+     * The caller owns the placement: the sprite is meant to live in the graph
+     * **scene** (not as a child of a node object), because the library rebuilds
+     * every node object on `nodeThreeObject` changes — a child sprite would be
+     * removed and disposed after a single frame.
+     *
+     * Timing is driven by `sprite.__ripple.update(now)`, which the caller can
+     * call from its own animation loop; `onBeforeRender` calls it too, so a
+     * sprite that is simply added to a scene still animates (and stops as soon
+     * as it is off-screen).
+     *
+     * `options.delayMs` holds the ring invisible before it starts — used to fire
+     * the pulse once the camera flight has landed. `options.durationMs`
+     * overrides the growth/fade duration.
      */
-    function getRippleSprite(baseScale) {
+    function getRippleSprite(baseScale, options) {
         var T = window.THREE;
         if (!T) return null;
+        var opts = options || {};
+        var duration = Number(opts.durationMs) > 0 ? Number(opts.durationMs) : RIPPLE_MS;
+        var delay = Number(opts.delayMs) > 0 ? Number(opts.delayMs) : 0;
         var base = Math.max(6, (baseScale || 10) * RIPPLE_SCALE_START);
         var material = new T.SpriteMaterial({
             map: getRippleTexture(),
             transparent: true,
+            opacity: 0,
             depthTest: false,
             depthWrite: false,
             blending: T.AdditiveBlending,
         });
         var sprite = new T.Sprite(material);
         sprite.scale.set(base, base, 1);
+        sprite.renderOrder = 3;
         var started = performance.now();
-        sprite.onBeforeRender = function () {
-            var t = Math.min(1, (performance.now() - started) / RIPPLE_MS);
+        var done = false;
+
+        function update(now) {
+            if (done) return;
+            var elapsed = (typeof now === 'number' ? now : performance.now()) - started - delay;
+            if (elapsed < 0) { material.opacity = 0; return; }
+            var t = Math.min(1, elapsed / duration);
             var scale = base * (RIPPLE_SCALE_START + (RIPPLE_SCALE_END - RIPPLE_SCALE_START) * t);
-            this.scale.set(scale, scale, 1);
-            this.material.opacity = 0.85 * (1 - t) * (1 - t);
-            this.updateMatrixWorld(true);
+            sprite.scale.set(scale, scale, 1);
+            material.opacity = RIPPLE_PEAK_OPACITY * (1 - t) * (1 - t);
+            sprite.updateMatrixWorld(true);
             if (t >= 1) {
-                this.onBeforeRender = null;
-                this.visible = false;
-                if (this.parent) this.parent.remove(this);
-                this.material.dispose();
+                done = true;
+                sprite.onBeforeRender = null;
+                sprite.visible = false;
+                if (sprite.parent) sprite.parent.remove(sprite);
+                material.dispose();
             }
+        }
+
+        sprite.onBeforeRender = function () { update(performance.now()); };
+        // Public driver + introspection (app.js, harness).
+        sprite.__ripple = {
+            update: update,
+            isDone: function () { return done; },
+            base: base,
+            delayMs: delay,
+            durationMs: duration,
         };
         return sprite;
     }

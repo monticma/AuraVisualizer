@@ -39,6 +39,7 @@
     var FOCUS_DISTANCE_DEFAULT = 120; // scene units between camera and focused node
     var FOCUS_DISTANCE_MIN = 40;
     var FOCUS_DISTANCE_MAX = 400;
+    var RIPPLE_START_DELAY_MS = 780; // wait for the 800 ms focus flight to land
     var edgeClickSelectBoth = (window.AURA_CONFIG && window.AURA_CONFIG.edgeClickSelect) !== false;
     var breadcrumbsEnabled = (window.AURA_CONFIG && window.AURA_CONFIG.breadcrumbs) === true;
     var activeLanguages = new Set(['c-source', 'c-header', 'cpp-source', 'cpp-header', 'javascript', 'typescript', 'python', 'css', 'html', 'java', 'go', 'rust', 'csharp', 'php', 'vue', 'bash', 'lua']);
@@ -71,6 +72,7 @@
     var expandedGroups = new Set();
     var groupMeshes = [];
     var metricRanges = {};
+    var activeRipples = [];    // live search rings, scene-attached (V3-09)
     // Signature of the dataset currently fed to the 3D graph. Visibility
     // changes that alter nothing must not re-feed: every feed reheats the force
     // engine, which visibly drifts/rotates the settled layout.
@@ -2635,6 +2637,7 @@
         lastFeedKey = feedKeyFor(filtered);
         focusedLink = null; // links are rebuilt with the dataset
         disposeEdgeGlow();
+        disposeRipples();
 
         // Apply spread forces
         applySpreadForces();
@@ -3500,6 +3503,7 @@
         var hadLinkWidthState = multiSelectedLinks.size > 0 || flowTraceMode;
         focusedLink = null;
         disposeEdgeGlow();
+        disposeRipples();
         selectedNode = null;
         multiSelectedNodes.clear();
         multiSelectedLinks.clear();
@@ -3867,21 +3871,75 @@
         return findGraphNode(nodeId);
     }
 
-    /** One-shot ripple on a node — marks where a search landed (V3-09). */
-    function pulseNode(nodeId) {
-        if (!graph || !window.AuraSprites || !AuraSprites.ripple) return;
+    /**
+     * One-shot ripple on a node — marks where a search landed (V3-09).
+     *
+     * The ring lives in the graph **scene**, positioned on the node and
+     * refreshed every frame: a child of `node.__threeObj` is wiped after one
+     * frame, because 3d-force-graph clears and rebuilds every node object
+     * whenever `nodeThreeObject` changes (which is exactly what selecting the
+     * symbol does). `delayMs` lets the pulse fire once the camera has landed.
+     */
+    function pulseNode(nodeId, options) {
+        if (!graph || !window.AuraSprites || !AuraSprites.ripple) return null;
+        if (typeof graph.scene !== 'function') return null;
+        var scene = graph.scene();
+        if (!scene || typeof scene.add !== 'function') return null;
+
         var target = findLiveNode(nodeId);
-        if (!target || !hasFinitePosition(target) || !target.__threeObj) return;
-        var sprite = AuraSprites.ripple(Math.cbrt(getNodeSize(target) || 1) * 8);
-        if (!sprite) return;
-        sprite.position.set(0, 0, 0);
-        target.__threeObj.add(sprite);
+        if (!target || !hasFinitePosition(target)) return null;
+
+        var sprite = AuraSprites.ripple(Math.cbrt(getNodeSize(target) || 1) * 8, options);
+        if (!sprite) return null;
+
+        sprite.position.set(target.x, target.y, target.z);
+        scene.add(sprite);
+
+        var ripple = { sprite: sprite, node: target, scene: scene, raf: 0 };
+        activeRipples.push(ripple);
+
+        function stop() {
+            var at = activeRipples.indexOf(ripple);
+            if (at >= 0) activeRipples.splice(at, 1);
+            if (ripple.raf) cancelAnimationFrame(ripple.raf);
+            ripple.raf = 0;
+        }
+
+        function tick() {
+            // The sprite removed itself (animation finished) or the graph was
+            // rebuilt — either way this loop is done.
+            if (sprite.parent !== scene || (sprite.__ripple && sprite.__ripple.isDone())) {
+                stop();
+                return;
+            }
+            if (hasFinitePosition(ripple.node)) {
+                sprite.position.set(ripple.node.x, ripple.node.y, ripple.node.z);
+            }
+            if (sprite.__ripple) sprite.__ripple.update(performance.now());
+            ripple.raf = requestAnimationFrame(tick);
+        }
+        ripple.raf = requestAnimationFrame(tick);
+        return sprite;
+    }
+
+    /** Drop every live search ripple (dataset rebuild, reset). */
+    function disposeRipples() {
+        for (var i = 0; i < activeRipples.length; i++) {
+            var ripple = activeRipples[i];
+            if (ripple.raf) cancelAnimationFrame(ripple.raf);
+            var sprite = ripple.sprite;
+            if (sprite) {
+                if (sprite.parent) sprite.parent.remove(sprite);
+                if (sprite.material && typeof sprite.material.dispose === 'function') sprite.material.dispose();
+            }
+        }
+        activeRipples = [];
     }
 
     /**
      * Aura: Find Symbol… (V3-09) — reveal the file, fly to it, explode it and
-     * mark the exact symbol with a ripple. Search jumps only: ordinary clicks
-     * stay quiet.
+     * mark the exact symbol with a one-shot ripple. Search jumps only: ordinary
+     * clicks stay quiet.
      */
     function focusSymbolInGraph(fileId, symbolName) {
         if (!graph || !graphData || !fileId) return false;
@@ -3907,11 +3965,11 @@
                     graph.nodeThreeObject(graph.nodeThreeObject());
                     updateExplorerSelection();
                 }
-                pulseNode(symbolNode ? wanted : node.id);
+                pulseNode(symbolNode ? wanted : node.id, { delayMs: RIPPLE_START_DELAY_MS });
             });
             return true;
         }
-        pulseNode(node.id);
+        pulseNode(node.id, { delayMs: RIPPLE_START_DELAY_MS });
         return true;
     }
 
@@ -6032,6 +6090,7 @@
     function feedGraphFrozen(dataset) {
         if (!graph) return;
         lastFeedKey = feedKeyFor(dataset);
+        disposeRipples();
         graph.warmupTicks(0);
         graph.cooldownTicks(0);
         graph.graphData(dataset);
