@@ -1303,6 +1303,9 @@ export class WebviewProvider {
         const spritesUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'sprites.js')
         );
+        const seedCoreUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'seed-core.js')
+        );
         const panelsUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'panels.js')
         );
@@ -2594,6 +2597,9 @@ export class WebviewProvider {
                 <h3>🎯 Edge Confidence</h3>
                 <p>Each edge carries a resolution confidence: <strong>1.0</strong> exact/relative/alias, <strong>0.9</strong> extension/index, <strong>0.8</strong> suffix, <strong>0.6</strong> basename, <strong>0.5</strong> ambiguous (several candidates). Function calls score <strong>0.8</strong> for a unique target and <strong>0.5</strong> when ambiguous; inheritance is <strong>0.9</strong>. Use the <strong>Edge confidence</strong> toolbar selector to hide weaker links, and read the badge next to each dependency in the detail panel. Old databases default to <strong>1.0</strong>.</p>
 
+                <h3>🧩 Re-showing hidden files</h3>
+                <p>A filter change never re-heats the force engine — that is what keeps the settled layout from drifting every time you toggle a language or a folder. Files that come back (a re-enabled language, an orphan/dead-code/cycle toggle, leaving a query filter) have therefore never received a position: they are now <strong>seeded next to the centroid of their already-placed neighbours</strong> (or on a sphere around the layout when they have none), deterministically from their path, so they land inside their dependency cluster instead of piled at the origin. Files that were already placed never move, and nothing is persisted — re-opening the panel lays the graph out from scratch as before.</p>
+
                 <h3>⚡ Instant Startup</h3>
                 <p>The graph is cached in a local SQLite database (<code>.aura/graph.db</code>). On next launch, the cached graph loads instantly. A fingerprint (<code>git HEAD</code> + settings + parser version + file size/mtime list) skips analysis entirely when nothing changed; otherwise only added/modified/deleted files are re-parsed and sent as a delta. File saves still trigger incremental O(1) updates.</p>
 
@@ -2693,6 +2699,7 @@ export class WebviewProvider {
     <script nonce="${nonce}" src="${queryUiUri}"></script>
     <script nonce="${nonce}" src="${exportUri}"></script>
     <script nonce="${nonce}" src="${spritesUri}"></script>
+    <script nonce="${nonce}" src="${seedCoreUri}"></script>
     <script nonce="${nonce}" src="${panelsUri}"></script>
     <script nonce="${nonce}" src="${breadcrumbsUri}"></script>
     <script nonce="${nonce}" src="${appUri}"></script>

@@ -6091,6 +6091,14 @@
         if (!graph) return;
         lastFeedKey = feedKeyFor(dataset);
         disposeRipples();
+        // Nodes re-admitted by a filter never entered the simulation: they carry
+        // no coordinates, d3 would drop them on its tiny spiral around the origin
+        // and the 0-tick budget below would freeze them there ("everything piled
+        // in the middle" until the Spread slider re-heats the engine). Seed them
+        // next to their positioned neighbours first — settled nodes never move.
+        if (window.AuraSeed && AuraSeed.seedMissingNodes) {
+            AuraSeed.seedMissingNodes(dataset.nodes, dataset.links);
+        }
         graph.warmupTicks(0);
         graph.cooldownTicks(0);
         graph.graphData(dataset);

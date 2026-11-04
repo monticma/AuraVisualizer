@@ -149,6 +149,18 @@ async function copyWebviewAssets() {
         tsconfig: 'tsconfig.json',
     });
 
+    // Seed core — deterministic positions for nodes re-admitted by a filter,
+    // bundled as window.AuraSeed.
+    await esbuild.build({
+        entryPoints: [path.join(__dirname, 'src', 'graph', 'seed-core.ts')],
+        bundle: true,
+        format: 'iife',
+        globalName: 'AuraSeed',
+        outfile: path.join(webviewDest, 'js', 'seed-core.js'),
+        logLevel: 'silent',
+        tsconfig: 'tsconfig.json',
+    });
+
     // Breadcrumb core — navigation trail (V3-12), bundled as window.AuraBreadcrumbCore.
     await esbuild.build({
         entryPoints: [path.join(__dirname, 'src', 'navigation', 'breadcrumb-core.ts')],
