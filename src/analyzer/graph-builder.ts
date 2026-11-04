@@ -34,6 +34,14 @@ import { hasGrammar, parseSource } from './tree-sitter-loader';
 import type { BaseParser } from './parsers/base-parser';
 import type Parser from 'web-tree-sitter';
 import type { FileInfo, Relation, GraphData, GraphNode, GraphLink, AnalyzeOptions, FileSymbols, SymbolInfo, CallSite, FunctionCallSite, DeadCodeExemption } from './types';
+import {
+    collectNamespaceDefs,
+    collectNamespaceUses,
+    globalUseLabel,
+    namespaceFromLabel,
+    GLOBAL_USE_CONFIDENCE,
+    type SyntaxNodeLike,
+} from './global-refs';
 
 /** Parser registry — Tree-sitter for languages with WASM grammars, regex for HTML/CSS. */
 const PARSERS: Record<string, BaseParser> = {
@@ -407,6 +415,76 @@ function buildDocReferenceLinks(
     return links;
 }
 
+// ── Runtime couplings through `window.*` namespaces (V4-09) ──────
+
+/** Only the JavaScript family exposes `window.*` namespaces. */
+function usesGlobalNamespaces(language: string): boolean {
+    return LANG_FAMILY[language] === 'js';
+}
+
+/**
+ * Index every `window.X = …` namespace of the repository (the first definition
+ * wins) plus the names each file defines, so an incremental edit can drop the
+ * names its previous version owned instead of leaving them behind forever.
+ */
+function buildNamespaceIndex(
+    files: FileInfo[],
+    astTrees?: Map<string, Parser.Tree>,
+): { index: Map<string, string>; perFile: Map<string, string[]> } {
+    const index = new Map<string, string>();
+    const perFile = new Map<string, string[]>();
+    for (const file of files) {
+        if (!usesGlobalNamespaces(file.language)) continue;
+        const tree = astTrees?.get(file.id);
+        if (!tree) continue;
+        const defs = collectNamespaceDefs(tree.rootNode as unknown as SyntaxNodeLike);
+        if (defs.length === 0) continue;
+        perFile.set(file.id, defs.map(def => def.name));
+        for (const def of defs) {
+            if (!index.has(def.name)) index.set(def.name, file.id);
+        }
+    }
+    return { index, perFile };
+}
+
+/** `global-use` links of one file, against the repository-wide namespace index. */
+function collectGlobalUseLinks(
+    fileId: string,
+    tree: Parser.Tree | undefined,
+    namespaces: ReadonlyMap<string, string>,
+): GraphLink[] {
+    if (!tree || namespaces.size === 0) return [];
+    const names = new Set(namespaces.keys());
+    const links: GraphLink[] = [];
+    const seen = new Set<string>();
+    for (const use of collectNamespaceUses(tree.rootNode as unknown as SyntaxNodeLike, names)) {
+        const provider = namespaces.get(use.name);
+        if (!provider || provider === fileId || seen.has(use.name)) continue;
+        seen.add(use.name);
+        links.push({
+            source: fileId,
+            target: provider,
+            type: 'global-use',
+            label: globalUseLabel(use),
+            confidence: GLOBAL_USE_CONFIDENCE,
+        });
+    }
+    return links;
+}
+
+/** Phase 3c — pair every `AuraX.member(…)` read with the file defining it. */
+function buildGlobalUseLinks(files: FileInfo[], astTrees?: Map<string, Parser.Tree>): GraphLink[] {
+    if (!astTrees) return [];
+    const { index } = buildNamespaceIndex(files, astTrees);
+    if (index.size === 0) return [];
+    const links: GraphLink[] = [];
+    for (const file of files) {
+        if (!usesGlobalNamespaces(file.language)) continue;
+        links.push(...collectGlobalUseLinks(file.id, astTrees.get(file.id), index));
+    }
+    return links;
+}
+
 export function buildGraph(files: FileInfo[], projectName: string = 'Project', options: AnalyzeOptions = {}, astTrees?: Map<string, Parser.Tree>, failures?: Map<string, string>): GraphData {
     const fileMap = new Map<string, FileInfo>();
     for (const file of files) {
@@ -676,6 +754,7 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
 
     links.push(...functionCallLinks);
     links.push(...heritageLinks);
+    links.push(...buildGlobalUseLinks(files, astTrees));
 
     // Deduplicate links
     const linkSet = new Set<string>();
@@ -892,6 +971,10 @@ export interface IncrementalContext {
     calledNames?: Set<string>;
     /** True when fileMap content came from a fresh scan (not a cache metadata restore). */
     hasFileContents?: boolean;
+    /** `window.X` namespace → file defining it (V4-09). */
+    globalNamespaces?: Map<string, string>;
+    /** Namespaces one file defines, so an edit can drop its previous ones. */
+    fileNamespaces?: Map<string, string[]>;
 }
 
 /**
@@ -926,7 +1009,17 @@ export function buildIncrementalContext(files: FileInfo[], astTrees?: Map<string
         }
     }
 
-    return { fileMap, globalFunctionIndex, fileSymbols, importGraph: buildImportGraph(files, fileMap, astTrees), calledNames: collectCalledNames(files), hasFileContents: true };
+    const namespaces = buildNamespaceIndex(files, astTrees);
+    return {
+        fileMap,
+        globalFunctionIndex,
+        fileSymbols,
+        importGraph: buildImportGraph(files, fileMap, astTrees),
+        calledNames: collectCalledNames(files),
+        hasFileContents: true,
+        globalNamespaces: namespaces.index,
+        fileNamespaces: namespaces.perFile,
+    };
 }
 
 /** Build import graph: fileId → set of resolved import targets (used for C/C++ reachability). */
@@ -1001,6 +1094,20 @@ export function restoreIncrementalContext(files: FileInfo[], graphData: GraphDat
         }
     }
 
+    // Namespaces survive a cache hit through the `global-use` edges: the label
+    // carries the name (`AuraSprites.ripple()`) and the target the provider.
+    const globalNamespaces = new Map<string, string>();
+    const fileNamespaces = new Map<string, string[]>();
+    for (const link of graphData.links) {
+        if (link.type !== 'global-use') continue;
+        const name = namespaceFromLabel(link.label);
+        if (!name) continue;
+        if (!globalNamespaces.has(name)) globalNamespaces.set(name, link.target);
+        const owned = fileNamespaces.get(link.target) || [];
+        if (!owned.includes(name)) owned.push(name);
+        fileNamespaces.set(link.target, owned);
+    }
+
     return {
         fileMap,
         globalFunctionIndex,
@@ -1008,6 +1115,8 @@ export function restoreIncrementalContext(files: FileInfo[], graphData: GraphDat
         importGraph,
         calledNames: files.some(f => !!f.content) ? collectCalledNames(files) : undefined,
         hasFileContents: files.some(f => !!f.content),
+        globalNamespaces,
+        fileNamespaces,
     };
 }
 
@@ -1156,6 +1265,29 @@ export function rebuildSingleFile(
         }
     }
 
+    // Phase 3c: refresh this file's `window.X` namespaces, then its global-use
+    // edges. Namespaces are a repository-wide fact, so the index is updated in
+    // place: drop the names this file used to own, then re-register the new ones.
+    const previousNames = ctx.fileNamespaces?.get(file.id) || [];
+    for (const name of previousNames) {
+        if (ctx.globalNamespaces?.get(name) === file.id) ctx.globalNamespaces!.delete(name);
+    }
+    ctx.fileNamespaces?.delete(file.id);
+    if (usesGlobalNamespaces(file.language) && astTree) {
+        const defs = collectNamespaceDefs(astTree.rootNode as unknown as SyntaxNodeLike);
+        if (defs.length > 0) {
+            if (!ctx.globalNamespaces) ctx.globalNamespaces = new Map();
+            if (!ctx.fileNamespaces) ctx.fileNamespaces = new Map();
+            ctx.fileNamespaces.set(file.id, defs.map(def => def.name));
+            for (const def of defs) {
+                if (!ctx.globalNamespaces.has(def.name)) ctx.globalNamespaces.set(def.name, file.id);
+            }
+        }
+    }
+    const globalUseLinks = usesGlobalNamespaces(file.language) && ctx.globalNamespaces
+        ? collectGlobalUseLinks(file.id, astTree, ctx.globalNamespaces)
+        : [];
+
     // Phase 3a: Collect call sites
     const callSites: FunctionCallSite[] = [];
     if (SYMBOL_LANGUAGES.has(file.language) && !HEADER_EXTS.has(file.extension) && parser && astTree && parser.usesTreeSitter) {
@@ -1227,6 +1359,7 @@ export function rebuildSingleFile(
         }
     }
     outEdges.push(...functionCallLinks);
+    outEdges.push(...globalUseLinks);
     outEdges.push(...heritageLinks);
 
     // Deduplicate

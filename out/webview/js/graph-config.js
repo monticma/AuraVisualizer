@@ -42,6 +42,7 @@ var LINK_COLORS = {
     'css-url':        '#ce93d866',
     'asset':          '#ffffff44',
     'function-call':  '#81c784aa',
+    'global-use':     '#4dd0e1cc',
     'extends':        '#f06292cc',
     'implements':     '#ba68c8aa',
     'source':         '#81c78488',

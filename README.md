@@ -838,6 +838,7 @@ All settings live under `auraVisualizer.*` — the most common ones are also edi
 | `require` | Yellow (dim) | CommonJS `require()` |
 | `dynamic-import` | Yellow (faint) | `import()` expressions |
 | `function-call` | Green | Cross-file function calls (C, C++, JS/TS, Python, Java, Go, Rust, Kotlin, Ruby, Swift, C#, PHP, Lua) |
+| `global-use` | Cyan | Reads of a `window.X` / `globalThis.X` namespace defined in another file (`AuraSprites.ripple`, `window.AuraTimeline.state()`) — confidence **0.6** |
 | `extends` | Pink | Class/struct inheritance |
 | `implements` | Purple | Interface / trait implementation |
 | `script` | Orange | HTML `<script src>` / Vue `<script src>` |
@@ -846,6 +847,8 @@ All settings live under `auraVisualizer.*` — the most common ones are also edi
 | `source` | Green (dim) | Shell `source file.sh` / `. file.sh` |
 | `css-url` | Purple (faint) | CSS `url()` references |
 | `doc-reference` | Slate (thin) | Mentions of code symbols / filenames inside `.md` / `.txt` / `.rst` files |
+
+**`global-use` — the runtime half of a classic `<script>` architecture.** Files loaded as plain scripts (no `import`, no module system) expose a namespace and consume each other through it: `sprites.js` defines `window.AuraSprites`, `app.js` calls `AuraSprites.ripple(…)`. Pairing the definitions with their reads (both read from the Tree-sitter AST, so comments and strings never count) turns those invisible couplings into real edges: the 19 webview satellites of this project go from 9 isolated nodes to a fully connected module — `sprites.js` gains its 1 provider edge plus the consumers that would break if it changed. The `script` edge says *loaded by*, `global-use` says *used by*. The pair is what makes blast radius and fan-in honest for script-tag architectures. Confidence is **0.6** (the namespace is unique in the repository, but any script could overwrite it at runtime), so the **Edge confidence** slider hides them above 0.6. Incremental re-analysis keeps the index up to date: a changed file re-registers the namespaces it defines and re-emits its own edges.
 
 ---
 
