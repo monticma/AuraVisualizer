@@ -249,7 +249,6 @@
                     : [];
                 if (brIds.length) {
                     if (activeTab !== 'graph') switchTab('graph');
-                    cancelInitialFit();
                     if (brIds.length > 1) {
                         startMultiNodeBlast(brIds);
                     } else {
@@ -2696,7 +2695,7 @@
         window.removeEventListener('blur', healMissedPointerUp);
         window.addEventListener('blur', healMissedPointerUp);
 
-        scheduleInitialFit();
+        // No initial zoom-to-fit: see the note in the framing section.
 
         // Handle webview resize (e.g. when side editor opens/closes).
         // Skip 0x0 sizes: while another tab is active the container is hidden and
@@ -3968,7 +3967,6 @@
         if (activeTab !== 'graph') switchTab('graph');
         revealFilteredNode(node);
         selectNodeLikeClick(node);
-        cancelInitialFit();
         if (hasFinitePosition(node)) graph.cameraPosition(nodeCameraPose(node), node, 800);
         else deferFocus(node.id, true);
 
@@ -4012,31 +4010,12 @@
     // ============================================================
 
     /**
-     * Deferred fit-to-view that frames the whole graph once the layout has
-     * settled. It is cancelled as soon as something navigates on purpose —
-     * a CodeLens focus, a blast radius or a warp — otherwise it zooms back out
-     * 1.5 s after the graph appeared and undoes the user's navigation.
+     * There is **no** automatic fit-to-view on load: the camera stays at the
+     * library's initial pose, which frames the graph at a readable distance.
+     * The deferred zoom-out this replaced pulled back to show every node, far
+     * enough that labels were unreadable — the first thing the user did was
+     * zoom back in. `zoomToFit` remains available on a background click.
      */
-    var initialFitTimer = 0;
-    var initialFitCancelled = false;
-
-    function scheduleInitialFit() {
-        if (initialFitTimer) clearTimeout(initialFitTimer);
-        initialFitCancelled = false;
-        initialFitTimer = setTimeout(function() {
-            initialFitTimer = 0;
-            if (initialFitCancelled || graphPaused || !graph) return;
-            graph.zoomToFit(500, 50);
-        }, 1500);
-    }
-
-    function cancelInitialFit() {
-        initialFitCancelled = true;
-        if (initialFitTimer) {
-            clearTimeout(initialFitTimer);
-            initialFitTimer = 0;
-        }
-    }
 
     /** True when a node already has usable 3D coordinates. */
     function hasFinitePosition(node) {
@@ -4093,8 +4072,6 @@
             if (hasFinitePosition(node) && points.indexOf(node) === -1) points.push(node);
         }
         if (points.length === 0) return null;
-
-        cancelInitialFit();
 
         if (points.length === 1) {
             var only = points[0];
@@ -4448,9 +4425,6 @@
         if (!node) return;
 
         if (reveal) {
-            // The user asked for this file: never let the deferred fit-to-view
-            // zoom back out on top of it.
-            cancelInitialFit();
             // Never fly onto a node the engine has not placed yet.
             if (!hasFinitePosition(node)) {
                 deferFocus(nodeId, reveal);
