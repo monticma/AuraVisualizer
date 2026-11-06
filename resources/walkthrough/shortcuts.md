@@ -43,7 +43,7 @@ Quick access to every feature without leaving the keyboard.
 | Slider | Effect |
 |--------|--------|
 | **Node Size** | Scale the visual size of all nodes |
-| **Spread** | Adjust the repulsion force in the layout |
+| **Spread** | Adjust the repulsion force in the layout — the new spacing is settled synchronously (20 ticks after a 160 ms debounce), so the graph jumps straight to its new shape instead of drifting for a second |
 | **Depth** | Set neighbor depth for pinned focus (1–5) |
 
 ### In-App Settings ⚙️

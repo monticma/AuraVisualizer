@@ -783,7 +783,7 @@
           {
             "id": "explore-graph",
             "title": "Explore the Graph",
-            "description": "**Click** a node to see file details. **Double-click** to open the file in the editor. **Right-click** to pin focus on a file and its neighbors.\n\nUse the mouse wheel to zoom and drag to rotate.",
+            "description": "**Click** a node to see file details. **Double-click** to open the file in the editor. **Right-click** to pin focus on a file and its neighbors.\n\nUse the mouse wheel to zoom and drag to rotate. Files that come back after a filter change are seeded next to their neighbours and settled before the first paint — no animation, and the camera no longer zooms out on load (`F` recenters).",
             "media": {
               "markdown": "resources/walkthrough/explore.md"
             }
@@ -839,7 +839,7 @@
           {
             "id": "arch-rules",
             "title": "Enforce Architecture Layers",
-            "description": "Declare layers, deny rules, sibling slices and exceptions in `.aura/arch-rules.json` (seeded from your `src/` folders). The **🏛️ Architecture** tab shows violations by rule, Ca/Ce/instability per layer and aggregated cycles; the **Architecture layers** heatmap turns forbidden edges red. Freeze legacy violations with a baseline so only new ones alert.\n\n[Create or open rules](command:auraVisualizer.archRules)",
+            "description": "Declare layers, deny rules, sibling slices and exceptions in `.aura/arch-rules.json` (seeded from your `src/` folders; globs are case-insensitive and every row shows how many files it captures). The **🏛️ Architecture** tab shows violations by rule, Ca/Ce/instability per layer and aggregated cycles; the **Architecture layers** heatmap turns forbidden edges red. Freeze legacy violations with a baseline so only new ones alert.\n\n[Create or open rules](command:auraVisualizer.archRules)",
             "media": {
               "markdown": "resources/walkthrough/arch-rules.md"
             }
@@ -855,7 +855,7 @@
           {
             "id": "ai-integration",
             "title": "AI Integration (@aura, MCP, Export)",
-            "description": "Mention **@aura** in VS Code Chat, query the built-in **MCP server** (18 deterministic tools), or use **📤 Export** for a guided Markdown/JSON AI context with selectable sections and a token budget.\n\nWorks with GitHub Copilot and other MCP clients.",
+            "description": "Mention **@aura** in VS Code Chat, query the built-in **MCP server** (22 deterministic tools — start with `build` to check the graph is in sync with `HEAD`), or use **📤 Export** for a guided Markdown/JSON AI context with selectable sections and a token budget.\n\nWorks with GitHub Copilot and other MCP clients.",
             "media": {
               "markdown": "resources/walkthrough/ai-integration.md"
             }

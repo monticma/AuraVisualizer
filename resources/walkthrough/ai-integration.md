@@ -20,6 +20,8 @@ Aura has **no in-panel assistant**: the graph panel is for exploration, and **VS
 
 The MCP server starts automatically and registers itself in `.vscode/mcp.json`. AI assistants (like GitHub Copilot) can then query your codebase graph.
 
+Start with **`build`**: it answers “is this graph still in sync with my checkout?” — analysis age, file/link counts, the commit analysed vs `HEAD` and a `stale` flag with its reason — so the agent reports freshness instead of quoting outdated numbers. Then `explain_file` gives one-call briefings, `hotspots_in_changes` ranks the risk inside the working tree (or a branch diff with `base`) and `list_repositories` says which repository or worktree is being served.
+
 **Available tools (22):**
 
 | Tool | What it does |

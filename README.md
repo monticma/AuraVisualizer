@@ -17,7 +17,17 @@
 
 ---
 
-## What's New in 1.5.1
+## What's New in 1.5.2
+
+- **🧩 Script-tag coupling (`global-use`)** — files loaded as plain `<script>` (no `import`, no module system) expose a namespace and consume each other through it. Aura now pairs the `window.X` / `globalThis.X` definitions with their reads straight from the AST, so `sprites.js` ⇄ `app.js` become real edges: the `script` edge says *loaded by*, the cyan `global-use` edge says *used by*, confidence **0.6**. Fan-in, blast radius and cycles stop treating those files as isolated — on this project's own webview, 19 satellites go from 9 isolated nodes to one connected module. Incremental re-analysis keeps the index current, and a parser-version guard forces the single full re-analysis needed to backfill old databases.
+- **🎯 A layout that stays put** — re-shown files used to pile up in the middle, on the force engine's starting spiral. They are now **seeded next to their already-placed neighbours**, at the graph's own spacing (`0.6 × the median settled edge length`, capped at 5 % of the scene), or **grouped by folder** when they have no placed neighbour; a batch of 5+ re-admitted files also gets a **synchronous reflow** (10 ticks + 1 per 20 nodes, capped at 30) inside the data digest. Calibrated on two real repositories: ThorV2's `p90` edge goes from 436 back to **225** units (settled baseline 228), and a stranded file's worst edge from 1300 to 457.
+- **⚡ Layout changes are silent now** — the **Spread** slider, the DAG toggle and the spread restore settle with a 20-tick warmup before the first paint (160 ms debounce) instead of re-heating the engine: same equilibrium, zero drift, no second of wobble. And Aura no longer zooms the camera out 1.5 s after loading — the view stays where the library puts it, so a large repository no longer shrinks into an unreadable soup; **Recenter** (`F`) still fits everything.
+- **🏛️ Layer globs and editor repaired** — matching is **case-insensitive** (`src/Agent/Plugins/**` now captures `Src/Agent/Plugins/…`: 0 → **31 files** on the repository that exposed it), every row shows how many files its globs capture with a live **⚠ 0 file** warning, **＋ Add layer** seeds a valid `layer-1` → `src/layer-1/**`, deleting a layer drops the deny rules that started from it, and a disabled **Save** now explains itself in its tooltip.
+- **🤖 Four new MCP/LM tools** — `build` (is the graph still in sync with `HEAD`?), `explain_file` (one-call file briefing), `hotspots_in_changes` (risk inside the working tree or a branch diff) and `list_repositories` (repo and worktrees), bringing the server to **22 tools**, every payload carrying `file` + `line` + a ready-to-cite `anchor`. The server also ships operating instructions on connect.
+- **🧭 Navigation and review toolkit** — click an **edge** to frame both endpoints and glow it along its curve, a **breadcrumb trail** of every jump (`auraVisualizer.breadcrumbs`), a **shallow-clone banner** instead of silently understated churn, a fixed **`focusDistance`**, markdown/hotspot **agent context files** (`Aura: Generate Agent Context`) and **`path:line` anchors** in every AI answer.
+- **Fixed in 1.5.2** — the symbol-search **ripple was invisible** (its sprite was destroyed one frame after creation by the node rebuild; it now lives in the scene, waits for the camera to land and lasts 1.2 s, see below), a **Save button that could go dead** in the layers editor, globs that silently matched **zero files** on a differently-cased checkout, nodes piling up after a filter and an unwanted zoom-out on load.
+
+### Previously in 1.5.1
 
 - **🔗 Shareable view links** — **🔗 Link** (toolbar) or `Aura: Copy View Link` copies a `vscode://` URI that reopens the exact view: tab, every filter, the file-anchored camera pose and the query. Versioned, 8 KB-capped and fully validated on arrival.
 - **🌿 Branch review** — `Aura: Review Current Branch` runs `git diff main...HEAD` (renames followed, no shell) and shows a strip over the graph: files, `+/−` lines, Δcomplexity, with **💥 Blast** and a **⇄ Compare** that pre-fills the Time Travel sliders. `auraVisualizer.reviewBase` picks the base.
@@ -35,7 +45,7 @@
 - **Single conversational surface** — the old hidden in-panel assistant was removed; `@aura` in VS Code Chat, the Language Model tools and the MCP server are the supported AI surfaces.
 - **⟡ Symbol CodeLens** — every function and class of an analyzed file gets a `⟡ focus · flow · impact` lens in the editor: one click opens the 3D graph on that file, its flowchart, or its blast radius. Symbols come from the graph database (no language server needed) and `auraVisualizer.codeLens` turns the feature off.
 
-_Previously in 1.4.1: code-only communities, dead-code framework exemptions, PageRank centrality, complexity trends, yellow documentation labels, edge confidence and import aliases._
+_Previously in 1.4.1 and earlier: code-only communities, dead-code framework exemptions, PageRank centrality, complexity trends, yellow documentation labels, edge confidence and import aliases._
 
 ---
 
@@ -335,7 +345,7 @@ Architecture rules are a **fitness function**: they turn the dependency graph in
 | **Ask Aura / AI** | **✨** on a layer card sends its globs, members, coupling, violations and cycles to `@aura`; the `aura_get_architecture_violations` LM tool (and MCP) returns the same evaluation with an optional layer filter |
 | **MCP** | `get_architecture_violations` returns new violations, layer metrics and cycles |
 
-Create the rules file from your top-level `src/` folders with **Aura: Create or Open Architecture Rules**. The **⚙️ Edit rules** button in the Architecture tab (also in **⚙️ Settings → Architecture rules**) opens a **structured editor**: add/reorder layers, toggle forbidden targets per deny rule, edit slices/shared globs, add `no-cycles`, exceptions and strict mode. Layer renames update every rule reference, and the exact analysis engine validates the form before saving (the raw JSON field stays available for `edgeTypes`). Saving re-evaluates immediately — no re-parse.
+Create the rules file from your top-level `src/` folders with **Aura: Create or Open Architecture Rules**. The **⚙️ Edit rules** button in the Architecture tab (also in **⚙️ Settings → Architecture rules**) opens a **structured editor**: add/reorder layers, toggle forbidden targets per deny rule, edit slices/shared globs, add `no-cycles`, exceptions and strict mode. Layer renames update every rule reference, and the exact analysis engine validates the form before saving (the raw JSON field stays available for `edgeTypes`). **＋ Add layer** seeds a ready-to-save `layer-1` → `src/layer-1/**` and selects its name, deleting a layer drops the deny rules that started from it, every row shows how many files its globs capture (with a **⚠ 0 file** warning that updates while you type), and a disabled **Save** carries the validation message as its tooltip. Saving re-evaluates immediately — no re-parse.
 
 The floating **Communities / Layers** palette shows one card per layer with its globs, member count and new violations. Click a card to hide that layer, or **✨** to ask `@aura` for an explanation: the request carries the authoritative member list, the rule globs, `Ca`/`Ce`/`I`, new vs baselined violations and aggregated cycles, so answers separate code fixes from rule changes. The **Unlayered** bucket can be toggled but has no ask action yet.
 
@@ -593,8 +603,12 @@ Toggle language buttons in the filter bar to show/hide files by type. Each butto
 | Slider | Effect |
 |--------|--------|
 | **Node Size** | Scale the visual radius of all nodes |
-| **Spread** | Adjust repulsion force between nodes |
+| **Spread** | Adjust the repulsion force between nodes — the new spacing is settled synchronously (20 ticks after a 160 ms debounce), so the graph jumps straight to its new shape instead of drifting for a second |
 | **Depth** (1–5) | Set how many neighbor levels to show when pinning focus |
+
+**The layout never moves on its own.** A filter change does not start a live settle: files that come back are **seeded next to their neighbours** (or grouped by folder when they have none), and a batch of 5+ re-admitted files gets a **synchronous 10–30 tick warmup inside the data digest** — before the first paint, so nothing animates. The trade-off is explicit: re-showing a type may rearrange the graph, and warps/breadcrumbs still replay their stored pose.
+
+**No automatic zoom-to-fit.** The camera keeps the pose it starts with; Aura used to pull back 1.5 s after loading and everybody zoomed straight back in. Use **Recenter** (`F`) or click the background when you actually want the whole graph framed.
 
 ### In-App Settings ⚙️
 
