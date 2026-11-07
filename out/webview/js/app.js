@@ -44,6 +44,18 @@
     var breadcrumbsEnabled = (window.AURA_CONFIG && window.AURA_CONFIG.breadcrumbs) === true;
     var activeLanguages = new Set(['c-source', 'c-header', 'cpp-source', 'cpp-header', 'javascript', 'typescript', 'python', 'css', 'html', 'java', 'go', 'rust', 'csharp', 'php', 'vue', 'bash', 'lua']);
     var dagMode = false;
+    // V5-07 — 2.5D city: the same nodes, laid out on a squarified plan and
+    // extruded. The layout itself is pure and unit-tested (src/graph/city-core.ts,
+    // bundled as window.AuraCity); this file only owns the scene.
+    var cityMode = false;
+    var cityOptions = { height: 'cognitive', footprint: 'linesOfCode', mapping: 'quantiles', districtBy: 'group' };
+    var cityPlan = null;       // last computed plan (null outside city mode)
+    var cityById = {};         // node id → rect of the current plan
+    var cityGroup = null;      // plinth + district plates, scene-attached
+    var cityScale = 520;       // plan width, in scene units
+    var cityHeight = 170;      // tallest building, in scene units
+    var cityPlateStep = 9;     // altitude per district nesting level
+    var CITY_EXIT_TICKS = 60;  // warmup used to leave the city on a settled graph
     var showOrphans = false;
     var showDeadCode = false;
     var showCycles = false;
@@ -2268,6 +2280,8 @@
      */
     function applyEngineBudget() {
         if (!graph || typeof graph.warmupTicks !== 'function') return;
+        // The city pins every node (fx/fy/fz): ticks would only burn CPU.
+        if (cityMode) return;
         var curved = (window.AURA_CONFIG || {}).linkStyle === 'curved';
         graph.warmupTicks(curved ? 220 : 100);
         graph.cooldownTicks(curved ? 0 : 200);
@@ -2403,6 +2417,8 @@
             .nodeThreeObjectExtend(true)
             .nodeThreeObject(function(node) {
                 var T = window.THREE;
+                // City mode: the building is the node — no sphere, no ring, no label.
+                if (cityMode) return cityObjectFor(node);
                 var ts = ttState();
                 var isSelected = (selectedNode && selectedNode.id === node.id) || multiSelectedNodes.has(node);
                 var isBlastSource = blastMode && pinnedNode && (node.id === pinnedNode.id || (ts.impactMode && blastDepths[node.id] === 0));
@@ -4890,6 +4906,13 @@
             activeCommunityKeys: activeCommunityKeys(),
             activeLayers: Array.from(activeLayers),
             dagMode: dagMode,
+            cityMode: cityMode,
+            cityOptions: {
+                height: cityOptions.height,
+                footprint: cityOptions.footprint,
+                mapping: cityOptions.mapping,
+                districtBy: cityOptions.districtBy
+            },
             showOrphans: showOrphans,
             showDeadCode: showDeadCode,
             showCycles: showCycles,
@@ -4999,6 +5022,20 @@
 
         // Boolean toggles
         dagMode = !!state.dagMode;
+        cityMode = !!state.cityMode;
+        if (state.cityOptions && typeof state.cityOptions === 'object') {
+            var savedCity = state.cityOptions;
+            if (typeof savedCity.height === 'string') cityOptions.height = savedCity.height;
+            if (typeof savedCity.footprint === 'string') cityOptions.footprint = savedCity.footprint;
+            if (savedCity.mapping === 'quantiles' || savedCity.mapping === 'linear' || savedCity.mapping === 'threshold') {
+                cityOptions.mapping = savedCity.mapping;
+            }
+            if (savedCity.districtBy === 'group' || savedCity.districtBy === 'layer' || savedCity.districtBy === 'community') {
+                cityOptions.districtBy = savedCity.districtBy;
+            }
+        }
+        var cityBtnRestore = $('#btn-city-mode');
+        if (cityBtnRestore) cityBtnRestore.classList.toggle('active', cityMode);
         showOrphans = !!state.showOrphans;
         showDeadCode = !!state.showDeadCode;
         showCycles = !!state.showCycles;
@@ -5161,6 +5198,8 @@
         if (graph) {
             graph.dagMode(dagMode ? 'td' : null);
             graph.dagLevelDistance(dagMode ? 60 : null);
+            // The city replaces the node objects entirely (no sphere underneath).
+            graph.nodeThreeObjectExtend(!cityMode);
 
             // Build cycle sets if needed
             if (showCycles && graphData && graphData.meta && graphData.meta.cycles) {
@@ -5177,7 +5216,8 @@
             }
 
             applySpreadForces();
-            applyFilters();
+            if (cityMode) applyCityLayout(filterGraphData(graphData));
+            else applyFilters();
             // Visibility filters no longer re-feed (and thus no longer reheat), so
             // a restored spread has to ask for its own bounded settle. Restore the
             // engine budget first: a frozen feed zeroes warmup/cooldown ticks.
@@ -5226,6 +5266,10 @@
                 applyFilters();
             }
             saveViewState();
+        });
+
+        $('#btn-city-mode').addEventListener('click', function() {
+            setCityMode(!cityMode);
         });
 
         $('#btn-highlight-orphans').addEventListener('click', function() {
@@ -6045,6 +6089,12 @@
     function applyFilters() {
         if (!graph || !graphData) return;
         var filtered = filterGraphData(graphData);
+        // City mode lays the visible subset out on a plan — never a force settle.
+        if (cityMode) {
+            applyCityLayout(filtered);
+            refreshCommunityPaletteCounts();
+            return;
+        }
         // Nothing visible changed (e.g. "All" while every folder is already
         // shown, or a confidence step that filters no edge): re-feeding would
         // reheat the engine for nothing and nudge the whole layout.
@@ -6070,6 +6120,144 @@
             parts.push(s + '>' + t + '>' + (l.type || '') + virtual);
         }
         return key + parts.join('\u0001');
+    }
+
+    // ============================================================
+    // City mode (V5-07) — same nodes, laid out on a squarified plan
+    // ============================================================
+
+    /** Altitude of a district plate for a nesting depth. */
+    function cityPlateAltitude(depth) {
+        return (depth || 0) * cityPlateStep;
+    }
+
+    /** Box that replaces the node object while the city is shown. */
+    function cityObjectFor(node) {
+        var T = window.THREE;
+        var rect = cityById[node.id];
+        if (!T || !rect) return null;
+        var w = Math.max(rect.w * cityScale, 1.2);
+        var d = Math.max(rect.d * cityScale, 1.2);
+        var h = Math.max(rect.h * cityHeight, 2.5);
+        var color = getNodeColor(node) || '#90a4ae';
+        if (typeof color === 'string' && color.length > 7) color = color.slice(0, 7);
+        var mesh = new T.Mesh(
+            new T.BoxGeometry(w, h, d),
+            new T.MeshLambertMaterial({ color: color })
+        );
+        mesh.__city = true;
+        return mesh;
+    }
+
+    function disposeCityDecor() {
+        if (!cityGroup) return;
+        var parent = cityGroup.parent;
+        if (parent) parent.remove(cityGroup);
+        cityGroup.traverse(function(child) {
+            if (child.geometry) child.geometry.dispose();
+            if (!child.material) return;
+            if (Array.isArray(child.material)) child.material.forEach(function(m) { m.dispose(); });
+            else child.material.dispose();
+        });
+        cityGroup = null;
+    }
+
+    /** Plinth + one raised plate per district (altitude = nesting depth). */
+    function buildCityDecor(plan) {
+        var T = window.THREE;
+        if (!T || !graph || typeof graph.scene !== 'function') return;
+        var scene = graph.scene();
+        if (!scene) return;
+        var group = new T.Group();
+        group.name = 'aura-city';
+        var plinth = new T.Mesh(
+            new T.BoxGeometry(cityScale * 1.04, 3, cityScale * 1.04),
+            new T.MeshLambertMaterial({ color: '#11151a' })
+        );
+        plinth.position.y = -3.2;
+        group.add(plinth);
+
+        for (var i = 0; i < plan.districts.length; i++) {
+            var district = plan.districts[i];
+            var altitude = cityPlateAltitude(district.depth);
+            var plate = new T.Mesh(
+                new T.BoxGeometry(Math.max(district.w * cityScale, 2), 2.4, Math.max(district.d * cityScale, 2)),
+                new T.MeshLambertMaterial({ color: layerColor(district.key) })
+            );
+            plate.position.set(
+                (district.x + district.w / 2 - 0.5) * cityScale,
+                altitude - 1.2,
+                (district.z + district.d / 2 - 0.5) * cityScale
+            );
+            group.add(plate);
+        }
+
+        scene.add(group);
+        cityGroup = group;
+    }
+
+    /** Apply the plan to the visible nodes, then feed the scene without links. */
+    function applyCityLayout(dataset) {
+        if (!graph || !dataset || !window.AuraCity || typeof AuraCity.layoutCity !== 'function') return false;
+        disposeCityDecor();
+        var plan = AuraCity.layoutCity(dataset.nodes || [], cityOptions);
+        cityPlan = plan;
+        cityById = {};
+        for (var r = 0; r < plan.rects.length; r++) cityById[plan.rects[r].id] = plan.rects[r];
+
+        for (var n = 0; n < dataset.nodes.length; n++) {
+            var node = dataset.nodes[n];
+            var rect = cityById[node.id];
+            if (!rect) continue;
+            node.x = (rect.x + rect.w / 2 - 0.5) * cityScale;
+            node.z = (rect.z + rect.d / 2 - 0.5) * cityScale;
+            node.y = cityPlateAltitude(rect.depth) + Math.max(rect.h * cityHeight, 2.5) / 2;
+            // Pin the node: the force engine must never undo the plan.
+            node.fx = node.x; node.fy = node.y; node.fz = node.z;
+        }
+
+        buildCityDecor(plan);
+
+        var cityData = { nodes: dataset.nodes, links: [] };
+        lastFeedKey = feedKeyFor(cityData);
+        disposeRipples();
+        graph.warmupTicks(0);
+        graph.cooldownTicks(0);
+        graph.nodeThreeObjectExtend(false);
+        graph.graphData(cityData);
+        graph.nodeThreeObject(graph.nodeThreeObject());
+        return true;
+    }
+
+    function setCityMode(on) {
+        cityMode = !!on;
+        var btn = $('#btn-city-mode');
+        if (btn) btn.classList.toggle('active', cityMode);
+        if (graph && graphData) {
+            if (cityMode) {
+                applyCityLayout(filterGraphData(graphData));
+            } else {
+                disposeCityDecor();
+                cityPlan = null;
+                cityById = {};
+                var restored = filterGraphData(graphData);
+                for (var i = 0; i < restored.nodes.length; i++) {
+                    delete restored.nodes[i].fx;
+                    delete restored.nodes[i].fy;
+                    delete restored.nodes[i].fz;
+                }
+                graph.nodeThreeObjectExtend(true);
+                // Leave the city on a settled force layout: the warmup runs inside
+                // the digest, so the graph reappears laid out instead of drifting.
+                lastFeedKey = feedKeyFor(restored);
+                graph.warmupTicks(CITY_EXIT_TICKS);
+                graph.cooldownTicks(0);
+                graph.graphData(restored);
+                setTimeout(function() { applyEngineBudget(); }, 200);
+                graph.nodeThreeObject(graph.nodeThreeObject());
+            }
+        }
+        saveViewState();
     }
 
     /**

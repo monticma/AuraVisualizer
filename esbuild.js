@@ -161,6 +161,18 @@ async function copyWebviewAssets() {
         tsconfig: 'tsconfig.json',
     });
 
+    // City core — 2.5D city layout (V5-07): squarified treemap plan + height
+    // tiers, bundled as window.AuraCity. Pure, deterministic, unit-tested.
+    await esbuild.build({
+        entryPoints: [path.join(__dirname, 'src', 'graph', 'city-core.ts')],
+        bundle: true,
+        format: 'iife',
+        globalName: 'AuraCity',
+        outfile: path.join(webviewDest, 'js', 'city-core.js'),
+        logLevel: 'silent',
+        tsconfig: 'tsconfig.json',
+    });
+
     // Breadcrumb core — navigation trail (V3-12), bundled as window.AuraBreadcrumbCore.
     await esbuild.build({
         entryPoints: [path.join(__dirname, 'src', 'navigation', 'breadcrumb-core.ts')],

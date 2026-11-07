@@ -1306,6 +1306,9 @@ export class WebviewProvider {
         const seedCoreUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'seed-core.js')
         );
+        const cityCoreUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'city-core.js')
+        );
         const panelsUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'panels.js')
         );
@@ -2013,6 +2016,7 @@ export class WebviewProvider {
         <div class="filter-separator graph-only"></div>
         <div class="filter-group graph-only">
             <button class="filter-btn" id="btn-dag-mode" title="Hierarchical mode">⊞ DAG</button>
+            <button class="filter-btn" id="btn-city-mode" title="2.5D city layout — files as buildings, districts on raised plates">🏙️ City</button>
             <button class="filter-btn" id="btn-highlight-orphans" title="Orphan nodes">◎ Orphans</button>
             <button class="filter-btn" id="btn-dead-code" title="Dead code detection">☠️ Dead</button>
             <button class="filter-btn" id="btn-cycles" title="Circular dependencies">🔄 Cycles</button>
@@ -2705,6 +2709,7 @@ export class WebviewProvider {
     <script nonce="${nonce}" src="${exportUri}"></script>
     <script nonce="${nonce}" src="${spritesUri}"></script>
     <script nonce="${nonce}" src="${seedCoreUri}"></script>
+    <script nonce="${nonce}" src="${cityCoreUri}"></script>
     <script nonce="${nonce}" src="${panelsUri}"></script>
     <script nonce="${nonce}" src="${breadcrumbsUri}"></script>
     <script nonce="${nonce}" src="${appUri}"></script>
