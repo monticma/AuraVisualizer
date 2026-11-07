@@ -31,7 +31,17 @@
         colour: 'height',
         mapping: 'quantiles',
         districtBy: 'group',
-        streets: 'streets',
+        streets: 'selection',
+    };
+
+    // Function calls are aggregated per file pair but still dominate the edge
+    // count (ThorV2: 4 710 links for 762 files), and drawn flat on the ground
+    // they are pure spaghetti. `structure` keeps the edges that describe the
+    // build: imports, includes, heritage, script tags.
+    var STRUCTURAL_TYPES = {
+        'include': 1, 'system-include': 1, 'import': 1, 'require': 1, 'dynamic-import': 1,
+        'script': 1, 'stylesheet': 1, 'css-import': 1, 'css-url': 1,
+        'extends': 1, 'implements': 1, 'global-use': 1,
     };
 
     var STORE_KEY = 'aura.city.options.v1';
@@ -45,6 +55,7 @@
         byId: {},
         decor: null,
         streets: null,
+        streetCount: 0,
         selected: null,
         observer: null,
         hudMeta: null,
@@ -137,38 +148,90 @@
     }
 
     /**
-     * Ground streets: one `LineSegments` for every dependency, laid flat on the
-     * plinth between the two building footprints. One draw call, so 2 000 edges
-     * cost the same as ten — and the metaphor survives (a dependency is a road,
-     * not a 3D arc through the sky).
+     * Ground streets: one `LineSegments` for every drawn dependency, laid flat on
+     * the plinth. Two decisions make them readable:
+     *
+     * 1. **Bundling** — a link between two districts is routed A → centre(A) →
+     *    centre(B) → B, so every road leaving a district shares the same trunk.
+     *    Straight A→B lines across 4 710 edges are an unreadable mesh; trunks
+     *    converge on district plazas and read like arterial roads.
+     * 2. **Selection first** — the default mode only draws the selected building's
+     *    roads. CodeCity defaults to `Highlight related buildings` for the same
+     *    reason.
+     *
+     * One draw call whatever the edge count.
      */
     function buildStreets() {
         var T = window.THREE;
         if (!T || !state.graph || !state.data) return;
         disposeStreets();
-        if (OPTIONS.streets === 'off') return;
-        if (OPTIONS.streets === 'highlight' && !state.selected) return;
+        state.streetCount = 0;
+        var mode = OPTIONS.streets;
+        if (mode === 'off') return;
+        if (mode === 'selection' && !state.selected) return;
+
+        var centres = {};
+        if (state.plan) {
+            for (var d = 0; d < state.plan.districts.length; d++) {
+                var district = state.plan.districts[d];
+                centres[district.key] = {
+                    x: (district.x + district.w / 2 - 0.5) * SCALE,
+                    z: (district.z + district.d / 2 - 0.5) * SCALE,
+                };
+            }
+        }
 
         var links = state.data.links || [];
         var positions = [];
         var colors = [];
         var color = new T.Color();
-        for (var i = 0; i < links.length; i++) {
-            var link = links[i];
-            var from = link.source && typeof link.source === 'object' ? link.source.id : link.source;
-            var to = link.target && typeof link.target === 'object' ? link.target.id : link.target;
-            var a = state.byId[from];
-            var b = state.byId[to];
-            if (!a || !b) continue;
-            if (OPTIONS.streets === 'highlight' && from !== state.selected && to !== state.selected) continue;
-            var y = Math.max(plateAltitude(a.depth), plateAltitude(b.depth)) + 0.6;
-            positions.push(
-                (a.x + a.w / 2 - 0.5) * SCALE, y, (a.z + a.d / 2 - 0.5) * SCALE,
-                (b.x + b.w / 2 - 0.5) * SCALE, y, (b.z + b.d / 2 - 0.5) * SCALE
-            );
-            color.set(linkColorOf(link.type));
+        var drawn = 0;
+
+        function point(rect) {
+            if (!rect) return null;
+            return {
+                x: (rect.x + rect.w / 2 - 0.5) * SCALE,
+                z: (rect.z + rect.d / 2 - 0.5) * SCALE,
+                y: plateAltitude(rect.depth) + 0.6,
+                district: rect.district,
+            };
+        }
+        function segment(from, to) {
+            positions.push(from.x, from.y, from.z, to.x, to.y, to.z);
             colors.push(color.r, color.g, color.b, color.r, color.g, color.b);
         }
+
+        for (var i = 0; i < links.length; i++) {
+            var link = links[i];
+            var fromId = link.source && typeof link.source === 'object' ? link.source.id : link.source;
+            var toId = link.target && typeof link.target === 'object' ? link.target.id : link.target;
+            if (mode === 'selection' && fromId !== state.selected && toId !== state.selected) continue;
+            if (mode === 'structure' && !STRUCTURAL_TYPES[link.type]) continue;
+            var a = state.byId[fromId];
+            var b = state.byId[toId];
+            if (!a || !b) continue;
+
+            var start = point(a);
+            var end = point(b);
+            if (!start || !end) continue;
+            color.set(linkColorOf(link.type));
+
+            var fromCentre = centres[a.district];
+            var toCentre = centres[b.district];
+            if (a.district === b.district || !fromCentre || !toCentre) {
+                segment(start, end);
+            } else {
+                var midY = Math.max(start.y, end.y);
+                var hubA = { x: fromCentre.x, y: midY, z: fromCentre.z };
+                var hubB = { x: toCentre.x, y: midY, z: toCentre.z };
+                segment(start, hubA);
+                segment(hubA, hubB);
+                segment(hubB, end);
+            }
+            drawn++;
+        }
+
+        state.streetCount = drawn;
         if (positions.length === 0) return;
 
         var geometry = new T.BufferGeometry();
@@ -177,7 +240,7 @@
         var lines = new T.LineSegments(geometry, new T.LineBasicMaterial({
             vertexColors: true,
             transparent: true,
-            opacity: OPTIONS.streets === 'highlight' ? 0.95 : 0.45,
+            opacity: mode === 'selection' ? 0.95 : (mode === 'structure' ? 0.55 : 0.3),
             depthWrite: false,
         }));
         lines.name = 'aura-city-streets';
@@ -410,15 +473,33 @@
     function restoreOptions() {
         var raw = null;
         try { raw = window.localStorage.getItem(STORE_KEY); } catch (_) { raw = null; }
-        if (!raw) { syncControls(); return; }
-        try {
-            var saved = JSON.parse(raw);
-            for (var i = 0; i < CONTROLS.length; i++) {
-                var key = CONTROLS[i].key;
-                if (typeof saved[key] === 'string' && saved[key].length > 0) OPTIONS[key] = saved[key];
-            }
-        } catch (_) { /* corrupt entry: keep the defaults */ }
+        if (raw) {
+            try {
+                var saved = JSON.parse(raw);
+                for (var i = 0; i < CONTROLS.length; i++) {
+                    var key = CONTROLS[i].key;
+                    if (typeof saved[key] !== 'string' || saved[key].length === 0) continue;
+                    // A stored value may predate a mode rename ("streets" became
+                    // "structure"): never trust it, clamp it to the live options.
+                    OPTIONS[key] = normaliseOption(key, saved[key]);
+                }
+            } catch (_) { /* corrupt entry: keep the defaults */ }
+        }
         syncControls();
+    }
+
+    /** Clamp a stored value to one of the select's current options. */
+    function normaliseOption(key, value) {
+        for (var i = 0; i < CONTROLS.length; i++) {
+            if (CONTROLS[i].key !== key) continue;
+            var select = document.getElementById(CONTROLS[i].id);
+            if (!select) return value;
+            for (var j = 0; j < select.options.length; j++) {
+                if (select.options[j].value === value) return value;
+            }
+            return select.options.length > 0 ? select.options[0].value : value;
+        }
+        return value;
     }
 
     function wireControls() {
@@ -492,7 +573,7 @@
         options: OPTIONS,
         graph: function () { return state.graph; },
         streets: function () {
-            return state.streets ? state.streets.geometry.getAttribute('position').count / 2 : 0;
+            return state.streetCount;
         },
     };
 })();
