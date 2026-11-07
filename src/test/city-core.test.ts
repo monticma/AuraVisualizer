@@ -227,6 +227,40 @@ describe('city-core · layoutCity', () => {
         expect(plan.medianEdge).toBeLessThan(1);
     });
 
+    it('leaves a street between two buildings of the same district', () => {
+        const pair = [
+            node('p/a.ts', { group: 'src', linesOfCode: 100 }),
+            node('p/b.ts', { group: 'src', linesOfCode: 100 }),
+        ];
+        const plan = layoutCity(pair);
+        const [a, b] = plan.rects;
+        const gapX = Math.max(b.x - (a.x + a.w), a.x - (b.x + b.w));
+        const gapZ = Math.max(b.z - (a.z + a.d), a.z - (b.z + b.d));
+        expect(Math.max(gapX, gapZ)).toBeGreaterThan(0);
+    });
+
+    it('lets blocks share a wall when buildingGap is 0', () => {
+        const pair = [
+            node('p/a.ts', { group: 'src', linesOfCode: 100 }),
+            node('p/b.ts', { group: 'src', linesOfCode: 100 }),
+        ];
+        const plan = layoutCity(pair, { buildingGap: 0 });
+        const [a, b] = plan.rects;
+        const gapX = Math.max(b.x - (a.x + a.w), a.x - (b.x + b.w));
+        const gapZ = Math.max(b.z - (a.z + a.d), a.z - (b.z + b.d));
+        expect(Math.max(gapX, gapZ)).toBeLessThan(1e-9);
+    });
+
+    it('never collapses a building, even with a wide street', () => {
+        const many = Array.from({ length: 40 }, (_, i) => node('q/' + i + '.ts', { group: 'src', linesOfCode: 10 }));
+        const plan = layoutCity(many, { buildingGap: 0.6 });
+        expect(plan.rects).toHaveLength(40);
+        for (const rect of plan.rects) {
+            expect(rect.w).toBeGreaterThan(0);
+            expect(rect.d).toBeGreaterThan(0);
+        }
+    });
+
     it('survives empty and single-node inputs', () => {
         expect(layoutCity([]).rects).toEqual([]);
         const single = layoutCity([node('only.ts')]);

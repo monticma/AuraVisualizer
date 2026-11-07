@@ -57,6 +57,12 @@ export interface CityOptions {
     heightCount?: number;
     /** Gutter between districts, as a fraction of the district's smallest side. */
     gap?: number;
+    /**
+     * Gutter between two buildings, as a fraction of the smaller side of their
+     * cell. Without it the blocks share a wall and the plan reads as one solid
+     * mass instead of a city with streets (CodeCity keeps ~15-20 %).
+     */
+    buildingGap?: number;
 }
 
 export interface CityRect {
@@ -107,6 +113,9 @@ export const DEFAULT_HEIGHT_COUNT = 5;
 
 /** Default district gutter (fraction of the district's smallest side). */
 export const DEFAULT_GAP = 0.06;
+
+/** Default street width between two buildings (fraction of the cell's smaller side). */
+export const DEFAULT_BUILDING_GAP = 0.18;
 
 /** Absolute value of a metric on a node, with the cognitive → complexity fallback. */
 export function metricValue(node: CityNodeLike, metric: CityMetric): number {
@@ -285,6 +294,19 @@ function medianOf(sorted: number[]): number {
 }
 
 /**
+ * Shrink a cell around its centre to leave a street on every side. The result
+ * never collapses: a tiny cell keeps at least 30 % of its extent, so a dense
+ * district still shows one visible block per file.
+ */
+function streetInset(slot: Placed, gap: number): Placed {
+    if (gap <= 0) return slot;
+    const inset = Math.min(slot.w, slot.h) * gap * 0.5;
+    const w = Math.max(slot.w - inset * 2, slot.w * 0.3);
+    const h = Math.max(slot.h - inset * 2, slot.h * 0.3);
+    return { id: slot.id, x: slot.x + (slot.w - w) / 2, y: slot.y + (slot.h - h) / 2, w, h };
+}
+
+/**
  * Full city plan: districts on the ground, one building per node inside its
  * district. Deterministic; returns normalized coordinates in the unit square.
  */
@@ -295,6 +317,9 @@ export function layoutCity(nodes: CityNodeLike[], options: CityOptions = {}): Ci
     const districtBy = options.districtBy || 'group';
     const heightCount = Math.max(1, options.heightCount || DEFAULT_HEIGHT_COUNT);
     const gap = options.gap === undefined ? DEFAULT_GAP : Math.max(0, Math.min(0.4, options.gap));
+    const buildingGap = options.buildingGap === undefined
+        ? DEFAULT_BUILDING_GAP
+        : Math.max(0, Math.min(0.6, options.buildingGap));
 
     // `cognitive` may be absent from a whole repository (unsupported languages):
     // fall back to `complexity` so the skyline keeps its meaning. The check reads
@@ -365,12 +390,13 @@ export function layoutCity(nodes: CityNodeLike[], options: CityOptions = {}): Ci
             const node = byId.get(slot.id);
             if (!node) continue;
             const heightValue = metricValue(node, heightMetric);
+            const block = streetInset(slot, buildingGap);
             rects.push({
                 id: node.id,
-                x: slot.x,
-                z: slot.y,
-                w: slot.w,
-                d: slot.h,
+                x: block.x,
+                z: block.y,
+                w: block.w,
+                d: block.h,
                 h: heightFor(heightValue, reference, mapping, edges),
                 district: placed.id,
                 depth,

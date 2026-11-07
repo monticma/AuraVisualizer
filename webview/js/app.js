@@ -52,6 +52,8 @@
     var cityPlan = null;       // last computed plan (null outside city mode)
     var cityById = {};         // node id → rect of the current plan
     var cityGroup = null;      // plinth + district plates, scene-attached
+    var baseNodeAccessor = null; // the graph's own nodeThreeObject accessor
+    var citySavedControlType = null; // control type to restore when leaving the city
     var cityScale = 520;       // plan width, in scene units
     var cityHeight = 170;      // tallest building, in scene units
     var cityPlateStep = 9;     // altitude per district nesting level
@@ -2668,6 +2670,10 @@
             .d3AlphaDecay(0.03)
             .d3VelocityDecay(0.5);
 
+        // Keep the graph's own node accessor: city mode swaps it out while the plan
+        // is applied, then restores it verbatim.
+        baseNodeAccessor = graph.nodeThreeObject();
+
         // Remember what was fed so a no-op filter change never re-feeds it.
         lastFeedKey = feedKeyFor(filtered);
         focusedLink = null; // links are rebuilt with the dataset
@@ -5200,6 +5206,8 @@
             graph.dagLevelDistance(dagMode ? 60 : null);
             // The city replaces the node objects entirely (no sphere underneath).
             graph.nodeThreeObjectExtend(!cityMode);
+            applyCityOrbit(cityMode);
+            if (typeof graph.enableNodeDrag === 'function') graph.enableNodeDrag(!cityMode);
 
             // Build cycle sets if needed
             if (showCycles && graphData && graphData.meta && graphData.meta.cycles) {
@@ -6131,6 +6139,45 @@
         return (depth || 0) * cityPlateStep;
     }
 
+    /**
+     * CodeCity-style half-sphere: the camera may look at the city but never from
+     * underneath (a plinth seen from below is a hole, and the buildings vanish).
+     * TrackballControls has no polar limit, so the city swaps to OrbitControls and
+     * restores the previous control type on exit.
+     */
+    function applyCityOrbit(on) {
+        if (!graph || typeof graph.controlType !== 'function') return;
+        var controls = null;
+        try { controls = graph.controls(); } catch (_) { controls = null; }
+        if (on) {
+            if (controls && !('maxPolarAngle' in controls)) {
+                citySavedControlType = citySavedControlType || 'trackball';
+                graph.controlType('orbit');
+                try { controls = graph.controls(); } catch (_) { controls = null; }
+            }
+            if (!controls) return;
+            if (typeof controls.__cityMaxPolar !== 'number') controls.__cityMaxPolar = controls.maxPolarAngle;
+            if (typeof controls.__cityMinPolar !== 'number') controls.__cityMinPolar = controls.minPolarAngle;
+            controls.maxPolarAngle = Math.PI / 2 - 0.1;
+            controls.minPolarAngle = 0.05;
+            if (typeof controls.update === 'function') controls.update();
+            return;
+        }
+        if (controls) {
+            // OrbitControls' own defaults when nothing was saved (the mock, or a
+            // control type that had no polar limit).
+            controls.maxPolarAngle = typeof controls.__cityMaxPolar === 'number' ? controls.__cityMaxPolar : Math.PI;
+            controls.minPolarAngle = typeof controls.__cityMinPolar === 'number' ? controls.__cityMinPolar : 0;
+            delete controls.__cityMaxPolar;
+            delete controls.__cityMinPolar;
+            if (typeof controls.update === 'function') controls.update();
+        }
+        if (citySavedControlType) {
+            graph.controlType(citySavedControlType);
+            citySavedControlType = null;
+        }
+    }
+
     /** Box that replaces the node object while the city is shown. */
     function cityObjectFor(node) {
         var T = window.THREE;
@@ -6223,9 +6270,19 @@
         disposeRipples();
         graph.warmupTicks(0);
         graph.cooldownTicks(0);
+        if (typeof graph.enableNodeDrag === 'function') graph.enableNodeDrag(false);
         graph.nodeThreeObjectExtend(false);
+        // Blank the node objects *before* the digest: the engine only adopts the
+        // plan positions inside graphData(), so rebuilding immediately painted the
+        // buildings at their old force positions (the city appearing inside the
+        // graph, then snapping). Objects are rebuilt on the next frame, once the
+        // engine holds the plan.
+        if (baseNodeAccessor) graph.nodeThreeObject(function() { return null; });
         graph.graphData(cityData);
-        graph.nodeThreeObject(graph.nodeThreeObject());
+        requestAnimationFrame(function() {
+            if (!cityMode || !graph || !baseNodeAccessor) return;
+            graph.nodeThreeObject(baseNodeAccessor);
+        });
         return true;
     }
 
@@ -6233,6 +6290,7 @@
         cityMode = !!on;
         var btn = $('#btn-city-mode');
         if (btn) btn.classList.toggle('active', cityMode);
+        applyCityOrbit(cityMode);
         if (graph && graphData) {
             if (cityMode) {
                 applyCityLayout(filterGraphData(graphData));
@@ -6247,6 +6305,8 @@
                     delete restored.nodes[i].fz;
                 }
                 graph.nodeThreeObjectExtend(true);
+                if (baseNodeAccessor) graph.nodeThreeObject(baseNodeAccessor);
+                if (typeof graph.enableNodeDrag === 'function') graph.enableNodeDrag(true);
                 // Leave the city on a settled force layout: the warmup runs inside
                 // the digest, so the graph reappears laid out instead of drifting.
                 lastFeedKey = feedKeyFor(restored);

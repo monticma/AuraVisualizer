@@ -21,6 +21,7 @@ var AuraCity = (() => {
   // src/graph/city-core.ts
   var city_core_exports = {};
   __export(city_core_exports, {
+    DEFAULT_BUILDING_GAP: () => DEFAULT_BUILDING_GAP,
     DEFAULT_GAP: () => DEFAULT_GAP,
     DEFAULT_HEIGHT_COUNT: () => DEFAULT_HEIGHT_COUNT,
     MIN_HEIGHT_RATIO: () => MIN_HEIGHT_RATIO,
@@ -36,6 +37,7 @@ var AuraCity = (() => {
   var MIN_HEIGHT_RATIO = 0.12;
   var DEFAULT_HEIGHT_COUNT = 5;
   var DEFAULT_GAP = 0.06;
+  var DEFAULT_BUILDING_GAP = 0.18;
   function metricValue(node, metric) {
     let raw;
     switch (metric) {
@@ -194,6 +196,14 @@ var AuraCity = (() => {
     const middle = Math.floor(sorted.length / 2);
     return sorted.length % 2 === 0 ? (sorted[middle - 1] + sorted[middle]) / 2 : sorted[middle];
   }
+  function streetInset(slot, gap) {
+    if (gap <= 0)
+      return slot;
+    const inset = Math.min(slot.w, slot.h) * gap * 0.5;
+    const w = Math.max(slot.w - inset * 2, slot.w * 0.3);
+    const h = Math.max(slot.h - inset * 2, slot.h * 0.3);
+    return { id: slot.id, x: slot.x + (slot.w - w) / 2, y: slot.y + (slot.h - h) / 2, w, h };
+  }
   function layoutCity(nodes, options = {}) {
     const footprintMetric = options.footprint || "linesOfCode";
     let heightMetric = options.height || "cognitive";
@@ -201,6 +211,7 @@ var AuraCity = (() => {
     const districtBy = options.districtBy || "group";
     const heightCount = Math.max(1, options.heightCount || DEFAULT_HEIGHT_COUNT);
     const gap = options.gap === void 0 ? DEFAULT_GAP : Math.max(0, Math.min(0.4, options.gap));
+    const buildingGap = options.buildingGap === void 0 ? DEFAULT_BUILDING_GAP : Math.max(0, Math.min(0.6, options.buildingGap));
     if (heightMetric === "cognitive" && !nodes.some((node) => typeof node.cognitive === "number" && isFinite(node.cognitive))) {
       heightMetric = "complexity";
     }
@@ -271,12 +282,13 @@ var AuraCity = (() => {
         if (!node)
           continue;
         const heightValue = metricValue(node, heightMetric);
+        const block = streetInset(slot, buildingGap);
         rects.push({
           id: node.id,
-          x: slot.x,
-          z: slot.y,
-          w: slot.w,
-          d: slot.h,
+          x: block.x,
+          z: block.y,
+          w: block.w,
+          d: block.h,
           h: heightFor(heightValue, reference, mapping, edges),
           district: placed.id,
           depth,
