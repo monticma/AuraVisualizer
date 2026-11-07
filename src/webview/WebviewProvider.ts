@@ -1309,6 +1309,9 @@ export class WebviewProvider {
         const cityCoreUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'city-core.js')
         );
+        const cityUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'city.js')
+        );
         const panelsUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'panels.js')
         );
@@ -1384,6 +1387,7 @@ export class WebviewProvider {
         <nav id="tab-bar">
             <button class="tab-btn active" data-tab="graph">✦ 3D Graph</button>
             <button class="tab-btn" data-tab="treemap">🗺️ Treemap</button>
+            <button class="tab-btn" data-tab="city">🏙️ City</button>
             <button class="tab-btn" data-tab="dsm">🗑️ Matrix</button>
             <button class="tab-btn" data-tab="chord">🎵 Chord</button>
             <button class="tab-btn" data-tab="metrics">📊 Metrics</button>
@@ -1625,6 +1629,16 @@ export class WebviewProvider {
         </details>
     </aside>
     </div><!-- /middle-row -->
+
+    <!-- City View (V5-07) — 2.5D: files are buildings, districts are raised plates.
+         Its own scene and camera: nothing is shared with the 3D graph tab. -->
+    <div id="city-view" class="tab-content" data-tab="city">
+        <div id="city-canvas"></div>
+        <div id="city-hud">
+            <span id="city-hud-meta">Click a building</span>
+            <button id="city-hud-graph" type="button" title="Focus this file in the 3D Graph tab">⌖ Focus in graph</button>
+        </div>
+    </div>
 
     <!-- Metrics View -->
     <div id="metrics-view" class="tab-content" data-tab="metrics"></div>
@@ -2016,7 +2030,6 @@ export class WebviewProvider {
         <div class="filter-separator graph-only"></div>
         <div class="filter-group graph-only">
             <button class="filter-btn" id="btn-dag-mode" title="Hierarchical mode">⊞ DAG</button>
-            <button class="filter-btn" id="btn-city-mode" title="2.5D city layout — files as buildings, districts on raised plates">🏙️ City</button>
             <button class="filter-btn" id="btn-highlight-orphans" title="Orphan nodes">◎ Orphans</button>
             <button class="filter-btn" id="btn-dead-code" title="Dead code detection">☠️ Dead</button>
             <button class="filter-btn" id="btn-cycles" title="Circular dependencies">🔄 Cycles</button>
@@ -2710,6 +2723,7 @@ export class WebviewProvider {
     <script nonce="${nonce}" src="${spritesUri}"></script>
     <script nonce="${nonce}" src="${seedCoreUri}"></script>
     <script nonce="${nonce}" src="${cityCoreUri}"></script>
+    <script nonce="${nonce}" src="${cityUri}"></script>
     <script nonce="${nonce}" src="${panelsUri}"></script>
     <script nonce="${nonce}" src="${breadcrumbsUri}"></script>
     <script nonce="${nonce}" src="${appUri}"></script>
