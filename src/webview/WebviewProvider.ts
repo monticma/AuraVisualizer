@@ -1633,6 +1633,49 @@ export class WebviewProvider {
     <!-- City View (V5-07) — 2.5D: files are buildings, districts are raised plates.
          Its own scene and camera: nothing is shared with the 3D graph tab. -->
     <div id="city-view" class="tab-content" data-tab="city">
+        <div id="city-controls">
+            <label class="city-field" for="city-height" title="What the building height encodes">Height
+                <select id="city-height" class="city-select">
+                    <option value="cognitive" selected>cognitive</option>
+                    <option value="complexity">complexity</option>
+                    <option value="linesOfCode">lines</option>
+                    <option value="fanIn">fan-in</option>
+                    <option value="fanOut">fan-out</option>
+                    <option value="pagerank">pagerank</option>
+                </select>
+            </label>
+            <label class="city-field" for="city-footprint" title="What the footprint (area share) encodes">Footprint
+                <select id="city-footprint" class="city-select">
+                    <option value="linesOfCode" selected>lines</option>
+                    <option value="size">size</option>
+                    <option value="fanIn">fan-in</option>
+                    <option value="fanOut">fan-out</option>
+                </select>
+            </label>
+            <label class="city-field" for="city-colour" title="What the building colour encodes">Colour
+                <select id="city-colour" class="city-select">
+                    <option value="height" selected>height</option>
+                    <option value="language">language</option>
+                    <option value="layer">layer</option>
+                    <option value="district">district</option>
+                </select>
+            </label>
+            <label class="city-field" for="city-mapping" title="How the height metric becomes a building height">Mapping
+                <select id="city-mapping" class="city-select">
+                    <option value="quantiles" selected>5 tiers</option>
+                    <option value="linear">linear</option>
+                    <option value="threshold">threshold</option>
+                </select>
+            </label>
+            <label class="city-field" for="city-districts" title="What groups files into districts">Districts
+                <select id="city-districts" class="city-select">
+                    <option value="group" selected>folders</option>
+                    <option value="layer">layers</option>
+                    <option value="community">communities</option>
+                </select>
+            </label>
+            <span id="city-summary"></span>
+        </div>
         <div id="city-canvas"></div>
         <div id="city-hud">
             <span id="city-hud-meta">Click a building</span>

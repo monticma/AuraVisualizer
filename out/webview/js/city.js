@@ -28,9 +28,12 @@
     var OPTIONS = {
         height: 'cognitive',
         footprint: 'linesOfCode',
+        colour: 'height',
         mapping: 'quantiles',
         districtBy: 'group',
     };
+
+    var STORE_KEY = 'aura.city.options.v1';
 
     var state = {
         view: null,
@@ -78,6 +81,21 @@
         return '#546e7a';
     }
 
+    /** Building colour, per the chosen channel. */
+    function colourFor(node, rect) {
+        if (state.selected === node.id) return '#ffffff';
+        var mode = OPTIONS.colour;
+        if (mode === 'language' && window.LANGUAGE_COLORS) {
+            var lang = window.LANGUAGE_COLORS[node.language];
+            if (lang) return lang;
+        }
+        if (mode === 'layer') return districtColor(node.layer || '(unlayered)');
+        if (mode === 'district') return districtColor(rect.district);
+        // 'height' — the default: the ramp mirrors the height tier, so the skyline
+        // and the colour agree and the eye only goes where it matters.
+        return rampColor((rect.h - 0.12) / 0.88);
+    }
+
     function plateAltitude(depth) {
         return (depth || 0) * PLATE_STEP;
     }
@@ -91,7 +109,7 @@
         var d = Math.max(rect.d * SCALE, 1.2);
         var h = Math.max(rect.h * HEIGHT, MIN_H);
         var selected = state.selected === node.id;
-        var color = selected ? '#ffffff' : rampColor((rect.h - 0.12) / 0.88);
+        var color = colourFor(node, rect);
         var mesh = new T.Mesh(
             new T.BoxGeometry(w, h, d),
             new T.MeshLambertMaterial({ color: color })
@@ -227,6 +245,18 @@
         resize();
         frameCity();
         updateHud();
+        updateSummary();
+    }
+
+    /** Legend line: what the three (four) channels actually encode right now. */
+    function updateSummary() {
+        var summary = $('#city-summary');
+        if (!summary || !state.plan) return;
+        summary.textContent = state.plan.rects.length + ' buildings · ' + state.plan.districts.length + ' districts'
+            + '  ·  height = ' + state.plan.heightMetric
+            + '  ·  footprint = ' + state.plan.footprintMetric
+            + '  ·  colour = ' + OPTIONS.colour
+            + '  ·  ' + (state.plan.mapping === 'quantiles' ? '5 tiers' : state.plan.mapping);
     }
 
     /** Isometric-ish three-quarter view, the way CodeCity opens. */
@@ -284,6 +314,61 @@
     }
 
     // ── Wiring ─────────────────────────────────────────────────
+
+    /** The five selects of the city toolbar, and what each one invalidates. */
+    var CONTROLS = [
+        { id: 'city-height', key: 'height', relayout: true },
+        { id: 'city-footprint', key: 'footprint', relayout: true },
+        { id: 'city-colour', key: 'colour', relayout: false },
+        { id: 'city-mapping', key: 'mapping', relayout: true },
+        { id: 'city-districts', key: 'districtBy', relayout: true },
+    ];
+
+    function syncControls() {
+        for (var i = 0; i < CONTROLS.length; i++) {
+            var select = document.getElementById(CONTROLS[i].id);
+            if (select) select.value = OPTIONS[CONTROLS[i].key];
+        }
+    }
+
+    function saveOptions() {
+        try { window.localStorage.setItem(STORE_KEY, JSON.stringify(OPTIONS)); } catch (_) { /* private mode */ }
+    }
+
+    function restoreOptions() {
+        var raw = null;
+        try { raw = window.localStorage.getItem(STORE_KEY); } catch (_) { raw = null; }
+        if (!raw) { syncControls(); return; }
+        try {
+            var saved = JSON.parse(raw);
+            for (var i = 0; i < CONTROLS.length; i++) {
+                var key = CONTROLS[i].key;
+                if (typeof saved[key] === 'string' && saved[key].length > 0) OPTIONS[key] = saved[key];
+            }
+        } catch (_) { /* corrupt entry: keep the defaults */ }
+        syncControls();
+    }
+
+    function wireControls() {
+        for (var i = 0; i < CONTROLS.length; i++) {
+            (function (control) {
+                var select = document.getElementById(control.id);
+                if (!select) return;
+                select.addEventListener('change', function () {
+                    OPTIONS[control.key] = select.value;
+                    saveOptions();
+                    if (control.relayout) {
+                        state.plan = null;      // heights / footprints / districts changed
+                        state.selected = null;
+                        applyPlan();
+                        return;
+                    }
+                    if (state.graph) state.graph.nodeThreeObject(buildingFor);
+                    updateSummary();
+                });
+            })(CONTROLS[i]);
+        }
+    }
     function activate() {
         ensureGraph();
         if (!state.plan) applyPlan();
@@ -296,6 +381,8 @@
         state.hudMeta = $('#city-hud-meta');
         state.hudFocus = $('#city-hud-graph');
         if (state.hudFocus) state.hudFocus.addEventListener('click', focusInGraph);
+        restoreOptions();
+        wireControls();
 
         if (typeof MutationObserver === 'function') {
             state.observer = new MutationObserver(function () {
