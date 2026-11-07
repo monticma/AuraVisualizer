@@ -25,8 +25,10 @@ var AuraCity = (() => {
     DEFAULT_GAP: () => DEFAULT_GAP,
     DEFAULT_HEIGHT_COUNT: () => DEFAULT_HEIGHT_COUNT,
     MIN_HEIGHT_RATIO: () => MIN_HEIGHT_RATIO,
+    MIN_STREET: () => MIN_STREET,
     districtDepth: () => districtDepth,
     districtKeyOf: () => districtKeyOf,
+    footprintWeight: () => footprintWeight,
     heightFor: () => heightFor,
     layoutCity: () => layoutCity,
     metricValue: () => metricValue,
@@ -37,7 +39,8 @@ var AuraCity = (() => {
   var MIN_HEIGHT_RATIO = 0.12;
   var DEFAULT_HEIGHT_COUNT = 5;
   var DEFAULT_GAP = 0.06;
-  var DEFAULT_BUILDING_GAP = 0.18;
+  var DEFAULT_BUILDING_GAP = 0.3;
+  var MIN_STREET = 3e-3;
   function metricValue(node, metric) {
     let raw;
     switch (metric) {
@@ -199,10 +202,19 @@ var AuraCity = (() => {
   function streetInset(slot, gap) {
     if (gap <= 0)
       return slot;
-    const inset = Math.min(slot.w, slot.h) * gap * 0.5;
-    const w = Math.max(slot.w - inset * 2, slot.w * 0.3);
-    const h = Math.max(slot.h - inset * 2, slot.h * 0.3);
+    const shortest = Math.min(slot.w, slot.h);
+    const inset = Math.min(Math.max(shortest * gap * 0.5, MIN_STREET * 0.5), shortest * 0.35);
+    const w = Math.max(slot.w - inset * 2, 1e-9);
+    const h = Math.max(slot.h - inset * 2, 1e-9);
     return { id: slot.id, x: slot.x + (slot.w - w) / 2, y: slot.y + (slot.h - h) / 2, w, h };
+  }
+  function footprintWeight(value, scale = "sqrt") {
+    const raw = value > 0 ? value : 0;
+    if (scale === "linear")
+      return Math.max(raw, 1);
+    if (scale === "log")
+      return Math.max(Math.log10(raw + 1), 0.25);
+    return Math.max(Math.sqrt(raw), 1);
   }
   function layoutCity(nodes, options = {}) {
     const footprintMetric = options.footprint || "linesOfCode";
@@ -212,6 +224,7 @@ var AuraCity = (() => {
     const heightCount = Math.max(1, options.heightCount || DEFAULT_HEIGHT_COUNT);
     const gap = options.gap === void 0 ? DEFAULT_GAP : Math.max(0, Math.min(0.4, options.gap));
     const buildingGap = options.buildingGap === void 0 ? DEFAULT_BUILDING_GAP : Math.max(0, Math.min(0.6, options.buildingGap));
+    const footprintScale = options.footprintScale || "sqrt";
     if (heightMetric === "cognitive" && !nodes.some((node) => typeof node.cognitive === "number" && isFinite(node.cognitive))) {
       heightMetric = "complexity";
     }
@@ -245,8 +258,12 @@ var AuraCity = (() => {
         byDistrict.set(key, [node]);
     }
     const footprints = /* @__PURE__ */ new Map();
-    for (const node of usable)
-      footprints.set(node.id, metricValue(node, footprintMetric));
+    const rawFootprints = /* @__PURE__ */ new Map();
+    for (const node of usable) {
+      const raw = metricValue(node, footprintMetric);
+      rawFootprints.set(node.id, raw);
+      footprints.set(node.id, footprintWeight(raw, footprintScale));
+    }
     const districtItems = [...byDistrict.entries()].map(([key, members]) => ({
       id: key,
       value: Math.max(1, members.reduce((sum, node) => sum + Math.max(footprints.get(node.id) || 0, 1), 0))
@@ -292,7 +309,7 @@ var AuraCity = (() => {
           h: heightFor(heightValue, reference, mapping, edges),
           district: placed.id,
           depth,
-          footprintValue: footprints.get(node.id) || 0,
+          footprintValue: rawFootprints.get(node.id) || 0,
           heightValue
         });
       }

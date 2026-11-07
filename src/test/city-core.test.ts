@@ -261,6 +261,42 @@ describe('city-core · layoutCity', () => {
         }
     });
 
+    it('compresses the footprint so the tail of a skewed repository stays visible', () => {
+        // LOC 1 → 23 028 is the real ThorV2 spread: a linear footprint gives one
+        // file 6 % of the city and leaves the tail with sub-pixel cells.
+        const real = [
+            node('big.ts', { linesOfCode: 23028 }),
+            ...Array.from({ length: 60 }, (_, i) => node('tail/' + i + '.ts', { linesOfCode: 20 + i })),
+        ];
+        const linear = layoutCity(real, { footprintScale: 'linear' });
+        const sqrt = layoutCity(real, { footprintScale: 'sqrt' });
+        const areaOf = (plan: typeof linear, id: string) => {
+            const rect = plan.rects.find(r => r.id === id);
+            return rect ? rect.w * rect.d : 0;
+        };
+        expect(areaOf(sqrt, 'big.ts')).toBeLessThan(areaOf(linear, 'big.ts') * 0.5);
+        const smallest = 'tail/0.ts';
+        expect(areaOf(sqrt, smallest)).toBeGreaterThan(areaOf(linear, smallest));
+    });
+
+    it('exposes the raw metric, not the compressed weight', () => {
+        const plan = layoutCity([node('a.ts', { linesOfCode: 400 })], {});
+        expect(plan.rects[0].footprintValue).toBe(400);
+    });
+
+    it('gives every building a street, even in a very dense district', () => {
+        const many = Array.from({ length: 200 }, (_, i) => node('d/' + i + '.ts', { group: 'src', linesOfCode: 1 + i }));
+        const plan = layoutCity(many, {});
+        for (const rect of plan.rects) {
+            expect(rect.w).toBeGreaterThan(0);
+            expect(rect.d).toBeGreaterThan(0);
+        }
+        const total = plan.rects.reduce((sum, r) => sum + r.w * r.d, 0);
+        const district = plan.districts[0];
+        // Streets must eat a real share of the district, not 0.1 %.
+        expect(total).toBeLessThan(district.w * district.d * 0.85);
+    });
+
     it('survives empty and single-node inputs', () => {
         expect(layoutCity([]).rects).toEqual([]);
         const single = layoutCity([node('only.ts')]);

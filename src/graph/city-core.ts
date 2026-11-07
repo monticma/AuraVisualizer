@@ -28,6 +28,15 @@ export type CityMapping = 'quantiles' | 'linear' | 'threshold';
 
 export type CityDistrictBy = 'group' | 'layer' | 'community';
 
+/**
+ * How a raw metric becomes a footprint weight.
+ * `sqrt` (default) is the only one that keeps a real repository legible: LOC on
+ * ThorV2 spans 1 → 23 028, so a linear footprint gives one file 6 % of the whole
+ * city and starves the tail (36 files below 2 scene units — invisible at 762
+ * nodes). Square-root compresses that ratio to 1 → 152.
+ */
+export type CityFootprintScale = 'sqrt' | 'linear' | 'log';
+
 export interface CityNodeLike {
     id: string;
     name?: string;
@@ -51,6 +60,8 @@ export interface CityOptions {
     footprint?: CityMetric;
     /** How the height metric becomes a building height. */
     mapping?: CityMapping;
+    /** How the footprint metric becomes an area share (default `sqrt`). */
+    footprintScale?: CityFootprintScale;
     /** What groups files into districts. */
     districtBy?: CityDistrictBy;
     /** Number of tiers for `quantiles` (default 5, like CodeCity's "boxplot (5 sizes)"). */
@@ -115,7 +126,10 @@ export const DEFAULT_HEIGHT_COUNT = 5;
 export const DEFAULT_GAP = 0.06;
 
 /** Default street width between two buildings (fraction of the cell's smaller side). */
-export const DEFAULT_BUILDING_GAP = 0.18;
+export const DEFAULT_BUILDING_GAP = 0.3;
+
+/** Absolute floor for a street, in unit-square units (≈ 1.6 scene units at scale 520). */
+export const MIN_STREET = 0.003;
 
 /** Absolute value of a metric on a node, with the cognitive → complexity fallback. */
 export function metricValue(node: CityNodeLike, metric: CityMetric): number {
@@ -300,10 +314,22 @@ function medianOf(sorted: number[]): number {
  */
 function streetInset(slot: Placed, gap: number): Placed {
     if (gap <= 0) return slot;
-    const inset = Math.min(slot.w, slot.h) * gap * 0.5;
-    const w = Math.max(slot.w - inset * 2, slot.w * 0.3);
-    const h = Math.max(slot.h - inset * 2, slot.h * 0.3);
+    // A ratio alone vanishes on tiny cells; the absolute floor keeps a street
+    // visible even when a district holds a hundred slivers. The 35 % ceiling
+    // guarantees a street on every cell, however small it is.
+    const shortest = Math.min(slot.w, slot.h);
+    const inset = Math.min(Math.max(shortest * gap * 0.5, MIN_STREET * 0.5), shortest * 0.35);
+    const w = Math.max(slot.w - inset * 2, 1e-9);
+    const h = Math.max(slot.h - inset * 2, 1e-9);
     return { id: slot.id, x: slot.x + (slot.w - w) / 2, y: slot.y + (slot.h - h) / 2, w, h };
+}
+
+/** Footprint weight of one file, after the chosen compression. */
+export function footprintWeight(value: number, scale: CityFootprintScale = 'sqrt'): number {
+    const raw = value > 0 ? value : 0;
+    if (scale === 'linear') return Math.max(raw, 1);
+    if (scale === 'log') return Math.max(Math.log10(raw + 1), 0.25);
+    return Math.max(Math.sqrt(raw), 1);
 }
 
 /**
@@ -320,6 +346,7 @@ export function layoutCity(nodes: CityNodeLike[], options: CityOptions = {}): Ci
     const buildingGap = options.buildingGap === undefined
         ? DEFAULT_BUILDING_GAP
         : Math.max(0, Math.min(0.6, options.buildingGap));
+    const footprintScale = options.footprintScale || 'sqrt';
 
     // `cognitive` may be absent from a whole repository (unsupported languages):
     // fall back to `complexity` so the skyline keeps its meaning. The check reads
@@ -354,7 +381,12 @@ export function layoutCity(nodes: CityNodeLike[], options: CityOptions = {}): Ci
     }
 
     const footprints = new Map<string, number>();
-    for (const node of usable) footprints.set(node.id, metricValue(node, footprintMetric));
+    const rawFootprints = new Map<string, number>();
+    for (const node of usable) {
+        const raw = metricValue(node, footprintMetric);
+        rawFootprints.set(node.id, raw);
+        footprints.set(node.id, footprintWeight(raw, footprintScale));
+    }
 
     const districtItems = [...byDistrict.entries()].map(([key, members]) => ({
         id: key,
@@ -400,7 +432,7 @@ export function layoutCity(nodes: CityNodeLike[], options: CityOptions = {}): Ci
                 h: heightFor(heightValue, reference, mapping, edges),
                 district: placed.id,
                 depth,
-                footprintValue: footprints.get(node.id) || 0,
+                footprintValue: rawFootprints.get(node.id) || 0,
                 heightValue,
             });
         }

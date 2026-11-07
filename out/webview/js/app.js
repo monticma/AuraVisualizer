@@ -53,7 +53,6 @@
     var cityById = {};         // node id → rect of the current plan
     var cityGroup = null;      // plinth + district plates, scene-attached
     var baseNodeAccessor = null; // the graph's own nodeThreeObject accessor
-    var citySavedControlType = null; // control type to restore when leaving the city
     var cityScale = 520;       // plan width, in scene units
     var cityHeight = 170;      // tallest building, in scene units
     var cityPlateStep = 9;     // altitude per district nesting level
@@ -2405,7 +2404,13 @@
             graph._destructor && graph._destructor();
         }
 
-        graph = ForceGraph3D({ rendererConfig: { preserveDrawingBuffer: true, alpha: true } })(graphContainer)
+        graph = ForceGraph3D({
+            // Orbit rather than the library default (trackball): a trackball has
+            // no polar limit, so the city could be observed from underneath the
+            // plinth, where every building disappears.
+            controlType: 'orbit',
+            rendererConfig: { preserveDrawingBuffer: true, alpha: true },
+        })(graphContainer)
             .graphData(filtered)
             .nodeId('id')
             .nodeLabel('')
@@ -6142,40 +6147,26 @@
     /**
      * CodeCity-style half-sphere: the camera may look at the city but never from
      * underneath (a plinth seen from below is a hole, and the buildings vanish).
-     * TrackballControls has no polar limit, so the city swaps to OrbitControls and
-     * restores the previous control type on exit.
+     * The graph runs OrbitControls (see the constructor), so `maxPolarAngle` is
+     * available at runtime; graph mode restores the full sphere.
      */
     function applyCityOrbit(on) {
-        if (!graph || typeof graph.controlType !== 'function') return;
+        if (!graph || typeof graph.controls !== 'function') return;
         var controls = null;
         try { controls = graph.controls(); } catch (_) { controls = null; }
+        if (!controls || !('maxPolarAngle' in controls)) return;
         if (on) {
-            if (controls && !('maxPolarAngle' in controls)) {
-                citySavedControlType = citySavedControlType || 'trackball';
-                graph.controlType('orbit');
-                try { controls = graph.controls(); } catch (_) { controls = null; }
-            }
-            if (!controls) return;
             if (typeof controls.__cityMaxPolar !== 'number') controls.__cityMaxPolar = controls.maxPolarAngle;
             if (typeof controls.__cityMinPolar !== 'number') controls.__cityMinPolar = controls.minPolarAngle;
             controls.maxPolarAngle = Math.PI / 2 - 0.1;
             controls.minPolarAngle = 0.05;
-            if (typeof controls.update === 'function') controls.update();
-            return;
-        }
-        if (controls) {
-            // OrbitControls' own defaults when nothing was saved (the mock, or a
-            // control type that had no polar limit).
+        } else {
             controls.maxPolarAngle = typeof controls.__cityMaxPolar === 'number' ? controls.__cityMaxPolar : Math.PI;
             controls.minPolarAngle = typeof controls.__cityMinPolar === 'number' ? controls.__cityMinPolar : 0;
             delete controls.__cityMaxPolar;
             delete controls.__cityMinPolar;
-            if (typeof controls.update === 'function') controls.update();
         }
-        if (citySavedControlType) {
-            graph.controlType(citySavedControlType);
-            citySavedControlType = null;
-        }
+        if (typeof controls.update === 'function') controls.update();
     }
 
     /** Box that replaces the node object while the city is shown. */
@@ -6229,7 +6220,9 @@
             var altitude = cityPlateAltitude(district.depth);
             var plate = new T.Mesh(
                 new T.BoxGeometry(Math.max(district.w * cityScale, 2), 2.4, Math.max(district.d * cityScale, 2)),
-                new T.MeshLambertMaterial({ color: layerColor(district.key) })
+                // Streets must read as ground, not as a second city: the plate keeps
+                // the district's hue but is darkened so the buildings pop.
+                new T.MeshLambertMaterial({ color: new T.Color(layerColor(district.key)).multiplyScalar(0.34) })
             );
             plate.position.set(
                 (district.x + district.w / 2 - 0.5) * cityScale,
