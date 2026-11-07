@@ -31,6 +31,7 @@
         colour: 'height',
         mapping: 'quantiles',
         districtBy: 'group',
+        streets: 'streets',
     };
 
     var STORE_KEY = 'aura.city.options.v1';
@@ -43,6 +44,7 @@
         plan: null,
         byId: {},
         decor: null,
+        streets: null,
         selected: null,
         observer: null,
         hudMeta: null,
@@ -116,6 +118,72 @@
         );
         mesh.userData.cityBuilding = node.id;
         return mesh;
+    }
+
+    /** Colour of a dependency, straight from the graph's own edge palette. */
+    function linkColorOf(type) {
+        var palette = window.LINK_COLORS;
+        var raw = (palette && palette[type]) || '#78909c';
+        return raw.length > 7 ? raw.slice(0, 7) : raw;
+    }
+
+    function disposeStreets() {
+        if (!state.streets) return;
+        var parent = state.streets.parent;
+        if (parent) parent.remove(state.streets);
+        if (state.streets.geometry) state.streets.geometry.dispose();
+        if (state.streets.material) state.streets.material.dispose();
+        state.streets = null;
+    }
+
+    /**
+     * Ground streets: one `LineSegments` for every dependency, laid flat on the
+     * plinth between the two building footprints. One draw call, so 2 000 edges
+     * cost the same as ten — and the metaphor survives (a dependency is a road,
+     * not a 3D arc through the sky).
+     */
+    function buildStreets() {
+        var T = window.THREE;
+        if (!T || !state.graph || !state.data) return;
+        disposeStreets();
+        if (OPTIONS.streets === 'off') return;
+        if (OPTIONS.streets === 'highlight' && !state.selected) return;
+
+        var links = state.data.links || [];
+        var positions = [];
+        var colors = [];
+        var color = new T.Color();
+        for (var i = 0; i < links.length; i++) {
+            var link = links[i];
+            var from = link.source && typeof link.source === 'object' ? link.source.id : link.source;
+            var to = link.target && typeof link.target === 'object' ? link.target.id : link.target;
+            var a = state.byId[from];
+            var b = state.byId[to];
+            if (!a || !b) continue;
+            if (OPTIONS.streets === 'highlight' && from !== state.selected && to !== state.selected) continue;
+            var y = Math.max(plateAltitude(a.depth), plateAltitude(b.depth)) + 0.6;
+            positions.push(
+                (a.x + a.w / 2 - 0.5) * SCALE, y, (a.z + a.d / 2 - 0.5) * SCALE,
+                (b.x + b.w / 2 - 0.5) * SCALE, y, (b.z + b.d / 2 - 0.5) * SCALE
+            );
+            color.set(linkColorOf(link.type));
+            colors.push(color.r, color.g, color.b, color.r, color.g, color.b);
+        }
+        if (positions.length === 0) return;
+
+        var geometry = new T.BufferGeometry();
+        geometry.setAttribute('position', new T.Float32BufferAttribute(positions, 3));
+        geometry.setAttribute('color', new T.Float32BufferAttribute(colors, 3));
+        var lines = new T.LineSegments(geometry, new T.LineBasicMaterial({
+            vertexColors: true,
+            transparent: true,
+            opacity: OPTIONS.streets === 'highlight' ? 0.95 : 0.45,
+            depthWrite: false,
+        }));
+        lines.name = 'aura-city-streets';
+        lines.renderOrder = 1;
+        state.graph.scene().add(lines);
+        state.streets = lines;
     }
 
     function disposeDecor() {
@@ -242,6 +310,7 @@
         graph.nodeThreeObjectExtend(false);
         graph.graphData({ nodes: nodes, links: [] });
         graph.nodeThreeObject(buildingFor);
+        buildStreets();
         resize();
         frameCity();
         updateHud();
@@ -256,7 +325,8 @@
             + '  ·  height = ' + state.plan.heightMetric
             + '  ·  footprint = ' + state.plan.footprintMetric
             + '  ·  colour = ' + OPTIONS.colour
-            + '  ·  ' + (state.plan.mapping === 'quantiles' ? '5 tiers' : state.plan.mapping);
+            + '  ·  ' + (state.plan.mapping === 'quantiles' ? '5 tiers' : state.plan.mapping)
+            + '  ·  streets = ' + OPTIONS.streets;
     }
 
     /** Isometric-ish three-quarter view, the way CodeCity opens. */
@@ -279,6 +349,7 @@
         if (!node || !node.id) return;
         state.selected = node.id;
         if (state.graph) state.graph.nodeThreeObject(buildingFor);
+        buildStreets();
         updateHud();
     }
 
@@ -322,6 +393,7 @@
         { id: 'city-colour', key: 'colour', relayout: false },
         { id: 'city-mapping', key: 'mapping', relayout: true },
         { id: 'city-districts', key: 'districtBy', relayout: true },
+        { id: 'city-streets', key: 'streets', relayout: false },
     ];
 
     function syncControls() {
@@ -364,6 +436,7 @@
                         return;
                     }
                     if (state.graph) state.graph.nodeThreeObject(buildingFor);
+                    buildStreets();
                     updateSummary();
                 });
             })(CONTROLS[i]);
@@ -414,8 +487,12 @@
     // Test surface (jsdom harness) — no effect on the product.
     window.AuraCityView = {
         activate: activate,
+        select: function (id) { selectBuilding({ id: id }); },
         plan: function () { return state.plan; },
         options: OPTIONS,
         graph: function () { return state.graph; },
+        streets: function () {
+            return state.streets ? state.streets.geometry.getAttribute('position').count / 2 : 0;
+        },
     };
 })();
