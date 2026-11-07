@@ -10,7 +10,14 @@
 
     // VSCode API
     var vscode = acquireVsCodeApi();
-
+    // `acquireVsCodeApi()` can only be called once per document, so satellites
+    // that need to talk to the host (city.js: open a file) go through this bridge
+    // instead of acquiring their own handle.
+    window.AuraHost = {
+        post: function(message) {
+            try { vscode.postMessage(message); } catch (_) { /* panel closed */ }
+        }
+    };
     // ============================================================
     // State
     // ============================================================

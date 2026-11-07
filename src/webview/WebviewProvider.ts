@@ -1685,6 +1685,13 @@ export class WebviewProvider {
             <span id="city-summary"></span>
         </div>
         <div id="city-canvas"></div>
+        <aside id="city-side" class="hidden" aria-live="polite">
+            <header id="city-side-head">
+                <span id="city-side-title">Building</span>
+                <button id="city-side-close" type="button" title="Close">✕</button>
+            </header>
+            <div id="city-side-body"></div>
+        </aside>
         <div id="city-hud">
             <span id="city-hud-meta">Click a building</span>
             <button id="city-hud-graph" type="button" title="Focus this file in the 3D Graph tab">⌖ Focus in graph</button>

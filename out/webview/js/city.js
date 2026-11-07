@@ -53,6 +53,7 @@
         data: null,
         plan: null,
         byId: {},
+        nodeById: {},
         decor: null,
         streets: null,
         streetCount: 0,
@@ -65,6 +66,30 @@
 
     function $(selector) {
         return document.querySelector(selector);
+    }
+
+    function escapeHtml(value) {
+        return String(value === undefined || value === null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    /** Hover tooltip: the two numbers a building is saying, nothing more. */
+    function tooltipFor(node) {
+        if (!node || !node.id) return '';
+        var rect = state.byId[node.id];
+        var html = '<div class="city-tip-name">' + escapeHtml(node.id) + '</div>';
+        if (rect) {
+            html += '<div class="city-tip-meta">'
+                + rect.footprintValue + ' lines · height ' + rect.heightValue
+                + ' · ' + escapeHtml(rect.district) + '</div>';
+        }
+        if (state.selected && state.selected !== node.id) {
+            if (state.relations.out[node.id]) html += '<div class="city-tip-dir city-tip-in">← used by the selection</div>';
+            if (state.relations.in[node.id]) html += '<div class="city-tip-dir city-tip-out">→ depends on the selection</div>';
+        }
+        return html;
     }
 
     function isActive() {
@@ -105,8 +130,10 @@
             var inbound = !!state.relations.in[node.id];
             var outbound = !!state.relations.out[node.id];
             if (inbound && outbound) return '#ba68c8';
-            if (outbound) return '#e0b53a';
-            if (inbound) return '#4fc3f7';
+            // Blue: a dependency of the selection (selected → X).
+            if (outbound) return '#4fc3f7';
+            // Amber: a dependent of the selection (X → selected).
+            if (inbound) return '#e0b53a';
             return '#39424e';
         }
         return baseColour(node, rect);
@@ -330,7 +357,7 @@
             .nodeId('id')
             .nodeRelSize(1)
             .nodeVal(1)
-            .nodeLabel('')
+            .nodeLabel(tooltipFor)
             .nodeThreeObject(buildingFor)
             .nodeThreeObjectExtend(false)
             .enableNodeDrag(false)
@@ -370,6 +397,8 @@
 
         state.plan = window.AuraCity.layoutCity(nodes, OPTIONS);
         state.byId = {};
+        state.nodeById = {};
+        for (var k = 0; k < nodes.length; k++) state.nodeById[nodes[k].id] = nodes[k];
         for (var i = 0; i < state.plan.rects.length; i++) {
             state.byId[state.plan.rects[i].id] = state.plan.rects[i];
         }
@@ -450,6 +479,7 @@
         if (state.graph) state.graph.nodeThreeObject(buildingFor);
         buildStreets();
         updateHud();
+        renderSide();
     }
 
     function clearSelection() {
@@ -459,6 +489,79 @@
         if (state.graph) state.graph.nodeThreeObject(buildingFor);
         buildStreets();
         updateHud();
+        renderSide();
+    }
+
+    /** Right-hand inspector, modelled on CodeCity's selected-building panel. */
+    function renderSide() {
+        var side = $('#city-side');
+        var body = $('#city-side-body');
+        var title = $('#city-side-title');
+        if (!side || !body) return;
+        var id = state.selected;
+        if (!id) { side.classList.add('hidden'); return; }
+        side.classList.remove('hidden');
+
+        var rect = state.byId[id];
+        var node = state.nodeById[id] || {};
+        if (title) title.textContent = id.split('/').pop() || id;
+
+        var html = '';
+        html += '<div class="city-side-section"><div class="city-side-label">Path</div>'
+            + '<div class="city-side-path">' + escapeHtml(id) + '</div></div>';
+
+        html += '<div class="city-side-section"><div class="city-side-label">Metrics</div><div class="city-side-grid">';
+        function row(label, value) {
+            html += '<span>' + label + '</span><span>' + escapeHtml(value) + '</span>';
+        }
+        row('Lines', node.linesOfCode);
+        row('Cyclomatic', node.complexity);
+        if (typeof node.cognitive === 'number') row('Cognitive', node.cognitive);
+        row('Fan-in', node.fanIn);
+        row('Fan-out', node.fanOut);
+        if (typeof node.pagerank === 'number') row('PageRank', node.pagerank.toFixed(4));
+        if (rect) {
+            row('Height', rect.heightValue);
+            row('Height tier', Math.round(((rect.h - 0.12) / 0.88) * 100) + '%');
+        }
+        html += '</div></div>';
+
+        if (rect) {
+            html += '<div class="city-side-section"><div class="city-side-label">District</div>'
+                + '<div>' + escapeHtml(rect.district) + '</div></div>';
+        }
+
+        html += relationSection('Depends on', state.relations.out);
+        html += relationSection('Used by', state.relations.in);
+
+        html += '<div class="city-side-section city-side-actions">'
+            + '<button type="button" data-city-action="open">Open file</button>'
+            + '<button type="button" data-city-action="graph">⌖ Focus in graph</button>'
+            + '</div>';
+
+        body.innerHTML = html;
+    }
+
+    /** One clickable list of neighbours; rows select that building in place. */
+    function relationSection(label, bucket) {
+        var ids = Object.keys(bucket);
+        var html = '<div class="city-side-section"><div class="city-side-label">'
+            + label + ' (' + ids.length + ')</div>';
+        if (ids.length === 0) {
+            html += '<div class="city-side-empty">none</div></div>';
+            return html;
+        }
+        ids.sort(function (a, b) { return (bucket[b] || 0) - (bucket[a] || 0) || a.localeCompare(b); });
+        for (var i = 0; i < ids.length && i < 14; i++) {
+            html += '<div class="city-side-row" data-city-goto="' + escapeHtml(ids[i]) + '" title="' + escapeHtml(ids[i]) + '">'
+                + '<span class="city-side-row-name">' + escapeHtml(ids[i].split('/').pop()) + '</span>'
+                + '<span class="city-side-row-count">' + (bucket[ids[i]] || 0) + '</span></div>';
+        }
+        if (ids.length > 14) {
+            html += '<div class="city-side-empty">+' + (ids.length - 14) + ' more</div>';
+        }
+        html += '</div>';
+        return html;
     }
 
     function updateHud() {
@@ -493,6 +596,32 @@
         window.dispatchEvent(new MessageEvent('message', {
             data: { type: 'focusNode', payload: { nodeId: state.selected, reveal: true } },
         }));
+    }
+
+    /** Open the selected file in the editor (the host owns the message channel). */
+    function openSelectedFile() {
+        if (!state.selected) return;
+        if (!window.AuraHost || typeof window.AuraHost.post !== 'function') return;
+        window.AuraHost.post({ type: 'openFile', payload: { path: state.selected, line: 0 } });
+    }
+
+    function wireSide() {
+        var body = $('#city-side-body');
+        var close = $('#city-side-close');
+        if (close) close.addEventListener('click', clearSelection);
+        if (!body) return;
+        body.addEventListener('click', function (event) {
+            var target = event.target;
+            while (target && target !== body && !target.getAttribute('data-city-goto') && !target.getAttribute('data-city-action')) {
+                target = target.parentNode;
+            }
+            if (!target || target === body) return;
+            var goto = target.getAttribute('data-city-goto');
+            if (goto) { selectBuilding({ id: goto }); return; }
+            var action = target.getAttribute('data-city-action');
+            if (action === 'open') openSelectedFile();
+            if (action === 'graph') focusInGraph();
+        });
     }
 
     // ── Wiring ─────────────────────────────────────────────────
@@ -583,6 +712,7 @@
         state.hudMeta = $('#city-hud-meta');
         state.hudFocus = $('#city-hud-graph');
         if (state.hudFocus) state.hudFocus.addEventListener('click', focusInGraph);
+        wireSide();
         restoreOptions();
         wireControls();
 
@@ -619,6 +749,7 @@
         select: function (id) { selectBuilding({ id: id }); },
         clear: clearSelection,
         colourOf: function (id) { return colourFor({ id: id, language: '' }, state.byId[id] || { h: 0.5, district: '' }); },
+        tooltip: function (id) { return tooltipFor({ id: id }); },
         relations: function () {
             return { in: Object.keys(state.relations.in).length, out: Object.keys(state.relations.out).length };
         },
