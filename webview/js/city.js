@@ -56,6 +56,7 @@
         decor: null,
         streets: null,
         streetCount: 0,
+        relations: { in: {}, out: {} },
         selected: null,
         observer: null,
         hudMeta: null,
@@ -94,9 +95,25 @@
         return '#546e7a';
     }
 
-    /** Building colour, per the chosen channel. */
+    /** Building colour, per the chosen channel, with the selection override. */
     function colourFor(node, rect) {
         if (state.selected === node.id) return '#ffffff';
+        if (state.selected) {
+            // A selection answers a different question: not "how big" but "who
+            // depends on me / whom do I depend on". The ramp is muted and the
+            // direction takes over, exactly like CodeCity's selection state.
+            var inbound = !!state.relations.in[node.id];
+            var outbound = !!state.relations.out[node.id];
+            if (inbound && outbound) return '#ba68c8';
+            if (outbound) return '#e0b53a';
+            if (inbound) return '#4fc3f7';
+            return '#39424e';
+        }
+        return baseColour(node, rect);
+    }
+
+    /** The colour of the active channel, before any selection. */
+    function baseColour(node, rect) {
         var mode = OPTIONS.colour;
         if (mode === 'language' && window.LANGUAGE_COLORS) {
             var lang = window.LANGUAGE_COLORS[node.language];
@@ -321,7 +338,8 @@
             .showNavInfo(false)
             .warmupTicks(0)
             .cooldownTicks(0)
-            .onNodeClick(selectBuilding);
+            .onNodeClick(selectBuilding)
+            .onBackgroundClick(clearSelection);
 
         var controls = null;
         try { controls = state.graph.controls(); } catch (_) { controls = null; }
@@ -408,9 +426,36 @@
     }
 
     // ── Selection ──────────────────────────────────────────────
+
+    /** Direct neighbours of the selection, split by direction. */
+    function computeRelations(id) {
+        var inbound = {};
+        var outbound = {};
+        if (!id || !state.data) return { in: inbound, out: outbound };
+        var links = state.data.links || [];
+        for (var i = 0; i < links.length; i++) {
+            var link = links[i];
+            var from = link.source && typeof link.source === 'object' ? link.source.id : link.source;
+            var to = link.target && typeof link.target === 'object' ? link.target.id : link.target;
+            if (from === id) outbound[to] = (outbound[to] || 0) + 1;
+            else if (to === id) inbound[from] = (inbound[from] || 0) + 1;
+        }
+        return { in: inbound, out: outbound };
+    }
+
     function selectBuilding(node) {
         if (!node || !node.id) return;
         state.selected = node.id;
+        state.relations = computeRelations(node.id);
+        if (state.graph) state.graph.nodeThreeObject(buildingFor);
+        buildStreets();
+        updateHud();
+    }
+
+    function clearSelection() {
+        if (!state.selected) return;
+        state.selected = null;
+        state.relations = { in: {}, out: {} };
         if (state.graph) state.graph.nodeThreeObject(buildingFor);
         buildStreets();
         updateHud();
@@ -433,6 +478,9 @@
             parts.push('height ' + rect.heightValue);
             parts.push(rect.district);
         }
+        var inbound = Object.keys(state.relations.in).length;
+        var outbound = Object.keys(state.relations.out).length;
+        parts.push(inbound + ' in · ' + outbound + ' out');
         state.hudMeta.textContent = parts.join('  ·  ');
         if (state.hudFocus) state.hudFocus.style.display = '';
     }
@@ -569,6 +617,11 @@
     window.AuraCityView = {
         activate: activate,
         select: function (id) { selectBuilding({ id: id }); },
+        clear: clearSelection,
+        colourOf: function (id) { return colourFor({ id: id, language: '' }, state.byId[id] || { h: 0.5, district: '' }); },
+        relations: function () {
+            return { in: Object.keys(state.relations.in).length, out: Object.keys(state.relations.out).length };
+        },
         plan: function () { return state.plan; },
         options: OPTIONS,
         graph: function () { return state.graph; },
