@@ -626,12 +626,44 @@
         html += relationSection('Depends on', state.relations.out);
         html += relationSection('Used by', state.relations.in);
 
+        html += memberSection(node);
+
         html += '<div class="city-side-section city-side-actions">'
             + '<button type="button" data-city-action="open">Open file</button>'
             + '<button type="button" data-city-action="graph">⌖ Focus in graph</button>'
             + '</div>';
 
         body.innerHTML = html;
+    }
+
+    /** Members of the file (CodeCity's MEMBERS list), clickable to the line. */
+    function memberSection(node) {
+        var symbols = node && node.symbols;
+        if (!symbols) return '';
+        var rows = [];
+        function collect(list, kind) {
+            if (!list || !list.length) return;
+            for (var i = 0; i < list.length; i++) {
+                if (!list[i] || !list[i].name) continue;
+                rows.push({ name: list[i].name, line: list[i].line || 0, kind: kind });
+            }
+        }
+        collect(symbols.classes, 'class');
+        collect(symbols.structs, 'struct');
+        collect(symbols.interfaces, 'interface');
+        collect(symbols.functions, 'fn');
+        collect(symbols.methods, 'method');
+        var total = symbols.totalSymbols || rows.length;
+        if (rows.length === 0) return '';
+
+        var html = '<div class="city-side-section"><div class="city-side-label">Members (' + total + ')</div>';
+        for (var r = 0; r < rows.length && r < 40; r++) {
+            html += '<div class="city-side-row" data-city-line="' + rows[r].line + '" title="line ' + rows[r].line + '">'
+                + '<span class="city-side-row-name">' + escapeHtml(rows[r].name) + '</span>'
+                + '<span class="city-side-row-count">' + rows[r].kind + (rows[r].line ? ' L' + rows[r].line : '') + '</span></div>';
+        }
+        if (rows.length > 40) html += '<div class="city-side-empty">+' + (rows.length - 40) + ' more</div>';
+        return html + '</div>';
     }
 
     /** One clickable list of neighbours; rows select that building in place. */
@@ -691,10 +723,24 @@
     }
 
     /** Open the selected file in the editor (the host owns the message channel). */
-    function openSelectedFile() {
+    function openSelectedFile(line) {
         if (!state.selected) return;
         if (!window.AuraHost || typeof window.AuraHost.post !== 'function') return;
-        window.AuraHost.post({ type: 'openFile', payload: { path: state.selected, line: 0 } });
+        window.AuraHost.post({ type: 'openFile', payload: { path: state.selected, line: line || 0 } });
+    }
+
+    /** Export the city canvas as a PNG through the host's save dialog. */
+    function exportPng() {
+        if (!state.graph || typeof state.graph.renderer !== 'function') return;
+        var renderer = null;
+        try { renderer = state.graph.renderer(); } catch (_) { renderer = null; }
+        var canvas = renderer && renderer.domElement;
+        if (!canvas || typeof canvas.toDataURL !== 'function') return;
+        var dataUrl = canvas.toDataURL('image/png');
+        if (!dataUrl || dataUrl.indexOf('data:image/png') !== 0) return;
+        if (window.AuraHost && typeof window.AuraHost.post === 'function') {
+            window.AuraHost.post({ type: 'exportImageData', payload: { dataUrl: dataUrl } });
+        }
     }
 
     function wireSide() {
@@ -721,8 +767,10 @@
             if (!target || target === body) return;
             var goto = target.getAttribute('data-city-goto');
             if (goto) { selectBuilding({ id: goto }); return; }
+            var line = target.getAttribute('data-city-line');
+            if (line) { openSelectedFile(parseInt(line, 10) || 0); return; }
             var action = target.getAttribute('data-city-action');
-            if (action === 'open') openSelectedFile();
+            if (action === 'open') openSelectedFile(0);
             if (action === 'graph') focusInGraph();
         });
     }
@@ -815,6 +863,15 @@
         state.hudMeta = $('#city-hud-meta');
         state.hudFocus = $('#city-hud-graph');
         if (state.hudFocus) state.hudFocus.addEventListener('click', focusInGraph);
+        var exportBtn = $('#city-export');
+        if (exportBtn) exportBtn.addEventListener('click', exportPng);
+        var treemapBtn = $('#treemap-city');
+        if (treemapBtn) {
+            treemapBtn.addEventListener('click', function () {
+                var cityTab = document.querySelector('.tab-btn[data-tab="city"]');
+                if (cityTab) cityTab.click();
+            });
+        }
         wireSide();
         restoreOptions();
         wireControls();
@@ -855,6 +912,7 @@
         setScope: setScope,
         colourOf: function (id) { return colourFor({ id: id, language: '' }, state.byId[id] || { h: 0.5, district: '' }); },
         tooltip: function (id) { return tooltipFor({ id: id }); },
+        sideHtml: function () { var body = $('#city-side-body'); return body ? body.innerHTML : ''; },
         relations: function () {
             return { in: Object.keys(state.relations.in).length, out: Object.keys(state.relations.out).length };
         },

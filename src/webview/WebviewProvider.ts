@@ -1683,6 +1683,7 @@ export class WebviewProvider {
                 </select>
             </label>
             <span id="city-summary"></span>
+            <button id="city-export" type="button" class="city-select" title="Export the city as a PNG">📷 PNG</button>
         </div>
         <div id="city-crumbs" class="hidden"></div>
         <div id="city-canvas"></div>
@@ -1868,6 +1869,7 @@ export class WebviewProvider {
                     <option value="fanOut">Fan-out</option>
                     <option value="language">Language</option>
                 </select></label>
+                <button id="treemap-city" type="button" class="treemap-city-btn" title="Open the 2.5D City view">🏙️ See as city</button>
             </div>
         </div>
         <div id="treemap-container"></div>

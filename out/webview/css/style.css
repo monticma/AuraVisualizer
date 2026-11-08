@@ -5071,3 +5071,16 @@ select option {
 .city-crumb-sep { opacity: 0.35; }
 
 .city-crumb-count { opacity: 0.45; margin-left: 4px; font-variant-numeric: tabular-nums; }
+
+/* Treemap → City hand-off */
+.treemap-city-btn {
+    padding: 3px 9px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: transparent;
+    color: inherit;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.treemap-city-btn:hover { background: rgba(255, 255, 255, 0.08); }
