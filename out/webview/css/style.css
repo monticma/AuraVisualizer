@@ -4906,17 +4906,6 @@ select option {
     outline: none;
 }
 
-#city-summary {
-    flex: 1 1 0;
-    min-width: 0;
-    text-align: right;
-    opacity: 0.6;
-    font-size: 11px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
 /* City — inspector panel (right) and hover tooltip.
    Same shell as #detail-panel: 320 px, blurred sidebar, slides in from the
    right on a 0.25 s transform (no layout thrash, no popping). */

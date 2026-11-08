@@ -22,6 +22,7 @@ var AuraCity = (() => {
   var city_core_exports = {};
   __export(city_core_exports, {
     DEFAULT_BUILDING_GAP: () => DEFAULT_BUILDING_GAP,
+    DEFAULT_FUNCTION_LIMIT: () => DEFAULT_FUNCTION_LIMIT,
     DEFAULT_GAP: () => DEFAULT_GAP,
     DEFAULT_HEIGHT_COUNT: () => DEFAULT_HEIGHT_COUNT,
     MIN_HEIGHT_RATIO: () => MIN_HEIGHT_RATIO,
@@ -29,6 +30,7 @@ var AuraCity = (() => {
     districtDepth: () => districtDepth,
     districtKeyOf: () => districtKeyOf,
     footprintWeight: () => footprintWeight,
+    functionNodes: () => functionNodes,
     heightFor: () => heightFor,
     layoutCity: () => layoutCity,
     metricValue: () => metricValue,
@@ -37,6 +39,57 @@ var AuraCity = (() => {
     tierOf: () => tierOf
   });
   var MIN_HEIGHT_RATIO = 0.12;
+  var DEFAULT_FUNCTION_LIMIT = 2e3;
+  function positiveOr(value, fallback) {
+    return typeof value === "number" && isFinite(value) && value > 0 ? value : fallback;
+  }
+  function functionNodes(nodes, options = {}) {
+    const limit = Math.max(1, Math.floor(options.limitPerFile || DEFAULT_FUNCTION_LIMIT));
+    const out = [];
+    const taken = /* @__PURE__ */ new Set();
+    for (const node of nodes) {
+      if (!node || typeof node.id !== "string" || node.id.length === 0)
+        continue;
+      const symbols = node.symbols;
+      if (!symbols)
+        continue;
+      const file = node.path && node.path.length > 0 ? node.path : node.id;
+      const list = [...symbols.functions || [], ...symbols.methods || []];
+      let kept = 0;
+      for (const fn of list) {
+        if (kept >= limit)
+          break;
+        const name = fn && typeof fn.name === "string" ? fn.name.trim() : "";
+        if (!name)
+          continue;
+        kept += 1;
+        let id = file + "#" + name;
+        let duplicate = 2;
+        while (taken.has(id))
+          id = file + "#" + name + "#" + duplicate++;
+        taken.add(id);
+        const cyclomatic = positiveOr(fn.cyclomatic, 1);
+        out.push({
+          id,
+          name,
+          path: file,
+          line: typeof fn.line === "number" && fn.line > 0 ? fn.line : void 0,
+          linesOfCode: positiveOr(fn.functionLines, 1),
+          complexity: cyclomatic,
+          cognitive: typeof fn.cognitive === "number" && isFinite(fn.cognitive) ? Math.max(0, fn.cognitive) : cyclomatic,
+          fanIn: 0,
+          fanOut: 0,
+          pagerank: 0,
+          group: file,
+          layer: node.layer,
+          community: node.community,
+          language: node.language,
+          extension: node.extension
+        });
+      }
+    }
+    return out;
+  }
   var DEFAULT_HEIGHT_COUNT = 5;
   var DEFAULT_GAP = 0.06;
   var DEFAULT_BUILDING_GAP = 0.3;

@@ -8,9 +8,11 @@ import {
     districtKeyOf,
     districtDepth,
     metricValue,
+    functionNodes,
     MIN_HEIGHT_RATIO,
     DEFAULT_HEIGHT_COUNT,
     type CityNodeLike,
+    type CityFileNodeLike,
 } from '../graph/city-core';
 
 function node(id: string, patch: Partial<CityNodeLike> = {}): CityNodeLike {
@@ -314,5 +316,99 @@ describe('city-core · layoutCity', () => {
             expect(Number.isFinite(rect.h)).toBe(true);
         }
         expect(metricValue({ id: 'c' }, 'cognitive')).toBe(0);
+    });
+});
+
+describe('city-core · function granularity', () => {
+    function file(id: string, symbols: CityFileNodeLike['symbols'], patch: Partial<CityFileNodeLike> = {}): CityFileNodeLike {
+        return { id, path: id, group: 'src', linesOfCode: 500, complexity: 30, ...patch, symbols };
+    }
+
+    it('turns every function and method into its own building', () => {
+        const out = functionNodes([file('src/a.c', {
+            functions: [{ name: 'init', line: 3, cyclomatic: 4, cognitive: 6, functionLines: 20 }],
+            methods: [{ name: 'run', line: 40, cyclomatic: 2, cognitive: 1, functionLines: 9 }],
+        })]);
+        expect(out.map(n => n.id)).toEqual(['src/a.c#init', 'src/a.c#run']);
+        expect(out.map(n => n.name)).toEqual(['init', 'run']);
+    });
+
+    it('uses the file as the district, so functions nest in their file', () => {
+        const out = functionNodes([file('src/deep/a.c', {
+            functions: [{ name: 'f' }, { name: 'g' }],
+        })]);
+        for (const building of out) {
+            expect(building.group).toBe('src/deep/a.c');
+            expect(districtKeyOf(building, 'group')).toBe('src/deep/a.c');
+            expect(districtDepth(districtKeyOf(building, 'group'))).toBe(2);
+        }
+    });
+
+    it('reads the function metrics, not the file ones', () => {
+        const out = functionNodes([file('src/a.c', {
+            functions: [{ name: 'big', cyclomatic: 40, cognitive: 55, functionLines: 300 }],
+        }, { linesOfCode: 9999, complexity: 1, cognitive: 1 })]);
+        expect(out[0].linesOfCode).toBe(300);
+        expect(out[0].complexity).toBe(40);
+        expect(out[0].cognitive).toBe(55);
+    });
+
+    it('falls back on sane values when the analyzer gave no metrics', () => {
+        const out = functionNodes([file('src/a.c', { functions: [{ name: 'bare' }] })]);
+        expect(out[0].linesOfCode).toBe(1);
+        expect(out[0].complexity).toBe(1);
+        expect(out[0].cognitive).toBe(1);
+        expect(out[0].fanIn).toBe(0);
+        expect(out[0].pagerank).toBe(0);
+    });
+
+    it('keeps the cognitive → cyclomatic fallback per function', () => {
+        const out = functionNodes([file('src/a.c', {
+            functions: [{ name: 'nocyclo', cyclomatic: undefined, cognitive: undefined }],
+        })]);
+        expect(out[0].cognitive).toBe(1);
+    });
+
+    it('disambiguates same-named symbols deterministically', () => {
+        const out = functionNodes([file('src/a.c', {
+            functions: [{ name: 'parse', line: 5 }, { name: 'parse', line: 60 }],
+        })]);
+        expect(out.map(n => n.id)).toEqual(['src/a.c#parse', 'src/a.c#parse#2']);
+        // Same input, same ids, same order.
+        const again = functionNodes([file('src/a.c', {
+            functions: [{ name: 'parse', line: 5 }, { name: 'parse', line: 60 }],
+        })]);
+        expect(again.map(n => n.id)).toEqual(out.map(n => n.id));
+    });
+
+    it('keeps the source line for the "open file" action', () => {
+        const out = functionNodes([file('src/a.c', { functions: [{ name: 'go', line: 42 }] })]);
+        expect(out[0].line).toBe(42);
+    });
+
+    it('skips files without symbols and symbols without a name', () => {
+        expect(functionNodes([{ id: 'empty.c', path: 'empty.c' }])).toEqual([]);
+        const out = functionNodes([file('src/a.c', {
+            functions: [{ name: '' }, { line: 3 } as { name?: string }, { name: 'ok' }],
+        })]);
+        expect(out).toHaveLength(1);
+    });
+
+    it('caps a single file at limitPerFile', () => {
+        const many = Array.from({ length: 40 }, (_, i) => ({ name: 'f' + i }));
+        const out = functionNodes([file('src/a.c', { functions: many })], { limitPerFile: 10 });
+        expect(out).toHaveLength(10);
+        expect(out[0].id).toBe('src/a.c#f0');
+    });
+
+    it('lays out a city of functions with the file as the district', () => {
+        const nodes = functionNodes([
+            file('src/a.c', { functions: [{ name: 'f', functionLines: 10, cyclomatic: 10 }] }),
+            file('src/b.c', { functions: [{ name: 'g', functionLines: 10, cyclomatic: 2 }] }),
+        ]);
+        const plan = layoutCity(nodes, {});
+        expect(plan.rects).toHaveLength(2);
+        expect(plan.districts.map(d => d.key).sort()).toEqual(['src/a.c', 'src/b.c']);
+        expect(plan.rects[0].heightValue).toBeGreaterThan(plan.rects[1].heightValue);
     });
 });

@@ -41,6 +41,8 @@ export interface CityNodeLike {
     id: string;
     name?: string;
     path?: string;
+    /** Source line of the symbol, when the node is a function building. */
+    line?: number;
     linesOfCode?: number;
     complexity?: number;
     cognitive?: number;
@@ -51,6 +53,30 @@ export interface CityNodeLike {
     group?: string;
     layer?: string;
     community?: string;
+    language?: string;
+    extension?: string;
+}
+
+/** One function or method, as the analyzer attaches it to its file node. */
+export interface CitySymbolLike {
+    name?: string;
+    line?: number;
+    cognitive?: number;
+    cyclomatic?: number;
+    functionLines?: number;
+}
+
+/** A file node with the symbols the granularity switch reads. */
+export interface CityFileNodeLike extends CityNodeLike {
+    symbols?: {
+        functions?: CitySymbolLike[];
+        methods?: CitySymbolLike[];
+    };
+}
+
+export interface FunctionGranularityOptions {
+    /** Hard cap per file — one generated file must not own the whole city. */
+    limitPerFile?: number;
 }
 
 export interface CityOptions {
@@ -119,6 +145,76 @@ export interface CityPlan {
 /** Shortest building still visible, as a fraction of the tallest. */
 export const MIN_HEIGHT_RATIO = 0.12;
 
+/**
+ * Default cap on the functions turned into buildings, per file. High enough to
+ * keep every real file whole (the largest amalgamation seen — mongoose.c — holds
+ * 875 functions), low enough to stop a generated file from owning the city.
+ */
+export const DEFAULT_FUNCTION_LIMIT = 2000;
+
+/** A count that must stay positive: `undefined`, `NaN` and `0` fall back. */
+function positiveOr(value: number | undefined, fallback: number): number {
+    return typeof value === 'number' && isFinite(value) && value > 0 ? value : fallback;
+}
+
+/**
+ * One building per **function** instead of one per file — the granularity of
+ * CodeCity's "City of C" metaphor. Files become the districts (`group` is set to
+ * the file path, so the treemap nests each file's functions in their own block),
+ * which is exactly the C/C++ mapping: functions are buildings, files are blocks.
+ *
+ * Heights read the function's own metrics (`functionLines`, `cyclomatic`,
+ * `cognitive`); fan-in/out and PageRank stay at 0 because the payload only
+ * carries file-level dependency data. Ids are `file#name` (then `#2`, `#3`… for
+ * same-named symbols), deterministic in source order.
+ */
+export function functionNodes(nodes: CityFileNodeLike[], options: FunctionGranularityOptions = {}): CityNodeLike[] {
+    const limit = Math.max(1, Math.floor(options.limitPerFile || DEFAULT_FUNCTION_LIMIT));
+    const out: CityNodeLike[] = [];
+    const taken = new Set<string>();
+
+    for (const node of nodes) {
+        if (!node || typeof node.id !== 'string' || node.id.length === 0) continue;
+        const symbols = node.symbols;
+        if (!symbols) continue;
+        const file = node.path && node.path.length > 0 ? node.path : node.id;
+        const list = [...(symbols.functions || []), ...(symbols.methods || [])];
+        let kept = 0;
+        for (const fn of list) {
+            if (kept >= limit) break;
+            const name = fn && typeof fn.name === 'string' ? fn.name.trim() : '';
+            if (!name) continue;
+            kept += 1;
+            let id = file + '#' + name;
+            let duplicate = 2;
+            while (taken.has(id)) id = file + '#' + name + '#' + duplicate++;
+            taken.add(id);
+
+            const cyclomatic = positiveOr(fn.cyclomatic, 1);
+            out.push({
+                id,
+                name,
+                path: file,
+                line: typeof fn.line === 'number' && fn.line > 0 ? fn.line : undefined,
+                linesOfCode: positiveOr(fn.functionLines, 1),
+                complexity: cyclomatic,
+                cognitive: typeof fn.cognitive === 'number' && isFinite(fn.cognitive)
+                    ? Math.max(0, fn.cognitive)
+                    : cyclomatic,
+                fanIn: 0,
+                fanOut: 0,
+                pagerank: 0,
+                group: file,
+                layer: node.layer,
+                community: node.community,
+                language: node.language,
+                extension: node.extension,
+            });
+        }
+    }
+    return out;
+}
+
 /** Default tier count — CodeCity's "boxplot (5 sizes)". */
 export const DEFAULT_HEIGHT_COUNT = 5;
 
@@ -131,8 +227,7 @@ export const DEFAULT_BUILDING_GAP = 0.3;
 /** Absolute floor for a street, in unit-square units (≈ 1.6 scene units at scale 520). */
 export const MIN_STREET = 0.003;
 
-/** Absolute value of a metric on a node, with the cognitive → complexity fallback. */
-export function metricValue(node: CityNodeLike, metric: CityMetric): number {
+/** Absolute value of a metric on a node, with the cognitive → complexity fallback. */export function metricValue(node: CityNodeLike, metric: CityMetric): number {
     let raw: number | undefined;
     switch (metric) {
         case 'linesOfCode': raw = node.linesOfCode; break;

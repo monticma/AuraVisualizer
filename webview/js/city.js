@@ -29,6 +29,7 @@
     var RAMP = ['#5b6b82', '#2f8f9d', '#e0b53a', '#d1462f'];
 
     var OPTIONS = {
+        granularity: 'files',
         height: 'cognitive',
         footprint: 'linesOfCode',
         colour: 'height',
@@ -84,15 +85,22 @@
     function tooltipFor(node) {
         if (!node || !node.id) return '';
         var rect = state.byId[node.id];
-        var html = '<div class="city-tip-name">' + escapeHtml(node.id) + '</div>';
+        var perFunction = OPTIONS.granularity === 'functions';
+        var label = perFunction && node.name ? node.name : node.id;
+        var html = '<div class="city-tip-name">' + escapeHtml(label) + '</div>';
         if (rect) {
             html += '<div class="city-tip-meta">'
                 + rect.footprintValue + ' lines · height ' + rect.heightValue
-                + ' · ' + escapeHtml(rect.district) + '</div>';
+                + (perFunction ? '' : ' · ' + escapeHtml(rect.district)) + '</div>';
+        }
+        if (perFunction && node.path) {
+            html += '<div class="city-tip-meta">' + escapeHtml(node.path)
+                + (node.line ? ':' + node.line : '') + '</div>';
         }
         if (state.selected && state.selected !== node.id) {
-            if (state.relations.out[node.id]) html += '<div class="city-tip-dir city-tip-in">← used by the selection</div>';
-            if (state.relations.in[node.id]) html += '<div class="city-tip-dir city-tip-out">→ depends on the selection</div>';
+            var key = relationKey(node);
+            if (state.relations.out[key]) html += '<div class="city-tip-dir city-tip-in">← used by the selection</div>';
+            if (state.relations.in[key]) html += '<div class="city-tip-dir city-tip-out">→ depends on the selection</div>';
         }
         return html;
     }
@@ -132,8 +140,9 @@
             // A selection answers a different question: not "how big" but "who
             // depends on me / whom do I depend on". The ramp is muted and the
             // direction takes over, exactly like CodeCity's selection state.
-            var inbound = !!state.relations.in[node.id];
-            var outbound = !!state.relations.out[node.id];
+            var key = relationKey(node);
+            var inbound = !!state.relations.in[key];
+            var outbound = !!state.relations.out[key];
             if (inbound && outbound) return '#ba68c8';
             // Blue: a dependency of the selection (selected → X).
             if (outbound) return '#4fc3f7';
@@ -218,6 +227,9 @@
         var mode = OPTIONS.streets;
         if (mode === 'off') return;
         if (mode === 'selection' && !state.selected) return;
+        // The selected building, seen from the graph's point of view: a file, so
+        // function buildings still match their file's links.
+        var sel = relationKey(state.nodeById[state.selected] || { id: state.selected });
 
         var centres = {};
         if (state.plan) {
@@ -226,6 +238,8 @@
                 centres[district.key] = {
                     x: (district.x + district.w / 2 - 0.5) * SCALE,
                     z: (district.z + district.d / 2 - 0.5) * SCALE,
+                    y: plateAltitude(district.depth) + 0.6,
+                    district: district.key,
                 };
             }
         }
@@ -254,11 +268,22 @@
             var link = links[i];
             var fromId = link.source && typeof link.source === 'object' ? link.source.id : link.source;
             var toId = link.target && typeof link.target === 'object' ? link.target.id : link.target;
-            if (mode === 'selection' && fromId !== state.selected && toId !== state.selected) continue;
+            if (mode === 'selection' && sel && fromId !== sel && toId !== sel) continue;
             if (mode === 'structure' && !STRUCTURAL_TYPES[link.type]) continue;
             var a = state.byId[fromId];
             var b = state.byId[toId];
-            if (!a || !b) continue;
+            if (!a || !b) {
+                // Function granularity: links stay file → file, so draw them
+                // between the two file blocks instead of between buildings.
+                if (OPTIONS.granularity !== 'functions' || fromId === toId) continue;
+                var blockA = centres[fromId];
+                var blockB = centres[toId];
+                if (!blockA || !blockB) continue;
+                color.set(linkColorOf(link.type));
+                segment(blockA, blockB);
+                drawn++;
+                continue;
+            }
 
             var start = point(a);
             var end = point(b);
@@ -537,15 +562,48 @@
     // ── Plan ───────────────────────────────────────────────────
 
     /** Nodes of the current drill-down scope (all of them at the root). */
+    /**
+     * Nodes of the current granularity: one per file, or one per function
+     * (CodeCity's "City of C" mapping, where files are the districts).
+     */
+    function granularNodes(list) {
+        if (OPTIONS.granularity === 'functions' && window.AuraCity && window.AuraCity.functionNodes) {
+            return window.AuraCity.functionNodes(list);
+        }
+        return list;
+    }
+
+    /** District key at the current granularity (a folder, or a file path). */
+    function keyOfNode(node) {
+        if (!node) return '';
+        var lib = window.AuraCity;
+        if (!lib || !lib.districtKeyOf) return node.group || node.path || node.id || '';
+        // Function buildings carry their file as `group`.
+        var by = OPTIONS.granularity === 'functions' ? 'group' : OPTIONS.districtBy;
+        return lib.districtKeyOf(node, by);
+    }
+
+    /** Id used by the *graph* (links stay file → file at every granularity). */
+    function relationKey(node) {
+        if (!node) return '';
+        if (OPTIONS.granularity === 'functions') return node.path || node.id;
+        return node.id;
+    }
+
+    /** File a building belongs to — what "open file" and "focus in graph" need. */
+    function filePathOf(id) {
+        var node = state.nodeById[id];
+        if (OPTIONS.granularity === 'functions' && node && node.path) return node.path;
+        return id;
+    }
+
     function nodesInScope() {
         var all = (state.data && state.data.nodes) || [];
         if (!state.scope) return all;
-        var keyOf = window.AuraCity && window.AuraCity.districtKeyOf;
-        if (!keyOf) return all;
         var prefix = state.scope + '/';
         var kept = [];
         for (var i = 0; i < all.length; i++) {
-            var key = keyOf(all[i], OPTIONS.districtBy);
+            var key = keyOfNode(all[i]);
             if (key === state.scope || key.indexOf(prefix) === 0) kept.push(all[i]);
         }
         return kept;
@@ -581,7 +639,12 @@
             }
             nodes.push(clone);
         }
-        if (nodes.length === 0) { state.plan = null; renderCrumbs(); updateSummary(); return; }
+        if (nodes.length === 0) { state.plan = null; renderCrumbs(); return; }
+
+        // One building per function turns 762 files into ~5 000 buildings; the
+        // file becomes the district.
+        nodes = granularNodes(nodes);
+        if (nodes.length === 0) { state.plan = null; renderCrumbs(); return; }
 
         state.plan = window.AuraCity.layoutCity(nodes, OPTIONS);
         // Inside a drill-down the plates start at the scope's own level, otherwise
@@ -624,7 +687,6 @@
         resize();
         frameCity();
         updateHud();
-        updateSummary();
         renderCrumbs();
     }
 
@@ -639,7 +701,6 @@
         if (!state.data || !window.AuraCity) { bar.classList.add('hidden'); return; }
         bar.classList.remove('hidden');
 
-        var keyOf = window.AuraCity.districtKeyOf;
         var segments = state.scope ? state.scope.split('/') : [];
         var html = '<button type="button" class="city-crumb' + (segments.length === 0 ? ' current' : '')
             + '" data-city-scope="">🏙️ All districts</button>';
@@ -655,9 +716,9 @@
         // Children of the current scope: the next path segment carrying files.
         var prefix = state.scope ? state.scope + '/' : '';
         var children = {};
-        var nodes = (state.data.nodes || []);
+        var nodes = granularNodes((state.data.nodes || []));
         for (var i = 0; i < nodes.length; i++) {
-            var key = keyOf(nodes[i], OPTIONS.districtBy);
+            var key = keyOfNode(nodes[i]);
             if (prefix && key.indexOf(prefix) !== 0) continue;
             var rest = key.slice(prefix.length);
             if (!rest) continue;
@@ -677,13 +738,6 @@
     }
 
     /** Legend line: what the three (four) channels actually encode right now. */
-    function updateSummary() {
-        var summary = $('#city-summary');
-        if (!summary || !state.plan) return;
-        summary.textContent = state.plan.rects.length + ' buildings · '
-            + state.plan.districts.length + ' districts';
-    }
-
     /** Isometric-ish three-quarter view, the way CodeCity opens. */
     function frameCity() {
         if (!state.graph) return;
@@ -720,7 +774,7 @@
     function selectBuilding(node) {
         if (!node || !node.id) return;
         state.selected = node.id;
-        state.relations = computeRelations(node.id);
+        state.relations = computeRelations(relationKey(state.nodeById[node.id] || node));
         if (state.graph) state.graph.nodeThreeObject(buildingFor);
         buildStreets();
         updateHud();
@@ -749,9 +803,14 @@
 
         var rect = state.byId[id];
         var node = state.nodeById[id] || {};
-        if (title) title.textContent = id.split('/').pop() || id;
+        var label = node.name ? node.name : (id.split('/').pop() || id);
+        if (title) title.textContent = label;
         var pathEl = $('#city-side-path');
-        if (pathEl) pathEl.textContent = id;
+        if (pathEl) {
+            var shown = node.path && node.path !== id ? node.path : id;
+            if (OPTIONS.granularity === 'functions' && node.line) shown += ':' + node.line;
+            pathEl.textContent = shown;
+        }
         var iconEl = $('#city-side-icon');
         if (iconEl) {
             var icons = window.LANGUAGE_ICONS || {};
@@ -903,7 +962,8 @@
             return;
         }
         var rect = state.byId[id];
-        var parts = [id];
+        var node = state.nodeById[id] || {};
+        var parts = [OPTIONS.granularity === 'functions' && node.name ? node.name : id];
         if (rect) {
             parts.push(rect.footprintValue + ' LOC');
             parts.push('height ' + rect.heightValue);
@@ -922,7 +982,7 @@
         var graphTab = document.querySelector('.tab-btn[data-tab="graph"]');
         if (graphTab) graphTab.click();
         window.dispatchEvent(new MessageEvent('message', {
-            data: { type: 'focusNode', payload: { nodeId: state.selected, reveal: true } },
+            data: { type: 'focusNode', payload: { nodeId: filePathOf(state.selected), reveal: true } },
         }));
     }
 
@@ -930,7 +990,12 @@
     function openSelectedFile(line) {
         if (!state.selected) return;
         if (!window.AuraHost || typeof window.AuraHost.post !== 'function') return;
-        window.AuraHost.post({ type: 'openFile', payload: { path: state.selected, line: line || 0 } });
+        var node = state.nodeById[state.selected] || {};
+        var fallback = OPTIONS.granularity === 'functions' && node.line ? node.line : 0;
+        window.AuraHost.post({
+            type: 'openFile',
+            payload: { path: filePathOf(state.selected), line: line || fallback },
+        });
     }
 
     /** Export the city canvas as a PNG through the host's save dialog. */
@@ -970,7 +1035,12 @@
             }
             if (!target || target === body) return;
             var goto = target.getAttribute('data-city-goto');
-            if (goto) { selectBuilding({ id: goto }); return; }
+            if (goto) {
+                if (state.byId[goto]) selectBuilding({ id: goto });
+                // Function granularity: satellites are files, so drill into one.
+                else setScope(goto);
+                return;
+            }
             var line = target.getAttribute('data-city-line');
             if (line) { openSelectedFile(parseInt(line, 10) || 0); return; }
             var action = target.getAttribute('data-city-action');
@@ -983,6 +1053,7 @@
 
     /** The five selects of the city toolbar, and what each one invalidates. */
     var CONTROLS = [
+        { id: 'city-granularity', key: 'granularity', relayout: true },
         { id: 'city-height', key: 'height', relayout: true },
         { id: 'city-footprint', key: 'footprint', relayout: true },
         { id: 'city-colour', key: 'colour', relayout: false },
@@ -1050,7 +1121,6 @@
                     }
                     if (state.graph) state.graph.nodeThreeObject(buildingFor);
                     buildStreets();
-                    updateSummary();
                 });
             })(CONTROLS[i]);
         }
@@ -1115,7 +1185,9 @@
         scope: function () { return state.scope; },
         setScope: setScope,
         colourOf: function (id) { return colourFor({ id: id, language: '' }, state.byId[id] || { h: 0.5, district: '' }); },
-        tooltip: function (id) { return tooltipFor({ id: id }); },
+        tooltip: function (nodeOrId) {
+            return tooltipFor(typeof nodeOrId === 'string' ? { id: nodeOrId } : nodeOrId);
+        },
         sideHtml: function () { var body = $('#city-side-body'); return body ? body.innerHTML : ''; },
         relations: function () {
             return { in: Object.keys(state.relations.in).length, out: Object.keys(state.relations.out).length };

@@ -308,6 +308,12 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
          Its own scene and camera: nothing is shared with the 3D graph tab. -->
     <div id="city-view" class="tab-content" data-tab="city">
         <div id="city-controls">
+            <label class="city-field" for="city-granularity" title="What each building stands for: a file, or a single function">Granularity
+                <select id="city-granularity" class="city-select">
+                    <option value="files" selected>files</option>
+                    <option value="functions">functions</option>
+                </select>
+            </label>
             <label class="city-field" for="city-height" title="What the building height encodes">Height
                 <select id="city-height" class="city-select">
                     <option value="cognitive" selected>cognitive</option>
@@ -356,7 +362,6 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
                     <option value="off">off</option>
                 </select>
             </label>
-            <span id="city-summary"></span>
             <button id="city-export" type="button" class="city-select" title="Export the city as a PNG">\u{1F4F7} PNG</button>
         </div>
         <div id="city-crumbs" class="hidden"></div>
