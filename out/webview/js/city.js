@@ -20,6 +20,9 @@
     var PLATE_STEP = 9;          // altitude per district nesting level
     var MAX_POLAR = Math.PI / 2 - 0.1;   // never look under the plinth
     var MIN_H = 2.5;
+    var GROUND_SIZE = SCALE * 16;        // world plane; its rim is faded out
+    var GROUND_Y = -4.8;                 // just under the plinth
+    var GROUND_CELLS = 64;               // ≈ 130 units per block
 
     // CodeCity's reading: desaturated on the low end, hot at the top, so the eye
     // only goes where it matters.
@@ -55,6 +58,7 @@
         byId: {},
         nodeById: {},
         decor: null,
+        ground: null,
         streets: null,
         streetCount: 0,
         relations: { in: {}, out: {} },
@@ -294,6 +298,93 @@
         state.streets = lines;
     }
 
+    /**
+     * Ground texture: a lit plaza under the city, a street grid, then a radial
+     * alpha ramp baked with `destination-in` so the plane dissolves into the
+     * scene background. Baking the fade (instead of using scene fog) keeps the
+     * buildings untouched — fog would grey out the whole city.
+     */
+    function groundTexture() {
+        var T = window.THREE;
+        if (!T) return null;
+        var size = 2048;
+        var canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        var ctx = canvas.getContext('2d');
+        if (!ctx) return null;
+        var half = size / 2;
+
+        var fill = ctx.createRadialGradient(half, half, 0, half, half, half);
+        fill.addColorStop(0, '#1c2532');
+        fill.addColorStop(0.35, '#151c26');
+        fill.addColorStop(1, '#0f141b');
+        ctx.fillStyle = fill;
+        ctx.fillRect(0, 0, size, size);
+
+        // Two passes: minor streets, then every 5th one a little brighter.
+        var step = size / GROUND_CELLS;
+        for (var pass = 0; pass < 2; pass++) {
+            var major = pass === 1;
+            ctx.beginPath();
+            ctx.strokeStyle = major ? 'rgba(255,255,255,0.07)' : 'rgba(255,255,255,0.032)';
+            ctx.lineWidth = major ? 2.5 : 1.5;
+            for (var i = 0; i <= GROUND_CELLS; i++) {
+                if ((i % 5 === 0) !== major) continue;
+                var p = i * step;
+                ctx.moveTo(p, 0);
+                ctx.lineTo(p, size);
+                ctx.moveTo(0, p);
+                ctx.lineTo(size, p);
+            }
+            ctx.stroke();
+        }
+
+        var fade = ctx.createRadialGradient(half, half, size * 0.30, half, half, half);
+        fade.addColorStop(0, 'rgba(0,0,0,1)');
+        fade.addColorStop(0.55, 'rgba(0,0,0,0.72)');
+        fade.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.globalCompositeOperation = 'destination-in';
+        ctx.fillStyle = fade;
+        ctx.fillRect(0, 0, size, size);
+        ctx.globalCompositeOperation = 'source-over';
+
+        var texture = new T.CanvasTexture(canvas);
+        // Canvas colours are sRGB: without this three treats them as linear and
+        // the ground washes out to a pale grey.
+        if (T.SRGBColorSpace) texture.colorSpace = T.SRGBColorSpace;
+        texture.anisotropy = 8;
+        return texture;
+    }
+
+    /** One plane under the plinth: the city stands somewhere instead of floating. */
+    function buildGround() {
+        var T = window.THREE;
+        if (!T || state.ground || !state.graph) return;
+        var scene = state.graph.scene();
+        if (!scene) return;
+        var texture = groundTexture();
+        var group = new T.Group();
+        group.name = 'aura-city-ground';
+        var plane = new T.Mesh(
+            new T.PlaneGeometry(GROUND_SIZE, GROUND_SIZE),
+            new T.MeshBasicMaterial({
+                color: texture ? '#ffffff' : '#141a22',
+                map: texture,
+                transparent: true,
+                depthWrite: false,
+            })
+        );
+        plane.name = 'aura-city-ground-plane';
+        plane.rotation.x = -Math.PI / 2;
+        plane.position.y = GROUND_Y;
+        // Drawn before the streets, never occluding them (no depth write).
+        plane.renderOrder = -1;
+        group.add(plane);
+        scene.add(group);
+        state.ground = group;
+    }
+
     function disposeDecor() {
         if (!state.decor) return;
         var parent = state.decor.parent;
@@ -428,6 +519,18 @@
             controls.maxPolarAngle = MAX_POLAR;
             controls.minPolarAngle = 0.05;
         }
+        // The ground plane reaches well past the default far plane, and a clip
+        // there would cut a hard circle into the horizon.
+        try {
+            var camera = typeof state.graph.camera === 'function' ? state.graph.camera() : null;
+            if (camera && camera.far !== undefined) {
+                var far = GROUND_SIZE * 2;
+                if (!camera.far || camera.far < far) {
+                    camera.far = far;
+                    camera.updateProjectionMatrix();
+                }
+            }
+        } catch (_) { /* older 3d-force-graph: leave the camera alone */ }
         return state.graph;
     }
 
@@ -512,6 +615,7 @@
             node.fz = node.z;
         }
 
+        buildGround();
         buildDecor(state.plan);
         graph.nodeThreeObjectExtend(false);
         graph.graphData({ nodes: nodes, links: [] });
