@@ -4874,29 +4874,29 @@ select option {
 .city-field {
     display: flex;
     align-items: center;
-    gap: 5px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    font-size: 10px;
-    opacity: 0.85;
-}
-
-.city-select {
-    padding: 2px 4px;
-    border-radius: 5px;
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    background: #0d1117;
-    color: #e0e0e0;
+    gap: 4px;
     font-size: 11px;
+    opacity: 0.7;
     text-transform: none;
     letter-spacing: 0;
+}
+
+/* Same control as every other tab (`.treemap-controls select`). */
+.city-select {
+    background: var(--aura-input-bg);
+    border: 1px solid var(--aura-input-border);
+    color: var(--aura-fg);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 11px;
     cursor: pointer;
+    outline: none;
 }
 
 #city-summary {
     margin-left: auto;
     opacity: 0.6;
-    font-size: 10px;
+    font-size: 11px;
     white-space: nowrap;
 }
 
@@ -4906,7 +4906,7 @@ select option {
     top: 0;
     right: 0;
     bottom: 0;
-    width: 310px;
+    width: 320px;
     display: flex;
     flex-direction: column;
     background: var(--aura-sidebar-bg);
@@ -4924,12 +4924,10 @@ select option {
 
 #city-side-head {
     display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 10px;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px 20px;
     border-bottom: 1px solid var(--aura-border);
-    font-size: 12px;
-    font-weight: 600;
 }
 
 #city-side-title {
@@ -4937,6 +4935,8 @@ select option {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    font-size: 15px;
+    font-weight: 600;
 }
 
 #city-side-close {
@@ -4946,6 +4946,8 @@ select option {
     opacity: 0.6;
     cursor: pointer;
     font-size: 12px;
+    line-height: 1.2;
+    padding: 0;
 }
 
 #city-side-close:hover { opacity: 1; }
@@ -4953,26 +4955,28 @@ select option {
 #city-side-body {
     flex: 1;
     overflow-y: auto;
-    padding: 10px;
+    padding: 0 0 14px;
     font-size: 11px;
     line-height: 1.5;
 }
 
-.city-side-section + .city-side-section { margin-top: 12px; }
+.city-side-section { padding: 12px 20px 0; }
+.city-side-section + .city-side-section { margin-top: 0; }
 
 .city-side-label {
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-size: 9px;
-    opacity: 0.55;
-    margin-bottom: 4px;
+    letter-spacing: 1px;
+    font-size: 11px;
+    font-weight: 600;
+    opacity: 0.5;
+    margin-bottom: 6px;
 }
 
 .city-side-path {
     font-family: var(--vscode-editor-font-family, monospace);
     font-size: 11px;
     word-break: break-all;
-    opacity: 0.9;
+    opacity: 0.5;
 }
 
 .city-side-grid {
@@ -5084,3 +5088,52 @@ select option {
 }
 
 .treemap-city-btn:hover { background: rgba(255, 255, 255, 0.08); }
+
+/* City — mini dependency map (CodeCity-style) */
+.city-rel-svg {
+    width: 100%;
+    height: auto;
+    display: block;
+    overflow: visible;
+}
+
+.city-rel-link {
+    stroke-width: 1;
+    opacity: 0.45;
+}
+
+.city-rel {
+    cursor: pointer;
+}
+
+.city-rel circle { transition: r 90ms ease; }
+.city-rel:hover circle { r: 5.5; }
+
+.city-rel text {
+    font-size: 9px;
+    fill: #b0bec5;
+    pointer-events: none;
+}
+
+.city-rel:hover text { fill: #ffffff; }
+
+.city-rel-self {
+    font-size: 9px;
+    fill: #e0e0e0;
+}
+
+.city-rel-more {
+    font-size: 9px;
+    fill: #78909c;
+}
+
+.city-rel-legend {
+    margin-top: 6px;
+    font-size: 10px;
+    opacity: 0.75;
+    display: flex;
+    gap: 10px;
+}
+
+.city-rel-legend .rel-out { color: #4fc3f7; }
+.city-rel-legend .rel-in { color: #e0b53a; }

@@ -341,6 +341,59 @@
 
         scene.add(group);
         state.decor = group;
+        buildBuildingEdges(plan, group);
+    }
+
+    /**
+     * Dark outlines around every block. Uniform facades in the same perspective
+     * merge into one mass; a 1-thousandth-of-a-unit offset keeps the lines outside
+     * the surface (no z-fighting) and one geometry keeps it to a single draw call.
+     */
+    function buildBuildingEdges(plan, group) {
+        var T = window.THREE;
+        if (!T || !plan) return;
+        var positions = [];
+
+        function edge(a, b) {
+            positions.push(a[0], a[1], a[2], b[0], b[1], b[2]);
+        }
+
+        for (var i = 0; i < plan.rects.length; i++) {
+            var rect = plan.rects[i];
+            var w = Math.max(rect.w * SCALE, 1.2) * 1.004;
+            var d = Math.max(rect.d * SCALE, 1.2) * 1.004;
+            var h = Math.max(rect.h * HEIGHT, MIN_H);
+            var x = (rect.x + rect.w / 2 - 0.5) * SCALE;
+            var z = (rect.z + rect.d / 2 - 0.5) * SCALE;
+            var base = plateAltitude(rect.depth);
+            var top = base + h;
+            var hw = w / 2, hd = d / 2;
+
+            var p000 = [x - hw, base, z - hd];
+            var p100 = [x + hw, base, z - hd];
+            var p110 = [x + hw, base, z + hd];
+            var p010 = [x - hw, base, z + hd];
+            var p001 = [x - hw, top, z - hd];
+            var p101 = [x + hw, top, z - hd];
+            var p111 = [x + hw, top, z + hd];
+            var p011 = [x - hw, top, z + hd];
+
+            edge(p000, p100); edge(p100, p110); edge(p110, p010); edge(p010, p000);
+            edge(p001, p101); edge(p101, p111); edge(p111, p011); edge(p011, p001);
+            edge(p000, p001); edge(p100, p101); edge(p110, p111); edge(p010, p011);
+        }
+
+        if (positions.length === 0) return;
+        var geometry = new T.BufferGeometry();
+        geometry.setAttribute('position', new T.Float32BufferAttribute(positions, 3));
+        var lines = new T.LineSegments(geometry, new T.LineBasicMaterial({
+            color: '#070a0e',
+            transparent: true,
+            opacity: 0.7,
+            depthWrite: false,
+        }));
+        lines.name = 'aura-city-edges';
+        group.add(lines);
     }
 
     function ensureGraph() {
@@ -523,12 +576,8 @@
     function updateSummary() {
         var summary = $('#city-summary');
         if (!summary || !state.plan) return;
-        summary.textContent = state.plan.rects.length + ' buildings · ' + state.plan.districts.length + ' districts'
-            + '  ·  height = ' + state.plan.heightMetric
-            + '  ·  footprint = ' + state.plan.footprintMetric
-            + '  ·  colour = ' + OPTIONS.colour
-            + '  ·  ' + (state.plan.mapping === 'quantiles' ? '5 tiers' : state.plan.mapping)
-            + '  ·  streets = ' + OPTIONS.streets;
+        summary.textContent = state.plan.rects.length + ' buildings · '
+            + state.plan.districts.length + ' districts · height = ' + state.plan.heightMetric;
     }
 
     /** Isometric-ish three-quarter view, the way CodeCity opens. */
@@ -623,8 +672,7 @@
                 + '<div>' + escapeHtml(rect.district) + '</div></div>';
         }
 
-        html += relationSection('Depends on', state.relations.out);
-        html += relationSection('Used by', state.relations.in);
+        html += relationGraph();
 
         html += memberSection(node);
 
@@ -666,26 +714,73 @@
         return html + '</div>';
     }
 
-    /** One clickable list of neighbours; rows select that building in place. */
-    function relationSection(label, bucket) {
-        var ids = Object.keys(bucket);
-        var html = '<div class="city-side-section"><div class="city-side-label">'
-            + label + ' (' + ids.length + ')</div>';
-        if (ids.length === 0) {
-            html += '<div class="city-side-empty">none</div></div>';
-            return html;
+    /**
+     * Mini dependency map, the way CodeCity draws it in its inspector: the file
+     * in the middle, its dependencies on the right (blue), its dependents on the
+     * left (amber), both violet. Clicking a satellite selects that building.
+     */
+    function relationGraph() {
+        var outIds = Object.keys(state.relations.out);
+        var inIds = Object.keys(state.relations.in);
+        var label = '<div class="city-side-label">Connections';
+        if (outIds.length || inIds.length) label += ' · ' + outIds.length + ' out · ' + inIds.length + ' in';
+        label += '</div>';
+        if (outIds.length === 0 && inIds.length === 0) {
+            return '<div class="city-side-section">' + label + '<div class="city-side-empty">none</div></div>';
         }
-        ids.sort(function (a, b) { return (bucket[b] || 0) - (bucket[a] || 0) || a.localeCompare(b); });
-        for (var i = 0; i < ids.length && i < 14; i++) {
-            html += '<div class="city-side-row" data-city-goto="' + escapeHtml(ids[i]) + '" title="' + escapeHtml(ids[i]) + '">'
-                + '<span class="city-side-row-name">' + escapeHtml(ids[i].split('/').pop()) + '</span>'
-                + '<span class="city-side-row-count">' + (bucket[ids[i]] || 0) + '</span></div>';
+
+        var MAX = 8;
+        var rows = Math.max(1, Math.min(outIds.length, MAX), Math.min(inIds.length, MAX));
+        var W = 280;
+        var H = Math.max(58, 34 + (rows - 1) * 24);
+        var cx = W / 2;
+        var cy = H / 2;
+        var COL_R = 196;
+        var COL_L = 84;
+        var svg = '<svg class="city-rel-svg" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet">';
+
+        function column(ids, x, colour, side) {
+            var overflow = ids.length > MAX ? ids.length - MAX : 0;
+            var slots = Math.min(ids.length, MAX);
+            var shown = overflow ? ids.slice(0, slots - 1) : ids.slice();
+            var step = slots > 1 ? Math.min(24, (H - 24) / (slots - 1)) : 0;
+            var startY = cy - (step * (slots - 1)) / 2;
+            var anchor = side === 'right' ? 'start' : 'end';
+            var textX = side === 'right' ? x + 9 : x - 9;
+            for (var i = 0; i < shown.length; i++) {
+                var y = startY + i * step;
+                var id = shown[i];
+                svg += '<line class="city-rel-link" x1="' + cx + '" y1="' + cy + '" x2="' + x + '" y2="' + y
+                    + '" stroke="' + colour + '"/>';
+                svg += '<g class="city-rel" data-city-goto="' + escapeHtml(id) + '"><title>' + escapeHtml(id) + '</title>'
+                    + '<circle cx="' + x + '" cy="' + y + '" r="4" fill="' + colour + '"/>'
+                    + '<text x="' + textX + '" y="' + (y + 3.2) + '" text-anchor="' + anchor + '">'
+                    + escapeHtml(shortName(id)) + '</text></g>';
+            }
+            if (overflow) {
+                var moreY = startY + (slots - 1) * step;
+                svg += '<text class="city-rel-more" x="' + textX + '" y="' + (moreY + 3.2) + '"'
+                    + ' text-anchor="' + anchor + '">+' + overflow + ' more</text>';
+            }
         }
-        if (ids.length > 14) {
-            html += '<div class="city-side-empty">+' + (ids.length - 14) + ' more</div>';
-        }
-        html += '</div>';
-        return html;
+
+        column(outIds, COL_R, '#4fc3f7', 'right');
+        column(inIds, COL_L, '#e0b53a', 'left');
+
+        svg += '<circle cx="' + cx + '" cy="' + cy + '" r="6.5" fill="#ffffff"/>';
+        svg += '<text class="city-rel-self" x="' + cx + '" y="' + (cy + 20) + '" text-anchor="middle">'
+            + escapeHtml(shortName(state.selected || '', 18)) + '</text>';
+        svg += '</svg>';
+
+        return '<div class="city-side-section">' + label + svg
+            + '<div class="city-rel-legend"><span class="rel-out">● depends on</span>'
+            + '<span class="rel-in">● used by</span></div></div>';
+    }
+
+    function shortName(id, max) {
+        var name = String(id || '').split('/').pop();
+        var limit = max || 13;
+        return name.length > limit ? name.slice(0, limit - 1) + '…' : name;
     }
 
     function updateHud() {
