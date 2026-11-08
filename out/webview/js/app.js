@@ -6437,11 +6437,12 @@
         var exportImageBtn = $('#btn-export-image');
         if (exportImageBtn) exportImageBtn.classList.toggle('hidden', tabName !== 'graph');
 
-        // The search box drives the view on screen: it is meaningful on the 3D
-        // graph and on the city (both are per-building), and noise anywhere else.
+        // The search box drives the view on screen: the per-building views (3D
+        // graph, city) and the two file-level views (treemap, table). On the
+        // aggregate tabs it would have nothing to point at.
         var searchBox = $('#search-container');
         if (searchBox) {
-            var searchable = (tabName === 'graph' || tabName === 'city');
+            var searchable = (tabName === 'graph' || tabName === 'city' || tabName === 'treemap' || tabName === 'table');
             searchBox.classList.toggle('hidden', !searchable);
             if (!searchable) {
                 var searchResults = $('#search-results');

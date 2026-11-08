@@ -1817,6 +1817,38 @@
         return max;
     }
 
+    /**
+     * Search entry point: zoom to the file's directory so its cell exists, then
+     * flash the cell. The treemap has no selection, so the highlight *is* the
+     * answer — it fades after a couple of seconds.
+     */
+    function revealTreemapFile(id) {
+        var container = $('#treemap-container');
+        if (!container || !id) return false;
+        var t = String(id).split('/');
+        var dir = t.slice(0, t.length - 1).join('/');
+        if (dir !== treemapZoomPath) {
+            treemapZoomPath = dir;
+            treemapRenderedW = 0;
+            treemapRenderedH = 0;
+            renderTreemap();                 // defers to rAF
+        }
+        var flash = function () {
+            var cells = container.querySelectorAll('.treemap-file');
+            var cell = null;
+            for (var i = 0; i < cells.length; i++) {
+                if (cells[i].dataset.nodeId === id) { cell = cells[i]; break; }
+            }
+            if (!cell) return false;
+            cell.classList.add('treemap-file-hit');
+            if (cell.scrollIntoView) cell.scrollIntoView({ block: 'center', inline: 'center' });
+            setTimeout(function () { cell.classList.remove('treemap-file-hit'); }, 2500);
+            return true;
+        };
+        if (typeof requestAnimationFrame === 'function') { requestAnimationFrame(flash); return true; }
+        return flash();
+    }
+
     function renderTable() {
         syncCtx();
         var tbody = $('#table-body');
@@ -1927,6 +1959,41 @@
         }
     }
 
+    /**
+     * Search entry point for the table: select the row and bring it on screen.
+     * The table has its own inline filter — drop it rather than answering "not
+     * found" when the row is simply filtered out.
+     */
+    function revealTableFile(id) {
+        var tbody = $('#table-body');
+        if (!tbody || !id) return false;
+        var findRow = function () {
+            var rows = tbody.querySelectorAll('tr');
+            for (var i = 0; i < rows.length; i++) {
+                if (rows[i].dataset.id === id) return rows[i];
+            }
+            return null;
+        };
+        var row = findRow();
+        if (!row && tableFilter) {
+            tableFilter = '';
+            var filterInput = $('#table-search');
+            if (filterInput) filterInput.value = '';
+            renderTable();
+            row = findRow();
+        }
+        if (!row) return false;
+
+        var rows = tbody.querySelectorAll('tr');
+        for (var j = 0; j < rows.length; j++) rows[j].classList.remove('selected');
+        row.classList.add('selected', 'table-hit');
+        var node = hooks.findNode(id);
+        if (node) { hooks.setSelectedNode(node); selectedNode = node; }
+        if (row.scrollIntoView) row.scrollIntoView({ block: 'center' });
+        setTimeout(function () { row.classList.remove('table-hit'); }, 2500);
+        return true;
+    }
+
     function setupTableInteractions() {
         var ths = document.querySelectorAll('.aura-table th');
         for (var i = 0; i < ths.length; i++) {
@@ -1970,6 +2037,8 @@
         renderTimelineChart: renderTimelineChart,
         renderDSM: renderDSM,
         renderTable: renderTable,
+        revealTableFile: revealTableFile,
+        revealTreemapFile: revealTreemapFile,
         // Control wiring — called once by setupTabs()
         setupTreemap: setupTreemap,
         setupChord: setupChord,

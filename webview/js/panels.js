@@ -141,28 +141,41 @@
     // Search
     // ============================================================
     /**
-     * A search hit is an action on the *view on screen*: the 3D graph or the
-     * city. On the city a file has no building of its own at function
-     * granularity, so it drills into the file's block instead.
+     * A search hit is an action on the *view on screen*: the 3D graph, the city,
+     * the treemap or the table. Each view does the most useful thing it can —
+     * select a building, drill into a block, zoom to a cell, select a row.
      */
     function activateNode(node) {
         if (!node) return;
-        if (hooks.getActiveTab && hooks.getActiveTab() === 'city'
-            && window.AuraCityView && typeof window.AuraCityView.reveal === 'function') {
+        var tab = hooks.getActiveTab ? hooks.getActiveTab() : '';
+        if (tab === 'city' && window.AuraCityView && typeof window.AuraCityView.reveal === 'function') {
             window.AuraCityView.reveal(node.id);
             return;
+        }
+        if (window.AuraViews) {
+            if (tab === 'treemap' && typeof window.AuraViews.revealTreemapFile === 'function'
+                && window.AuraViews.revealTreemapFile(node.id)) return;
+            if (tab === 'table' && typeof window.AuraViews.revealTableFile === 'function'
+                && window.AuraViews.revealTableFile(node.id)) return;
         }
         hooks.selectNode(node);
     }
 
-    /** Same for a symbol hit: its building, else its file's block. */
+    /** Same for a symbol hit: its building, else its file's row or cell. */
     function activateSymbol(hit) {
         if (!hit || !hit.node || !hit.symbol) return;
-        if (hooks.getActiveTab && hooks.getActiveTab() === 'city'
-            && window.AuraCityView && typeof window.AuraCityView.revealSymbol === 'function') {
+        var tab = hooks.getActiveTab ? hooks.getActiveTab() : '';
+        if (tab === 'city' && window.AuraCityView && typeof window.AuraCityView.revealSymbol === 'function') {
             if (window.AuraCityView.revealSymbol(hit.node.id, hit.symbol.name)) return;
             window.AuraCityView.reveal(hit.node.id);
             return;
+        }
+        // Neither the table nor the treemap has symbols: reveal the file.
+        if ((tab === 'table' || tab === 'treemap') && window.AuraViews) {
+            if (tab === 'table' && window.AuraViews.revealTableFile
+                && window.AuraViews.revealTableFile(hit.node.id)) return;
+            if (tab === 'treemap' && window.AuraViews.revealTreemapFile
+                && window.AuraViews.revealTreemapFile(hit.node.id)) return;
         }
         if (hooks.focusSymbol) hooks.focusSymbol(hit.node.id, hit.symbol.name);
     }
