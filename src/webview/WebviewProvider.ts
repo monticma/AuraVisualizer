@@ -1684,6 +1684,7 @@ export class WebviewProvider {
             </label>
             <span id="city-summary"></span>
         </div>
+        <div id="city-crumbs" class="hidden"></div>
         <div id="city-canvas"></div>
         <aside id="city-side" class="hidden" aria-live="polite">
             <header id="city-side-head">

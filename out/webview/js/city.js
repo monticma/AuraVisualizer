@@ -59,6 +59,7 @@
         streetCount: 0,
         relations: { in: {}, out: {} },
         selected: null,
+        scope: '',            // '' = whole city, otherwise a district key path
         observer: null,
         hudMeta: null,
         hudFocus: null,
@@ -378,13 +379,44 @@
     }
 
     // ── Plan ───────────────────────────────────────────────────
+
+    /** Nodes of the current drill-down scope (all of them at the root). */
+    function nodesInScope() {
+        var all = (state.data && state.data.nodes) || [];
+        if (!state.scope) return all;
+        var keyOf = window.AuraCity && window.AuraCity.districtKeyOf;
+        if (!keyOf) return all;
+        var prefix = state.scope + '/';
+        var kept = [];
+        for (var i = 0; i < all.length; i++) {
+            var key = keyOf(all[i], OPTIONS.districtBy);
+            if (key === state.scope || key.indexOf(prefix) === 0) kept.push(all[i]);
+        }
+        return kept;
+    }
+
+    function scopeDepth() {
+        return state.scope ? state.scope.split('/').length : 0;
+    }
+
+    function setScope(scope) {
+        var next = scope || '';
+        if (next === state.scope) return;
+        state.scope = next;
+        state.plan = null;
+        state.selected = null;
+        state.relations = { in: {}, out: {} };
+        renderSide();
+        if (isActive()) applyPlan();
+    }
+
     function applyPlan() {
         var graph = ensureGraph();
         if (!graph || !state.data || !window.AuraCity) return;
         // The payload nodes are the *same objects* the graph tab feeds: mutating
         // them (positions + pins) would drag the graph layout into the city and
         // leave every node pinned when the user goes back. Work on copies.
-        var source = state.data.nodes || [];
+        var source = nodesInScope();
         var nodes = [];
         for (var c = 0; c < source.length; c++) {
             var clone = {};
@@ -393,9 +425,20 @@
             }
             nodes.push(clone);
         }
-        if (nodes.length === 0) return;
+        if (nodes.length === 0) { state.plan = null; renderCrumbs(); updateSummary(); return; }
 
         state.plan = window.AuraCity.layoutCity(nodes, OPTIONS);
+        // Inside a drill-down the plates start at the scope's own level, otherwise
+        // every building would float on a stack of invisible parent platforms.
+        var base = scopeDepth();
+        if (base > 0) {
+            for (var r0 = 0; r0 < state.plan.rects.length; r0++) {
+                state.plan.rects[r0].depth = Math.max(0, state.plan.rects[r0].depth - base);
+            }
+            for (var d0 = 0; d0 < state.plan.districts.length; d0++) {
+                state.plan.districts[d0].depth = Math.max(0, state.plan.districts[d0].depth - base);
+            }
+        }
         state.byId = {};
         state.nodeById = {};
         for (var k = 0; k < nodes.length; k++) state.nodeById[nodes[k].id] = nodes[k];
@@ -425,6 +468,55 @@
         frameCity();
         updateHud();
         updateSummary();
+        renderCrumbs();
+    }
+
+    /**
+     * Breadcrumb of the current scope + one chip per child district, the way
+     * CodeCity filters by district (`Project` › `src`). Pure DOM: no raycasting
+     * against the plates, and it works whatever the zoom level.
+     */
+    function renderCrumbs() {
+        var bar = $('#city-crumbs');
+        if (!bar) return;
+        if (!state.data || !window.AuraCity) { bar.classList.add('hidden'); return; }
+        bar.classList.remove('hidden');
+
+        var keyOf = window.AuraCity.districtKeyOf;
+        var segments = state.scope ? state.scope.split('/') : [];
+        var html = '<button type="button" class="city-crumb' + (segments.length === 0 ? ' current' : '')
+            + '" data-city-scope="">🏙️ All districts</button>';
+
+        for (var s = 0; s < segments.length; s++) {
+            var path = segments.slice(0, s + 1).join('/');
+            var isLast = s === segments.length - 1;
+            html += '<span class="city-crumb-sep">›</span>';
+            html += '<button type="button" class="city-crumb' + (isLast ? ' current' : '')
+                + '" data-city-scope="' + escapeHtml(path) + '">' + escapeHtml(segments[s]) + '</button>';
+        }
+
+        // Children of the current scope: the next path segment carrying files.
+        var prefix = state.scope ? state.scope + '/' : '';
+        var children = {};
+        var nodes = (state.data.nodes || []);
+        for (var i = 0; i < nodes.length; i++) {
+            var key = keyOf(nodes[i], OPTIONS.districtBy);
+            if (prefix && key.indexOf(prefix) !== 0) continue;
+            var rest = key.slice(prefix.length);
+            if (!rest) continue;
+            var next = rest.split('/')[0];
+            var childPath = prefix + next;
+            children[childPath] = children[childPath] || 0;
+            children[childPath]++;
+        }
+        var paths = Object.keys(children).sort();
+        for (var p = 0; p < paths.length && p < 24; p++) {
+            html += '<button type="button" class="city-crumb" data-city-scope="' + escapeHtml(paths[p]) + '"'
+                + ' title="' + escapeHtml(paths[p]) + '">' + escapeHtml(paths[p].slice(prefix.length))
+                + '<span class="city-crumb-count">' + children[paths[p]] + '</span></button>';
+        }
+
+        bar.innerHTML = html;
     }
 
     /** Legend line: what the three (four) channels actually encode right now. */
@@ -608,6 +700,17 @@
     function wireSide() {
         var body = $('#city-side-body');
         var close = $('#city-side-close');
+        var crumbs = $('#city-crumbs');
+        if (crumbs) {
+            crumbs.addEventListener('click', function (event) {
+                var scope = event.target && event.target.getAttribute('data-city-scope');
+                if (scope === null || scope === undefined) {
+                    var parent = event.target && event.target.parentNode;
+                    scope = parent && parent.getAttribute ? parent.getAttribute('data-city-scope') : null;
+                }
+                if (scope !== null && scope !== undefined) setScope(scope);
+            });
+        }
         if (close) close.addEventListener('click', clearSelection);
         if (!body) return;
         body.addEventListener('click', function (event) {
@@ -748,6 +851,8 @@
         activate: activate,
         select: function (id) { selectBuilding({ id: id }); },
         clear: clearSelection,
+        scope: function () { return state.scope; },
+        setScope: setScope,
         colourOf: function (id) { return colourFor({ id: id, language: '' }, state.byId[id] || { h: 0.5, district: '' }); },
         tooltip: function (id) { return tooltipFor({ id: id }); },
         relations: function () {

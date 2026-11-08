@@ -5029,3 +5029,45 @@ select option {
 .city-tip-dir { margin-top: 2px; }
 .city-tip-out { color: #e0b53a; }
 .city-tip-in { color: #4fc3f7; }
+
+/* City — district drill-down (breadcrumb + child chips) */
+#city-crumbs {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 5px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(13, 17, 23, 0.35);
+    font-size: 11px;
+    color: #b0bec5;
+    flex: 0 0 auto;
+}
+
+#city-crumbs.hidden { display: none; }
+
+.city-crumb {
+    padding: 1px 7px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: transparent;
+    color: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.city-crumb:hover { background: rgba(255, 255, 255, 0.08); }
+
+.city-crumb.current {
+    border-color: rgba(224, 181, 58, 0.6);
+    color: #e0b53a;
+    cursor: default;
+}
+
+.city-crumb-sep { opacity: 0.35; }
+
+.city-crumb-count { opacity: 0.45; margin-left: 4px; font-variant-numeric: tabular-nums; }
