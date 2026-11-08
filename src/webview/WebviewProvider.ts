@@ -1686,17 +1686,25 @@ export class WebviewProvider {
             <button id="city-export" type="button" class="city-select" title="Export the city as a PNG">📷 PNG</button>
         </div>
         <div id="city-crumbs" class="hidden"></div>
-        <div id="city-canvas"></div>
-        <aside id="city-side" class="hidden" aria-live="polite">
-            <header id="city-side-head">
-                <span id="city-side-title">Building</span>
-                <button id="city-side-close" type="button" title="Close">✕</button>
-            </header>
-            <div id="city-side-body"></div>
-        </aside>
-        <div id="city-hud">
-            <span id="city-hud-meta">Click a building</span>
-            <button id="city-hud-graph" type="button" title="Focus this file in the 3D Graph tab">⌖ Focus in graph</button>
+        <!-- Stage: the panel is anchored here, below the two toolbars, exactly
+             like #detail-panel sits under the 3D Graph toolbar. -->
+        <div id="city-stage">
+            <div id="city-canvas"></div>
+            <div id="city-hud">
+                <span id="city-hud-meta">Click a building</span>
+                <button id="city-hud-graph" type="button" title="Focus this file in the 3D Graph tab">⌖ Focus in graph</button>
+            </div>
+            <aside id="city-side" aria-live="polite">
+                <header id="city-side-head">
+                    <div id="city-side-icon">📄</div>
+                    <div id="city-side-info">
+                        <h2 id="city-side-title">Building</h2>
+                        <span id="city-side-path">—</span>
+                    </div>
+                    <button id="city-side-close" type="button" title="Close">✕</button>
+                </header>
+                <div id="city-side-body"></div>
+            </aside>
         </div>
     </div>
 

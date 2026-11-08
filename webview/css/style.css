@@ -4814,6 +4814,19 @@ select option {
     position: relative;
     overflow: hidden;
     flex-direction: column;
+    min-height: 0;
+}
+
+/* Holds the canvas + the overlays, so the inspector starts below the toolbars
+   (same relationship as #detail-panel inside the 3D Graph tab). */
+#city-stage {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 #city-canvas {
@@ -4894,13 +4907,19 @@ select option {
 }
 
 #city-summary {
-    margin-left: auto;
+    flex: 1 1 0;
+    min-width: 0;
+    text-align: right;
     opacity: 0.6;
     font-size: 11px;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-/* City — inspector panel (right) and hover tooltip */
+/* City — inspector panel (right) and hover tooltip.
+   Same shell as #detail-panel: 320 px, blurred sidebar, slides in from the
+   right on a 0.25 s transform (no layout thrash, no popping). */
 #city-side {
     position: absolute;
     top: 0;
@@ -4911,15 +4930,18 @@ select option {
     flex-direction: column;
     background: var(--aura-sidebar-bg);
     border-left: 1px solid var(--aura-border);
-    transform: translateX(0);
-    transition: transform 140ms ease;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transform: translateX(100%);
+    pointer-events: none;
+    transition: transform 0.25s ease;
     z-index: 3;
     overflow: hidden;
 }
 
-#city-side.hidden {
-    transform: translateX(100%);
-    pointer-events: none;
+#city-side.open {
+    transform: translateX(0);
+    pointer-events: auto;
 }
 
 #city-side-head {
@@ -4928,29 +4950,44 @@ select option {
     gap: 12px;
     padding: 16px 20px;
     border-bottom: 1px solid var(--aura-border);
+    min-width: 320px;
 }
 
+#city-side-icon { font-size: 28px; flex-shrink: 0; margin-top: 2px; }
+
+#city-side-info { flex: 1; min-width: 0; }
+
 #city-side-title {
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-size: 15px;
     font-weight: 600;
+    font-size: 15px;
+    word-break: break-word;
+}
+
+#city-side-path {
+    display: block;
+    font-size: 11px;
+    opacity: 0.5;
+    margin-top: 4px;
+    word-break: break-all;
+    font-family: monospace;
 }
 
 #city-side-close {
-    background: transparent;
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    background: none;
     border: none;
-    color: inherit;
-    opacity: 0.6;
+    color: var(--aura-fg);
+    font-size: 18px;
     cursor: pointer;
-    font-size: 12px;
-    line-height: 1.2;
-    padding: 0;
+    opacity: 0.5;
+    padding: 4px;
+    border-radius: 4px;
+    transition: opacity 0.15s, background 0.15s;
 }
 
-#city-side-close:hover { opacity: 1; }
+#city-side-close:hover { opacity: 1; background: rgba(255, 255, 255, 0.06); }
 
 #city-side-body {
     flex: 1;
@@ -4960,9 +4997,15 @@ select option {
     line-height: 1.5;
 }
 
-.city-side-section { padding: 12px 20px 0; }
-.city-side-section + .city-side-section { margin-top: 0; }
+/* Sections are separated by a hairline, exactly like .panel-section. */
+.city-side-section {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--aura-border);
+}
 
+.city-side-section:last-child { border-bottom: none; }
+
+/* Section headers: exactly .panel-section-title from the 3D Graph panel. */
 .city-side-label {
     text-transform: uppercase;
     letter-spacing: 1px;
@@ -4972,21 +5015,39 @@ select option {
     margin-bottom: 6px;
 }
 
-.city-side-path {
-    font-family: var(--vscode-editor-font-family, monospace);
-    font-size: 11px;
-    word-break: break-all;
-    opacity: 0.5;
-}
 
-.city-side-grid {
+/* Metrics: the 2-column stacked grid of .panel-meta (label 11 px, value 14 px). */.city-side-grid {
     display: grid;
-    grid-template-columns: 1fr auto;
-    gap: 2px 10px;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 12px;
 }
 
-.city-side-grid span:nth-child(odd) { opacity: 0.6; }
-.city-side-grid span:nth-child(even) { text-align: right; font-variant-numeric: tabular-nums; }
+.city-side-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.city-side-k {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.city-side-v {
+    font-size: 14px;
+    font-weight: 500;
+    font-family: monospace;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
 
 .city-side-row {
     display: flex;
@@ -4995,6 +5056,7 @@ select option {
     padding: 2px 4px;
     border-radius: 4px;
     cursor: pointer;
+    font-size: 12px;
 }
 
 .city-side-row:hover { background: rgba(255, 255, 255, 0.07); }
@@ -5004,9 +5066,14 @@ select option {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    font-family: var(--vscode-editor-font-family, monospace);
 }
 
-.city-side-row .city-side-row-count { opacity: 0.5; font-variant-numeric: tabular-nums; }
+.city-side-row .city-side-row-count {
+    opacity: 0.5;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+}
 
 .city-side-actions {
     display: flex;
@@ -5015,16 +5082,20 @@ select option {
 }
 
 .city-side-actions button {
-    padding: 3px 8px;
+    padding: 6px 10px;
     border-radius: 6px;
     border: 1px solid rgba(255, 255, 255, 0.16);
     background: transparent;
     color: inherit;
-    font-size: 11px;
+    font-size: 12px;
     cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
 }
 
-.city-side-actions button:hover { background: rgba(255, 255, 255, 0.08); }
+.city-side-actions button:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.3);
+}
 
 .city-side-empty { opacity: 0.5; font-style: italic; }
 

@@ -577,7 +577,7 @@
         var summary = $('#city-summary');
         if (!summary || !state.plan) return;
         summary.textContent = state.plan.rects.length + ' buildings · '
-            + state.plan.districts.length + ' districts · height = ' + state.plan.heightMetric;
+            + state.plan.districts.length + ' districts';
     }
 
     /** Isometric-ish three-quarter view, the way CodeCity opens. */
@@ -640,20 +640,25 @@
         var title = $('#city-side-title');
         if (!side || !body) return;
         var id = state.selected;
-        if (!id) { side.classList.add('hidden'); return; }
-        side.classList.remove('hidden');
+        if (!id) { side.classList.remove('open'); return; }
+        side.classList.add('open');
 
         var rect = state.byId[id];
         var node = state.nodeById[id] || {};
         if (title) title.textContent = id.split('/').pop() || id;
+        var pathEl = $('#city-side-path');
+        if (pathEl) pathEl.textContent = id;
+        var iconEl = $('#city-side-icon');
+        if (iconEl) {
+            var icons = window.LANGUAGE_ICONS || {};
+            iconEl.textContent = icons[node.language] || '📄';
+        }
 
         var html = '';
-        html += '<div class="city-side-section"><div class="city-side-label">Path</div>'
-            + '<div class="city-side-path">' + escapeHtml(id) + '</div></div>';
-
         html += '<div class="city-side-section"><div class="city-side-label">Metrics</div><div class="city-side-grid">';
         function row(label, value) {
-            html += '<span>' + label + '</span><span>' + escapeHtml(value) + '</span>';
+            html += '<div class="city-side-cell"><span class="city-side-k">' + label + '</span>'
+                + '<span class="city-side-v">' + escapeHtml(value) + '</span></div>';
         }
         row('Lines', node.linesOfCode);
         row('Cyclomatic', node.complexity);
@@ -669,7 +674,7 @@
 
         if (rect) {
             html += '<div class="city-side-section"><div class="city-side-label">District</div>'
-                + '<div>' + escapeHtml(rect.district) + '</div></div>';
+                + '<div class="city-side-v">' + escapeHtml(rect.district) + '</div></div>';
         }
 
         html += relationGraph();
