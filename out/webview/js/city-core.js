@@ -21,12 +21,17 @@ var AuraCity = (() => {
   // src/graph/city-core.ts
   var city_core_exports = {};
   __export(city_core_exports, {
+    BASE_CITY_SCALE: () => BASE_CITY_SCALE,
     DEFAULT_BUILDING_GAP: () => DEFAULT_BUILDING_GAP,
     DEFAULT_FUNCTION_LIMIT: () => DEFAULT_FUNCTION_LIMIT,
     DEFAULT_GAP: () => DEFAULT_GAP,
     DEFAULT_HEIGHT_COUNT: () => DEFAULT_HEIGHT_COUNT,
+    MAX_CITY_SCALE: () => MAX_CITY_SCALE,
+    MIN_CITY_SCALE: () => MIN_CITY_SCALE,
     MIN_HEIGHT_RATIO: () => MIN_HEIGHT_RATIO,
     MIN_STREET: () => MIN_STREET,
+    REFERENCE_BUILDINGS: () => REFERENCE_BUILDINGS,
+    cityScaleFor: () => cityScaleFor,
     districtDepth: () => districtDepth,
     districtKeyOf: () => districtKeyOf,
     footprintWeight: () => footprintWeight,
@@ -39,6 +44,16 @@ var AuraCity = (() => {
     tierOf: () => tierOf
   });
   var MIN_HEIGHT_RATIO = 0.12;
+  var BASE_CITY_SCALE = 520;
+  var REFERENCE_BUILDINGS = 762;
+  var MIN_CITY_SCALE = 260;
+  var MAX_CITY_SCALE = 1800;
+  function cityScaleFor(count) {
+    const n = typeof count === "number" && isFinite(count) && count > 0 ? count : 0;
+    if (n === 0)
+      return BASE_CITY_SCALE;
+    return Math.max(MIN_CITY_SCALE, Math.min(MAX_CITY_SCALE, BASE_CITY_SCALE * Math.sqrt(n / REFERENCE_BUILDINGS)));
+  }
   var DEFAULT_FUNCTION_LIMIT = 2e3;
   function positiveOr(value, fallback) {
     return typeof value === "number" && isFinite(value) && value > 0 ? value : fallback;

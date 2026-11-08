@@ -146,6 +146,34 @@ export interface CityPlan {
 export const MIN_HEIGHT_RATIO = 0.12;
 
 /**
+ * World width of the plan at the reference building count. The plan itself is
+ * normalized to a unit square, so this is the only place a building count turns
+ * into metres.
+ */
+export const BASE_CITY_SCALE = 520;
+
+/** Building count that renders at `BASE_CITY_SCALE` (this repo, 762 files). */
+export const REFERENCE_BUILDINGS = 762;
+
+/** A village still has to be visible: 20 buildings would be a 40-unit speck. */
+export const MIN_CITY_SCALE = 260;
+
+/** …and a generated 50 000-building city must not leave the ground plane. */
+export const MAX_CITY_SCALE = 1800;
+
+/**
+ * World size of the plan for a given building count. The ground and its 130-unit
+ * grid are fixed in world units, so growing the city with √n turns that grid into
+ * a ruler: 20 buildings → 2 cells, 762 → 4, 4 993 → 10. The camera follows, so
+ * the composition stays usable at every size.
+ */
+export function cityScaleFor(count: number): number {
+    const n = typeof count === 'number' && isFinite(count) && count > 0 ? count : 0;
+    if (n === 0) return BASE_CITY_SCALE;
+    return Math.max(MIN_CITY_SCALE, Math.min(MAX_CITY_SCALE, BASE_CITY_SCALE * Math.sqrt(n / REFERENCE_BUILDINGS)));
+}
+
+/**
  * Default cap on the functions turned into buildings, per file. High enough to
  * keep every real file whole (the largest amalgamation seen — mongoose.c — holds
  * 875 functions), low enough to stop a generated file from owning the city.

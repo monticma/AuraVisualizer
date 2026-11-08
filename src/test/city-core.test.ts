@@ -9,6 +9,11 @@ import {
     districtDepth,
     metricValue,
     functionNodes,
+    cityScaleFor,
+    BASE_CITY_SCALE,
+    REFERENCE_BUILDINGS,
+    MIN_CITY_SCALE,
+    MAX_CITY_SCALE,
     MIN_HEIGHT_RATIO,
     DEFAULT_HEIGHT_COUNT,
     type CityNodeLike,
@@ -410,5 +415,36 @@ describe('city-core · function granularity', () => {
         expect(plan.rects).toHaveLength(2);
         expect(plan.districts.map(d => d.key).sort()).toEqual(['src/a.c', 'src/b.c']);
         expect(plan.rects[0].heightValue).toBeGreaterThan(plan.rects[1].heightValue);
+    });
+});
+
+describe('city-core · city scale', () => {
+    it('renders the reference count at the base size', () => {
+        expect(cityScaleFor(REFERENCE_BUILDINGS)).toBeCloseTo(BASE_CITY_SCALE, 6);
+    });
+
+    it('grows with the square root of the building count', () => {
+        const quarter = cityScaleFor(REFERENCE_BUILDINGS / 4);
+        const quadruple = cityScaleFor(REFERENCE_BUILDINGS * 4);
+        expect(quadruple / BASE_CITY_SCALE).toBeCloseTo(2, 6);
+        expect(quarter).toBe(MIN_CITY_SCALE);           // clamped, not 260.0 by luck
+        expect(cityScaleFor(3048)).toBeGreaterThan(cityScaleFor(1524));
+    });
+
+    it('clamps both ends so a village and a monster stay on the ground', () => {
+        expect(cityScaleFor(1)).toBe(MIN_CITY_SCALE);
+        expect(cityScaleFor(20)).toBe(MIN_CITY_SCALE);
+        expect(cityScaleFor(1_000_000)).toBe(MAX_CITY_SCALE);
+    });
+
+    it('never returns NaN for empty or broken counts', () => {
+        expect(cityScaleFor(0)).toBe(BASE_CITY_SCALE);
+        expect(cityScaleFor(NaN)).toBe(BASE_CITY_SCALE);
+        expect(cityScaleFor(-12)).toBe(BASE_CITY_SCALE);
+    });
+
+    it('is monotonic, so two cities are always ordered by size', () => {
+        const sizes = [4, 20, 200, 762, 1_500, 4_993, 20_000].map(cityScaleFor);
+        for (let i = 1; i < sizes.length; i++) expect(sizes[i]).toBeGreaterThanOrEqual(sizes[i - 1]);
     });
 });

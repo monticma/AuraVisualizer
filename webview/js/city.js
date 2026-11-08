@@ -15,13 +15,17 @@
 (function () {
     'use strict';
 
-    var SCALE = 520;             // plan width, in scene units
-    var HEIGHT = 170;            // tallest building, in scene units
+    // Sizes below are written at the reference building count; `cityScale()`
+    // carries them to the city actually on screen (square-root rule, city-core).
+    var BASE_SCALE = 520;        // plan width at the reference count
+    var HEIGHT = 170;            // tallest building, at the reference scale
     var PLATE_STEP = 9;          // altitude per district nesting level
     var MAX_POLAR = Math.PI / 2 - 0.1;   // never look under the plinth
     var MIN_H = 2.5;
-    var GROUND_SIZE = SCALE * 16;        // world plane; its rim is faded out
-    var GROUND_Y = -4.8;                 // just under the plinth
+    // The ground never scales: its 130-unit grid is what tells you how big the
+    // city is. Only its depth under the plinth follows the plan.
+    var GROUND_SIZE = BASE_SCALE * 16;   // world plane; its rim is faded out
+    var GROUND_DEPTH = 4.8;              // just under the plinth
     var GROUND_CELLS = 64;               // ≈ 130 units per block
 
     // CodeCity's reading: desaturated on the low end, hot at the top, so the eye
@@ -60,6 +64,7 @@
         nodeById: {},
         decor: null,
         ground: null,
+        scale: 0,             // world width of the plan, set by applyPlan
         streets: null,
         streetCount: 0,
         relations: { in: {}, out: {} },
@@ -167,8 +172,18 @@
         return rampColor((rect.h - 0.12) / 0.88);
     }
 
+    /** World width of the plan for the city currently on screen. */
+    function cityScale() {
+        return state.scale > 0 ? state.scale : BASE_SCALE;
+    }
+
+    /** A size written at the reference scale, expressed at the current one. */
+    function scaled(value) {
+        return value * cityScale() / BASE_SCALE;
+    }
+
     function plateAltitude(depth) {
-        return (depth || 0) * PLATE_STEP;
+        return (depth || 0) * scaled(PLATE_STEP);
     }
 
     // ── Scene ──────────────────────────────────────────────────
@@ -176,9 +191,9 @@
         var T = window.THREE;
         var rect = state.byId[node.id];
         if (!T || !rect) return null;
-        var w = Math.max(rect.w * SCALE, 1.2);
-        var d = Math.max(rect.d * SCALE, 1.2);
-        var h = Math.max(rect.h * HEIGHT, MIN_H);
+        var w = Math.max(rect.w * cityScale(), scaled(1.2));
+        var d = Math.max(rect.d * cityScale(), scaled(1.2));
+        var h = Math.max(rect.h * scaled(HEIGHT), scaled(MIN_H));
         var selected = state.selected === node.id;
         var color = colourFor(node, rect);
         var mesh = new T.Mesh(
@@ -236,9 +251,9 @@
             for (var d = 0; d < state.plan.districts.length; d++) {
                 var district = state.plan.districts[d];
                 centres[district.key] = {
-                    x: (district.x + district.w / 2 - 0.5) * SCALE,
-                    z: (district.z + district.d / 2 - 0.5) * SCALE,
-                    y: plateAltitude(district.depth) + 0.6,
+                    x: (district.x + district.w / 2 - 0.5) * cityScale(),
+                    z: (district.z + district.d / 2 - 0.5) * cityScale(),
+                    y: plateAltitude(district.depth) + scaled(0.6),
                     district: district.key,
                 };
             }
@@ -253,9 +268,9 @@
         function point(rect) {
             if (!rect) return null;
             return {
-                x: (rect.x + rect.w / 2 - 0.5) * SCALE,
-                z: (rect.z + rect.d / 2 - 0.5) * SCALE,
-                y: plateAltitude(rect.depth) + 0.6,
+                x: (rect.x + rect.w / 2 - 0.5) * cityScale(),
+                z: (rect.z + rect.d / 2 - 0.5) * cityScale(),
+                y: plateAltitude(rect.depth) + scaled(0.6),
                 district: rect.district,
             };
         }
@@ -382,6 +397,13 @@
         return texture;
     }
 
+    /** The ground sits just under the plinth, whose depth follows the plan. */
+    function dropGround() {
+        if (!state.ground) return;
+        var plane = state.ground.children[0];
+        if (plane) plane.position.y = -scaled(GROUND_DEPTH);
+    }
+
     /** One plane under the plinth: the city stands somewhere instead of floating. */
     function buildGround() {
         var T = window.THREE;
@@ -402,7 +424,7 @@
         );
         plane.name = 'aura-city-ground-plane';
         plane.rotation.x = -Math.PI / 2;
-        plane.position.y = GROUND_Y;
+        plane.position.y = -scaled(GROUND_DEPTH);
         // Drawn before the streets, never occluding them (no depth write).
         plane.renderOrder = -1;
         group.add(plane);
@@ -434,23 +456,23 @@
         var group = new T.Group();
         group.name = 'aura-city';
         var plinth = new T.Mesh(
-            new T.BoxGeometry(SCALE * 1.04, 3, SCALE * 1.04),
+            new T.BoxGeometry(cityScale() * 1.04, scaled(3), cityScale() * 1.04),
             new T.MeshLambertMaterial({ color: '#11151a' })
         );
-        plinth.position.y = -3.2;
+        plinth.position.y = -scaled(3.2);
         group.add(plinth);
 
         for (var i = 0; i < plan.districts.length; i++) {
             var district = plan.districts[i];
             var plate = new T.Mesh(
-                new T.BoxGeometry(Math.max(district.w * SCALE, 2), 2.4, Math.max(district.d * SCALE, 2)),
+                new T.BoxGeometry(Math.max(district.w * cityScale(), scaled(2)), scaled(2.4), Math.max(district.d * cityScale(), scaled(2))),
                 // Streets must read as ground, not as a second city.
                 new T.MeshLambertMaterial({ color: new T.Color(districtColor(district.key)).multiplyScalar(0.34) })
             );
             plate.position.set(
-                (district.x + district.w / 2 - 0.5) * SCALE,
-                plateAltitude(district.depth) - 1.2,
-                (district.z + district.d / 2 - 0.5) * SCALE
+                (district.x + district.w / 2 - 0.5) * cityScale(),
+                plateAltitude(district.depth) - scaled(1.2),
+                (district.z + district.d / 2 - 0.5) * cityScale()
             );
             group.add(plate);
         }
@@ -476,11 +498,11 @@
 
         for (var i = 0; i < plan.rects.length; i++) {
             var rect = plan.rects[i];
-            var w = Math.max(rect.w * SCALE, 1.2) * 1.004;
-            var d = Math.max(rect.d * SCALE, 1.2) * 1.004;
-            var h = Math.max(rect.h * HEIGHT, MIN_H);
-            var x = (rect.x + rect.w / 2 - 0.5) * SCALE;
-            var z = (rect.z + rect.d / 2 - 0.5) * SCALE;
+            var w = Math.max(rect.w * cityScale(), scaled(1.2)) * 1.004;
+            var d = Math.max(rect.d * cityScale(), scaled(1.2)) * 1.004;
+            var h = Math.max(rect.h * scaled(HEIGHT), scaled(MIN_H));
+            var x = (rect.x + rect.w / 2 - 0.5) * cityScale();
+            var z = (rect.z + rect.d / 2 - 0.5) * cityScale();
             var base = plateAltitude(rect.depth);
             var top = base + h;
             var hw = w / 2, hd = d / 2;
@@ -646,6 +668,13 @@
         nodes = granularNodes(nodes);
         if (nodes.length === 0) { state.plan = null; renderCrumbs(); return; }
 
+        // How big the city is on the ground: the plan is normalized, this is the
+        // only place the building count becomes a size (√n, see city-core).
+        state.scale = (window.AuraCity && window.AuraCity.cityScaleFor)
+            ? window.AuraCity.cityScaleFor(nodes.length)
+            : BASE_SCALE;
+        dropGround();
+
         state.plan = window.AuraCity.layoutCity(nodes, OPTIONS);
         // Inside a drill-down the plates start at the scope's own level, otherwise
         // every building would float on a stack of invisible parent platforms.
@@ -669,9 +698,9 @@
             var node = nodes[n];
             var rect = state.byId[node.id];
             if (!rect) continue;
-            node.x = (rect.x + rect.w / 2 - 0.5) * SCALE;
-            node.z = (rect.z + rect.d / 2 - 0.5) * SCALE;
-            node.y = plateAltitude(rect.depth) + Math.max(rect.h * HEIGHT, MIN_H) / 2;
+            node.x = (rect.x + rect.w / 2 - 0.5) * cityScale();
+            node.z = (rect.z + rect.d / 2 - 0.5) * cityScale();
+            node.y = plateAltitude(rect.depth) + Math.max(rect.h * scaled(HEIGHT), scaled(MIN_H)) / 2;
             // Pinned: the force engine must never undo the plan.
             node.fx = node.x;
             node.fy = node.y;
@@ -741,7 +770,8 @@
     /** Isometric-ish three-quarter view, the way CodeCity opens. */
     function frameCity() {
         if (!state.graph) return;
-        state.graph.cameraPosition({ x: SCALE * 0.55, y: SCALE * 0.95, z: SCALE * 1.15 }, { x: 0, y: 0, z: 0 }, 0);
+        var scale = cityScale();
+        state.graph.cameraPosition({ x: scale * 0.55, y: scale * 0.95, z: scale * 1.15 }, { x: 0, y: 0, z: 0 }, 0);
     }
 
     function resize() {
@@ -1193,6 +1223,7 @@
             return { in: Object.keys(state.relations.in).length, out: Object.keys(state.relations.out).length };
         },
         plan: function () { return state.plan; },
+        scale: function () { return cityScale(); },
         options: OPTIONS,
         graph: function () { return state.graph; },
         streets: function () {
