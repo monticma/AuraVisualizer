@@ -1360,7 +1360,7 @@ export class WebviewProvider {
             <div class="top-bar-center">
                 <div id="search-container">
                     <span class="search-icon">⌕</span>
-                    <input type="text" id="search-input" placeholder="Search file..." autocomplete="off">
+                    <input type="text" id="search-input" placeholder="Search" autocomplete="off" title="Search a file or a symbol (3D Graph and City tabs)">
                     <div id="search-results" class="hidden"></div>
                 </div>
             </div>

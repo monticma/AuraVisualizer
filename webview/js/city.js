@@ -598,11 +598,13 @@
     /** District key at the current granularity (a folder, or a file path). */
     function keyOfNode(node) {
         if (!node) return '';
+        // At function granularity the district *is* the file, for the raw file
+        // nodes (whose `group` is still a folder) as well as for the generated
+        // function nodes (whose `group` is the file).
+        if (OPTIONS.granularity === 'functions') return node.path || node.id || node.group || '';
         var lib = window.AuraCity;
         if (!lib || !lib.districtKeyOf) return node.group || node.path || node.id || '';
-        // Function buildings carry their file as `group`.
-        var by = OPTIONS.granularity === 'functions' ? 'group' : OPTIONS.districtBy;
-        return lib.districtKeyOf(node, by);
+        return lib.districtKeyOf(node, OPTIONS.districtBy);
     }
 
     /** Id used by the *graph* (links stay file → file at every granularity). */
@@ -1042,6 +1044,46 @@
         }
     }
 
+    /**
+     * Search entry point: bring a file on screen. At file granularity the id *is*
+     * a building; at function granularity a file only exists as a block, so drill
+     * into it. Returns false when the id means nothing in this plan.
+     */
+    function reveal(id) {
+        if (!id) return false;
+        if (state.byId[id]) {
+            selectBuilding({ id: id });
+            return true;
+        }
+        var districts = (state.plan && state.plan.districts) || [];
+        for (var i = 0; i < districts.length; i++) {
+            if (districts[i].key === id) {
+                setScope(id);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Search entry point for a symbol: its building, else its file's block. */
+    function revealSymbol(file, name) {
+        if (!file || !name) return false;
+        var exact = file + '#' + name;
+        if (state.byId[exact]) {
+            selectBuilding({ id: exact });
+            return true;
+        }
+        var prefix = exact + '#';
+        var ids = Object.keys(state.byId);
+        for (var i = 0; i < ids.length; i++) {
+            if (ids[i].indexOf(prefix) === 0) {
+                selectBuilding({ id: ids[i] });
+                return true;
+            }
+        }
+        return false;
+    }
+
     function wireSide() {
         var body = $('#city-side-body');
         var close = $('#city-side-close');
@@ -1211,6 +1253,8 @@
     window.AuraCityView = {
         activate: activate,
         select: function (id) { selectBuilding({ id: id }); },
+        reveal: reveal,
+        revealSymbol: revealSymbol,
         clear: clearSelection,
         scope: function () { return state.scope; },
         setScope: setScope,

@@ -6437,6 +6437,18 @@
         var exportImageBtn = $('#btn-export-image');
         if (exportImageBtn) exportImageBtn.classList.toggle('hidden', tabName !== 'graph');
 
+        // The search box drives the view on screen: it is meaningful on the 3D
+        // graph and on the city (both are per-building), and noise anywhere else.
+        var searchBox = $('#search-container');
+        if (searchBox) {
+            var searchable = (tabName === 'graph' || tabName === 'city');
+            searchBox.classList.toggle('hidden', !searchable);
+            if (!searchable) {
+                var searchResults = $('#search-results');
+                if (searchResults) searchResults.classList.add('hidden');
+            }
+        }
+
         if (tabName !== 'graph') {
             if (prevTab === 'graph') {
                 if (filterBar) filterBar._wasVisible = filterBar.style.display !== 'none';

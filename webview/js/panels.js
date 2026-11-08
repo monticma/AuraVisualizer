@@ -140,11 +140,39 @@
     // ============================================================
     // Search
     // ============================================================
+    /**
+     * A search hit is an action on the *view on screen*: the 3D graph or the
+     * city. On the city a file has no building of its own at function
+     * granularity, so it drills into the file's block instead.
+     */
+    function activateNode(node) {
+        if (!node) return;
+        if (hooks.getActiveTab && hooks.getActiveTab() === 'city'
+            && window.AuraCityView && typeof window.AuraCityView.reveal === 'function') {
+            window.AuraCityView.reveal(node.id);
+            return;
+        }
+        hooks.selectNode(node);
+    }
+
+    /** Same for a symbol hit: its building, else its file's block. */
+    function activateSymbol(hit) {
+        if (!hit || !hit.node || !hit.symbol) return;
+        if (hooks.getActiveTab && hooks.getActiveTab() === 'city'
+            && window.AuraCityView && typeof window.AuraCityView.revealSymbol === 'function') {
+            if (window.AuraCityView.revealSymbol(hit.node.id, hit.symbol.name)) return;
+            window.AuraCityView.reveal(hit.node.id);
+            return;
+        }
+        if (hooks.focusSymbol) hooks.focusSymbol(hit.node.id, hit.symbol.name);
+    }
+
     function setupSearch() {
         searchInput.addEventListener('input', function(e) {
             var query = e.target.value.trim().toLowerCase();
             if (query.length < 2 || !hooks.getGraphData()) {
                 searchResults.classList.add('hidden');
+                searchResults.innerHTML = '';
                 return;
             }
 
@@ -175,6 +203,7 @@
 
             if (results.length === 0 && symbolHits.length === 0) {
                 searchResults.classList.add('hidden');
+                searchResults.innerHTML = '';
                 return;
             }
 
@@ -192,7 +221,7 @@
                             '<div class="result-path">' + escapeHtml(node.path) + '</div>' +
                         '</div>';
                     item.addEventListener('click', function() {
-                        hooks.selectNode(node);
+                        activateNode(node);
                         searchResults.classList.add('hidden');
                         searchInput.value = node.name;
                     });
@@ -212,7 +241,7 @@
                         '</div>';
                     item.title = 'Explode ' + hit.node.name + ' and mark ' + hit.symbol.name;
                     item.addEventListener('click', function() {
-                        if (hooks.focusSymbol) hooks.focusSymbol(hit.node.id, hit.symbol.name);
+                        activateSymbol(hit);
                         searchResults.classList.add('hidden');
                         searchInput.value = hit.symbol.name;
                     });

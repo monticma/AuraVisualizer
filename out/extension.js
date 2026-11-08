@@ -34,7 +34,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
             <div class="top-bar-center">
                 <div id="search-container">
                     <span class="search-icon">\u2315</span>
-                    <input type="text" id="search-input" placeholder="Search file..." autocomplete="off">
+                    <input type="text" id="search-input" placeholder="Search" autocomplete="off" title="Search a file or a symbol (3D Graph and City tabs)">
                     <div id="search-results" class="hidden"></div>
                 </div>
             </div>
