@@ -5038,32 +5038,6 @@ select option {
     text-overflow: ellipsis;
 }
 
-.city-side-row {
-    display: flex;
-    align-items: baseline;
-    gap: 6px;
-    padding: 2px 4px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 12px;
-}
-
-.city-side-row:hover { background: rgba(255, 255, 255, 0.07); }
-
-.city-side-row .city-side-row-name {
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    font-family: var(--vscode-editor-font-family, monospace);
-}
-
-.city-side-row .city-side-row-count {
-    opacity: 0.5;
-    font-size: 11px;
-    font-variant-numeric: tabular-nums;
-}
-
 .city-side-actions {
     display: flex;
     gap: 6px;

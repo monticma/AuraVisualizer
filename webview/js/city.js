@@ -874,44 +874,12 @@
 
         html += relationGraph();
 
-        html += memberSection(node);
-
         html += '<div class="city-side-section city-side-actions">'
             + '<button type="button" data-city-action="open">Open file</button>'
             + '<button type="button" data-city-action="graph">⌖ Focus in graph</button>'
             + '</div>';
 
         body.innerHTML = html;
-    }
-
-    /** Members of the file (CodeCity's MEMBERS list), clickable to the line. */
-    function memberSection(node) {
-        var symbols = node && node.symbols;
-        if (!symbols) return '';
-        var rows = [];
-        function collect(list, kind) {
-            if (!list || !list.length) return;
-            for (var i = 0; i < list.length; i++) {
-                if (!list[i] || !list[i].name) continue;
-                rows.push({ name: list[i].name, line: list[i].line || 0, kind: kind });
-            }
-        }
-        collect(symbols.classes, 'class');
-        collect(symbols.structs, 'struct');
-        collect(symbols.interfaces, 'interface');
-        collect(symbols.functions, 'fn');
-        collect(symbols.methods, 'method');
-        var total = symbols.totalSymbols || rows.length;
-        if (rows.length === 0) return '';
-
-        var html = '<div class="city-side-section"><div class="city-side-label">Members (' + total + ')</div>';
-        for (var r = 0; r < rows.length && r < 40; r++) {
-            html += '<div class="city-side-row" data-city-line="' + rows[r].line + '" title="line ' + rows[r].line + '">'
-                + '<span class="city-side-row-name">' + escapeHtml(rows[r].name) + '</span>'
-                + '<span class="city-side-row-count">' + rows[r].kind + (rows[r].line ? ' L' + rows[r].line : '') + '</span></div>';
-        }
-        if (rows.length > 40) html += '<div class="city-side-empty">+' + (rows.length - 40) + ' more</div>';
-        return html + '</div>';
     }
 
     /**
@@ -1113,8 +1081,6 @@
                 else setScope(goto);
                 return;
             }
-            var line = target.getAttribute('data-city-line');
-            if (line) { openSelectedFile(parseInt(line, 10) || 0); return; }
             var action = target.getAttribute('data-city-action');
             if (action === 'open') openSelectedFile(0);
             if (action === 'graph') focusInGraph();
