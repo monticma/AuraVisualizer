@@ -354,14 +354,6 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
                     <option value="community">communities</option>
                 </select>
             </label>
-            <label class="city-field" for="city-streets" title="Dependencies drawn on the ground between buildings">Streets
-                <select id="city-streets" class="city-select">
-                    <option value="selection" selected>selection</option>
-                    <option value="structure">structure</option>
-                    <option value="every">every link</option>
-                    <option value="off">off</option>
-                </select>
-            </label>
             <button id="city-export" type="button" class="city-select" title="Export the city as a PNG">\u{1F4F7} PNG</button>
         </div>
         <div id="city-crumbs" class="hidden"></div>
