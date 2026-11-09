@@ -361,6 +361,11 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
              like #detail-panel sits under the 3D Graph toolbar. -->
         <div id="city-stage">
             <div id="city-canvas"></div>
+            <div id="city-legend">
+                <div class="city-legend-row" id="city-legend-encoding">height = cognitive \xB7 footprint = lines</div>
+                <div class="city-legend-row"><span class="city-legend-swatch hot"></span><span id="city-legend-hot">top 20</span></div>
+                <div class="city-legend-row"><span class="city-legend-swatch glass"></span>docs, data, config, assets \u2014 not ranked</div>
+            </div>
             <div id="city-hud">
                 <span id="city-hud-meta">Click a building</span>
                 <button id="city-hud-graph" type="button" title="Focus this file in the 3D Graph tab">\u2316 Focus in graph</button>

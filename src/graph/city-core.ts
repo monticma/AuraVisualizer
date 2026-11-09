@@ -145,6 +145,72 @@ export interface CityPlan {
 /** Shortest building still visible, as a fraction of the tallest. */
 export const MIN_HEIGHT_RATIO = 0.12;
 
+/** What a file *is*, for the "ranked / not ranked" distinction in the city. */
+export type FileKind = 'code' | 'docs' | 'data' | 'config' | 'asset';
+
+const CODE_LANGUAGES = new Set([
+    'c', 'cpp', 'javascript', 'typescript', 'tsx', 'python', 'java', 'go', 'rust',
+    'kotlin', 'ruby', 'swift', 'csharp', 'php', 'vue', 'bash', 'lua', 'css', 'html',
+]);
+
+const KIND_BY_LANGUAGE: Record<string, FileKind> = {
+    documentation: 'docs', markdown: 'docs',
+    json: 'data', yaml: 'data', csv: 'data', sql: 'data', xml: 'data',
+    toml: 'config', ini: 'config',
+};
+
+const KIND_BY_EXTENSION: Record<string, FileKind> = {
+    '.md': 'docs', '.markdown': 'docs', '.rst': 'docs', '.txt': 'docs', '.adoc': 'docs',
+    '.json': 'data', '.yaml': 'data', '.yml': 'data', '.csv': 'data', '.tsv': 'data',
+    '.sql': 'data', '.xml': 'data',
+    '.toml': 'config', '.ini': 'config', '.cfg': 'config', '.conf': 'config',
+    '.env': 'config', '.properties': 'config',
+    '.png': 'asset', '.jpg': 'asset', '.jpeg': 'asset', '.gif': 'asset', '.svg': 'asset',
+    '.ico': 'asset', '.webp': 'asset', '.woff': 'asset', '.woff2': 'asset', '.ttf': 'asset',
+    '.otf': 'asset', '.wasm': 'asset', '.zip': 'asset', '.pdf': 'asset',
+};
+
+/**
+ * Code, documentation, data, configuration or asset? The city paints every file
+ * with the same ramp today, so 242 of ThorV2's 762 buildings are documentation
+ * dressed as skyscrapers. Anything that is not code is drawn as "not ranked".
+ */
+export function fileKind(node: { language?: string; extension?: string; id?: string }): FileKind {
+    if (!node) return 'code';
+    const language = (node.language || '').toLowerCase();
+    const known = KIND_BY_LANGUAGE[language];
+    if (known) return known;
+    if (language && CODE_LANGUAGES.has(language)) return 'code';
+
+    let ext = (node.extension || '').toLowerCase();
+    if (!ext && node.id) {
+        const dot = node.id.lastIndexOf('.');
+        if (dot > 0) ext = node.id.slice(dot).toLowerCase();
+    }
+    if (ext && KIND_BY_EXTENSION[ext]) return KIND_BY_EXTENSION[ext];
+
+    // A language we do not know still looks like code; an unknown extension with
+    // no language at all is an asset. Nothing known: never grey a file out.
+    if (language && language !== 'unknown') return 'code';
+    if (ext) return 'asset';
+    return 'code';
+}
+
+/** The three kinds that are not code, in legend order. */
+export const NON_CODE_KINDS: FileKind[] = ['docs', 'data', 'config'];
+
+/**
+ * Size of the "hottest" band: 5 % of the buildings, but never fewer than 3 (a
+ * 6-file project still has a top) and never more than 20 (5 % of 5 000 is 250,
+ * which is a third of the city, not a band).
+ */
+export function topBandSize(total: number, ratio = 0.05, min = 3, max = 20): number {
+    const n = typeof total === 'number' && isFinite(total) && total > 0 ? Math.floor(total) : 0;
+    if (n === 0) return 0;
+    const wanted = Math.ceil(n * ratio);
+    return Math.max(Math.min(min, n), Math.min(wanted, max));
+}
+
 /**
  * World width of the plan at the reference building count. The plan itself is
  * normalized to a unit square, so this is the only place a building count turns

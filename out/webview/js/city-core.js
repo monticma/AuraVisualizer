@@ -30,10 +30,12 @@ var AuraCity = (() => {
     MIN_CITY_SCALE: () => MIN_CITY_SCALE,
     MIN_HEIGHT_RATIO: () => MIN_HEIGHT_RATIO,
     MIN_STREET: () => MIN_STREET,
+    NON_CODE_KINDS: () => NON_CODE_KINDS,
     REFERENCE_BUILDINGS: () => REFERENCE_BUILDINGS,
     cityScaleFor: () => cityScaleFor,
     districtDepth: () => districtDepth,
     districtKeyOf: () => districtKeyOf,
+    fileKind: () => fileKind,
     footprintWeight: () => footprintWeight,
     functionNodes: () => functionNodes,
     heightFor: () => heightFor,
@@ -41,9 +43,107 @@ var AuraCity = (() => {
     metricValue: () => metricValue,
     squarify: () => squarify,
     tierEdges: () => tierEdges,
-    tierOf: () => tierOf
+    tierOf: () => tierOf,
+    topBandSize: () => topBandSize
   });
   var MIN_HEIGHT_RATIO = 0.12;
+  var CODE_LANGUAGES = /* @__PURE__ */ new Set([
+    "c",
+    "cpp",
+    "javascript",
+    "typescript",
+    "tsx",
+    "python",
+    "java",
+    "go",
+    "rust",
+    "kotlin",
+    "ruby",
+    "swift",
+    "csharp",
+    "php",
+    "vue",
+    "bash",
+    "lua",
+    "css",
+    "html"
+  ]);
+  var KIND_BY_LANGUAGE = {
+    documentation: "docs",
+    markdown: "docs",
+    json: "data",
+    yaml: "data",
+    csv: "data",
+    sql: "data",
+    xml: "data",
+    toml: "config",
+    ini: "config"
+  };
+  var KIND_BY_EXTENSION = {
+    ".md": "docs",
+    ".markdown": "docs",
+    ".rst": "docs",
+    ".txt": "docs",
+    ".adoc": "docs",
+    ".json": "data",
+    ".yaml": "data",
+    ".yml": "data",
+    ".csv": "data",
+    ".tsv": "data",
+    ".sql": "data",
+    ".xml": "data",
+    ".toml": "config",
+    ".ini": "config",
+    ".cfg": "config",
+    ".conf": "config",
+    ".env": "config",
+    ".properties": "config",
+    ".png": "asset",
+    ".jpg": "asset",
+    ".jpeg": "asset",
+    ".gif": "asset",
+    ".svg": "asset",
+    ".ico": "asset",
+    ".webp": "asset",
+    ".woff": "asset",
+    ".woff2": "asset",
+    ".ttf": "asset",
+    ".otf": "asset",
+    ".wasm": "asset",
+    ".zip": "asset",
+    ".pdf": "asset"
+  };
+  function fileKind(node) {
+    if (!node)
+      return "code";
+    const language = (node.language || "").toLowerCase();
+    const known = KIND_BY_LANGUAGE[language];
+    if (known)
+      return known;
+    if (language && CODE_LANGUAGES.has(language))
+      return "code";
+    let ext = (node.extension || "").toLowerCase();
+    if (!ext && node.id) {
+      const dot = node.id.lastIndexOf(".");
+      if (dot > 0)
+        ext = node.id.slice(dot).toLowerCase();
+    }
+    if (ext && KIND_BY_EXTENSION[ext])
+      return KIND_BY_EXTENSION[ext];
+    if (language && language !== "unknown")
+      return "code";
+    if (ext)
+      return "asset";
+    return "code";
+  }
+  var NON_CODE_KINDS = ["docs", "data", "config"];
+  function topBandSize(total, ratio = 0.05, min = 3, max = 20) {
+    const n = typeof total === "number" && isFinite(total) && total > 0 ? Math.floor(total) : 0;
+    if (n === 0)
+      return 0;
+    const wanted = Math.ceil(n * ratio);
+    return Math.max(Math.min(min, n), Math.min(wanted, max));
+  }
   var BASE_CITY_SCALE = 520;
   var REFERENCE_BUILDINGS = 762;
   var MIN_CITY_SCALE = 260;

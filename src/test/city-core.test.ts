@@ -10,6 +10,8 @@ import {
     metricValue,
     functionNodes,
     cityScaleFor,
+    fileKind,
+    topBandSize,
     BASE_CITY_SCALE,
     REFERENCE_BUILDINGS,
     MIN_CITY_SCALE,
@@ -446,5 +448,43 @@ describe('city-core · city scale', () => {
     it('is monotonic, so two cities are always ordered by size', () => {
         const sizes = [4, 20, 200, 762, 1_500, 4_993, 20_000].map(cityScaleFor);
         for (let i = 1; i < sizes.length; i++) expect(sizes[i]).toBeGreaterThanOrEqual(sizes[i - 1]);
+    });
+});
+
+describe('city-core · file kinds', () => {
+    it('recognises code from its language', () => {
+        expect(fileKind({ language: 'typescript' })).toBe('code');
+        expect(fileKind({ language: 'c' })).toBe('code');
+        expect(fileKind({ language: 'css' })).toBe('code');
+    });
+
+    it('separates documentation, data, config and assets', () => {
+        expect(fileKind({ language: 'documentation' })).toBe('docs');
+        expect(fileKind({ language: 'json' })).toBe('data');
+        expect(fileKind({ extension: '.json' })).toBe('data');
+        expect(fileKind({ extension: '.toml' })).toBe('config');
+        expect(fileKind({ extension: '.png' })).toBe('asset');
+        expect(fileKind({ language: 'unknown', extension: '.bin' })).toBe('asset');
+        expect(fileKind({ id: 'docs/guide.md' })).toBe('docs'); // extension read from the id
+    });
+
+    it('falls back to code when nothing is known', () => {
+        expect(fileKind({})).toBe('code');
+        expect(fileKind({ language: 'rust', extension: '.rs' })).toBe('code');
+    });
+});
+
+describe('city-core · top band', () => {
+    it('keeps a top band on tiny cities', () => {
+        expect(topBandSize(0)).toBe(0);
+        expect(topBandSize(1)).toBe(1);      // min(3, n) never exceeds the city
+        expect(topBandSize(4)).toBe(3);
+        expect(topBandSize(20)).toBe(3);     // 5 % of 20 = 1 → floor wins
+    });
+
+    it('caps the band on huge cities', () => {
+        expect(topBandSize(762)).toBe(20);   // 5 % = 39 → capped
+        expect(topBandSize(4993)).toBe(20);
+        expect(topBandSize(200)).toBe(10);   // 5 % = 10, between the bounds
     });
 });

@@ -89,6 +89,8 @@
             html += '<div class="city-tip-meta">' + escapeHtml(node.path)
                 + (node.line ? ':' + node.line : '') + '</div>';
         }
+        var kind = kindOf(node);
+        if (kind !== 'code') html += '<div class="city-tip-meta">' + kind + ' · not ranked</div>';
         if (state.selected && state.selected !== node.id) {
             var key = relationKey(node);
             if (state.relations.out[key]) html += '<div class="city-tip-dir city-tip-in">← used by the selection</div>';
@@ -128,6 +130,9 @@
     /** Building colour, per the chosen channel, with the selection override. */
     function colourFor(node, rect) {
         if (state.selected === node.id) return '#ffffff';
+        // The hot red is reserved for the bounded top band: at 5 000 buildings a
+        // "top tier" of 1 000 red blocks says nothing.
+        if (OPTIONS.colour === 'height' && state.hotIds[node.id]) return RAMP[3];
         if (state.selected) {
             // A selection answers a different question: not "how big" but "who
             // depends on me / whom do I depend on". The ramp is muted and the
@@ -155,8 +160,9 @@
         if (mode === 'layer') return districtColor(node.layer || '(unlayered)');
         if (mode === 'district') return districtColor(rect.district);
         // 'height' — the default: the ramp mirrors the height tier, so the skyline
-        // and the colour agree and the eye only goes where it matters.
-        return rampColor((rect.h - 0.12) / 0.88);
+        // and the colour agree and the eye only goes where it matters. The hot
+        // end of the ramp is reserved for the bounded top band (see colourFor).
+        return rampColor(((rect.h - 0.12) / 0.88) * 0.66);
     }
 
     /** World width of the plan for the city currently on screen. */
@@ -173,6 +179,22 @@
         return (depth || 0) * scaled(PLATE_STEP);
     }
 
+    /** Code, documentation, data, config or asset — see city-core.fileKind. */
+    function kindOf(node) {
+        if (!window.AuraCity || typeof window.AuraCity.fileKind !== 'function') return 'code';
+        return window.AuraCity.fileKind(node || {});
+    }
+
+    /** "Grey glass": keep a hint of the building's colour, drain it to a flat grey. */
+    function greyedColour(color) {
+        var T = window.THREE;
+        if (!T) return color;
+        var c = new T.Color(color);
+        var luma = 0.3 * c.r + 0.59 * c.g + 0.11 * c.b;
+        var grey = luma * 0.55 + 0.12;
+        return new T.Color(grey, grey, grey);
+    }
+
     // ── Scene ──────────────────────────────────────────────────
     function buildingFor(node) {
         var T = window.THREE;
@@ -183,10 +205,15 @@
         var h = Math.max(rect.h * scaled(HEIGHT), scaled(MIN_H));
         var selected = state.selected === node.id;
         var color = colourFor(node, rect);
-        var mesh = new T.Mesh(
-            new T.BoxGeometry(w, h, d),
-            new T.MeshLambertMaterial({ color: color })
-        );
+        // Not ranked: documentation, data, config and assets are drawn as glass —
+        // visible, but clearly not part of the ranked city.
+        var glass = !selected && kindOf(node) !== 'code';
+        var material = new T.MeshLambertMaterial({
+            color: glass ? greyedColour(color) : color,
+            transparent: glass,
+            opacity: glass ? 0.55 : 1,
+        });
+        var mesh = new T.Mesh(new T.BoxGeometry(w, h, d), material);
         mesh.userData.cityBuilding = node.id;
         return mesh;
     }
@@ -330,9 +357,43 @@
             group.add(plate);
         }
 
+        buildDistrictLabels(plan, group);
+
         scene.add(group);
         state.decor = group;
         buildBuildingEdges(plan, group);
+    }
+
+    /**
+     * District names floating on their plate. Without them the plates are
+     * anonymous: you have to hover a building or read the breadcrumb to know
+     * which block you are looking at. Labels are sprites (always camera-facing)
+     * and skip plates too small to hold a readable word.
+     */
+    function buildDistrictLabels(plan, group) {
+        var T = window.THREE;
+        if (!T || !plan || !window.AuraSprites || typeof window.AuraSprites.labelSprite !== 'function') return;
+        var scale = cityScale();
+        var ranked = plan.districts.slice().sort(function (a, b) { return (b.w * b.d) - (a.w * a.d); });
+        var drawn = 0;
+        for (var i = 0; i < ranked.length && drawn < 40; i++) {
+            var district = ranked[i];
+            if (district.w * scale < scaled(30) || district.d * scale < scaled(16)) continue;
+            var name = String(district.key).split('/').pop();
+            if (!name) continue;
+            var sprite = window.AuraSprites.labelSprite(name.toUpperCase() + '/', 'rgba(255, 255, 255, 0.6)');
+            if (!sprite) continue;
+            sprite.scale.multiplyScalar(scaled(1.6));
+            sprite.position.set(
+                (district.x + district.w * 0.14 - 0.5) * scale,
+                plateAltitude(district.depth) + scaled(2.5),
+                (district.z + district.d * 0.14 - 0.5) * scale
+            );
+            sprite.renderOrder = 2;
+            group.add(sprite);
+            drawn++;
+        }
+        state.labelCount = drawn;
     }
 
     /**
@@ -549,6 +610,21 @@
             state.byId[state.plan.rects[i].id] = state.plan.rects[i];
         }
 
+        // The "hottest" band: a fixed, bounded number of buildings (5 % of them,
+        // at least 3, at most 20) so the red always means a handful you can count.
+        state.hotIds = {};
+        state.hotCount = (window.AuraCity && window.AuraCity.topBandSize)
+            ? window.AuraCity.topBandSize(state.plan.rects.length)
+            : 0;
+        if (state.hotCount > 0) {
+            var ranked = state.plan.rects.slice().sort(function (a, b) {
+                return (b.heightValue - a.heightValue) || (a.id < b.id ? 1 : -1);
+            });
+            for (var hot = 0; hot < ranked.length && hot < state.hotCount; hot++) {
+                state.hotIds[ranked[hot].id] = true;
+            }
+        }
+
         for (var n = 0; n < nodes.length; n++) {
             var node = nodes[n];
             var rect = state.byId[node.id];
@@ -570,6 +646,7 @@
         resize();
         frameCity();
         updateHud();
+        updateLegend();
         renderCrumbs();
     }
 
@@ -799,6 +876,21 @@
         var name = String(id || '').split('/').pop();
         var limit = max || 13;
         return name.length > limit ? name.slice(0, limit - 1) + '…' : name;
+    }
+
+    /** Legend: what the height, the red band and the grey glass mean. */
+    function updateLegend() {
+        var encoding = $('#city-legend-encoding');
+        if (encoding && state.plan) {
+            encoding.textContent = 'height = ' + state.plan.heightMetric
+                + ' · footprint = ' + state.plan.footprintMetric;
+        }
+        var hot = $('#city-legend-hot');
+        if (hot) {
+            hot.textContent = state.hotCount > 0
+                ? 'top ' + state.hotCount + ' tallest'
+                : 'no top band';
+        }
     }
 
     function updateHud() {
@@ -1082,6 +1174,8 @@
         },
         plan: function () { return state.plan; },
         scale: function () { return cityScale(); },
+        kindOf: function (id) { return kindOf(state.nodeById[id]); },
+        hotBand: function () { return state.hotCount; },
         options: OPTIONS,
         graph: function () { return state.graph; },
     };

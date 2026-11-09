@@ -5191,3 +5191,45 @@ select option {
     0%, 100% { outline-color: #ffffff; }
     50% { outline-color: rgba(96,165,250,0.35); }
 }
+
+/* City — legend (bottom-left, above the HUD) */
+#city-legend {
+    position: absolute;
+    left: 12px;
+    bottom: 52px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 7px 10px;
+    border-radius: 8px;
+    background: rgba(13, 17, 23, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    font-size: 10px;
+    line-height: 1.35;
+    color: #b0bec5;
+    pointer-events: none;
+    z-index: 2;
+    max-width: 240px;
+}
+
+.city-legend-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.city-legend-swatch {
+    width: 9px;
+    height: 9px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.city-legend-swatch.hot { background: #d1462f; }
+.city-legend-swatch.glass {
+    background: rgba(190, 200, 212, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+}
