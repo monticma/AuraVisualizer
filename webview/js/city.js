@@ -358,6 +358,7 @@
         }
 
         buildDistrictLabels(plan, group);
+        buildRankBadges(plan, group);
 
         scene.add(group);
         state.decor = group;
@@ -394,6 +395,36 @@
             drawn++;
         }
         state.labelCount = drawn;
+    }
+
+    /**
+     * Dark outlines around every block. Uniform facades in the same perspective
+     * merge into one mass; a 1-thousandth-of-a-unit offset keeps the lines outside
+     * the surface (no z-fighting) and one geometry keeps it to a single draw call.
+     */
+    function buildRankBadges(plan, group) {
+        var T = window.THREE;
+        if (!T || !plan || !window.AuraSprites || typeof window.AuraSprites.labelSprite !== 'function') return;
+        if (!state.rankOf) return;
+        var drawn = 0;
+        for (var i = 0; i < plan.rects.length; i++) {
+            var rect = plan.rects[i];
+            var rank = state.rankOf[rect.id];
+            if (!rank) continue;
+            var sprite = window.AuraSprites.labelSprite('#' + rank, 'rgba(255, 209, 102, 0.95)');
+            if (!sprite) continue;
+            sprite.scale.multiplyScalar(scaled(1.25));
+            // Exactly on top of the block: rank is a *place*, not a decoration.
+            sprite.position.set(
+                (rect.x + rect.w / 2 - 0.5) * cityScale(),
+                plateAltitude(rect.depth) + Math.max(rect.h * scaled(HEIGHT), scaled(MIN_H)) + scaled(3),
+                (rect.z + rect.d / 2 - 0.5) * cityScale()
+            );
+            sprite.renderOrder = 3;
+            group.add(sprite);
+            drawn++;
+        }
+        state.badgeCount = drawn;
     }
 
     /**
@@ -613,6 +644,7 @@
         // The "hottest" band: a fixed, bounded number of buildings (5 % of them,
         // at least 3, at most 20) so the red always means a handful you can count.
         state.hotIds = {};
+        state.rankOf = {};
         state.hotCount = (window.AuraCity && window.AuraCity.topBandSize)
             ? window.AuraCity.topBandSize(state.plan.rects.length)
             : 0;
@@ -622,6 +654,7 @@
             });
             for (var hot = 0; hot < ranked.length && hot < state.hotCount; hot++) {
                 state.hotIds[ranked[hot].id] = true;
+                state.rankOf[ranked[hot].id] = hot + 1;
             }
         }
 
@@ -888,7 +921,7 @@
         var hot = $('#city-legend-hot');
         if (hot) {
             hot.textContent = state.hotCount > 0
-                ? 'top ' + state.hotCount + ' tallest'
+                ? 'top ' + state.hotCount + ' tallest · ranked #1–#' + state.hotCount
                 : 'no top band';
         }
     }
@@ -1176,6 +1209,8 @@
         scale: function () { return cityScale(); },
         kindOf: function (id) { return kindOf(state.nodeById[id]); },
         hotBand: function () { return state.hotCount; },
+        rankOf: function () { return state.rankOf || {}; },
+        badgeCount: function () { return state.badgeCount || 0; },
         options: OPTIONS,
         graph: function () { return state.graph; },
     };
