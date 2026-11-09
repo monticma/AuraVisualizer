@@ -592,7 +592,7 @@
         state.scope = next;
         state.plan = null;
         state.selected = null;
-        state.relations = { in: {}, out: {} };
+        state.relations = { in: {}, out: {}, docs: {} };
         renderSide();
         if (isActive()) applyPlan();
     }
@@ -753,20 +753,32 @@
 
     // ── Selection ──────────────────────────────────────────────
 
-    /** Direct neighbours of the selection, split by direction. */
+    /**
+     * Direct neighbours of the selection, split by direction. `doc-reference`
+     * edges are counted *apart*: a page that mentions a file is not a dependency,
+     * and the host already keeps them out of fan-in / fan-out and out of the risk
+     * score. Mixing them in made the inspector contradict the Metrics block
+     * (one import vs fifteen "in" because fourteen of them were documentation).
+     */
     function computeRelations(id) {
         var inbound = {};
         var outbound = {};
-        if (!id || !state.data) return { in: inbound, out: outbound };
+        var docs = {};
+        if (!id || !state.data) return { in: inbound, out: outbound, docs: docs };
         var links = state.data.links || [];
         for (var i = 0; i < links.length; i++) {
             var link = links[i];
             var from = link.source && typeof link.source === 'object' ? link.source.id : link.source;
             var to = link.target && typeof link.target === 'object' ? link.target.id : link.target;
+            if (link.type === 'doc-reference') {
+                if (from === id) docs[to] = (docs[to] || 0) + 1;
+                else if (to === id) docs[from] = (docs[from] || 0) + 1;
+                continue;
+            }
             if (from === id) outbound[to] = (outbound[to] || 0) + 1;
             else if (to === id) inbound[from] = (inbound[from] || 0) + 1;
         }
-        return { in: inbound, out: outbound };
+        return { in: inbound, out: outbound, docs: docs };
     }
 
     function selectBuilding(node) {
@@ -781,7 +793,7 @@
     function clearSelection() {
         if (!state.selected) return;
         state.selected = null;
-        state.relations = { in: {}, out: {} };
+        state.relations = { in: {}, out: {}, docs: {} };
         if (state.graph) state.graph.nodeThreeObject(buildingFor);
         updateHud();
         renderSide();
@@ -822,8 +834,10 @@
         row('Lines', node.linesOfCode);
         row('Cyclomatic', node.complexity);
         if (typeof node.cognitive === 'number') row('Cognitive', node.cognitive);
-        row('Fan-in', node.fanIn);
-        row('Fan-out', node.fanOut);
+        // Fan counts are *edge* counts — one per edge type — while Connections
+        // below counts distinct files. Same graph, two units; say so.
+        row('Fan-in (edges)', node.fanIn);
+        row('Fan-out (edges)', node.fanOut);
         if (typeof node.pagerank === 'number') row('PageRank', node.pagerank.toFixed(4));
         if (rect) {
             row('Height', rect.heightValue);
@@ -899,11 +913,22 @@
     function relationGraph() {
         var outIds = Object.keys(state.relations.out);
         var inIds = Object.keys(state.relations.in);
-        var label = '<div class="city-side-label">Connections';
+        var docIds = Object.keys(state.relations.docs || {});
+        var label = '<div class="city-side-label"'
+            + ' title="One dot per file. Fan-in / Fan-out count every edge'
+            + ' (import, import-type, call, script…), so they are usually larger.'
+            + ' Documentation references are not dependencies: they are counted apart.">Connections';
         if (outIds.length || inIds.length) label += ' · ' + outIds.length + ' out · ' + inIds.length + ' in';
         label += '</div>';
+        // A page that mentions the file is not a dependency — the host already
+        // keeps doc-reference out of fan-in/out and out of the risk score.
+        var docNote = docIds.length
+            ? '<div class="city-side-empty">+ ' + docIds.length
+                + ' documentation reference' + (docIds.length === 1 ? '' : 's') + '</div>'
+            : '';
         if (outIds.length === 0 && inIds.length === 0) {
-            return '<div class="city-side-section">' + label + '<div class="city-side-empty">none</div></div>';
+            return '<div class="city-side-section">' + label
+                + '<div class="city-side-empty">none</div>' + docNote + '</div>';
         }
 
         var MAX = 8;
@@ -951,7 +976,7 @@
 
         return '<div class="city-side-section">' + label + svg
             + '<div class="city-rel-legend"><span class="rel-out">● depends on</span>'
-            + '<span class="rel-in">● used by</span></div></div>';
+            + '<span class="rel-in">● used by</span></div>' + docNote + '</div>';
     }
 
     function shortName(id, max) {
@@ -1363,7 +1388,11 @@
         },
         sideHtml: function () { var body = $('#city-side-body'); return body ? body.innerHTML : ''; },
         relations: function () {
-            return { in: Object.keys(state.relations.in).length, out: Object.keys(state.relations.out).length };
+            return {
+                in: Object.keys(state.relations.in).length,
+                out: Object.keys(state.relations.out).length,
+                docs: Object.keys(state.relations.docs || {}).length,
+            };
         },
         plan: function () { return state.plan; },
         scale: function () { return cityScale(); },
