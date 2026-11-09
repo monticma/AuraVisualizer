@@ -880,6 +880,29 @@
             }
             return gitStatsOf({ id: id });
         },
+        /**
+         * One file's risk, *explained*: score, bucket and the written reasons,
+         * scored against the repository-wide percentiles the Risk tab uses.
+         * The percentiles are built on demand, so any view can explain a file —
+         * the City inspector included — without the Risk tab being opened first.
+         */
+        explain: function (id) {
+            var nodes = (hooks.getGraphData() && hooks.getGraphData().nodes) || [];
+            var node = null;
+            for (var i = 0; i < nodes.length; i++) {
+                if (nodes[i].id === id) { node = nodes[i]; break; }
+            }
+            if (!node) return null;
+            if (!riskPercentiles) riskPercentiles = buildRiskPercentiles(architectureNodes());
+            var score = computeRiskScore(node, riskPercentiles);
+            return {
+                score: score,
+                bucket: riskBucket(score),
+                reasons: riskReasons(node, riskPercentiles),
+                stats: gitStatsOf(node),
+                windowDays: riskWindowDays,
+            };
+        },
         computeChurnIndex: computeChurnIndex,
         renderRiskDashboard: renderRiskDashboard,
         revealFile: revealRiskFile,

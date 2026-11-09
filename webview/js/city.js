@@ -832,6 +832,9 @@
                 + '<div class="city-side-v">' + escapeHtml(rect.district) + '</div></div>';
         }
 
+        var risk = riskPanel(id);
+        if (risk) html += risk;
+
         html += relationGraph();
 
         html += '<div class="city-side-section city-side-actions">'
@@ -840,6 +843,48 @@
             + '</div>';
 
         body.innerHTML = html;
+    }
+
+    /**
+     * Risk block: the score the Risk tab ranks by, with the same written reasons
+     * and the history behind them (commits, rewrite volume, authors). Percentiles
+     * are repository-wide, so a building's score means here what it means there.
+     * At function granularity the score is the *file's* — the file is the unit
+     * git knows about.
+     */
+    function riskPanel(id) {
+        var map = window.AuraRiskMap;
+        if (!map || typeof map.explain !== 'function') return '';
+        var node = state.nodeById[id] || {};
+        var key = filePathOf(id) || relationKey(node) || id;
+        var info = map.explain(key);
+        if (!info || typeof info.score !== 'number') return '';
+        var stats = info.stats || {};
+        var reasons = info.reasons || [];
+        // Nothing to say: no structural reason *and* no history. A score of 0
+        // with no explanation is noise, not information.
+        if (reasons.length === 0 && !stats.commits) return '';
+
+        var score = Math.round(info.score);
+        var html = '<div class="city-side-section city-risk" data-bucket="' + info.bucket + '">'
+            + '<div class="city-side-label">Risk · ' + (info.windowDays || 90) + ' days</div>'
+            + '<div class="city-risk-head"><span class="city-risk-score">' + score + '</span>'
+            + '<span class="city-risk-bar"><i style="width:'
+            + Math.max(2, Math.min(100, score)) + '%"></i></span></div>';
+        if (reasons.length) {
+            html += '<ul class="city-risk-reasons">';
+            for (var i = 0; i < reasons.length && i < 4; i++) {
+                html += '<li>' + escapeHtml(reasons[i].text || '') + '</li>';
+            }
+            html += '</ul>';
+        }
+        var bits = [];
+        if (stats.commits) bits.push(stats.commits + (stats.commits === 1 ? ' commit' : ' commits'));
+        if (stats.relChurn) bits.push(Math.round(stats.relChurn * 100) + ' % rewritten');
+        if (stats.fixRatio) bits.push(Math.round(stats.fixRatio * 100) + ' % fixes');
+        if (stats.authors) bits.push(stats.authors + (stats.authors === 1 ? ' author' : ' authors'));
+        if (bits.length) html += '<div class="city-risk-stats">' + escapeHtml(bits.join(' · ')) + '</div>';
+        return html + '</div>';
     }
 
     /**
