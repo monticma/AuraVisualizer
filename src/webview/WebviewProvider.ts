@@ -7,7 +7,7 @@ import * as path from 'path';
 import { Worker } from 'worker_threads';
 import type { GraphData, GraphMeta, GraphLink } from '../analyzer/index';
 import type { GraphDB } from '../graph-db';
-import { normalizeRiskWindow } from '../risk/risk-core';
+import { DEFAULT_FIX_KEYWORDS, normalizeRiskWindow } from '../risk/risk-core';
 import { parseDeadCodeRules } from '../analysis/dead-code';
 import { ARCH_RULES_FILE, parseArchRules } from '../arch/arch-core';
 import type { RiskSnapshot } from '../risk/risk-service';

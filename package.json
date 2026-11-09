@@ -663,6 +663,11 @@
           "default": false,
           "description": "Use PageRank centrality instead of fan-in in the risk score (optional V2-16 factor)"
         },
+        "auraVisualizer.fixKeywords": {
+          "type": "string",
+          "default": "\\b(fix|fixes|fixed|bug|bugs|hotfix|regress|regression|revert)\\b",
+          "description": "Regular expression matched against commit messages to recognise bug fixes; the share of fixes is one of the risk score components"
+        },
         "auraVisualizer.rotateSpeed": {
           "type": "number",
           "default": 1,

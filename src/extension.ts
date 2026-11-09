@@ -13,7 +13,7 @@ import { analyzeCodebase, scanSingleFile, scanFileSignatures, buildGraph, prePar
 import { isGitRepo, getGitRoot, getGitHead, getWorkingTreeFiles, type GitFileState } from './analyzer/git-history';
 import { computeFingerprint, fingerprintFromMeta, fingerprintMetaEntries, hashAnalysisConfig, planAnalysis, type AnalysisFingerprint } from './analyzer/fingerprint';
 import type { CommitIndex, CommitDelta } from './analyzer/types';
-import { normalizeRiskWindow } from './risk/risk-core';
+import { DEFAULT_FIX_KEYWORDS, normalizeRiskWindow } from './risk/risk-core';
 import { buildRiskSnapshot, topRiskHotspots, type RiskSnapshot, type RiskFileEntry } from './risk/risk-service';
 import {
     AGENT_CONTEXT_JSON,
@@ -1655,7 +1655,10 @@ function ensureRiskSnapshot(): RiskSnapshot | undefined {
         commitIndex?.commits ?? [],
         days,
         Date.now(),
-        vscode.workspace.getConfiguration('auraVisualizer').get<boolean>('riskCentrality', false) === true,
+        {
+            centrality: vscode.workspace.getConfiguration('auraVisualizer').get<boolean>('riskCentrality', false) === true,
+            fixKeywords: vscode.workspace.getConfiguration('auraVisualizer').get<string>('fixKeywords', DEFAULT_FIX_KEYWORDS),
+        },
     );
     riskSnapshotDirty = false;
     return riskSnapshot;

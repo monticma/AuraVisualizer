@@ -98,3 +98,84 @@ describe('risk-service — buildRiskSnapshot', () => {
         expect(text).toContain('3 authors');
     });
 });
+
+describe('risk-service — history signals (score v2)', () => {
+    const NOW = Date.UTC(2026, 9, 10);
+    const daysAgo = (n: number) => new Date(NOW - n * 24 * 60 * 60 * 1000).toISOString();
+
+    it('computes the rewrite volume against the current size', () => {
+        const nodes: RiskServiceNode[] = [
+            { id: 'big.ts', path: 'big.ts', complexity: 5, linesOfCode: 100 },
+            { id: 'small.ts', path: 'small.ts', complexity: 5, linesOfCode: 100 },
+        ];
+        const commits: RiskServiceCommit[] = [
+            { date: daysAgo(1), author: 'a', files: [{ path: 'big.ts', additions: 150, deletions: 50 }] },
+            { date: daysAgo(2), author: 'a', files: [{ path: 'small.ts', additions: 5, deletions: 5 }] },
+        ];
+        const snap = buildRiskSnapshot(nodes, commits, 30, NOW);
+        expect(snap.byId.get('big.ts')!.relChurn).toBeCloseTo(2, 5);   // 200 / 100
+        expect(snap.byId.get('small.ts')!.relChurn).toBeCloseTo(0.1, 5);
+    });
+
+    it('only counts volumes inside the window', () => {
+        const nodes: RiskServiceNode[] = [{ id: 'a.ts', path: 'a.ts', complexity: 1, linesOfCode: 50 }];
+        const commits: RiskServiceCommit[] = [
+            { date: daysAgo(2), author: 'a', files: [{ path: 'a.ts', additions: 25, deletions: 0 }] },
+            { date: daysAgo(200), author: 'a', files: [{ path: 'a.ts', additions: 500, deletions: 500 }] },
+        ];
+        const snap = buildRiskSnapshot(nodes, commits, 30, NOW);
+        expect(snap.byId.get('a.ts')!.relChurn).toBeCloseTo(0.5, 5);
+    });
+
+    it('measures the share of bug-fix commits', () => {
+        const nodes: RiskServiceNode[] = [{ id: 'a.ts', path: 'a.ts', complexity: 1, linesOfCode: 10 }];
+        const commits: RiskServiceCommit[] = [
+            { date: daysAgo(1), author: 'a', message: 'fix crash on save', files: [{ path: 'a.ts', additions: 1 }] },
+            { date: daysAgo(2), author: 'a', message: 'add a button', files: [{ path: 'a.ts', additions: 10 }] },
+            { date: daysAgo(3), author: 'b', message: 'hotfix the loader', files: [{ path: 'a.ts', additions: 2 }] },
+            { date: daysAgo(4), author: 'b', message: 'refactor', files: [{ path: 'a.ts', additions: 3 }] },
+        ];
+        const snap = buildRiskSnapshot(nodes, commits, 30, NOW);
+        expect(snap.byId.get('a.ts')!.fixRatio).toBeCloseTo(0.5, 5);
+        const text = snap.byId.get('a.ts')!.reasons.map(r => r.text).join(' | ');
+        expect(text).toContain('50% of its commits are fixes');
+    });
+
+    it('honours a custom fix pattern', () => {
+        const nodes: RiskServiceNode[] = [{ id: 'a.ts', path: 'a.ts', complexity: 1, linesOfCode: 10 }];
+        const commits: RiskServiceCommit[] = [
+            { date: daysAgo(1), author: 'a', message: 'repair the parser', files: [{ path: 'a.ts', additions: 1 }] },
+            { date: daysAgo(2), author: 'a', message: 'fix crash', files: [{ path: 'a.ts', additions: 1 }] },
+        ];
+        const snap = buildRiskSnapshot(nodes, commits, 30, NOW, { fixKeywords: 'repair' });
+        expect(snap.byId.get('a.ts')!.fixRatio).toBeCloseTo(0.5, 5);
+    });
+
+    it('survives commits without volumes (older caches)', () => {
+        const nodes: RiskServiceNode[] = [{ id: 'a.ts', path: 'a.ts', complexity: 1, linesOfCode: 10 }];
+        const commits: RiskServiceCommit[] = [
+            { date: daysAgo(1), author: 'a', files: [{ path: 'a.ts' }] },
+        ];
+        const snap = buildRiskSnapshot(nodes, commits, 30, NOW);
+        expect(snap.byId.get('a.ts')!.relChurn).toBe(0);
+        expect(snap.byId.get('a.ts')!.churn).toBe(1);
+    });
+
+    it('weights recent commits more heavily than old ones', () => {
+        const nodes: RiskServiceNode[] = [
+            { id: 'new.ts', path: 'new.ts', complexity: 1, linesOfCode: 10 },
+            { id: 'old.ts', path: 'old.ts', complexity: 1, linesOfCode: 10 },
+            { id: 'mid.ts', path: 'mid.ts', complexity: 1, linesOfCode: 10 },
+        ];
+        const commits: RiskServiceCommit[] = [
+            { date: daysAgo(1), author: 'a', files: [{ path: 'new.ts', additions: 1 }] },
+            { date: daysAgo(28), author: 'a', files: [{ path: 'old.ts', additions: 1 }] },
+            { date: daysAgo(15), author: 'a', files: [{ path: 'mid.ts', additions: 1 }] },
+        ];
+        const snap = buildRiskSnapshot(nodes, commits, 30, NOW);
+        const score = (id: string) => snap.byId.get(id)!.score;
+        // Same commits, same volumes: only recency separates them.
+        expect(score('new.ts')).toBeGreaterThan(score('mid.ts'));
+        expect(score('mid.ts')).toBeGreaterThan(score('old.ts'));
+    });
+});

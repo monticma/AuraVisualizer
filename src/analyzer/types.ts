@@ -279,6 +279,10 @@ export interface CommitFileChange {
     status: 'A' | 'M' | 'D' | 'R';   // Added, Modified, Deleted, Renamed
     path: string;
     oldPath?: string;                  // for renames
+    /** Lines added in this commit (`git --numstat`); undefined for binary files. */
+    additions?: number;
+    /** Lines removed in this commit (`git --numstat`); undefined for binary files. */
+    deletions?: number;
 }
 
 /** Full index of all commits (stored in .aura/history/index.json) */

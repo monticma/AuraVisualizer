@@ -27,7 +27,7 @@
     // Risk Map Dashboard
     // ============================================================
     var riskReportData = null;
-    var churnByFile = {};      // file id → { commits, recent, lastDate, authors }
+    var churnByFile = {};      // file id → { commits, recent, lastDate, authors, changedLines, recency, fixCommits }
     var RECENT_DAYS = 30;      // fixed window for the "Recently Hot" section
     var CHURN_CAP = 20;        // churn scale used for the scatter axis
     var riskCore = window.AuraRisk; // shared scoring — see src/risk/risk-core.ts
@@ -50,10 +50,28 @@
         return c ? c.commits : 0;
     }
 
+    var EMPTY_CHURN = { commits: 0, recent: 0, lastDate: 0, authors: {}, changedLines: 0, recency: 0, fixCommits: 0 };
+
     function churnOf(node) {
-        if (!node) return { commits: 0, recent: 0, lastDate: 0, authors: {} };
-        return churnByFile[node.id] || churnByFile[node.path] ||
-            { commits: 0, recent: 0, lastDate: 0, authors: {} };
+        if (!node) return EMPTY_CHURN;
+        return churnByFile[node.id] || churnByFile[node.path] || EMPTY_CHURN;
+    }
+
+    /**
+     * History of a file, shaped for the shared score: rewrite volume relative to
+     * the file's size today, recency-weighted commits, author count and the share
+     * of commits that read like bug fixes. Mirrors `buildRiskSnapshot` on the host.
+     */
+    function gitStatsOf(node) {
+        var stats = churnOf(node);
+        var lines = (node && node.linesOfCode) || 0;
+        return {
+            commits: stats.commits || 0,
+            relChurn: lines > 0 ? (stats.changedLines || 0) / lines : 0,
+            recency: stats.recency || 0,
+            authors: stats.authors ? Object.keys(stats.authors).length : 0,
+            fixRatio: stats.commits > 0 ? (stats.fixCommits || 0) / stats.commits : 0,
+        };
     }
 
     function computeChurnIndex() {
@@ -61,7 +79,9 @@
         var now = Date.now();
         var day = 24 * 60 * 60 * 1000;
         var cutoff = now - riskWindowDays * day;
+        var windowMs = Math.max(1, riskWindowDays * day);
         var recentCutoff = now - RECENT_DAYS * day;
+        var fixKeywords = (window.AURA_CONFIG && window.AURA_CONFIG.fixKeywords) || undefined;
         // Follow git renames so a moved file keeps its history (same resolver
         // as the host — see src/risk/risk-core.ts).
         var commits = timelineCommitsList();
@@ -71,15 +91,30 @@
             var when = new Date(commit.date).getTime();
             if (isNaN(when)) when = 0;
             var author = commit.author || 'unknown';
+            var inWindow = when >= cutoff;
+            var isFix = riskCore.isFixCommit(commit.message || '', fixKeywords);
+            // A commit made today weighs 1, one at the window's edge ~0.
+            var recency = inWindow ? Math.max(0, 1 - (now - when) / windowMs) : 0;
             var files = commit.files || [];
             for (var j = 0; j < files.length; j++) {
-                var p = files[j].path;
+                var f = files[j];
+                var p = f.path;
                 if (!p) continue;
                 p = resolvePath(p);
                 var entry = churnByFile[p];
-                if (!entry) entry = churnByFile[p] = { commits: 0, recent: 0, lastDate: 0, authors: {} };
-                if (when >= cutoff) entry.commits++;        // churn inside the selected window
-                if (when >= recentCutoff) entry.recent++;   // last 30 days, for "Recently Hot"
+                if (!entry) {
+                    entry = churnByFile[p] = {
+                        commits: 0, recent: 0, lastDate: 0, authors: {},
+                        changedLines: 0, recency: 0, fixCommits: 0,
+                    };
+                }
+                if (inWindow) {
+                    entry.commits++;                                    // churn inside the selected window
+                    entry.changedLines += (f.additions || 0) + (f.deletions || 0);
+                    entry.recency += recency;
+                    if (isFix) entry.fixCommits++;
+                }
+                if (when >= recentCutoff) entry.recent++;               // last 30 days, for "Recently Hot"
                 if (when > entry.lastDate) entry.lastDate = when;
                 entry.authors[author] = true;
             }
@@ -90,26 +125,28 @@
         return getChurn(node.id) || getChurn(node.path);
     }
 
-    /** Rank every structural metric against the files of *this* repository. */
+    /** Rank every structural and history metric against *this* repository. */
     function buildRiskPercentiles(nodes) {
-        return riskCore.buildRiskPercentiles(nodes, churnFor);
+        return riskCore.buildRiskPercentiles(nodes, gitStatsOf);
     }
 
     /** Risk score — implemented in the shared core (src/risk/risk-core.ts). */
     function computeRiskScore(node, pct) {
-        return riskCore.computeRiskScore(node, pct || riskPercentiles, churnFor(node), {
+        return riskCore.computeRiskScore(node, pct || riskPercentiles, gitStatsOf(node), {
             centrality: !!(window.AURA_CONFIG && window.AURA_CONFIG.riskCentrality),
         });
     }
 
     /** Written reasons — implemented in the shared core (src/risk/risk-core.ts). */
     function riskReasons(node, pct) {
-        var stats = churnOf(node);
+        var stats = gitStatsOf(node);
         return riskCore.riskReasons(node, pct || riskPercentiles, {
             windowDays: riskWindowDays,
-            churn: churnFor(node),
-            authorCount: stats.authors ? Object.keys(stats.authors).length : 0,
+            churn: stats.commits,
+            authorCount: stats.authors,
             centrality: !!(window.AURA_CONFIG && window.AURA_CONFIG.riskCentrality),
+            relChurn: stats.relChurn,
+            fixRatio: stats.fixRatio,
         });
     }
 
@@ -835,6 +872,14 @@
         init: function (h) { hooks = h || {}; },
         setup: setupRisk,
         getChurn: getChurn,
+        /** History signals of a file (relChurn, recency, authors, fixRatio). */
+        getStats: function (id) {
+            var nodes = (hooks.getGraphData() && hooks.getGraphData().nodes) || [];
+            for (var i = 0; i < nodes.length; i++) {
+                if (nodes[i].id === id) return gitStatsOf(nodes[i]);
+            }
+            return gitStatsOf({ id: id });
+        },
         computeChurnIndex: computeChurnIndex,
         renderRiskDashboard: renderRiskDashboard,
         revealFile: revealRiskFile,

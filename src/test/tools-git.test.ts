@@ -35,6 +35,8 @@ function snapshotOf(entries: Record<string, Partial<RiskFileEntry>>): RiskSnapsh
             fanIn: 1,
             fanOut: 1,
             churn: 2,
+            relChurn: 0,
+            fixRatio: 0,
             authorCount: 1,
             ...overrides,
         });

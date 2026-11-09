@@ -19,6 +19,88 @@ export const DEFAULT_RISK_WINDOW = 90;
 /** Churn scale at which the score saturates when percentiles are unavailable. */
 export const CHURN_CAP = 20;
 
+/**
+ * Everything git history knows about one file. The score used to take a bare
+ * commit count; a hotspot is not "changed often" but "reworked", so the volume
+ * of lines and the nature of the commits matter just as much.
+ */
+export interface RiskGitStats {
+    /** Commits touching the file inside the window. */
+    commits: number;
+    /**
+     * Sum of `(added + removed)` lines inside the window, relative to the file's
+     * size today: 2 means the file was rewritten twice over.
+     */
+    relChurn?: number;
+    /**
+     * Recency-weighted commit sum inside the window: a commit made today counts
+     * 1, one at the window's edge counts ~0. Distinguishes a file being hammered
+     * now from one that was hot three months ago.
+     */
+    recency?: number;
+    /** Distinct authors across the whole history. */
+    authors?: number;
+    /** Share of windowed commits whose message looks like a bug fix (0..1). */
+    fixRatio?: number;
+}
+
+/** Accept the legacy "bare churn number" call shape or a full stats object. */
+export function asGitStats(input: RiskGitStats | number | null | undefined): RiskGitStats {
+    if (typeof input === 'number') return { commits: input };
+    if (!input) return { commits: 0 };
+    return input;
+}
+
+/**
+ * Message patterns that make a commit a bug fix. Configurable (`fixKeywords`),
+ * matched case-insensitively; an invalid user pattern falls back to the default
+ * instead of throwing.
+ */
+export const DEFAULT_FIX_KEYWORDS = '\\b(fix|fixes|fixed|bug|bugs|hotfix|regress|regression|revert)\\b';
+
+const fixRegexCache = new Map<string, RegExp | null>();
+
+function compileFixPattern(pattern?: string): RegExp | null {
+    const key = pattern || DEFAULT_FIX_KEYWORDS;
+    if (fixRegexCache.has(key)) return fixRegexCache.get(key)!;
+    let compiled: RegExp | null = null;
+    try {
+        compiled = new RegExp(key, 'i');
+    } catch {
+        compiled = null;
+    }
+    fixRegexCache.set(key, compiled);
+    return compiled;
+}
+
+/** True when a commit message reads like a bug fix ("fix crash on save"). */
+export function isFixCommit(message: string, pattern?: string): boolean {
+    if (!message) return false;
+    let re = compileFixPattern(pattern);
+    if (!re) re = compileFixPattern(undefined); // invalid custom pattern → default
+    return !!re && re.test(message);
+}
+
+/**
+ * Score weights (v2). They sum to 1 and are exported so the tests, the reasons
+ * and the documentation cannot drift apart. The structural half stays dominant
+ * on purpose: Aura is an architecture tool, git history refines the ranking
+ * rather than driving it.
+ */
+export const RISK_WEIGHTS = {
+    complexity: 0.21,
+    /** Fan-in, or PageRank when `riskCentrality` is on. */
+    centrality: 0.18,
+    fanOut: 0.08,
+    cycle: 0.12,
+    deadCode: 0.12,
+    relChurn: 0.09,
+    recency: 0.06,
+    frequency: 0.06,
+    authors: 0.05,
+    fixRatio: 0.03,
+} as const;
+
 export interface RiskNode {
     complexity?: number;
     fanIn?: number;
@@ -38,6 +120,14 @@ export interface RiskPercentiles {
     churn: (v: number) => number;
     /** PageRank percentile, available when nodes carry pagerank. */
     centrality?: (v: number) => number;
+    /** Rewrite volume percentile (see `RiskGitStats.relChurn`). */
+    relChurn?: (v: number) => number;
+    /** Recency-weighted commits percentile. */
+    recency?: (v: number) => number;
+    /** Author-count percentile. */
+    authors?: (v: number) => number;
+    /** Bug-fix ratio percentile. */
+    fixRatio?: (v: number) => number;
 }
 
 export interface RiskReason {
@@ -54,6 +144,10 @@ export interface RiskReasonContext {
     authorCount: number;
     /** Use PageRank percentile instead of fan-in (optional V2-16 factor). */
     centrality?: boolean;
+    /** Rewrite volume: (added + removed) / current size, inside the window. */
+    relChurn?: number;
+    /** Share of windowed commits whose message reads like a bug fix (0..1). */
+    fixRatio?: number;
 }
 
 /** Validate a risk window value against RISK_WINDOWS (settings can hold anything). */
@@ -92,19 +186,29 @@ export function percentileLookup(values: number[]): (v: number) => number {
     };
 }
 
-/** Rank every structural metric against the files of *this* repository. */
+/**
+ * Rank every structural **and git** metric against the files of *this*
+ * repository. `gitOf` may return a bare commit count (legacy call shape) or a
+ * full `RiskGitStats`.
+ */
 export function buildRiskPercentiles(
     nodes: RiskNode[],
-    churnOf: (node: RiskNode) => number
+    gitOf: (node: RiskNode) => RiskGitStats | number
 ): RiskPercentiles {
     const complexity: number[] = [], fanIn: number[] = [], fanOut: number[] = [], churn: number[] = [];
     const pagerank: number[] = [];
+    const relChurn: number[] = [], recency: number[] = [], authors: number[] = [], fixRatio: number[] = [];
     for (const n of nodes) {
+        const git = asGitStats(gitOf(n));
         complexity.push(n.complexity || 0);
         fanIn.push(n.fanIn || 0);
         fanOut.push(n.fanOut || 0);
-        churn.push(churnOf(n) || 0);
+        churn.push(git.commits || 0);
         pagerank.push(typeof n.pagerank === 'number' ? n.pagerank : 0);
+        relChurn.push(git.relChurn || 0);
+        recency.push(git.recency || 0);
+        authors.push(git.authors || 0);
+        fixRatio.push(git.fixRatio || 0);
     }
     return {
         complexity: percentileLookup(complexity),
@@ -112,6 +216,10 @@ export function buildRiskPercentiles(
         fanOut: percentileLookup(fanOut),
         churn: percentileLookup(churn),
         centrality: percentileLookup(pagerank),
+        relChurn: percentileLookup(relChurn),
+        recency: percentileLookup(recency),
+        authors: percentileLookup(authors),
+        fixRatio: percentileLookup(fixRatio),
     };
 }
 
@@ -134,24 +242,40 @@ export function riskBucket(score: number): RiskBucket {
 }
 
 /**
- * Risk score. Complexity, fan-in, fan-out and churn are **percentile ranks inside
- * this repository**, so a score of 72 means the same thing in a 50-file project
- * and in a 5 000-file one — it is a standing relative to the codebase rather than
- * an absolute threshold. Cycle and dead-code are already 0..1 by nature.
+ * Risk score (v2). Every component is a **percentile rank inside this
+ * repository**, so a score of 72 means the same thing in a 50-file project and in
+ * a 5 000-file one — it is a standing relative to the codebase rather than an
+ * absolute threshold. Cycle and dead code are 0..1 by nature.
+ *
+ * Two halves: the structure (complexity, fan-in, fan-out, cycles, dead code) and
+ * the history (rewrite volume, recency, frequency, authors, bug fixes). The
+ * structural half dominates on purpose — Aura ranks *architecture*, git history
+ * refines it.
  */
 export function computeRiskScore(
     node: RiskNode,
     pct: RiskPercentiles | null | undefined,
-    churn: number,
+    git: RiskGitStats | number | null | undefined,
     options: { centrality?: boolean } = {},
 ): number {
+    const stats = asGitStats(git);
     const complexity = node.complexity || 0;
     const fanIn = node.fanIn || 0;
     const fanOut = node.fanOut || 0;
+    const commits = stats.commits || 0;
+    const relChurn = stats.relChurn || 0;
+    const recency = stats.recency || 0;
+    const authors = stats.authors || 0;
+    const fixRatio = stats.fixRatio || 0;
+
     const complexityP = pct ? pct.complexity(complexity) : Math.min(complexity / 50, 1);
     const fanInP = pct ? pct.fanIn(fanIn) : Math.min(fanIn / 20, 1);
     const fanOutP = pct ? pct.fanOut(fanOut) : Math.min(fanOut / 30, 1);
-    const churnP = pct ? pct.churn(churn) : Math.min(churn / CHURN_CAP, 1);
+    const churnP = pct ? pct.churn(commits) : Math.min(commits / CHURN_CAP, 1);
+    const relChurnP = pct?.relChurn ? pct.relChurn(relChurn) : Math.min(relChurn, 1);
+    const recencyP = pct?.recency ? pct.recency(recency) : 0;
+    const authorsP = pct?.authors ? pct.authors(authors) : 0;
+    const fixRatioP = pct?.fixRatio ? pct.fixRatio(fixRatio) : fixRatio;
     const centralityEnabled = options.centrality === true && !!pct?.centrality;
     const centralityP = centralityEnabled && pct?.centrality
         ? pct.centrality(node.pagerank || 0)
@@ -160,13 +284,19 @@ export function computeRiskScore(
     const totalSymbols = (node.symbols && node.symbols.totalSymbols) || 0;
     const deadCount = (node.deadExports && node.deadExports.length) || 0;
     const deadRatio = totalSymbols > 0 ? Math.min(deadCount / totalSymbols, 1) : 0;
+
+    const w = RISK_WEIGHTS;
     return 100 * (
-        0.30 * complexityP +
-        0.20 * (centralityEnabled ? centralityP : fanInP) +
-        0.10 * fanOutP +
-        0.15 * inCycle +
-        0.15 * deadRatio +
-        0.10 * churnP
+        w.complexity * complexityP +
+        w.centrality * (centralityEnabled ? centralityP : fanInP) +
+        w.fanOut * fanOutP +
+        w.cycle * inCycle +
+        w.deadCode * deadRatio +
+        w.relChurn * relChurnP +
+        w.recency * recencyP +
+        w.frequency * churnP +
+        w.authors * authorsP +
+        w.fixRatio * fixRatioP
     );
 }
 
@@ -181,10 +311,13 @@ export function riskReasons(
     ctx: RiskReasonContext
 ): RiskReason[] {
     const reasons: RiskReason[] = [];
+    const w = RISK_WEIGHTS;
     const complexity = node.complexity || 0;
     const fanIn = node.fanIn || 0;
     const fanOut = node.fanOut || 0;
     const churn = ctx.churn || 0;
+    const relChurn = ctx.relChurn || 0;
+    const fixRatio = ctx.fixRatio || 0;
     const totalSymbols = (node.symbols && node.symbols.totalSymbols) || 0;
     const deadCount = (node.deadExports && node.deadExports.length) || 0;
     const authorCount = ctx.authorCount || 0;
@@ -193,43 +326,66 @@ export function riskReasons(
     if (complexity > 0) {
         const pC = pct ? pct.complexity(complexity) : 0;
         lbl = topPercentLabel(pC);
-        reasons.push({ weight: 0.30 * pC, text: 'complexity ' + complexity + (lbl ? ' (' + lbl + ' of the repo)' : '') });
+        reasons.push({ weight: w.complexity * pC, text: 'complexity ' + complexity + (lbl ? ' (' + lbl + ' of the repo)' : '') });
     }
     if (fanIn > 0 || (ctx.centrality && node.pagerank && pct?.centrality)) {
         if (ctx.centrality && pct?.centrality && node.pagerank) {
             const pCentrality = pct.centrality(node.pagerank);
             const centralityLabel = topPercentLabel(pCentrality);
             reasons.push({
-                weight: 0.20 * pCentrality,
+                weight: w.centrality * pCentrality,
                 text: 'centrality' + (centralityLabel ? ' ' + centralityLabel : '') +
                     ' (PageRank ' + node.pagerank.toFixed(4) + ')',
             });
         } else {
             const pI = pct ? pct.fanIn(fanIn) : 0;
             lbl = topPercentLabel(pI);
-            reasons.push({ weight: 0.20 * pI, text: fanIn + (fanIn === 1 ? ' file depends on it' : ' files depend on it') + (lbl ? ' (' + lbl + ')' : '') });
+            reasons.push({ weight: w.centrality * pI, text: fanIn + (fanIn === 1 ? ' file depends on it' : ' files depend on it') + (lbl ? ' (' + lbl + ')' : '') });
         }
+    }
+    // Rewrite volume: the half of a hotspot that a commit count misses.
+    if (relChurn >= 0.1) {
+        const pRc = pct?.relChurn ? pct.relChurn(relChurn) : Math.min(relChurn, 1);
+        lbl = topPercentLabel(pRc);
+        const times = relChurn >= 10 ? String(Math.round(relChurn)) : relChurn.toFixed(1);
+        reasons.push({
+            weight: w.relChurn * pRc,
+            text: 'rewritten ' + times + '\u00d7 in ' + ctx.windowDays + ' days' + (lbl ? ' (' + lbl + ')' : ''),
+        });
     }
     if (churn > 0) {
         const pCh = pct ? pct.churn(churn) : 0;
         lbl = topPercentLabel(pCh);
-        reasons.push({ weight: 0.10 * pCh, text: 'changed ' + churn + ' time' + (churn === 1 ? '' : 's') + ' in ' + ctx.windowDays + ' days' + (lbl ? ' (' + lbl + ')' : '') });
+        reasons.push({ weight: w.frequency * pCh, text: 'changed ' + churn + ' time' + (churn === 1 ? '' : 's') + ' in ' + ctx.windowDays + ' days' + (lbl ? ' (' + lbl + ')' : '') });
+    }
+    if (authorCount > 1) {
+        const pA = pct?.authors ? pct.authors(authorCount) : 0;
+        lbl = topPercentLabel(pA);
+        reasons.push({
+            weight: w.authors * pA,
+            text: authorCount + ' authors' + (lbl ? ' (' + lbl + ')' : ''),
+        });
+    } else if (authorCount === 1) {
+        reasons.push({ weight: 0, text: 'single author' });
+    }
+    if (fixRatio > 0) {
+        const pF = pct?.fixRatio ? pct.fixRatio(fixRatio) : fixRatio;
+        lbl = topPercentLabel(pF);
+        reasons.push({
+            weight: w.fixRatio * pF,
+            text: Math.round(fixRatio * 100) + '% of its commits are fixes' + (lbl ? ' (' + lbl + ')' : ''),
+        });
     }
     if (fanOut > 0) {
         const pO = pct ? pct.fanOut(fanOut) : 0;
-        reasons.push({ weight: 0.10 * pO, text: 'depends on ' + fanOut + ' file' + (fanOut === 1 ? '' : 's') });
+        reasons.push({ weight: w.fanOut * pO, text: 'depends on ' + fanOut + ' file' + (fanOut === 1 ? '' : 's') });
     }
     if (node.cycleIds && node.cycleIds.length > 0) {
-        reasons.push({ weight: 0.15, text: 'in a dependency cycle' });
+        reasons.push({ weight: w.cycle, text: 'in a dependency cycle' });
     }
     if (deadCount > 0) {
         const ratio = totalSymbols > 0 ? deadCount / totalSymbols : 0;
-        reasons.push({ weight: 0.15 * ratio, text: deadCount + ' unused symbol' + (deadCount === 1 ? '' : 's') + ' of ' + totalSymbols });
-    }
-    if (authorCount === 1) {
-        reasons.push({ weight: 0, text: 'single author' });
-    } else if (authorCount > 1) {
-        reasons.push({ weight: 0, text: authorCount + ' authors' });
+        reasons.push({ weight: w.deadCode * ratio, text: deadCount + ' unused symbol' + (deadCount === 1 ? '' : 's') + ' of ' + totalSymbols });
     }
     reasons.sort((a, b) => b.weight - a.weight);
     return reasons;

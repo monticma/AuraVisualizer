@@ -10,11 +10,13 @@ import {
     buildRenameResolver,
     buildRiskPercentiles,
     computeRiskScore,
+    isFixCommit,
     percentileLookup,
     riskBucket,
     riskReasons,
     topPercentLabel,
     type RiskBucket,
+    type RiskGitStats,
     type RiskNode,
     type RiskReason,
 } from './risk-core';
@@ -28,7 +30,23 @@ export interface RiskServiceNode extends RiskNode {
 export interface RiskServiceCommit {
     date: string;
     author?: string;
-    files?: { path?: string; oldPath?: string; status?: string }[];
+    /** Commit subject — scanned for the bug-fix signal. */
+    message?: string;
+    files?: {
+        path?: string;
+        oldPath?: string;
+        status?: string;
+        /** From `git --numstat` (undefined on older caches). */
+        additions?: number;
+        deletions?: number;
+    }[];
+}
+
+export interface RiskSnapshotOptions {
+    /** Use PageRank instead of fan-in in the structural half. */
+    centrality?: boolean;
+    /** Regex matched against commit messages to recognise bug fixes. */
+    fixKeywords?: string;
 }
 
 export interface RiskFileEntry {
@@ -47,6 +65,10 @@ export interface RiskFileEntry {
     fanOut: number;
     /** Commits in the selected window. */
     churn: number;
+    /** (lines added + removed) / current size, inside the window. */
+    relChurn: number;
+    /** Share of windowed commits whose message reads like a bug fix (0..1). */
+    fixRatio: number;
     /** Distinct authors across the whole history. */
     authorCount: number;
 }
@@ -58,11 +80,17 @@ export interface RiskSnapshot {
     avgScore: number;
 }
 
-interface ChurnStats {
+interface GitStats {
     /** Commits inside the selected window (mirrors the webview's computeChurnIndex). */
     commits: number;
     /** Distinct authors across ALL history, like the webview. */
     authors: Set<string>;
+    /** Lines added + removed inside the window. */
+    changedLines: number;
+    /** Recency-weighted commit sum inside the window (1 = today). */
+    recency: number;
+    /** Commits inside the window whose message reads like a bug fix. */
+    fixCommits: number;
 }
 
 /**
@@ -78,48 +106,69 @@ export function buildRiskSnapshot(
     commits: RiskServiceCommit[],
     windowDays: number,
     now: number = Date.now(),
-    centrality: boolean = false,
+    options: RiskSnapshotOptions = {},
 ): RiskSnapshot {
+    const centrality = options.centrality === true;
     const dayMs = 24 * 60 * 60 * 1000;
     const cutoff = now - windowDays * dayMs;
+    const windowMs = Math.max(1, windowDays * dayMs);
 
     // Follow git renames so a moved file keeps its history (mirrors the webview).
     const resolvePath = buildRenameResolver(commits);
 
-    const churn = new Map<string, ChurnStats>();
+    const git = new Map<string, GitStats>();
     for (const commit of commits) {
         let when = new Date(commit.date).getTime();
         if (isNaN(when)) when = 0;
         const inWindow = when >= cutoff;
         const author = commit.author || 'unknown';
+        const isFix = isFixCommit(commit.message || '', options.fixKeywords);
+        // A commit made today weighs 1, one at the window's edge ~0.
+        const recency = inWindow ? Math.max(0, 1 - (now - when) / windowMs) : 0;
         for (const file of commit.files || []) {
             const raw = file.path;
             if (!raw) continue;
             const p = resolvePath(raw);
-            let entry = churn.get(p);
-            if (!entry) { entry = { commits: 0, authors: new Set() }; churn.set(p, entry); }
-            if (inWindow) entry.commits++;
+            let entry = git.get(p);
+            if (!entry) {
+                entry = { commits: 0, authors: new Set(), changedLines: 0, recency: 0, fixCommits: 0 };
+                git.set(p, entry);
+            }
+            if (inWindow) {
+                entry.commits++;
+                entry.changedLines += (file.additions || 0) + (file.deletions || 0);
+                entry.recency += recency;
+                if (isFix) entry.fixCommits++;
+            }
             entry.authors.add(author);
         }
     }
 
-    const churnOf = (node: RiskNode): number => {
-        const id = (node as RiskServiceNode).id;
-        const path = (node as RiskServiceNode).path;
-        const a = id ? churn.get(id) : undefined;
-        const b = path ? churn.get(path) : undefined;
-        return (a ? a.commits : 0) || (b ? b.commits : 0);
+    const statsOf = (node: RiskServiceNode): GitStats | undefined =>
+        (node.id ? git.get(node.id) : undefined) || (node.path ? git.get(node.path) : undefined);
+
+    /** Public, percentile-ready view of a file's history. */
+    const gitStatsOf = (node: RiskNode): RiskGitStats => {
+        const s = statsOf(node as RiskServiceNode);
+        if (!s) return { commits: 0 };
+        const lines = node.linesOfCode || 0;
+        return {
+            commits: s.commits,
+            // Lines moved relative to the size today: "rewritten 2×" = 2.
+            relChurn: lines > 0 ? s.changedLines / lines : 0,
+            recency: s.recency,
+            authors: s.authors.size,
+            fixRatio: s.commits > 0 ? s.fixCommits / s.commits : 0,
+        };
     };
-    const statsOf = (node: RiskServiceNode): ChurnStats | undefined =>
-        (node.id ? churn.get(node.id) : undefined) || (node.path ? churn.get(node.path) : undefined);
 
     // Documentation is not architecture: keep it out of percentiles and rankings.
     const architecturalNodes = nodes.filter(node => node.language !== 'documentation');
-    const pct = buildRiskPercentiles(architecturalNodes, churnOf);
+    const pct = buildRiskPercentiles(architecturalNodes, gitStatsOf);
 
     const raw: { node: RiskServiceNode; score: number }[] = [];
     for (const n of architecturalNodes) {
-        raw.push({ node: n, score: computeRiskScore(n, pct, churnOf(n), { centrality }) });
+        raw.push({ node: n, score: computeRiskScore(n, pct, gitStatsOf(n), { centrality }) });
     }
 
     const scorePct = percentileLookup(raw.map(r => r.score));
@@ -129,7 +178,8 @@ export function buildRiskSnapshot(
 
     for (const r of raw) {
         total += r.score;
-        const stats = statsOf(r.node);
+        const stats = gitStatsOf(r.node);
+        const lines = r.node.linesOfCode || 0;
         const p = scorePct(r.score);
         const entry: RiskFileEntry = {
             id: r.node.id,
@@ -139,16 +189,20 @@ export function buildRiskSnapshot(
             bucket: riskBucket(r.score),
             reasons: riskReasons(r.node, pct, {
                 windowDays,
-                churn: churnOf(r.node),
-                authorCount: stats ? stats.authors.size : 0,
+                churn: stats.commits || 0,
+                authorCount: stats.authors || 0,
                 centrality,
+                relChurn: stats.relChurn,
+                fixRatio: stats.fixRatio,
             }),
-            lines: r.node.linesOfCode || 0,
+            lines,
             complexity: r.node.complexity || 0,
             fanIn: r.node.fanIn || 0,
             fanOut: r.node.fanOut || 0,
-            churn: churnOf(r.node),
-            authorCount: stats ? stats.authors.size : 0,
+            churn: stats.commits || 0,
+            relChurn: stats.relChurn || 0,
+            fixRatio: stats.fixRatio || 0,
+            authorCount: stats.authors || 0,
         };
         byId.set(r.node.id, entry);
         if (entry.bucket === 'high') highIds.add(r.node.id);
