@@ -5234,6 +5234,22 @@ select option {
     border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
+/* Names & ranks toggle: the one legend row you can click. */
+.city-legend-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.city-legend-toggle input {
+    margin: 0;
+    width: 11px;
+    height: 11px;
+    accent-color: #d1462f;
+}
+
 /* ============================================================
    City inspector — risk block
    Same palette as .risk-file-row so a score reads the same in both views.

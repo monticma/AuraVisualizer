@@ -374,6 +374,9 @@
     function buildDistrictLabels(plan, group) {
         var T = window.THREE;
         if (!T || !plan || !window.AuraSprites || typeof window.AuraSprites.labelSprite !== 'function') return;
+        // "Names & ranks" off: the city stays readable without a single word on
+        // it — that is what a screenshot for someone else's eyes needs.
+        if (state.names === false) { state.labelCount = 0; return; }
         var scale = cityScale();
         var ranked = plan.districts.slice().sort(function (a, b) { return (b.w * b.d) - (a.w * a.d); });
         var drawn = 0;
@@ -406,6 +409,7 @@
         var T = window.THREE;
         if (!T || !plan || !window.AuraSprites || typeof window.AuraSprites.labelSprite !== 'function') return;
         if (!state.rankOf) return;
+        if (state.names === false) { state.badgeCount = 0; return; }
         var drawn = 0;
         for (var i = 0; i < plan.rects.length; i++) {
             var rect = plan.rects[i];
@@ -1020,12 +1024,100 @@
 
     /** Export the city canvas as a PNG through the host's save dialog. */
     function exportPng() {
-        if (!state.graph || typeof state.graph.renderer !== 'function') return;
+        var canvas = canvasElement();
+        if (!canvas) return;
+        var dataUrl = '';
+        // A canvas that refuses to serialise (2D-less host) must not break the panel.
+        try { dataUrl = canvas.toDataURL('image/png'); } catch (_) { dataUrl = ''; }
+        if (!dataUrl || dataUrl.indexOf('data:image/png') !== 0) return;
+        if (window.AuraHost && typeof window.AuraHost.post === 'function') {
+            window.AuraHost.post({ type: 'exportImageData', payload: { dataUrl: dataUrl } });
+        }
+    }
+
+    /**
+     * The live WebGL canvas, after a fresh render. `preserveDrawingBuffer` is off
+     * in three by default, so the pixels are only valid inside the same task as
+     * the draw: render, then read, never read later.
+     */
+    function canvasElement() {
+        if (!state.graph || typeof state.graph.renderer !== 'function') return null;
         var renderer = null;
         try { renderer = state.graph.renderer(); } catch (_) { renderer = null; }
         var canvas = renderer && renderer.domElement;
-        if (!canvas || typeof canvas.toDataURL !== 'function') return;
-        var dataUrl = canvas.toDataURL('image/png');
+        if (!canvas || typeof canvas.toDataURL !== 'function') return null;
+        try { renderer.render(state.graph.scene(), state.graph.camera()); } catch (_) { /* keep the last frame */ }
+        return canvas;
+    }
+
+    /**
+     * Postcard: a 1600×900 sheet — the city, then what it means. The caption is
+     * the point: buildings, districts, the active encoding, and the three
+     * buildings that carry the city — so the image survives being sent to
+     * someone who will never run the tool.
+     */
+    function exportPostcard() {
+        var canvas = canvasElement();
+        if (!canvas || !canvas.width || !canvas.height) return;
+        if (typeof document.createElement !== 'function') return;
+        var W = 1600;
+        var H = 900;
+        var BAND = 150;
+        var sheet = document.createElement('canvas');
+        sheet.width = W;
+        sheet.height = H;
+        var ctx = sheet.getContext('2d');
+        if (!ctx) return;
+
+        ctx.fillStyle = '#0b0e13';
+        ctx.fillRect(0, 0, W, H);
+
+        var k = Math.min(W / canvas.width, (H - BAND) / canvas.height);
+        var dw = Math.round(canvas.width * k);
+        var dh = Math.round(canvas.height * k);
+        ctx.drawImage(canvas, Math.round((W - dw) / 2), Math.max(0, Math.round((H - BAND - dh) / 2)), dw, dh);
+
+        var plan = state.plan;
+        var counts = plan
+            ? plan.rects.length + ' buildings · ' + plan.districts.length + ' districts'
+            : 'no plan';
+        var encoding = plan
+            ? 'height = ' + plan.heightMetric + ' · footprint = ' + plan.footprintMetric
+            : '';
+        var top = [];
+        if (state.names !== false && state.rankOf) {
+            for (var id in state.rankOf) {
+                if (Object.prototype.hasOwnProperty.call(state.rankOf, id)) {
+                    top.push({ id: id, rank: state.rankOf[id] });
+                }
+            }
+            top.sort(function (a, b) { return a.rank - b.rank; });
+            top = top.slice(0, 3);
+        }
+
+        var y = H - BAND + 42;
+        ctx.fillStyle = '#e8eef4';
+        ctx.font = '600 30px system-ui, sans-serif';
+        ctx.fillText(counts, 48, y);
+        ctx.fillStyle = 'rgba(232, 238, 244, 0.6)';
+        ctx.font = '400 20px system-ui, sans-serif';
+        ctx.fillText(encoding, 48, y + 32);
+
+        for (var t = 0; t < top.length; t++) {
+            var node = state.nodeById[top[t].id] || {};
+            var name = node.name || String(top[t].id).split('/').pop();
+            ctx.fillStyle = t === 0 ? '#d1462f' : 'rgba(232, 238, 244, 0.75)';
+            ctx.fillText('#' + top[t].rank + '  ' + name, 48, y + 66 + t * 26);
+        }
+
+        ctx.fillStyle = 'rgba(232, 238, 244, 0.35)';
+        ctx.font = '400 18px system-ui, sans-serif';
+        ctx.textAlign = 'right';
+        ctx.fillText('Aura Visualizer', W - 48, H - 24);
+        ctx.textAlign = 'left';
+
+        var dataUrl = '';
+        try { dataUrl = sheet.toDataURL('image/png'); } catch (_) { dataUrl = ''; }
         if (!dataUrl || dataUrl.indexOf('data:image/png') !== 0) return;
         if (window.AuraHost && typeof window.AuraHost.post === 'function') {
             window.AuraHost.post({ type: 'exportImageData', payload: { dataUrl: dataUrl } });
@@ -1130,12 +1222,27 @@
         try { window.localStorage.setItem(STORE_KEY, JSON.stringify(OPTIONS)); } catch (_) { /* private mode */ }
     }
 
+    /** Names & ranks on or off: rebuilds the decor, keeps the plan and selection. */
+    function setNames(on) {
+        state.names = on !== false;
+        try {
+            var raw = window.localStorage.getItem(STORE_KEY);
+            var saved = raw ? JSON.parse(raw) : {};
+            saved.names = state.names;
+            window.localStorage.setItem(STORE_KEY, JSON.stringify(saved));
+        } catch (_) { /* private mode */ }
+        var box = $('#city-names');
+        if (box) box.checked = state.names;
+        if (state.plan) buildDecor(state.plan);
+    }
+
     function restoreOptions() {
         var raw = null;
         try { raw = window.localStorage.getItem(STORE_KEY); } catch (_) { raw = null; }
         if (raw) {
             try {
                 var saved = JSON.parse(raw);
+                if (saved.names === false) state.names = false;
                 for (var i = 0; i < CONTROLS.length; i++) {
                     var key = CONTROLS[i].key;
                     if (typeof saved[key] !== 'string' || saved[key].length === 0) continue;
@@ -1146,6 +1253,8 @@
             } catch (_) { /* corrupt entry: keep the defaults */ }
         }
         syncControls();
+        var namesBox = $('#city-names');
+        if (namesBox) namesBox.checked = state.names !== false;
     }
 
     /** Clamp a stored value to one of the select's current options. */
@@ -1195,6 +1304,12 @@
         if (state.hudFocus) state.hudFocus.addEventListener('click', focusInGraph);
         var exportBtn = $('#city-export');
         if (exportBtn) exportBtn.addEventListener('click', exportPng);
+        var postcardBtn = $('#city-postcard');
+        if (postcardBtn) postcardBtn.addEventListener('click', exportPostcard);
+        var namesBox = $('#city-names');
+        if (namesBox) {
+            namesBox.addEventListener('change', function () { setNames(namesBox.checked); });
+        }
         var treemapBtn = $('#treemap-city');
         if (treemapBtn) {
             treemapBtn.addEventListener('click', function () {
@@ -1256,6 +1371,10 @@
         hotBand: function () { return state.hotCount; },
         rankOf: function () { return state.rankOf || {}; },
         badgeCount: function () { return state.badgeCount || 0; },
+        labelCount: function () { return state.labelCount || 0; },
+        names: function () { return state.names !== false; },
+        setNames: function (on) { setNames(on); },
+        postcard: function () { exportPostcard(); },
         options: OPTIONS,
         graph: function () { return state.graph; },
     };

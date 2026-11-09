@@ -1681,6 +1681,7 @@ export class WebviewProvider {
                 </select>
             </label>
             <button id="city-export" type="button" class="city-select" title="Export the city as a PNG">📷 PNG</button>
+            <button id="city-postcard" type="button" class="city-select" title="Export a 1600×900 postcard: the city plus what it means">📮 Postcard</button>
         </div>
         <div id="city-crumbs" class="hidden"></div>
         <!-- Stage: the panel is anchored here, below the two toolbars, exactly
@@ -1691,6 +1692,7 @@ export class WebviewProvider {
                 <div class="city-legend-row" id="city-legend-encoding">height = cognitive · footprint = lines</div>
                 <div class="city-legend-row"><span class="city-legend-swatch hot"></span><span id="city-legend-hot">top 20</span></div>
                 <div class="city-legend-row"><span class="city-legend-swatch glass"></span>docs, data, config, assets — not ranked</div>
+                <div class="city-legend-row"><label class="city-legend-toggle" title="Draw district names and rank badges — untick for a clean capture"><input id="city-names" type="checkbox" checked> names &amp; ranks</label></div>
             </div>
             <div id="city-hud">
                 <span id="city-hud-meta">Click a building</span>
