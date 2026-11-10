@@ -1372,12 +1372,6 @@ export class WebviewProvider {
                     <span class="stat-separator hidden" id="stat-parse-separator">·</span>
                     <span class="stat stat-warn hidden" id="stat-parse-failures" role="button" tabindex="0" title="Files that could not be parsed cleanly — click for details">⚠ 0 parse failures</span>
                 </div>
-                <button id="btn-export-image" class="top-btn" title="Export a high-resolution PNG of the 3D graph (3D Graph tab)">📷</button>
-                <button id="btn-follow-editor" class="top-btn" aria-pressed="true" title="Follow editor (on) — camera flies to the active file">👁</button>
-                <button id="btn-export" class="top-btn" title="Export AI context (Markdown/JSON) — selectable sections and token budget">📤 Export</button>
-                <button id="btn-minimap" class="top-btn" title="Toggle minimap">🗺️ Map</button>
-                <button id="btn-warps-panel" class="top-btn" title="Warp points — named camera bookmarks">🌀 Warps</button>
-                <button id="btn-copy-link" class="top-btn" title="Copy a vscode:// link that reopens this exact view — tab, filters, camera and query">🔗 Link</button>
                 <button id="btn-refresh" class="top-btn" title="Refresh analysis">🔄 Refresh</button>
                 <button id="btn-help" class="top-btn" title="Help & shortcuts">❓ Help</button>
             </div>
@@ -1450,8 +1444,19 @@ export class WebviewProvider {
                 <div id="explorer-tree" class="explorer-tree"></div>
             </aside>
 
-            <!-- 3D Graph Container -->
-            <div id="graph-container"></div>
+            <!-- 3D Graph Container — its controls live inside, as a canvas HUD:
+                 they used to sit in the global top bar, where they were inert on
+                 the other ten tabs. Same family as #city-hud. -->
+            <div id="graph-container">
+                <div id="graph-hud">
+                    <button id="btn-export-image" class="top-btn" title="Export a high-resolution PNG of the 3D graph">📷</button>
+                    <button id="btn-follow-editor" class="top-btn" aria-pressed="true" title="Follow editor (on) — camera flies to the active file">👁</button>
+                    <button id="btn-export" class="top-btn" title="Export AI context (Markdown/JSON) — selectable sections and token budget">📤 Export</button>
+                    <button id="btn-minimap" class="top-btn" title="Toggle minimap">🗺️ Map</button>
+                    <button id="btn-warps-panel" class="top-btn" title="Warp points — named camera bookmarks">🌀 Warps</button>
+                    <button id="btn-copy-link" class="top-btn" title="Copy a vscode:// link that reopens this exact view — tab, filters, camera and query">🔗 Link</button>
+                </div>
+            </div>
 
             <!-- Loading Overlay (outside graph-container so it survives graph init) -->
             <div id="loading-overlay">
