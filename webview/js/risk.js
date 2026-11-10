@@ -903,6 +903,22 @@
                 windowDays: riskWindowDays,
             };
         },
+        /**
+         * Risk of every file at once: `{ [id]: { score, bucket } }`. One pass
+         * and one percentile index, so a view that needs every building's score
+         * (the City's `height = risk`) does not pay a scan per node. The index is
+         * shared with the Risk tab, so the two views can never disagree.
+         */
+        scores: function () {
+            var nodes = architectureNodes();
+            if (!riskPercentiles) riskPercentiles = buildRiskPercentiles(nodes);
+            var out = {};
+            for (var i = 0; i < nodes.length; i++) {
+                var score = computeRiskScore(nodes[i], riskPercentiles);
+                out[nodes[i].id] = { score: score, bucket: riskBucket(score) };
+            }
+            return out;
+        },
         computeChurnIndex: computeChurnIndex,
         renderRiskDashboard: renderRiskDashboard,
         revealFile: revealRiskFile,

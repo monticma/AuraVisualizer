@@ -22,7 +22,9 @@ export type CityMetric =
     | 'fanIn'
     | 'fanOut'
     | 'pagerank'
-    | 'size';
+    | 'size'
+    /** 0-100 risk score, stamped on the nodes by the webview (see `risk.js`). */
+    | 'risk';
 
 export type CityMapping = 'quantiles' | 'linear' | 'threshold';
 
@@ -50,6 +52,8 @@ export interface CityNodeLike {
     fanOut?: number;
     pagerank?: number;
     size?: number;
+    /** 0-100 risk score of the owning file — injected by the webview. */
+    risk?: number;
     group?: string;
     layer?: string;
     community?: string;
@@ -298,6 +302,9 @@ export function functionNodes(nodes: CityFileNodeLike[], options: FunctionGranul
                 fanIn: 0,
                 fanOut: 0,
                 pagerank: 0,
+                // The risk score is a property of the *file*: git only knows
+                // files, so every function of a risky file inherits its score.
+                risk: node.risk,
                 group: file,
                 layer: node.layer,
                 community: node.community,
@@ -330,6 +337,7 @@ export const MIN_STREET = 0.003;
         case 'fanOut': raw = node.fanOut; break;
         case 'pagerank': raw = node.pagerank; break;
         case 'size': raw = node.size; break;
+        case 'risk': raw = node.risk; break;
     }
     if (raw === undefined || raw === null || !isFinite(raw)) return 0;
     return raw > 0 ? raw : 0;

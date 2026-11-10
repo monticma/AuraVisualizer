@@ -324,6 +324,27 @@ describe('city-core · layoutCity', () => {
         }
         expect(metricValue({ id: 'c' }, 'cognitive')).toBe(0);
     });
+
+    it('reads the injected risk score, and 0 when the webview gave none', () => {
+        expect(metricValue({ id: 'a', risk: 72.4 }, 'risk')).toBe(72.4);
+        expect(metricValue({ id: 'a', risk: 0 }, 'risk')).toBe(0);
+        expect(metricValue({ id: 'a' }, 'risk')).toBe(0);
+        // A negative or non-finite score must not reach the layout.
+        expect(metricValue({ id: 'a', risk: -5 }, 'risk')).toBe(0);
+        expect(metricValue({ id: 'a', risk: NaN }, 'risk')).toBe(0);
+    });
+
+    it('hides the risk score behind the height when asked for it', () => {
+        const plan = layoutCity(
+            [{ id: 'low', risk: 10 }, { id: 'high', risk: 90 }],
+            { height: 'risk', footprint: 'risk' },
+        );
+        expect(plan.heightMetric).toBe('risk');
+        expect(plan.footprintMetric).toBe('risk');
+        const byId = new Map(plan.rects.map(r => [r.id, r]));
+        expect((byId.get('high')!.h)).toBeGreaterThan(byId.get('low')!.h);
+        expect(byId.get('high')!.heightValue).toBe(90);
+    });
 });
 
 describe('city-core · function granularity', () => {
@@ -338,6 +359,12 @@ describe('city-core · function granularity', () => {
         })]);
         expect(out.map(n => n.id)).toEqual(['src/a.c#init', 'src/a.c#run']);
         expect(out.map(n => n.name)).toEqual(['init', 'run']);
+
+        // The risk score belongs to the file: every function inherits it.
+        const risky = functionNodes([file('src/b.c', {
+            functions: [{ name: 'deep', cyclomatic: 9 }],
+        }, { risk: 66 })]);
+        expect(risky[0].risk).toBe(66);
     });
 
     it('uses the file as the district, so functions nest in their file', () => {

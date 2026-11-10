@@ -1648,6 +1648,7 @@ export class WebviewProvider {
                     <option value="fanIn">fan-in</option>
                     <option value="fanOut">fan-out</option>
                     <option value="pagerank">pagerank</option>
+                    <option value="risk">risk</option>
                 </select>
             </label>
             <label class="city-field" for="city-footprint" title="What the footprint (area share) encodes">Footprint

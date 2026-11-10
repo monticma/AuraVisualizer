@@ -614,6 +614,11 @@
         }
         if (nodes.length === 0) { state.plan = null; renderCrumbs(); return; }
 
+        // `height = risk`: the score belongs to the file and comes from the same
+        // percentiles the Risk tab uses, so tall + red means "the riskiest" here
+        // and "the riskiest" there. One pass, not one scan per building.
+        if (OPTIONS.height === 'risk') stampRisk(nodes);
+
         // One building per function turns 762 files into ~5 000 buildings; the
         // file becomes the district.
         nodes = granularNodes(nodes);
@@ -685,6 +690,20 @@
         updateHud();
         updateLegend();
         renderCrumbs();
+    }
+
+    /**
+     * Attach the repository-wide risk score to every node, in place. Silent when
+     * the risk engine is absent: a City without risk is still a city.
+     */
+    function stampRisk(nodes) {
+        var map = window.AuraRiskMap;
+        if (!map || typeof map.scores !== 'function') return;
+        var scores = map.scores();
+        for (var i = 0; i < nodes.length; i++) {
+            var entry = scores[nodes[i].id];
+            nodes[i].risk = entry ? entry.score : 0;
+        }
     }
 
     /**
@@ -994,8 +1013,11 @@
         }
         var hot = $('#city-legend-hot');
         if (hot) {
+            // With `height = risk` the band is not "the tallest" any more: it is
+            // the riskiest, and saying so is the whole point of the mode.
+            var noun = state.plan && state.plan.heightMetric === 'risk' ? 'riskiest' : 'tallest';
             hot.textContent = state.hotCount > 0
-                ? 'top ' + state.hotCount + ' tallest · ranked #1–#' + state.hotCount
+                ? 'top ' + state.hotCount + ' ' + noun + ' · ranked #1–#' + state.hotCount
                 : 'no top band';
         }
     }

@@ -195,6 +195,9 @@ var AuraCity = (() => {
           fanIn: 0,
           fanOut: 0,
           pagerank: 0,
+          // The risk score is a property of the *file*: git only knows
+          // files, so every function of a risky file inherits its score.
+          risk: node.risk,
           group: file,
           layer: node.layer,
           community: node.community,
@@ -232,6 +235,9 @@ var AuraCity = (() => {
         break;
       case "size":
         raw = node.size;
+        break;
+      case "risk":
+        raw = node.risk;
         break;
     }
     if (raw === void 0 || raw === null || !isFinite(raw))

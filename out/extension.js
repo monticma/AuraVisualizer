@@ -322,6 +322,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
                     <option value="fanIn">fan-in</option>
                     <option value="fanOut">fan-out</option>
                     <option value="pagerank">pagerank</option>
+                    <option value="risk">risk</option>
                 </select>
             </label>
             <label class="city-field" for="city-footprint" title="What the footprint (area share) encodes">Footprint
