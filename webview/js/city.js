@@ -929,6 +929,7 @@
             + '<div class="city-risk-head"><span class="city-risk-score">' + score + '</span>'
             + '<span class="city-risk-bar"><i style="width:'
             + Math.max(2, Math.min(100, score)) + '%"></i></span></div>';
+        html += riskTrend(key);
         if (reasons.length) {
             html += '<ul class="city-risk-reasons">';
             for (var i = 0; i < reasons.length && i < 4; i++) {
@@ -943,6 +944,25 @@
         if (stats.authors) bits.push(stats.authors + (stats.authors === 1 ? ' author' : ' authors'));
         if (bits.length) html += '<div class="city-risk-stats">' + escapeHtml(bits.join(' · ')) + '</div>';
         return html + '</div>';
+    }
+
+    /**
+     * Complexity trend: the same sparkline the Risk tab and the Table draw, from
+     * the same cached trends. "Big" and "getting worse" are different findings,
+     * and the score alone cannot tell them apart. No history → no row at all,
+     * rather than an empty frame.
+     */
+    function riskTrend(key) {
+        var ui = window.AuraTrendUI;
+        if (!ui || typeof ui.getTrends !== 'function' || typeof ui.sparklineHTML !== 'function') return '';
+        var trends = ui.getTrends();
+        var trend = trends && trends[key];
+        if (!trend) return '';
+        var title = typeof ui.tooltip === 'function' ? ui.tooltip(trend) : '';
+        return '<div class="city-risk-trend" title="' + escapeHtml(title) + '">'
+            + ui.sparklineHTML(trend, 84, 20)
+            + (typeof ui.badgeHTML === 'function' ? ui.badgeHTML(trend) : '')
+            + '</div>';
     }
 
     /**

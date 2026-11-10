@@ -5317,3 +5317,12 @@ select option {
     opacity: 0.55;
     font-variant-numeric: tabular-nums;
 }
+
+/* Complexity sparkline + trend badge — .trend-spark / .trend-badge styles come
+   from the Risk dashboard, so the same line reads the same in both places. */
+.city-risk-trend {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+}
