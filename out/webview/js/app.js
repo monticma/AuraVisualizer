@@ -548,6 +548,8 @@
                 postMessage: function (msg) { vscode.postMessage(msg); }
             });
         }
+        // One popover for every `<button data-export-tab>` in the window.
+        if (window.AuraExportMenu) window.AuraExportMenu.init();
         if (window.AuraDetail) {
             AuraDetail.init({
                 getGraphData: function () { return graphData; },
@@ -1343,6 +1345,17 @@
                 var statusEl = $('#loading-status');
                 if (statusEl) statusEl.textContent = 'Refreshing analysis...';
             });
+        }
+        // Both graph exports are entries of the shared Export menu.
+        if (window.AuraExportMenu) {
+            window.AuraExportMenu.register('graph', [
+                { label: '📷 PNG', hint: 'high-resolution capture of the graph', run: function () {
+                    if (window.AuraExport) window.AuraExport.capture();
+                } },
+                { label: '📤 AI context', hint: 'Markdown or JSON, with a token budget', run: function () {
+                    vscode.postMessage({ type: 'requestExport' });
+                } },
+            ]);
         }
         var exportBtn = $('#btn-export');
         if (exportBtn) {

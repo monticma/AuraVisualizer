@@ -1663,10 +1663,14 @@
         state.hudMeta = $('#city-hud-meta');
         state.hudFocus = $('#city-hud-graph');
         if (state.hudFocus) state.hudFocus.addEventListener('click', focusInGraph);
-        var exportBtn = $('#city-export');
-        if (exportBtn) exportBtn.addEventListener('click', exportPng);
-        var postcardBtn = $('#city-postcard');
-        if (postcardBtn) postcardBtn.addEventListener('click', exportPostcard);
+        // The two exports are entries of the shared Export menu (export-menu.js):
+        // the bar carries one button, whatever a view can produce.
+        if (window.AuraExportMenu && typeof window.AuraExportMenu.register === 'function') {
+            window.AuraExportMenu.register('city', [
+                { label: '📷 PNG', hint: 'the city exactly as it is', run: exportPng },
+                { label: '📮 Postcard', hint: '1600×900 with a caption', run: exportPostcard },
+            ]);
+        }
         var namesBox = $('#city-names');
         if (namesBox) {
             namesBox.addEventListener('change', function () { setNames(namesBox.checked); });
@@ -1770,6 +1774,7 @@
         /** True while the shadow map is still following the scene. */
         shadowLive: function () { return state.shadowLive === true; },
         postcard: function () { exportPostcard(); },
+        exportPng: function () { exportPng(); },
         /** Caption baselines — exposed so the harness can prove nothing overflows. */
         postcardLayout: function () { return postcardCaptionLayout(POSTCARD_H, POSTCARD_BAND); },
         options: OPTIONS,

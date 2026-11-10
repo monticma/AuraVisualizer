@@ -1300,6 +1300,9 @@ export class WebviewProvider {
         const exportUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'export.js')
         );
+        const exportMenuUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'export-menu.js')
+        );
         const spritesUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'sprites.js')
         );
@@ -1425,9 +1428,8 @@ export class WebviewProvider {
                 <button id="btn-toggle-explorer" class="top-btn" title="Files and folders of this repository">☰ Files</button>
                 <button id="qb-toggle" class="qb-toggle" title="Toggle query bar (Ctrl+K)">🔍 Query</button>
                 <div class="view-bar-actions">
-                    <button id="btn-export-image" class="top-btn" title="Export a high-resolution PNG of the 3D graph">📷 PNG</button>
                     <button id="btn-follow-editor" class="top-btn" aria-pressed="true" title="Follow editor (on) — camera flies to the active file">👁 Follow</button>
-                    <button id="btn-export" class="top-btn" title="Export AI context (Markdown/JSON) — selectable sections and token budget">📤 Export</button>
+                    <button id="graph-export" type="button" class="top-btn" data-export-tab="graph" title="Export what this view can produce">📤 Export</button>
                     <button id="btn-minimap" class="top-btn" title="Toggle minimap">🗺️ Map</button>
                     <button id="btn-warps-panel" class="top-btn" title="Warp points — named camera bookmarks">🌀 Warps</button>
                     <button id="btn-copy-link" class="top-btn" title="Copy a vscode:// link that reopens this exact view — tab, filters, camera and query">🔗 Link</button>
@@ -1693,8 +1695,7 @@ export class WebviewProvider {
                 </select>
             </label>
             <div class="view-bar-actions">
-                <button id="city-export" type="button" class="city-select" title="Export the city as a PNG">📷 PNG</button>
-                <button id="city-postcard" type="button" class="city-select" title="Export a 1600×900 postcard: the city plus what it means">📮 Postcard</button>
+                <button id="city-export" type="button" class="city-select" data-export-tab="city" title="Export what this view can produce">📤 Export</button>
             </div>
         </div>
         <!-- Stage: the panel is anchored here, below the toolbar, exactly
@@ -2810,6 +2811,7 @@ export class WebviewProvider {
     <script nonce="${nonce}" src="${detailUri}"></script>
     <script nonce="${nonce}" src="${queryUiUri}"></script>
     <script nonce="${nonce}" src="${exportUri}"></script>
+    <script nonce="${nonce}" src="${exportMenuUri}"></script>
     <script nonce="${nonce}" src="${spritesUri}"></script>
     <script nonce="${nonce}" src="${seedCoreUri}"></script>
     <script nonce="${nonce}" src="${cityCoreUri}"></script>

@@ -5396,3 +5396,48 @@ select option {
     gap: 8px;
     margin-top: 6px;
 }
+
+/* ============================================================
+   Export menu — one entry per view (export-menu.js)
+   ============================================================ */
+.view-export-menu {
+    position: fixed;
+    z-index: 900;
+    min-width: 230px;
+    padding: 4px;
+    border-radius: 8px;
+    background: var(--aura-sidebar-bg);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.view-export-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 7px 10px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--aura-fg);
+    text-align: left;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.view-export-item:hover {
+    background: rgba(96, 165, 250, 0.14);
+}
+
+.view-export-label { font-weight: 600; }
+
+.view-export-hint {
+    font-size: 11px;
+    opacity: 0.55;
+}
