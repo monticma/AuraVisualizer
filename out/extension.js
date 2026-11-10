@@ -48,6 +48,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
                 </div>
                 <button id="btn-refresh" class="top-btn" title="Refresh analysis">\u{1F504} Refresh</button>
                 <button id="btn-help" class="top-btn" title="Help & shortcuts">\u2753 Help</button>
+                <button id="settings-toggle" type="button" class="top-btn" title="Aura settings">\u2699\uFE0F</button>
             </div>
         </header>
 
@@ -64,8 +65,6 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
             <button class="tab-btn" data-tab="risk">\u{1F6E1}\uFE0F Risk</button>
             <button class="tab-btn" data-tab="arch">\u{1F3DB}\uFE0F Architecture</button>
             <button class="tab-btn" data-tab="coupling">\u{1F517} Co-change</button>
-            <button id="qb-toggle" class="qb-toggle" title="Toggle query bar (Ctrl+K)">\u{1F50D}</button>
-            <button id="settings-toggle" type="button" class="qb-toggle" title="Aura settings">\u2699\uFE0F</button>
         </nav>
 
         <!-- Query Bar (collapsible) -->
@@ -98,6 +97,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
                  OUT of #graph-container: the renderer clears that node's innerHTML
                  when it mounts. -->
             <div id="graph-bar" class="view-toolbar">
+                <button id="qb-toggle" class="qb-toggle" title="Toggle query bar (Ctrl+K)">\u{1F50D} Query</button>
                 <div class="graph-bar-actions">
                     <button id="btn-export-image" class="top-btn" title="Export a high-resolution PNG of the 3D graph">\u{1F4F7}</button>
                     <button id="btn-follow-editor" class="top-btn" aria-pressed="true" title="Follow editor (on) \u2014 camera flies to the active file">\u{1F441}</button>

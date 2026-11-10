@@ -1374,6 +1374,7 @@ export class WebviewProvider {
                 </div>
                 <button id="btn-refresh" class="top-btn" title="Refresh analysis">🔄 Refresh</button>
                 <button id="btn-help" class="top-btn" title="Help & shortcuts">❓ Help</button>
+                <button id="settings-toggle" type="button" class="top-btn" title="Aura settings">⚙️</button>
             </div>
         </header>
 
@@ -1390,8 +1391,6 @@ export class WebviewProvider {
             <button class="tab-btn" data-tab="risk">🛡️ Risk</button>
             <button class="tab-btn" data-tab="arch">🏛️ Architecture</button>
             <button class="tab-btn" data-tab="coupling">🔗 Co-change</button>
-            <button id="qb-toggle" class="qb-toggle" title="Toggle query bar (Ctrl+K)">🔍</button>
-            <button id="settings-toggle" type="button" class="qb-toggle" title="Aura settings">⚙️</button>
         </nav>
 
         <!-- Query Bar (collapsible) -->
@@ -1424,6 +1423,7 @@ export class WebviewProvider {
                  OUT of #graph-container: the renderer clears that node's innerHTML
                  when it mounts. -->
             <div id="graph-bar" class="view-toolbar">
+                <button id="qb-toggle" class="qb-toggle" title="Toggle query bar (Ctrl+K)">🔍 Query</button>
                 <div class="graph-bar-actions">
                     <button id="btn-export-image" class="top-btn" title="Export a high-resolution PNG of the 3D graph">📷</button>
                     <button id="btn-follow-editor" class="top-btn" aria-pressed="true" title="Follow editor (on) — camera flies to the active file">👁</button>

@@ -368,17 +368,17 @@ html, body {
     font-size: 13px;
 }
 .qb-toggle:hover { background: var(--aura-border); }
-#tab-bar .qb-toggle {
-    margin-left: 8px;
-    align-self: center;
-}
-#tab-bar #qb-toggle {
-    margin-left: auto;
-}
-#tab-bar .qb-toggle.active {
+/* The query toggle lives in the view bar now, and the settings gear next to
+   Help: the tab bar holds tabs only. */
+.qb-toggle.active {
     background: var(--aura-accent);
     color: #fff;
     border-color: var(--aura-accent);
+}
+#graph-bar .qb-toggle {
+    padding: 4px 8px;
+    font-size: 11px;
+    border-color: rgba(255, 255, 255, 0.12);
 }
 .qb-input {
     flex: 1;
