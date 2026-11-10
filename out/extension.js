@@ -118,19 +118,21 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
                 <div id="explorer-tree" class="explorer-tree"></div>
             </aside>
 
-            <!-- 3D Graph Container \u2014 its controls live inside, as a canvas HUD:
-                 they used to sit in the global top bar, where they were inert on
-                 the other ten tabs. Same family as #city-hud. -->
-            <div id="graph-container">
-                <div id="graph-hud">
-                    <button id="btn-export-image" class="top-btn" title="Export a high-resolution PNG of the 3D graph">\u{1F4F7}</button>
-                    <button id="btn-follow-editor" class="top-btn" aria-pressed="true" title="Follow editor (on) \u2014 camera flies to the active file">\u{1F441}</button>
-                    <button id="btn-export" class="top-btn" title="Export AI context (Markdown/JSON) \u2014 selectable sections and token budget">\u{1F4E4} Export</button>
-                    <button id="btn-minimap" class="top-btn" title="Toggle minimap">\u{1F5FA}\uFE0F Map</button>
-                    <button id="btn-warps-panel" class="top-btn" title="Warp points \u2014 named camera bookmarks">\u{1F300} Warps</button>
-                    <button id="btn-copy-link" class="top-btn" title="Copy a vscode:// link that reopens this exact view \u2014 tab, filters, camera and query">\u{1F517} Link</button>
-                </div>
+            <!-- Graph controls. They must stay OUT of #graph-container: the
+                 renderer clears that node's innerHTML when it mounts, which
+                 silently deletes anything living inside. Same reason the city
+                 keeps #city-hud beside #city-canvas, not in it. -->
+            <div id="graph-hud">
+                <button id="btn-export-image" class="top-btn" title="Export a high-resolution PNG of the 3D graph">\u{1F4F7}</button>
+                <button id="btn-follow-editor" class="top-btn" aria-pressed="true" title="Follow editor (on) \u2014 camera flies to the active file">\u{1F441}</button>
+                <button id="btn-export" class="top-btn" title="Export AI context (Markdown/JSON) \u2014 selectable sections and token budget">\u{1F4E4} Export</button>
+                <button id="btn-minimap" class="top-btn" title="Toggle minimap">\u{1F5FA}\uFE0F Map</button>
+                <button id="btn-warps-panel" class="top-btn" title="Warp points \u2014 named camera bookmarks">\u{1F300} Warps</button>
+                <button id="btn-copy-link" class="top-btn" title="Copy a vscode:// link that reopens this exact view \u2014 tab, filters, camera and query">\u{1F517} Link</button>
             </div>
+
+            <!-- 3D Graph Container \u2014 the renderer owns its content. -->
+            <div id="graph-container"></div>
 
             <!-- Loading Overlay (outside graph-container so it survives graph init) -->
             <div id="loading-overlay">

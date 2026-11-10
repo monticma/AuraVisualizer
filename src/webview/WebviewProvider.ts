@@ -1444,19 +1444,21 @@ export class WebviewProvider {
                 <div id="explorer-tree" class="explorer-tree"></div>
             </aside>
 
-            <!-- 3D Graph Container — its controls live inside, as a canvas HUD:
-                 they used to sit in the global top bar, where they were inert on
-                 the other ten tabs. Same family as #city-hud. -->
-            <div id="graph-container">
-                <div id="graph-hud">
-                    <button id="btn-export-image" class="top-btn" title="Export a high-resolution PNG of the 3D graph">📷</button>
-                    <button id="btn-follow-editor" class="top-btn" aria-pressed="true" title="Follow editor (on) — camera flies to the active file">👁</button>
-                    <button id="btn-export" class="top-btn" title="Export AI context (Markdown/JSON) — selectable sections and token budget">📤 Export</button>
-                    <button id="btn-minimap" class="top-btn" title="Toggle minimap">🗺️ Map</button>
-                    <button id="btn-warps-panel" class="top-btn" title="Warp points — named camera bookmarks">🌀 Warps</button>
-                    <button id="btn-copy-link" class="top-btn" title="Copy a vscode:// link that reopens this exact view — tab, filters, camera and query">🔗 Link</button>
-                </div>
+            <!-- Graph controls. They must stay OUT of #graph-container: the
+                 renderer clears that node's innerHTML when it mounts, which
+                 silently deletes anything living inside. Same reason the city
+                 keeps #city-hud beside #city-canvas, not in it. -->
+            <div id="graph-hud">
+                <button id="btn-export-image" class="top-btn" title="Export a high-resolution PNG of the 3D graph">📷</button>
+                <button id="btn-follow-editor" class="top-btn" aria-pressed="true" title="Follow editor (on) — camera flies to the active file">👁</button>
+                <button id="btn-export" class="top-btn" title="Export AI context (Markdown/JSON) — selectable sections and token budget">📤 Export</button>
+                <button id="btn-minimap" class="top-btn" title="Toggle minimap">🗺️ Map</button>
+                <button id="btn-warps-panel" class="top-btn" title="Warp points — named camera bookmarks">🌀 Warps</button>
+                <button id="btn-copy-link" class="top-btn" title="Copy a vscode:// link that reopens this exact view — tab, filters, camera and query">🔗 Link</button>
             </div>
+
+            <!-- 3D Graph Container — the renderer owns its content. -->
+            <div id="graph-container"></div>
 
             <!-- Loading Overlay (outside graph-container so it survives graph init) -->
             <div id="loading-overlay">
