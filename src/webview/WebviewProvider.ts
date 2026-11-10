@@ -1636,7 +1636,7 @@ export class WebviewProvider {
     <!-- City View (V5-07) — 2.5D: files are buildings, districts are raised plates.
          Its own scene and camera: nothing is shared with the 3D graph tab. -->
     <div id="city-view" class="tab-content" data-tab="city">
-        <div id="city-controls">
+        <div id="city-controls" class="view-toolbar">
             <label class="city-field" for="city-granularity" title="What each building stands for: a file, or a single function">Granularity
                 <select id="city-granularity" class="city-select">
                     <option value="files" selected>files</option>
@@ -1724,7 +1724,7 @@ export class WebviewProvider {
 
     <!-- Risk View -->
     <div id="risk-view" class="tab-content" data-tab="risk">
-        <div class="risk-toolbar">
+        <div class="view-toolbar risk-toolbar">
             <h2>🛡️ Codebase Risk Map</h2>
             <div class="risk-toolbar-actions">
                 <label class="risk-window-label" for="risk-window" title="How much git history is used for churn and scoring">
@@ -1860,7 +1860,7 @@ export class WebviewProvider {
 
     <!-- Architecture Rules View (V2-20) -->
     <div id="arch-view" class="tab-content" data-tab="arch">
-        <div class="arch-toolbar">
+        <div class="view-toolbar arch-toolbar">
             <h2>🏛️ Architecture Rules</h2>
             <div class="arch-toolbar-actions">
                 <button id="arch-edit-rules" type="button" class="risk-export-btn" title="Create or open .aura/arch-rules.json">⚙️ Edit rules</button>
@@ -1874,7 +1874,7 @@ export class WebviewProvider {
 
     <!-- Treemap View -->
     <div id="treemap-view" class="tab-content" data-tab="treemap">
-        <div class="treemap-toolbar">
+        <div class="view-toolbar treemap-toolbar">
             <div id="treemap-breadcrumb"><span class="treemap-crumb treemap-crumb-root" data-path="">root</span></div>
             <div class="treemap-controls">
                 <label>Size: <select id="treemap-size-metric">
@@ -1896,7 +1896,7 @@ export class WebviewProvider {
 
     <!-- Chord Diagram View -->
     <div id="chord-view" class="tab-content" data-tab="chord">
-        <div class="chord-toolbar">
+        <div class="view-toolbar chord-toolbar">
             <div class="chord-controls">
                 <label>Group by: <select id="chord-group-by">
                     <option value="directory" selected>Directory</option>
@@ -1920,7 +1920,7 @@ export class WebviewProvider {
             <button id="shallow-copy" class="shallow-btn" title="Copy the fix command">Copy</button>
             <button id="shallow-close" class="shallow-btn" title="Hide for this session">✕</button>
         </div>
-        <div class="tchart-toolbar">
+        <div class="view-toolbar tchart-toolbar">
             <div class="tchart-controls">
                 <label>Metric: <select id="tchart-metric">
                     <option value="loc" selected>Lines of Code</option>
@@ -1936,7 +1936,7 @@ export class WebviewProvider {
 
     <!-- DSM View -->
     <div id="dsm-view" class="tab-content" data-tab="dsm">
-        <div class="dsm-toolbar">
+        <div class="view-toolbar dsm-toolbar">
             <div class="dsm-controls">
                 <label>Group by: <select id="dsm-group-by">
                     <option value="directory" selected>Directory</option>
@@ -1958,7 +1958,7 @@ export class WebviewProvider {
 
     <!-- Coupling View -->
     <div id="coupling-view" class="tab-content" data-tab="coupling">
-        <div class="coupling-toolbar">
+        <div class="view-toolbar coupling-toolbar">
             <div class="coupling-title">🔗 Temporal Co-change</div>
             <div class="coupling-actions">
                 <label class="coupling-label">Window
@@ -1997,7 +1997,7 @@ export class WebviewProvider {
     </div>
 
     <!-- Table View -->
-    <div id="table-view" class="tab-content" data-tab="table">        <div class="table-toolbar">
+    <div id="table-view" class="tab-content" data-tab="table">        <div class="view-toolbar table-toolbar">
             <span class="search-icon">⌕</span>
             <input type="text" id="table-search" placeholder="Filter files..." autocomplete="off">
         </div>

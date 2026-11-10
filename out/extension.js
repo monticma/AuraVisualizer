@@ -310,7 +310,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
     <!-- City View (V5-07) \u2014 2.5D: files are buildings, districts are raised plates.
          Its own scene and camera: nothing is shared with the 3D graph tab. -->
     <div id="city-view" class="tab-content" data-tab="city">
-        <div id="city-controls">
+        <div id="city-controls" class="view-toolbar">
             <label class="city-field" for="city-granularity" title="What each building stands for: a file, or a single function">Granularity
                 <select id="city-granularity" class="city-select">
                     <option value="files" selected>files</option>
@@ -398,7 +398,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
 
     <!-- Risk View -->
     <div id="risk-view" class="tab-content" data-tab="risk">
-        <div class="risk-toolbar">
+        <div class="view-toolbar risk-toolbar">
             <h2>\u{1F6E1}\uFE0F Codebase Risk Map</h2>
             <div class="risk-toolbar-actions">
                 <label class="risk-window-label" for="risk-window" title="How much git history is used for churn and scoring">
@@ -534,7 +534,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
 
     <!-- Architecture Rules View (V2-20) -->
     <div id="arch-view" class="tab-content" data-tab="arch">
-        <div class="arch-toolbar">
+        <div class="view-toolbar arch-toolbar">
             <h2>\u{1F3DB}\uFE0F Architecture Rules</h2>
             <div class="arch-toolbar-actions">
                 <button id="arch-edit-rules" type="button" class="risk-export-btn" title="Create or open .aura/arch-rules.json">\u2699\uFE0F Edit rules</button>
@@ -548,7 +548,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
 
     <!-- Treemap View -->
     <div id="treemap-view" class="tab-content" data-tab="treemap">
-        <div class="treemap-toolbar">
+        <div class="view-toolbar treemap-toolbar">
             <div id="treemap-breadcrumb"><span class="treemap-crumb treemap-crumb-root" data-path="">root</span></div>
             <div class="treemap-controls">
                 <label>Size: <select id="treemap-size-metric">
@@ -570,7 +570,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
 
     <!-- Chord Diagram View -->
     <div id="chord-view" class="tab-content" data-tab="chord">
-        <div class="chord-toolbar">
+        <div class="view-toolbar chord-toolbar">
             <div class="chord-controls">
                 <label>Group by: <select id="chord-group-by">
                     <option value="directory" selected>Directory</option>
@@ -594,7 +594,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
             <button id="shallow-copy" class="shallow-btn" title="Copy the fix command">Copy</button>
             <button id="shallow-close" class="shallow-btn" title="Hide for this session">\u2715</button>
         </div>
-        <div class="tchart-toolbar">
+        <div class="view-toolbar tchart-toolbar">
             <div class="tchart-controls">
                 <label>Metric: <select id="tchart-metric">
                     <option value="loc" selected>Lines of Code</option>
@@ -610,7 +610,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
 
     <!-- DSM View -->
     <div id="dsm-view" class="tab-content" data-tab="dsm">
-        <div class="dsm-toolbar">
+        <div class="view-toolbar dsm-toolbar">
             <div class="dsm-controls">
                 <label>Group by: <select id="dsm-group-by">
                     <option value="directory" selected>Directory</option>
@@ -632,7 +632,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
 
     <!-- Coupling View -->
     <div id="coupling-view" class="tab-content" data-tab="coupling">
-        <div class="coupling-toolbar">
+        <div class="view-toolbar coupling-toolbar">
             <div class="coupling-title">\u{1F517} Temporal Co-change</div>
             <div class="coupling-actions">
                 <label class="coupling-label">Window
@@ -671,7 +671,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
     </div>
 
     <!-- Table View -->
-    <div id="table-view" class="tab-content" data-tab="table">        <div class="table-toolbar">
+    <div id="table-view" class="tab-content" data-tab="table">        <div class="view-toolbar table-toolbar">
             <span class="search-icon">\u2315</span>
             <input type="text" id="table-search" placeholder="Filter files..." autocomplete="off">
         </div>

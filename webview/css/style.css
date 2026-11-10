@@ -2924,14 +2924,49 @@ html, body {
     flex-direction: column;
     min-height: 0;
 }
-.treemap-toolbar {
+/* ============================================================
+   VIEW TOOLBAR — one shell for every tab (docs/Ideas/Interface.md, lot P0)
+   The border is hard-coded on purpose: `--aura-border` resolves to
+   `--vscode-panel-border`, which many themes draw almost invisibly, so half the
+   tabs looked like they had no bar at all. Same for the background: without it
+   a 1px line is all that separates the controls from the content.
+   ============================================================ */
+.view-toolbar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--aura-border);
-    flex-shrink: 0;
     gap: 12px;
+    flex-wrap: wrap;
+    box-sizing: border-box;
+    min-height: 40px;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--aura-sidebar-bg);
+    flex-shrink: 0;
+    font-size: 11px;
+}
+
+/* Identity slot: what this tab is showing, in one line, at control size. */
+.view-toolbar h2,
+.view-toolbar .view-title,
+.view-toolbar .coupling-title {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    margin: 0;
+    white-space: nowrap;
+}
+
+/* Counts and summaries are pushed to the right, where the eye expects totals. */
+.view-toolbar .chord-stats,
+.view-toolbar .dsm-stats,
+.view-toolbar .tchart-stats,
+.view-toolbar .view-stats {
+    margin-left: auto;
+}
+
+/* Per-view blocks keep only what is genuinely theirs. */
+.treemap-toolbar {
+    justify-content: space-between;
 }
 #treemap-breadcrumb {
     display: flex;
@@ -3050,11 +3085,6 @@ html, body {
     min-height: 0;
 }
 .dsm-toolbar {
-    display: flex;
-    align-items: center;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--aura-border);
-    flex-shrink: 0;
     gap: 12px;
 }
 .dsm-controls {
@@ -3207,11 +3237,6 @@ html, body {
     min-height: 0;
 }
 .chord-toolbar {
-    display: flex;
-    align-items: center;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--aura-border);
-    flex-shrink: 0;
     gap: 12px;
 }
 .chord-controls {
@@ -3321,11 +3346,6 @@ html, body {
     min-height: 0;
 }
 .tchart-toolbar {
-    display: flex;
-    align-items: center;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--aura-border);
-    flex-shrink: 0;
     gap: 12px;
 }
 .tchart-controls {
@@ -3433,16 +3453,14 @@ html, body {
     flex: 1;
     overflow: hidden;
     flex-direction: column;
-    padding: 12px;
+    padding: 0;
+}
+
+#coupling-view .table-scroll {
+    margin: 0 12px 12px;
 }
 .coupling-toolbar {
-    display: flex;
-    align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin-bottom: 6px;
-    flex-shrink: 0;
 }
 .coupling-title {
     font-size: 15px;
@@ -3463,7 +3481,7 @@ html, body {
     opacity: 0.8;
 }
 .coupling-summary {
-    margin: 0 0 8px;
+    margin: 8px 12px;
     font-size: 11px;
     opacity: 0.7;
 }
@@ -3505,14 +3523,14 @@ html, body {
     flex: 1;
     overflow: hidden;
     flex-direction: column;
-    padding: 12px;
+    padding: 0;
+}
+
+#table-view .table-scroll {
+    margin: 0 12px 12px;
 }
 #table-view .table-toolbar {
-    display: flex;
-    align-items: center;
     gap: 8px;
-    margin-bottom: 8px;
-    flex-shrink: 0;
 }
 #table-view .table-toolbar input {
     flex: 1;
@@ -3606,18 +3624,13 @@ html, body {
    ============================================================ */
 #risk-view {
     flex-direction: column;
-    padding: 16px;
+    padding: 0;
     overflow-y: auto;
-    gap: 14px;
 }
 #risk-view.active { display: flex; }
 
 .risk-toolbar {
-    display: flex;
-    align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    flex-shrink: 0;
 }
 .risk-toolbar h2 {
     font-size: 15px;
@@ -3663,6 +3676,7 @@ html, body {
     display: flex;
     flex-direction: column;
     gap: 14px;
+    padding: 16px;
 }
 
 .risk-section {
@@ -4142,9 +4156,8 @@ select option {
    ============================================================ */
 #arch-view {
     flex-direction: column;
-    padding: 16px;
+    padding: 0;
     overflow-y: auto;
-    gap: 14px;
 }
 #arch-view.active { display: flex; }
 
@@ -4153,14 +4166,11 @@ select option {
     display: flex;
     flex-direction: column;
     gap: 14px;
+    padding: 16px;
 }
 
 .arch-toolbar {
-    display: flex;
-    align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    flex-shrink: 0;
 }
 .arch-toolbar h2 {
     font-size: 15px;
@@ -4894,15 +4904,8 @@ select option {
 #city-hud-graph:hover { background: rgba(255, 255, 255, 0.08); }
 
 #city-controls {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 12px;
-    padding: 8px 12px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-    background: rgba(13, 17, 23, 0.55);
-    font-size: 11px;
     color: #b0bec5;
+    /* The stage below owns the remaining height; the bar never grows. */
     flex: 0 0 auto;
 }
 
