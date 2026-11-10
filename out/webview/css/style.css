@@ -4878,7 +4878,9 @@ select option {
 #graph-hud {
     position: absolute;
     top: 12px;
-    left: 12px;
+    /* Top right, where the buttons used to be in the global bar: the hand looks
+       there. */
+    right: 12px;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -4889,6 +4891,13 @@ select option {
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     z-index: 45;
+    transition: right 0.25s ease;
+}
+
+/* The inspector is 320 px wide and slides in from the same edge: step the chip
+   aside instead of letting it disappear under the panel. */
+#middle-row:has(#detail-panel:not(.collapsed)) #graph-hud {
+    right: 332px;
 }
 
 #graph-hud .top-btn {
