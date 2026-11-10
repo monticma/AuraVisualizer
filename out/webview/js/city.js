@@ -22,6 +22,11 @@
     var PLATE_STEP = 9;          // altitude per district nesting level
     var MAX_POLAR = Math.PI / 2 - 0.1;   // never look under the plinth
     var MIN_H = 2.5;
+    // Outlines: the building's own colour, one notch darker. Black reads as ink
+    // over the whole city; this factor keeps the hue and the block's identity.
+    // Applied in *linear* space (three manages colour), so 0.36 ≈ 63 % of the
+    // facade as the eye sees it.
+    var EDGE_DARKEN = 0.36;
     // The ground never scales: its 130-unit grid is what tells you how big the
     // city is. Only its depth under the plinth follows the plan.
     var GROUND_SIZE = BASE_SCALE * 16;   // world plane; its rim is faded out
@@ -343,6 +348,8 @@
             else child.material.dispose();
         });
         state.decor = null;
+        // The edge buffer died with the group: never paint into it again.
+        state.edgeIdi = null;
     }
 
     /** Plinth + one raised plate per district (altitude = package nesting depth). */
@@ -460,6 +467,7 @@
         var T = window.THREE;
         if (!T || !plan) return;
         var positions = [];
+        var order = [];
 
         function edge(a, b) {
             positions.push(a[0], a[1], a[2], b[0], b[1], b[2]);
@@ -467,6 +475,7 @@
 
         for (var i = 0; i < plan.rects.length; i++) {
             var rect = plan.rects[i];
+            order.push(rect.id);
             var w = Math.max(rect.w * cityScale(), scaled(1.2)) * 1.004;
             var d = Math.max(rect.d * cityScale(), scaled(1.2)) * 1.004;
             var h = Math.max(rect.h * scaled(HEIGHT), scaled(MIN_H));
@@ -493,14 +502,53 @@
         if (positions.length === 0) return;
         var geometry = new T.BufferGeometry();
         geometry.setAttribute('position', new T.Float32BufferAttribute(positions, 3));
+        // One colour per vertex: the building's own tint, one notch darker. Black
+        // outlines read as ink over the whole city; a darkened facade colour keeps
+        // each block's identity and still separates it from its neighbours.
+        var colors = new Float32Array((positions.length / 3) * 3);
+        geometry.setAttribute('color', new T.BufferAttribute(colors, 3));
         var lines = new T.LineSegments(geometry, new T.LineBasicMaterial({
-            color: '#070a0e',
+            vertexColors: true,
             transparent: true,
-            opacity: 0.7,
+            opacity: 0.85,
             depthWrite: false,
         }));
         lines.name = 'aura-city-edges';
         group.add(lines);
+        state.edgeIdi = { geometry: geometry, order: order };
+        paintEdges();
+    }
+
+    /**
+     * Write the edge colours of every block into the shared buffer. Called when
+     * the plan is built and again when the selection changes, because selecting a
+     * building dims the rest of the city and the outlines have to follow.
+     */
+    function paintEdges() {
+        var T = window.THREE;
+        var info = state.edgeIdi;
+        if (!T || !info || !info.geometry) return;
+        var attribute = info.geometry.getAttribute('color');
+        if (!attribute) return;
+        var scratch = new T.Color();
+        var per = 24 * 3; // 12 edges × 2 vertices × rgb
+        for (var i = 0; i < info.order.length; i++) {
+            var id = info.order[i];
+            var node = state.nodeById[id] || { id: id };
+            var rect = state.byId[id] || { h: 0.5, district: '' };
+            var colour = colourFor(node, rect);
+            // Glass buildings are drawn greyed out: their outline follows.
+            if (state.selected !== id && kindOf(node) !== 'code') colour = greyedColour(colour);
+            scratch.set(colour);
+            scratch.multiplyScalar(EDGE_DARKEN);
+            var start = i * per;
+            for (var v = 0; v < per; v += 3) {
+                attribute.array[start + v] = scratch.r;
+                attribute.array[start + v + 1] = scratch.g;
+                attribute.array[start + v + 2] = scratch.b;
+            }
+        }
+        attribute.needsUpdate = true;
     }
 
     function ensureGraph() {
@@ -826,6 +874,7 @@
         state.selected = node.id;
         state.relations = computeRelations(relationKey(state.nodeById[node.id] || node));
         if (state.graph) state.graph.nodeThreeObject(buildingFor);
+        paintEdges();
         updateHud();
         renderSide();
     }
@@ -835,6 +884,7 @@
         state.selected = null;
         state.relations = { in: {}, out: {}, docs: {} };
         if (state.graph) state.graph.nodeThreeObject(buildingFor);
+        paintEdges();
         updateHud();
         renderSide();
     }
@@ -1503,6 +1553,17 @@
         rankOf: function () { return state.rankOf || {}; },
         badgeCount: function () { return state.badgeCount || 0; },
         labelCount: function () { return state.labelCount || 0; },
+        /** Vertex colour of one block's outline, rgb floats 0..1. */
+        edgeColourOf: function (id) {
+            var info = state.edgeIdi;
+            if (!info || !info.geometry) return null;
+            var index = info.order.indexOf(id);
+            if (index < 0) return null;
+            var attribute = info.geometry.getAttribute('color');
+            if (!attribute) return null;
+            var at = index * 72; // 12 edges × 2 vertices × rgb
+            return [attribute.array[at], attribute.array[at + 1], attribute.array[at + 2]];
+        },
         names: function () { return state.names !== false; },
         setNames: function (on) { setNames(on); },
         postcard: function () { exportPostcard(); },
