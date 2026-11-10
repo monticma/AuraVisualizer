@@ -34,6 +34,10 @@
     // the city is a plan read from afar, not a portrait. 1 500 keeps ThorV2 at
     // file granularity (762) in, and the 5 000-building function city out.
     var SHADOW_MAX_BUILDINGS = 1500;
+    // How long the shadow map stays live after a rebuild. The renderer creates
+    // the new buildings asynchronously, so a map frozen on the next frame is a
+    // picture of the previous city.
+    var SHADOW_SETTLE_MS = 500;
     // Outlines: the building's own colour, one notch darker. Black reads as ink
     // over the whole city; this factor keeps the hue and the block's identity.
     // Applied in *linear* space (three manages colour), so 0.36 ≈ 63 % of the
@@ -423,16 +427,36 @@
         camera.far = cityScale() * 4;
         camera.updateProjectionMatrix();
         var size = count > 800 ? 1024 : 2048;
-        light.shadow.mapSize.set(size, size);
+        if (light.shadow.mapSize.x !== size) {
+            light.shadow.mapSize.set(size, size);
+            // Resizing the map means a new render target: without dropping the
+            // old one the shadow stays at the previous resolution.
+            if (light.shadow.map) {
+                light.shadow.map.dispose();
+                light.shadow.map = null;
+            }
+        }
         // Thin plates + tall boxes: a small bias kills acne without lifting the
         // contact line off the ground.
         light.shadow.bias = -0.0008;
         light.shadow.normalBias = scaled(1.2);
-        // The city is static: rendering the shadow map every frame would double
-        // the cost for an image that never changes. Redraw on the next frame,
-        // then leave it alone until the plan is rebuilt.
-        renderer.shadowMap.autoUpdate = false;
+        // The city is static, so the shadow map only has to be drawn when the
+        // plan changes — but the new meshes arrive a frame or two *after*
+        // `graphData()`. Freezing right away captured the previous city, which is
+        // why drilling into a district left its shadows on the plinth and coming
+        // back showed shadows that no longer matched the buildings. Stay live for
+        // a short window after every rebuild, then freeze.
+        renderer.shadowMap.autoUpdate = true;
         renderer.shadowMap.needsUpdate = true;
+        state.shadowLive = true;
+        if (state.shadowTimer) clearTimeout(state.shadowTimer);
+        state.shadowTimer = setTimeout(function () {
+            state.shadowTimer = null;
+            state.shadowLive = false;
+            var live = null;
+            try { live = state.graph && state.graph.renderer(); } catch (_) { live = null; }
+            if (live && live.shadowMap) live.shadowMap.autoUpdate = false;
+        }, SHADOW_SETTLE_MS);
     }
 
     /** Plinth + one raised plate per district (altitude = package nesting depth). */
@@ -1743,6 +1767,8 @@
         setShadows: function (on) { setShadows(on); },
         /** Whether buildings actually cast right now (the budget can veto it). */
         shadowCast: function () { return state.shadowCast === true; },
+        /** True while the shadow map is still following the scene. */
+        shadowLive: function () { return state.shadowLive === true; },
         postcard: function () { exportPostcard(); },
         /** Caption baselines — exposed so the harness can prove nothing overflows. */
         postcardLayout: function () { return postcardCaptionLayout(POSTCARD_H, POSTCARD_BAND); },
