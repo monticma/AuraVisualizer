@@ -986,6 +986,28 @@ html, body {
     border-color: rgba(96, 165, 250, 0.55);
 }
 
+/* Cross-view jump: the same secondary-button look as the Ask Aura actions,
+   sitting right under the panel header so it is the first thing you can do. */
+.panel-actions {
+    padding: 0 16px 10px;
+}
+
+.panel-city-btn {
+    background: rgba(96, 165, 250, 0.12);
+    border: 1px solid rgba(96, 165, 250, 0.3);
+    color: var(--aura-fg);
+    border-radius: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.15s, border-color 0.15s;
+}
+
+.panel-city-btn:hover {
+    background: rgba(96, 165, 250, 0.24);
+    border-color: rgba(96, 165, 250, 0.55);
+}
+
 .community-ask {
     background: none;
     border: none;

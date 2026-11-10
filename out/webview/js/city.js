@@ -1563,6 +1563,31 @@
         ensureGraph();
         if (!state.plan) applyPlan();
         else resize();
+        flushPendingReveal();
+    }
+
+    /**
+     * Entry point for the other views (the graph's "See in city"): switch to the
+     * City tab and put this file on screen. The tab switch is asynchronous — the
+     * view is activated by a MutationObserver — and on a first visit the plan does
+     * not exist yet, so the request is queued and honoured by `activate()`.
+     */
+    function showFile(id) {
+        if (!id) return false;
+        state.pendingReveal = id;
+        var tab = document.querySelector('.tab-btn[data-tab="city"]');
+        if (!tab) return false;
+        if (isActive()) flushPendingReveal();
+        else tab.click();
+        return true;
+    }
+
+    /** Reveal the queued file once there is a plan to reveal it in. */
+    function flushPendingReveal() {
+        var id = state.pendingReveal;
+        if (!id || !state.plan) return;
+        state.pendingReveal = null;
+        reveal(id);
     }
 
     function init() {
@@ -1627,6 +1652,8 @@
         select: function (id) { selectBuilding({ id: id }); },
         reveal: reveal,
         revealSymbol: revealSymbol,
+        /** Other views' entry point: switch tab, then select this file. */
+        showFile: showFile,
         clear: clearSelection,
         scope: function () { return state.scope; },
         setScope: setScope,

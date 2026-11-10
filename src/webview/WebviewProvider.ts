@@ -1477,6 +1477,9 @@ export class WebviewProvider {
             </div>
             <button id="panel-close" class="panel-close">✕</button>
         </div>
+        <div class="panel-actions">
+            <button id="panel-city" type="button" class="panel-city-btn" title="Open the City tab and select this file">🏙️ See in city</button>
+        </div>
         <details class="panel-section panel-collapsible" id="overview-section" open>
             <summary class="panel-section-header">
                 <span class="panel-section-heading">📋 File details</span>

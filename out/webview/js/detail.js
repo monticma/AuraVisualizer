@@ -773,6 +773,7 @@
         });
         setupNoteEditor();
         setupAiActions();
+        setupCityAction();
         setupTransitiveSections();
     }
 
@@ -837,6 +838,9 @@
         var section = $('#ai-actions-section');
         if (!section) return;
         section.style.display = '';
+        // A cluster is not a file: there is no building to point at.
+        var cityBtn = $('#panel-city');
+        if (cityBtn) cityBtn.style.display = node._isCluster ? 'none' : '';
         var explain = $('#ai-explain');
         var impact = $('#ai-impact');
         var tests = $('#ai-tests');
@@ -864,6 +868,25 @@
                 if (btn) btn.addEventListener('click', function() { askAuraForNode(kind); });
             })(actions[i][0], actions[i][1]);
         }
+    }
+
+    /**
+     * The reverse of the City's "Focus in graph": hand the selected file to the
+     * City, which switches tab and selects the matching building (or drills into
+     * its block at function granularity).
+     */
+    function setupCityAction() {
+        var btn = $('#panel-city');
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+            var node = hooks.getSelectedNode();
+            if (!node || node._isCluster) return;
+            var id = node.path && node.path.length > 0 ? node.path : node.id;
+            if (!id) return;
+            if (window.AuraCityView && typeof window.AuraCityView.showFile === 'function') {
+                window.AuraCityView.showFile(id);
+            }
+        });
     }
 
     // ============================================================
