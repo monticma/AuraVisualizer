@@ -90,6 +90,16 @@ html, body {
     overflow: hidden;
     min-height: 0;
     position: relative;
+    /* The tab is a column now: #graph-bar on top, then the canvas. Every other
+       child is absolutely positioned and starts below the bar via
+       --graph-bar-h, so the panels never cover it. */
+    flex-direction: column;
+}
+
+/* Height of `#graph-bar` (the shared .view-toolbar shell: 40px + its 1px
+   border), consumed by the panels and the canvas overlays below. */
+#middle-row {
+    --graph-bar-h: 41px;
 }
 
 /* ============================================================
@@ -132,7 +142,7 @@ html, body {
    ============================================================ */
 #review-bar {
     position: absolute;
-    top: 8px;
+    top: calc(var(--graph-bar-h, 41px) + 8px);
     left: 50%;
     transform: translateX(-50%);
     z-index: 160;
@@ -245,7 +255,7 @@ html, body {
    ============================================================ */
 #breadcrumb-bar {
     position: absolute;
-    top: 8px;
+    top: calc(var(--graph-bar-h, 41px) + 8px);
     left: 50%;
     transform: translateX(-50%);
     z-index: 155;
@@ -844,9 +854,9 @@ html, body {
    ============================================================ */
 #detail-panel {
     position: absolute;
-    top: 0;
+    top: var(--graph-bar-h, 41px);
     right: 0;
-    height: 100%;
+    height: calc(100% - var(--graph-bar-h, 41px));
     width: 320px;
     background: var(--aura-sidebar-bg);
     border-left: 1px solid var(--aura-border);
@@ -1450,7 +1460,9 @@ html, body {
    ============================================================ */
 #warps-panel {
     position: fixed;
-    top: 80px;
+    /* 80px put the panel just under the tab bar; the graph bar now lives there,
+       so it starts below it (41px = --graph-bar-h). */
+    top: 121px;
     right: 16px;
     width: 240px;
     min-width: 180px;
@@ -1883,9 +1895,9 @@ html, body {
    ============================================================ */
 #explorer-panel {
     position: absolute;
-    top: 0;
+    top: var(--graph-bar-h, 41px);
     left: 0;
-    height: 100%;
+    height: calc(100% - var(--graph-bar-h, 41px));
     width: 260px;
     background: var(--aura-sidebar-bg);
     border-right: 1px solid var(--aura-border);
@@ -2023,7 +2035,9 @@ html, body {
    ============================================================ */
 #community-palette {
     position: fixed;
-    top: 80px;
+    /* 80px put the panel just under the tab bar; the graph bar now lives there,
+       so it starts below it (41px = --graph-bar-h). */
+    top: 121px;
     right: 16px;
     width: 310px;
     min-width: 240px;
@@ -4875,32 +4889,18 @@ select option {
    the global top bar, where six of the eight buttons were inert on the other ten
    tabs. z-index 45 keeps it under the explorer/detail panels (50), so a panel
    simply slides over it instead of fighting it. */
-#graph-hud {
-    position: absolute;
-    top: 12px;
-    /* Top right, where the buttons used to be in the global bar: the hand looks
-       there. */
-    right: 12px;
+/* The graph's bar holds its actions on the right, the way Risk and Architecture
+   do: the left slot stays free for the state (filters, scope) the way the other
+   tabs show theirs. */
+.graph-bar-actions {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 6px 8px;
-    border-radius: 8px;
-    background: rgba(13, 17, 23, 0.82);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    z-index: 45;
-    transition: right 0.25s ease;
+    margin-left: auto;
+    flex-wrap: wrap;
 }
 
-/* The inspector is 320 px wide and slides in from the same edge: step the chip
-   aside instead of letting it disappear under the panel. */
-#middle-row:has(#detail-panel:not(.collapsed)) #graph-hud {
-    right: 332px;
-}
-
-#graph-hud .top-btn {
+#graph-bar .top-btn {
     padding: 4px 8px;
     font-size: 11px;
     border-color: rgba(255, 255, 255, 0.12);
