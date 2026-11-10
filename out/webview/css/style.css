@@ -3548,8 +3548,10 @@ html, body {
     padding: 0;
 }
 
+/* Same air under the bar as the Risk view puts under its own (16px before the
+   first card): the table used to start flush against the toolbar. */
 #table-view .table-scroll {
-    margin: 0 12px 12px;
+    margin: 16px 12px 12px;
 }
 #table-view .table-toolbar {
     gap: 8px;
