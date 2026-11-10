@@ -371,14 +371,12 @@ html, body {
 /* The query toggle lives in the view bar now, and the settings gear next to
    Help: the tab bar holds tabs only. */
 .qb-toggle.active {
-    background: var(--aura-accent);
-    color: #fff;
+    background: rgba(96,165,250,0.1);
     border-color: var(--aura-accent);
 }
 #graph-bar .qb-toggle {
     padding: 4px 8px;
     font-size: 11px;
-    border-color: rgba(255, 255, 255, 0.12);
 }
 .qb-input {
     flex: 1;
@@ -562,9 +560,11 @@ html, body {
 
 .top-btn.active {
     opacity: 1;
-    color: var(--aura-accent);
+    /* Same recipe as .filter-btn.active: accent border, tinted background, text
+       left alone. The blue text made the top buttons read as links rather than
+       as engaged toggles. */
     border-color: var(--aura-accent);
-    background: rgba(96,165,250,0.12);
+    background: rgba(96,165,250,0.1);
 }
 
 .top-btn.paused {
@@ -4911,7 +4911,6 @@ select option {
 #graph-bar .top-btn {
     padding: 4px 8px;
     font-size: 11px;
-    border-color: rgba(255, 255, 255, 0.12);
 }
 
 #city-hud {
