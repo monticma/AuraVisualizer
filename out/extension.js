@@ -370,6 +370,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
                 <div class="city-legend-row"><span class="city-legend-swatch hot"></span><span id="city-legend-hot">top 20</span></div>
                 <div class="city-legend-row"><span class="city-legend-swatch glass"></span>docs, data, config, assets \u2014 not ranked</div>
                 <div class="city-legend-row"><label class="city-legend-toggle" title="Draw district names and rank badges \u2014 untick for a clean capture"><input id="city-names" type="checkbox" checked> names &amp; ranks</label></div>
+                <div class="city-legend-row"><label class="city-legend-toggle" title="Contact shadows (dropped above 1 500 buildings to keep the frame rate)"><input id="city-shadows" type="checkbox" checked> shadows</label></div>
             </div>
             <div id="city-hud">
                 <span id="city-hud-meta">Click a building</span>

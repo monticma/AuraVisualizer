@@ -22,6 +22,10 @@
     var PLATE_STEP = 9;          // altitude per district nesting level
     var MAX_POLAR = Math.PI / 2 - 0.1;   // never look under the plinth
     var MIN_H = 2.5;
+    // Above this many buildings the shadow pass costs more than it explains:
+    // the city is a plan read from afar, not a portrait. 1 500 keeps ThorV2 at
+    // file granularity (762) in, and the 5 000-building function city out.
+    var SHADOW_MAX_BUILDINGS = 1500;
     // Outlines: the building's own colour, one notch darker. Black reads as ink
     // over the whole city; this factor keeps the hue and the block's identity.
     // Applied in *linear* space (three manages colour), so 0.36 ≈ 63 % of the
@@ -240,6 +244,12 @@
         });
         var mesh = new T.Mesh(new T.BoxGeometry(w, h, d), material);
         mesh.userData.cityBuilding = node.id;
+        // Casting is budgeted by `applyShadows`; receiving is always on so a
+        // neighbour's shadow lands correctly on this facade. Glass does not
+        // cast: three has no transmission in the shadow pass, so a translucent
+        // block would drop an opaque hole on the ground.
+        mesh.castShadow = state.shadowCast === true && !glass;
+        mesh.receiveShadow = true;
         return mesh;
     }
 
@@ -352,9 +362,73 @@
         state.edgeIdi = null;
     }
 
-    /** Plinth + one raised plate per district (altitude = package nesting depth). */
-    function buildDecor(plan) {
+    /**
+     * Contact shadows. The city is read from above: without them the blocks float
+     * and the district plates read as flat colour. One directional light casts,
+     * the buildings cast and receive, the plinth and the plates receive.
+     *
+     * It costs a second pass over the scene, so it is budgeted twice: the user can
+     * turn it off, and above SHADOW_MAX_BUILDINGS it is dropped on its own — a
+     * 5 000-building function city is a plan, not a portrait.
+     */
+    function applyShadows(plan) {
         var T = window.THREE;
+        if (!T || !state.graph) return;
+        var renderer = null;
+        try { renderer = state.graph.renderer(); } catch (_) { renderer = null; }
+        if (!renderer || !renderer.shadowMap) return;
+        var count = plan ? plan.rects.length : 0;
+        var on = state.shadows !== false && count > 0 && count <= SHADOW_MAX_BUILDINGS;
+        renderer.shadowMap.enabled = on;
+        state.shadowCast = on;
+        if (!on) return;
+        renderer.shadowMap.type = T.PCFSoftShadowMap;
+
+        var scene = state.graph.scene();
+        if (!scene) return;
+        // Reuse the scene's own directional light when there is one: adding a
+        // second would double the diffuse and wash the city out.
+        var light = null;
+        scene.traverse(function (child) {
+            if (!light && child.isDirectionalLight) light = child;
+        });
+        if (!light) {
+            light = new T.DirectionalLight(0xffffff, 0.8);
+            scene.add(light);
+        }
+        // The engine's default position is a unit-scale (1, 1, 1): inside a
+        // 520-unit city that puts the sun in the middle of the plaza and the
+        // shadow frustum in a 2-unit box. Re-anchor it for the plan.
+        light.position.set(cityScale() * 0.55, cityScale() * 1.1, cityScale() * 0.4);
+        if (light.target) {
+            light.target.position.set(0, 0, 0);
+            if (light.target.parent !== scene) scene.add(light.target);
+        }
+        light.castShadow = true;
+        var half = cityScale() * 0.92;
+        var camera = light.shadow.camera;
+        camera.left = -half;
+        camera.right = half;
+        camera.top = half;
+        camera.bottom = -half;
+        camera.near = 1;
+        camera.far = cityScale() * 4;
+        camera.updateProjectionMatrix();
+        var size = count > 800 ? 1024 : 2048;
+        light.shadow.mapSize.set(size, size);
+        // Thin plates + tall boxes: a small bias kills acne without lifting the
+        // contact line off the ground.
+        light.shadow.bias = -0.0008;
+        light.shadow.normalBias = scaled(1.2);
+        // The city is static: rendering the shadow map every frame would double
+        // the cost for an image that never changes. Redraw on the next frame,
+        // then leave it alone until the plan is rebuilt.
+        renderer.shadowMap.autoUpdate = false;
+        renderer.shadowMap.needsUpdate = true;
+    }
+
+    /** Plinth + one raised plate per district (altitude = package nesting depth). */
+    function buildDecor(plan) {        var T = window.THREE;
         if (!T || !state.graph) return;
         var scene = state.graph.scene();
         if (!scene) return;
@@ -367,6 +441,7 @@
             new T.MeshLambertMaterial({ color: '#11151a' })
         );
         plinth.position.y = -scaled(3.2);
+        plinth.receiveShadow = true;
         group.add(plinth);
 
         for (var i = 0; i < plan.districts.length; i++) {
@@ -376,6 +451,7 @@
                 // The plate must read as ground, not as a second city.
                 new T.MeshLambertMaterial({ color: new T.Color(districtColor(district.key)).multiplyScalar(0.34) })
             );
+            plate.receiveShadow = true;
             plate.position.set(
                 (district.x + district.w / 2 - 0.5) * cityScale(),
                 plateAltitude(district.depth) - scaled(1.2),
@@ -386,6 +462,7 @@
 
         buildDistrictLabels(plan, group);
         buildRankBadges(plan, group);
+        applyShadows(plan);
 
         scene.add(group);
         state.decor = group;
@@ -1391,9 +1468,28 @@
         try { window.localStorage.setItem(STORE_KEY, JSON.stringify(OPTIONS)); } catch (_) { /* private mode */ }
     }
 
+    /**
+     * Shadows on or off: re-applies the light and rebuilds the buildings, because
+     * `castShadow` lives on each mesh and the meshes are created by the engine.
+     */
+    function setShadows(on) {
+        state.shadows = on !== false;
+        try {
+            var raw = window.localStorage.getItem(STORE_KEY);
+            var saved = raw ? JSON.parse(raw) : {};
+            saved.shadows = state.shadows;
+            window.localStorage.setItem(STORE_KEY, JSON.stringify(saved));
+        } catch (_) { /* private mode */ }
+        var box = $('#city-shadows');
+        if (box) box.checked = state.shadows;
+        if (state.plan) {
+            applyShadows(state.plan);
+            if (state.graph) state.graph.nodeThreeObject(buildingFor);
+        }
+    }
+
     /** Names & ranks on or off: rebuilds the decor, keeps the plan and selection. */
-    function setNames(on) {
-        state.names = on !== false;
+    function setNames(on) {        state.names = on !== false;
         try {
             var raw = window.localStorage.getItem(STORE_KEY);
             var saved = raw ? JSON.parse(raw) : {};
@@ -1412,6 +1508,7 @@
             try {
                 var saved = JSON.parse(raw);
                 if (saved.names === false) state.names = false;
+                if (saved.shadows === false) state.shadows = false;
                 for (var i = 0; i < CONTROLS.length; i++) {
                     var key = CONTROLS[i].key;
                     if (typeof saved[key] !== 'string' || saved[key].length === 0) continue;
@@ -1424,6 +1521,8 @@
         syncControls();
         var namesBox = $('#city-names');
         if (namesBox) namesBox.checked = state.names !== false;
+        var shadowsBox = $('#city-shadows');
+        if (shadowsBox) shadowsBox.checked = state.shadows !== false;
     }
 
     /** Clamp a stored value to one of the select's current options. */
@@ -1479,6 +1578,10 @@
         var namesBox = $('#city-names');
         if (namesBox) {
             namesBox.addEventListener('change', function () { setNames(namesBox.checked); });
+        }
+        var shadowsBox = $('#city-shadows');
+        if (shadowsBox) {
+            shadowsBox.addEventListener('change', function () { setShadows(shadowsBox.checked); });
         }
         var treemapBtn = $('#treemap-city');
         if (treemapBtn) {
@@ -1566,6 +1669,10 @@
         },
         names: function () { return state.names !== false; },
         setNames: function (on) { setNames(on); },
+        shadows: function () { return state.shadows !== false; },
+        setShadows: function (on) { setShadows(on); },
+        /** Whether buildings actually cast right now (the budget can veto it). */
+        shadowCast: function () { return state.shadowCast === true; },
         postcard: function () { exportPostcard(); },
         options: OPTIONS,
         graph: function () { return state.graph; },
