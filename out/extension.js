@@ -24,7 +24,6 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
         <!-- Top Bar -->
         <header id="top-bar">
             <div class="top-bar-left">
-                <button id="btn-toggle-explorer" class="top-btn icon-btn" title="Toggle explorer (\u2630)">\u2630</button>
                 <div id="logo">
                     <span class="logo-icon">\u2726</span>
                     <span class="logo-text">AURA</span>
@@ -97,10 +96,11 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
                  OUT of #graph-container: the renderer clears that node's innerHTML
                  when it mounts. -->
             <div id="graph-bar" class="view-toolbar">
+                <button id="btn-toggle-explorer" class="top-btn" title="Files and folders of this repository">\u2630 Files</button>
                 <button id="qb-toggle" class="qb-toggle" title="Toggle query bar (Ctrl+K)">\u{1F50D} Query</button>
                 <div class="graph-bar-actions">
-                    <button id="btn-export-image" class="top-btn" title="Export a high-resolution PNG of the 3D graph">\u{1F4F7}</button>
-                    <button id="btn-follow-editor" class="top-btn" aria-pressed="true" title="Follow editor (on) \u2014 camera flies to the active file">\u{1F441}</button>
+                    <button id="btn-export-image" class="top-btn" title="Export a high-resolution PNG of the 3D graph">\u{1F4F7} PNG</button>
+                    <button id="btn-follow-editor" class="top-btn" aria-pressed="true" title="Follow editor (on) \u2014 camera flies to the active file">\u{1F441} Follow</button>
                     <button id="btn-export" class="top-btn" title="Export AI context (Markdown/JSON) \u2014 selectable sections and token budget">\u{1F4E4} Export</button>
                     <button id="btn-minimap" class="top-btn" title="Toggle minimap">\u{1F5FA}\uFE0F Map</button>
                     <button id="btn-warps-panel" class="top-btn" title="Warp points \u2014 named camera bookmarks">\u{1F300} Warps</button>
@@ -369,8 +369,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
             <button id="city-export" type="button" class="city-select" title="Export the city as a PNG">\u{1F4F7} PNG</button>
             <button id="city-postcard" type="button" class="city-select" title="Export a 1600\xD7900 postcard: the city plus what it means">\u{1F4EE} Postcard</button>
         </div>
-        <div id="city-crumbs" class="hidden"></div>
-        <!-- Stage: the panel is anchored here, below the two toolbars, exactly
+        <!-- Stage: the panel is anchored here, below the toolbar, exactly
              like #detail-panel sits under the 3D Graph toolbar. -->
         <div id="city-stage">
             <div id="city-canvas"></div>
@@ -398,6 +397,8 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
                 <div id="city-side-body"></div>
             </aside>
         </div>
+        <!-- District bar: at the bottom, where the 3D Graph puts #filter-bar. -->
+        <div id="city-crumbs" class="hidden"></div>
     </div>
 
     <!-- Metrics View -->

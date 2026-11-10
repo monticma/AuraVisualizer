@@ -1901,8 +1901,11 @@ html, body {
     width: 260px;
     background: var(--aura-sidebar-bg);
     border-right: 1px solid var(--aura-border);
-    overflow-y: auto;
-    overflow-x: hidden;
+    /* The tree scrolls, not the panel: with the panel scrolling, its scrollbar
+       sat on top of the sticky header and clipped the "None" button. */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     transition: transform 0.25s ease;
@@ -1922,14 +1925,19 @@ html, body {
     letter-spacing: 0.5px;
     color: rgba(201, 209, 217, 0.5);
     border-bottom: 1px solid var(--aura-border);
-    position: sticky;
-    top: 0;
     background: var(--vscode-sideBar-background, #0d1117);
-    z-index: 1;
-    min-width: 260px;
+    flex: 0 0 auto;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 8px;
+}
+
+.explorer-tree {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .explorer-header h3 {
@@ -5129,14 +5137,16 @@ select option {
 .city-tip-in { color: #4fc3f7; }
 
 /* City — district drill-down (breadcrumb + child chips) */
+/* District bar. It sat under the toolbar; it now closes the view from below,
+   the way #filter-bar closes the 3D Graph. */
 #city-crumbs {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
     gap: 6px;
-    padding: 5px 12px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-    background: rgba(13, 17, 23, 0.35);
+    padding: 6px 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--aura-sidebar-bg);
     font-size: 11px;
     color: #b0bec5;
     flex: 0 0 auto;
