@@ -336,6 +336,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
             <label class="city-field" for="city-colour" title="What the building colour encodes">Colour
                 <select id="city-colour" class="city-select">
                     <option value="height" selected>height</option>
+                    <option value="risk">risk</option>
                     <option value="language">language</option>
                     <option value="layer">layer</option>
                     <option value="district">district</option>
@@ -365,6 +366,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
             <div id="city-canvas"></div>
             <div id="city-legend">
                 <div class="city-legend-row" id="city-legend-encoding">height = cognitive \xB7 footprint = lines</div>
+                <div class="city-legend-row" id="city-legend-colour" hidden></div>
                 <div class="city-legend-row"><span class="city-legend-swatch hot"></span><span id="city-legend-hot">top 20</span></div>
                 <div class="city-legend-row"><span class="city-legend-swatch glass"></span>docs, data, config, assets \u2014 not ranked</div>
                 <div class="city-legend-row"><label class="city-legend-toggle" title="Draw district names and rank badges \u2014 untick for a clean capture"><input id="city-names" type="checkbox" checked> names &amp; ranks</label></div>

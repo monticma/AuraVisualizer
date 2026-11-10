@@ -5234,6 +5234,17 @@ select option {
     border: 1px solid rgba(255, 255, 255, 0.25);
 }
 
+/* Colour channel: same three buckets as .risk-file-row and the inspector. */
+.city-legend-swatch.risk-low { background: #3fb950; }
+.city-legend-swatch.risk-medium { background: #d29922; }
+.city-legend-swatch.risk-high { background: #f85149; }
+.city-legend-swatch.rainbow { background: linear-gradient(90deg, #4fc3f7, #ba68c8, #e0b53a); }
+
+/* A swatch followed by a word needs a breath between the pairs. */
+#city-legend-colour { gap: 5px; }
+.city-legend-swatch.risk-medium,
+.city-legend-swatch.risk-high { margin-left: 4px; }
+
 /* Names & ranks toggle: the one legend row you can click. */
 .city-legend-toggle {
     display: flex;

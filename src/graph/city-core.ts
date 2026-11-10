@@ -54,6 +54,8 @@ export interface CityNodeLike {
     size?: number;
     /** 0-100 risk score of the owning file — injected by the webview. */
     risk?: number;
+    /** `low` | `medium` | `high`, the bucket the score falls in. */
+    riskBucket?: string;
     group?: string;
     layer?: string;
     community?: string;
@@ -305,6 +307,7 @@ export function functionNodes(nodes: CityFileNodeLike[], options: FunctionGranul
                 // The risk score is a property of the *file*: git only knows
                 // files, so every function of a risky file inherits its score.
                 risk: node.risk,
+                riskBucket: node.riskBucket,
                 group: file,
                 layer: node.layer,
                 community: node.community,

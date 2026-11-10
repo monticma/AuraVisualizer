@@ -153,6 +153,7 @@
     /** The colour of the active channel, before any selection. */
     function baseColour(node, rect) {
         var mode = OPTIONS.colour;
+        if (mode === 'risk') return riskColour(node);
         if (mode === 'language' && window.LANGUAGE_COLORS) {
             var lang = window.LANGUAGE_COLORS[node.language];
             if (lang) return lang;
@@ -163,6 +164,25 @@
         // and the colour agree and the eye only goes where it matters. The hot
         // end of the ramp is reserved for the bounded top band (see colourFor).
         return rampColor(((rect.h - 0.12) / 0.88) * 0.66);
+    }
+
+    /**
+     * Risk channel: the bucket carries the meaning (same green / amber / red as
+     * the Risk tab and the inspector), the shade carries the magnitude on top of
+     * it. A file the engine never scored stays neutral instead of pretending to
+     * be safe.
+     */
+    function riskColour(node) {
+        var bucket = node && node.riskBucket;
+        var base = bucket === 'high' ? '#f85149'
+            : bucket === 'medium' ? '#d29922'
+                : bucket === 'low' ? '#3fb950'
+                    : '';
+        if (!base) return '#39424e';
+        var score = typeof node.risk === 'number' && isFinite(node.risk) ? node.risk : 0;
+        var k = 0.72 + 0.28 * Math.max(0, Math.min(1, score / 100));
+        var rgb = hexToRgb(base);
+        return 'rgb(' + Math.round(rgb.r * k) + ',' + Math.round(rgb.g * k) + ',' + Math.round(rgb.b * k) + ')';
     }
 
     /** World width of the plan for the city currently on screen. */
@@ -614,10 +634,10 @@
         }
         if (nodes.length === 0) { state.plan = null; renderCrumbs(); return; }
 
-        // `height = risk`: the score belongs to the file and comes from the same
-        // percentiles the Risk tab uses, so tall + red means "the riskiest" here
-        // and "the riskiest" there. One pass, not one scan per building.
-        if (OPTIONS.height === 'risk') stampRisk(nodes);
+        // `height = risk` or `colour = risk`: the score belongs to the file and
+        // comes from the same percentiles the Risk tab uses, so "riskiest" means
+        // the same thing in both views. One pass, and it is cached.
+        stampRisk(nodes);
 
         // One building per function turns 762 files into ~5 000 buildings; the
         // file becomes the district.
@@ -703,6 +723,7 @@
         for (var i = 0; i < nodes.length; i++) {
             var entry = scores[nodes[i].id];
             nodes[i].risk = entry ? entry.score : 0;
+            nodes[i].riskBucket = entry ? entry.bucket : '';
         }
     }
 
@@ -1011,6 +1032,7 @@
             encoding.textContent = 'height = ' + state.plan.heightMetric
                 + ' · footprint = ' + state.plan.footprintMetric;
         }
+        updateColourLegend();
         var hot = $('#city-legend-hot');
         if (hot) {
             // With `height = risk` the band is not "the tallest" any more: it is
@@ -1020,6 +1042,33 @@
                 ? 'top ' + state.hotCount + ' ' + noun + ' · ranked #1–#' + state.hotCount
                 : 'no top band';
         }
+    }
+
+    /**
+     * Colour row of the legend. `height` needs none — the ramp *is* the height —
+     * but every other channel has to say what a colour means, or the map is just
+     * a pretty picture.
+     */
+    function updateColourLegend() {
+        var row = $('#city-legend-colour');
+        if (!row) return;
+        var mode = OPTIONS.colour;
+        if (mode === 'height') {
+            row.hidden = true;
+            row.innerHTML = '';
+            return;
+        }
+        row.hidden = false;
+        if (mode === 'risk') {
+            row.innerHTML = '<span class="city-legend-swatch risk-low"></span>low'
+                + '<span class="city-legend-swatch risk-medium"></span>medium'
+                + '<span class="city-legend-swatch risk-high"></span>high';
+            return;
+        }
+        var what = mode === 'language' ? 'language'
+            : mode === 'layer' ? 'architecture layer'
+                : 'district';
+        row.innerHTML = '<span class="city-legend-swatch rainbow"></span>one colour per ' + what;
     }
 
     function updateHud() {
@@ -1131,6 +1180,9 @@
         var encoding = plan
             ? 'height = ' + plan.heightMetric + ' · footprint = ' + plan.footprintMetric
             : '';
+        // The colour channel is part of what the picture means, when it is not
+        // simply the height ramp.
+        if (OPTIONS.colour && OPTIONS.colour !== 'height') encoding += ' · colour = ' + OPTIONS.colour;
         var top = [];
         if (state.names !== false && state.rankOf) {
             for (var id in state.rankOf) {
@@ -1333,6 +1385,7 @@
                         return;
                     }
                     if (state.graph) state.graph.nodeThreeObject(buildingFor);
+                    updateLegend();
                 });
             })(CONTROLS[i]);
         }
@@ -1404,7 +1457,14 @@
         clear: clearSelection,
         scope: function () { return state.scope; },
         setScope: setScope,
-        colourOf: function (id) { return colourFor({ id: id, language: '' }, state.byId[id] || { h: 0.5, district: '' }); },
+        colourOf: function (id) {
+            // The *planned* node, not a stub: injected channels (risk, layer,
+            // community) only exist on it.
+            return colourFor(
+                state.nodeById[id] || { id: id, language: '' },
+                state.byId[id] || { h: 0.5, district: '' },
+            );
+        },
         tooltip: function (nodeOrId) {
             return tooltipFor(typeof nodeOrId === 'string' ? { id: nodeOrId } : nodeOrId);
         },

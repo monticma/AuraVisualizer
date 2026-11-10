@@ -198,6 +198,7 @@ var AuraCity = (() => {
           // The risk score is a property of the *file*: git only knows
           // files, so every function of a risky file inherits its score.
           risk: node.risk,
+          riskBucket: node.riskBucket,
           group: file,
           layer: node.layer,
           community: node.community,
