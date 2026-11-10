@@ -22,6 +22,14 @@
     var PLATE_STEP = 9;          // altitude per district nesting level
     var MAX_POLAR = Math.PI / 2 - 0.1;   // never look under the plinth
     var MIN_H = 2.5;
+    // Postcard: a fixed sheet so every export lines up. The band is tall enough
+    // for three text baselines with room to breathe — the first version stacked
+    // three ranked lines and the last one fell off the bottom edge.
+    var POSTCARD_W = 1600;
+    var POSTCARD_H = 900;
+    var POSTCARD_BAND = 150;
+    // Same as the scene background, so the letterbox bars are invisible.
+    var POSTCARD_BG = '#0d1117';
     // Above this many buildings the shadow pass costs more than it explains:
     // the city is a plan read from afar, not a portrait. 1 500 keeps ThorV2 at
     // file granularity (762) in, and the 5 000-building function city out.
@@ -1303,16 +1311,17 @@
         var canvas = canvasElement();
         if (!canvas || !canvas.width || !canvas.height) return;
         if (typeof document.createElement !== 'function') return;
-        var W = 1600;
-        var H = 900;
-        var BAND = 150;
+        var W = POSTCARD_W;
+        var H = POSTCARD_H;
+        var BAND = POSTCARD_BAND;
         var sheet = document.createElement('canvas');
         sheet.width = W;
         sheet.height = H;
         var ctx = sheet.getContext('2d');
         if (!ctx) return;
 
-        ctx.fillStyle = '#0b0e13';
+        // Same colour as the scene background, so the letterbox bars are invisible.
+        ctx.fillStyle = POSTCARD_BG;
         ctx.fillRect(0, 0, W, H);
 
         var k = Math.min(W / canvas.width, (H - BAND) / canvas.height);
@@ -1341,25 +1350,36 @@
             top = top.slice(0, 3);
         }
 
-        var y = H - BAND + 42;
+        // A hairline makes the band deliberate rather than a crop.
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.06)';
+        ctx.fillRect(0, H - BAND, W, 1);
+
+        var at = postcardCaptionLayout(H, BAND);
+        ctx.textAlign = 'left';
         ctx.fillStyle = '#e8eef4';
         ctx.font = '600 30px system-ui, sans-serif';
-        ctx.fillText(counts, 48, y);
+        ctx.fillText(counts, 48, at.title);
         ctx.fillStyle = 'rgba(232, 238, 244, 0.6)';
         ctx.font = '400 20px system-ui, sans-serif';
-        ctx.fillText(encoding, 48, y + 32);
+        ctx.fillText(encoding, 48, at.encoding);
 
-        for (var t = 0; t < top.length; t++) {
-            var node = state.nodeById[top[t].id] || {};
-            var name = node.name || String(top[t].id).split('/').pop();
-            ctx.fillStyle = t === 0 ? '#d1462f' : 'rgba(232, 238, 244, 0.75)';
-            ctx.fillText('#' + top[t].rank + '  ' + name, 48, y + 66 + t * 26);
+        if (top.length > 0) {
+            // One line, first rank in the band red: three stacked lines used to
+            // run off the bottom of the sheet.
+            var names = [];
+            for (var t = 0; t < top.length; t++) {
+                var node = state.nodeById[top[t].id] || {};
+                names.push('#' + top[t].rank + ' ' + (node.name || String(top[t].id).split('/').pop()));
+            }
+            ctx.fillStyle = '#d1462f';
+            ctx.font = '500 18px system-ui, sans-serif';
+            ctx.fillText(fitText(ctx, names.join('   ·   '), W - 96 - 200), 48, at.ranked);
         }
 
         ctx.fillStyle = 'rgba(232, 238, 244, 0.35)';
         ctx.font = '400 18px system-ui, sans-serif';
         ctx.textAlign = 'right';
-        ctx.fillText('Aura Visualizer', W - 48, H - 24);
+        ctx.fillText('Aura Visualizer', W - 48, at.ranked);
         ctx.textAlign = 'left';
 
         var dataUrl = '';
@@ -1368,6 +1388,29 @@
         if (window.AuraHost && typeof window.AuraHost.post === 'function') {
             window.AuraHost.post({ type: 'exportImageData', payload: { dataUrl: dataUrl } });
         }
+    }
+
+    /**
+     * Caption baselines of the postcard band. Pure, so the one thing that broke
+     * (a third ranked line falling below the sheet) can be checked without a GPU:
+     * every baseline has to leave a descender's worth of room above the edge.
+     */
+    function postcardCaptionLayout(height, band) {
+        var top = height - band;
+        var title = top + 44;
+        var encoding = title + 32;
+        var ranked = encoding + 30;
+        return { title: title, encoding: encoding, ranked: ranked, bottom: height - 20 };
+    }
+
+    /** Canvas has no `text-overflow`: truncate to fit, with an ellipsis. */
+    function fitText(ctx, text, maxWidth) {
+        if (ctx.measureText(text).width <= maxWidth) return text;
+        var cut = text;
+        while (cut.length > 1 && ctx.measureText(cut + '…').width > maxWidth) {
+            cut = cut.slice(0, -1);
+        }
+        return cut + '…';
     }
 
     /**
@@ -1701,6 +1744,8 @@
         /** Whether buildings actually cast right now (the budget can veto it). */
         shadowCast: function () { return state.shadowCast === true; },
         postcard: function () { exportPostcard(); },
+        /** Caption baselines — exposed so the harness can prove nothing overflows. */
+        postcardLayout: function () { return postcardCaptionLayout(POSTCARD_H, POSTCARD_BAND); },
         options: OPTIONS,
         graph: function () { return state.graph; },
     };
