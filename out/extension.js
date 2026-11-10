@@ -98,7 +98,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
             <div id="graph-bar" class="view-toolbar">
                 <button id="btn-toggle-explorer" class="top-btn" title="Files and folders of this repository">\u2630 Files</button>
                 <button id="qb-toggle" class="qb-toggle" title="Toggle query bar (Ctrl+K)">\u{1F50D} Query</button>
-                <div class="graph-bar-actions">
+                <div class="view-bar-actions">
                     <button id="btn-export-image" class="top-btn" title="Export a high-resolution PNG of the 3D graph">\u{1F4F7} PNG</button>
                     <button id="btn-follow-editor" class="top-btn" aria-pressed="true" title="Follow editor (on) \u2014 camera flies to the active file">\u{1F441} Follow</button>
                     <button id="btn-export" class="top-btn" title="Export AI context (Markdown/JSON) \u2014 selectable sections and token budget">\u{1F4E4} Export</button>
@@ -366,8 +366,10 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
                     <option value="community">communities</option>
                 </select>
             </label>
-            <button id="city-export" type="button" class="city-select" title="Export the city as a PNG">\u{1F4F7} PNG</button>
-            <button id="city-postcard" type="button" class="city-select" title="Export a 1600\xD7900 postcard: the city plus what it means">\u{1F4EE} Postcard</button>
+            <div class="view-bar-actions">
+                <button id="city-export" type="button" class="city-select" title="Export the city as a PNG">\u{1F4F7} PNG</button>
+                <button id="city-postcard" type="button" class="city-select" title="Export a 1600\xD7900 postcard: the city plus what it means">\u{1F4EE} Postcard</button>
+            </div>
         </div>
         <!-- Stage: the panel is anchored here, below the toolbar, exactly
              like #detail-panel sits under the 3D Graph toolbar. -->

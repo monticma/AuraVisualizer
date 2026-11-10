@@ -1424,7 +1424,7 @@ export class WebviewProvider {
             <div id="graph-bar" class="view-toolbar">
                 <button id="btn-toggle-explorer" class="top-btn" title="Files and folders of this repository">☰ Files</button>
                 <button id="qb-toggle" class="qb-toggle" title="Toggle query bar (Ctrl+K)">🔍 Query</button>
-                <div class="graph-bar-actions">
+                <div class="view-bar-actions">
                     <button id="btn-export-image" class="top-btn" title="Export a high-resolution PNG of the 3D graph">📷 PNG</button>
                     <button id="btn-follow-editor" class="top-btn" aria-pressed="true" title="Follow editor (on) — camera flies to the active file">👁 Follow</button>
                     <button id="btn-export" class="top-btn" title="Export AI context (Markdown/JSON) — selectable sections and token budget">📤 Export</button>
@@ -1692,8 +1692,10 @@ export class WebviewProvider {
                     <option value="community">communities</option>
                 </select>
             </label>
-            <button id="city-export" type="button" class="city-select" title="Export the city as a PNG">📷 PNG</button>
-            <button id="city-postcard" type="button" class="city-select" title="Export a 1600×900 postcard: the city plus what it means">📮 Postcard</button>
+            <div class="view-bar-actions">
+                <button id="city-export" type="button" class="city-select" title="Export the city as a PNG">📷 PNG</button>
+                <button id="city-postcard" type="button" class="city-select" title="Export a 1600×900 postcard: the city plus what it means">📮 Postcard</button>
+            </div>
         </div>
         <!-- Stage: the panel is anchored here, below the toolbar, exactly
              like #detail-panel sits under the 3D Graph toolbar. -->

@@ -4900,7 +4900,8 @@ select option {
 /* The graph's bar holds its actions on the right, the way Risk and Architecture
    do: the left slot stays free for the state (filters, scope) the way the other
    tabs show theirs. */
-.graph-bar-actions {
+/* Right slot of a view bar: the actions of the view, pushed to the far edge. */
+.view-bar-actions {
     display: flex;
     align-items: center;
     gap: 6px;
