@@ -158,7 +158,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
             <button id="panel-close" class="panel-close">\u2715</button>
         </div>
         <div class="panel-actions" id="panel-actions">
-            <button id="panel-city" type="button" class="panel-action-btn" data-open-in-tab="graph" title="Show this file in another view \u2014 City or Treemap">\u25EB</button>
+            <button id="panel-city" type="button" class="top-btn panel-action-btn" data-open-in-tab="graph" title="Show this file in another view \u2014 City or Treemap">\u25EB View in</button>
         </div>
         <details class="panel-section panel-collapsible" id="overview-section" open>
             <summary class="panel-section-header">
@@ -402,8 +402,8 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
                      tooltip each. Static markup, so it survives the body being
                      re-rendered on every selection. -->
                 <div id="city-side-actions" class="panel-actions">
-                    <button type="button" class="panel-action-btn" data-city-action="open" title="Open this file in the editor \u2014 or double-click the building">\u2197</button>
-                    <button type="button" class="panel-action-btn" data-open-in-tab="city" title="Show this file in another view \u2014 3D Graph or Treemap">\u25EB</button>
+                    <button type="button" class="top-btn panel-action-btn" data-city-action="open" title="Open this file in the editor \u2014 or double-click the building">\u2197 Open</button>
+                    <button type="button" class="top-btn panel-action-btn" data-open-in-tab="city" title="Show this file in another view \u2014 3D Graph or Treemap">\u25EB View in</button>
                 </div>
                 <div id="city-side-body"></div>
             </aside>

@@ -1021,31 +1021,13 @@ html, body {
     z-index: 2;
 }
 
-/* Same recipe as .top-btn, squared off for a single glyph. The outline is
-   hard-coded alpha rather than `--aura-border`: a faint border on a 28 px
-   square leaves a bare glyph, and these have no label to carry them. */
+/* Same recipe as .top-btn — every toolbar in the app wears it — so this class
+   only lays the glyph and its label side by side. */
 .panel-action-btn {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    padding: 0;
-    background: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    color: var(--aura-fg);
-    opacity: 0.85;
-    border-radius: 6px;
-    cursor: pointer;
-    font-size: 14px;
+    gap: 6px;
     line-height: 1;
-    transition: all 0.15s;
-}
-
-.panel-action-btn:hover {
-    opacity: 1;
-    background: rgba(96, 165, 250, 0.1);
-    border-color: var(--aura-accent);
 }
 
 .panel-action-btn:focus-visible {
