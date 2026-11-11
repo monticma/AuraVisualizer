@@ -2404,118 +2404,133 @@ export class WebviewProvider {
                 <button id="settings-modal-close" title="Close">✕</button>
             </div>
             <div class="help-modal-body">
-                <div class="settings-row">
-                    <label for="set-riskWindow">Risk history window<span class="settings-hint">Git history used for churn, scoring and explanations</span></label>
-                    <select id="set-riskWindow" data-setting="riskWindow">
-                        <option value="30">30 days</option>
-                        <option value="90">90 days</option>
-                        <option value="365">365 days</option>
-                    </select>
-                </div>
-                <div class="settings-row">
-                    <label for="set-complexityTrendThreshold">Complexity trend threshold<span class="settings-hint">Complexity points per 30 days that flag a file as degrading</span></label>
-                    <input id="set-complexityTrendThreshold" data-setting="complexityTrendThreshold" type="number" min="0" max="20" step="0.1" />
-                </div>
-                <div class="settings-row">
-                    <label for="set-riskCentrality">Use PageRank centrality<span class="settings-hint">Replace fan-in with PageRank in the risk score</span></label>
-                    <input id="set-riskCentrality" data-setting="riskCentrality" type="checkbox" />
-                </div>
-                <div class="settings-row">
-                    <label for="set-rotateSpeed">Mouse rotation speed<span class="settings-hint">Speed when dragging the 3D graph (1 = default)</span></label>
-                    <span class="settings-slider-wrap">
-                        <input type="range" id="set-rotateSpeed" data-setting="rotateSpeed" min="1" max="5" step="0.1" value="1">
-                        <span id="set-rotateSpeed-value">1.0</span>
-                    </span>
-                </div>
-                <div class="settings-row">
-                    <label for="set-linkStyle">Link style<span class="settings-hint">Straight or curved dependency edges</span></label>
-                    <select id="set-linkStyle" data-setting="linkStyle">
-                        <option value="straight">Straight</option>
-                        <option value="curved">Curved</option>
-                    </select>
-                </div>
-                <div class="settings-row">
-                    <label for="set-linkCurvature">Link curvature<span class="settings-hint">0 = straight, 1 = highly curved (when style is curved)</span></label>
-                    <input id="set-linkCurvature" data-setting="linkCurvature" type="number" min="0" max="1" step="0.05" />
-                </div>
-                <div class="settings-row">
-                    <label for="set-selectedNodeEffect">Selected node effect<span class="settings-hint">Soft halo (Glow) or real bloom post-processing</span></label>
-                    <select id="set-selectedNodeEffect" data-setting="selectedNodeEffect">
-                        <option value="glow">Glow</option>
-                        <option value="bloom">Bloom</option>
-                    </select>
-                </div>
-                <div class="settings-row">
-                    <label for="set-bloomStrength">Bloom intensity<span class="settings-hint">Used when the effect is Bloom</span></label>
-                    <input id="set-bloomStrength" data-setting="bloomStrength" type="number" min="0" max="5" step="0.1" />
-                </div>
-                <div class="settings-row">
-                    <label for="set-bloomRadius">Bloom radius</label>
-                    <input id="set-bloomRadius" data-setting="bloomRadius" type="number" min="0" max="2" step="0.1" />
-                </div>
-                <div class="settings-row">
-                    <label for="set-bloomThreshold">Bloom threshold</label>
-                    <input id="set-bloomThreshold" data-setting="bloomThreshold" type="number" min="0" max="1" step="0.05" />
-                </div>
-                <div class="settings-row">
-                    <label for="set-autoRefresh">Auto-refresh on save<span class="settings-hint">Re-analyze changed files automatically</span></label>
-                    <input id="set-autoRefresh" data-setting="autoRefresh" type="checkbox" />
-                </div>
-                <div class="settings-row">
-                    <label for="set-followEditor">Follow editor<span class="settings-hint">Fly to the active file; manual camera movement pauses it (👁)</span></label>
-                    <input id="set-followEditor" data-setting="followEditor" type="checkbox" />
-                </div>
-                <div class="settings-row">
-                    <label for="set-edgeClickSelect">Select both nodes on edge click<span class="settings-hint">Clicking an edge always frames both files and glows the edge pink; this also multi-selects them</span></label>
-                    <input id="set-edgeClickSelect" data-setting="edgeClickSelect" type="checkbox" />
-                </div>
-                <div class="settings-row">
-                    <label for="set-focusDistance">Focus distance<span class="settings-hint">How close the camera stops on a click, search jump or follow editor (scene units)</span></label>
-                    <span class="settings-slider-wrap">
-                        <input type="range" id="set-focusDistance" data-setting="focusDistance" min="40" max="400" step="10" value="120">
-                        <span id="set-focusDistance-value">120</span>
-                    </span>
-                </div>
-                <div class="settings-row">
-                    <label for="set-breadcrumbs">Navigation trail<span class="settings-hint">Record every visited place over the graph — click a chip or press Backspace to go back</span></label>
-                    <input id="set-breadcrumbs" data-setting="breadcrumbs" type="checkbox" />
-                </div>
-                <div class="settings-row">
-                    <label for="set-flightSpeed">Flight speed<span class="settings-hint">Pilot mode base speed (×, scene-scaled)</span></label>
-                    <input id="set-flightSpeed" data-setting="flightSpeed" type="number" min="0.25" max="4" step="0.05" />
-                </div>
-                <div class="settings-row">
-                    <label for="set-flightSmoothing">Flight smoothing<span class="settings-hint">Acceleration / damping time constant (s) — low = snappy</span></label>
-                    <input id="set-flightSmoothing" data-setting="flightSmoothing" type="number" min="0.02" max="0.5" step="0.01" />
-                </div>
-                <div class="settings-row">
-                    <label for="set-mouseSensitivity">Mouse look sensitivity<span class="settings-hint">Radians per pixel while flying</span></label>
-                    <input id="set-mouseSensitivity" data-setting="mouseSensitivity" type="number" min="0.0005" max="0.01" step="0.0005" />
-                </div>
-                <div class="settings-row">
-                    <label for="set-invertY">Invert mouse Y (flight)<span class="settings-hint">Flight look: moving up looks down</span></label>
-                    <input id="set-invertY" data-setting="invertY" type="checkbox" />
-                </div>
-                <div class="settings-row">
-                    <label for="set-gamepadEnabled">Gamepad in pilot mode<span class="settings-hint">Left stick moves, right stick looks, L2/R2 descend/boost (DualSense, Xbox…)</span></label>
-                    <input id="set-gamepadEnabled" data-setting="gamepadEnabled" type="checkbox" />
-                </div>
-                <div class="settings-row">
-                    <label for="set-codeLens">Symbol CodeLens<span class="settings-hint">⟡ focus · flow · impact above the functions and classes of analyzed files</span></label>
-                    <input id="set-codeLens" data-setting="codeLens" type="checkbox" />
-                </div>
-                <div class="settings-row">
-                    <label for="set-hover">Import hover<span class="settings-hint">Metrics card on import specifiers (size, complexity, fan-in/out, layer, risk) with actions</span></label>
-                    <input id="set-hover" data-setting="hover" type="checkbox" />
-                </div>
-                <div class="settings-row">
-                    <label>Dead code exemptions<span class="settings-hint">Framework/test rules always visible in the detail panel — defaults stay active</span></label>
-                    <button id="dead-code-rules-open" class="settings-action-btn" type="button">Edit rules…</button>
-                </div>
-                <div class="settings-row">
-                    <label>Architecture rules<span class="settings-hint">Layers, deny rules and baseline — stored in <code>.aura/arch-rules.json</code></span></label>
-                    <button id="arch-rules-open" class="settings-action-btn" type="button">Edit rules…</button>
-                </div>
+                <section class="settings-group">
+                    <h4 class="settings-group-title">🎨 Graph &amp; links</h4>
+                    <div class="settings-row">
+                        <label for="set-linkStyle">Link style<span class="settings-hint">Straight or curved dependency edges</span></label>
+                        <select id="set-linkStyle" data-setting="linkStyle">
+                            <option value="straight">Straight</option>
+                            <option value="curved">Curved</option>
+                        </select>
+                    </div>
+                    <div class="settings-row">
+                        <label for="set-linkCurvature">Link curvature<span class="settings-hint">0 = straight, 1 = highly curved (when style is curved)</span></label>
+                        <input id="set-linkCurvature" data-setting="linkCurvature" type="number" min="0" max="1" step="0.05" />
+                    </div>
+                    <div class="settings-row">
+                        <label for="set-selectedNodeEffect">Selected node effect<span class="settings-hint">Soft halo (Glow) or real bloom post-processing</span></label>
+                        <select id="set-selectedNodeEffect" data-setting="selectedNodeEffect">
+                            <option value="glow">Glow</option>
+                            <option value="bloom">Bloom</option>
+                        </select>
+                    </div>
+                    <div class="settings-row" data-visible-when="selectedNodeEffect=bloom">
+                        <label for="set-bloomStrength">Bloom intensity<span class="settings-hint">Used when the effect is Bloom</span></label>
+                        <input id="set-bloomStrength" data-setting="bloomStrength" type="number" min="0" max="5" step="0.1" />
+                    </div>
+                    <div class="settings-row" data-visible-when="selectedNodeEffect=bloom">
+                        <label for="set-bloomRadius">Bloom radius</label>
+                        <input id="set-bloomRadius" data-setting="bloomRadius" type="number" min="0" max="2" step="0.1" />
+                    </div>
+                    <div class="settings-row" data-visible-when="selectedNodeEffect=bloom">
+                        <label for="set-bloomThreshold">Bloom threshold</label>
+                        <input id="set-bloomThreshold" data-setting="bloomThreshold" type="number" min="0" max="1" step="0.05" />
+                    </div>
+                </section>
+                <section class="settings-group">
+                    <h4 class="settings-group-title">🎥 Camera &amp; selection</h4>
+                    <div class="settings-row">
+                        <label for="set-rotateSpeed">Mouse rotation speed<span class="settings-hint">Speed when dragging the 3D graph (1 = default)</span></label>
+                        <span class="settings-slider-wrap">
+                            <input type="range" id="set-rotateSpeed" data-setting="rotateSpeed" min="1" max="5" step="0.1" value="1">
+                            <span id="set-rotateSpeed-value">1.0</span>
+                        </span>
+                    </div>
+                    <div class="settings-row">
+                        <label for="set-focusDistance">Focus distance<span class="settings-hint">How close the camera stops on a click, search jump or follow editor (scene units)</span></label>
+                        <span class="settings-slider-wrap">
+                            <input type="range" id="set-focusDistance" data-setting="focusDistance" min="40" max="400" step="10" value="120">
+                            <span id="set-focusDistance-value">120</span>
+                        </span>
+                    </div>
+                    <div class="settings-row">
+                        <label for="set-followEditor">Follow editor<span class="settings-hint">Fly to the active file; manual camera movement pauses it (👁)</span></label>
+                        <input id="set-followEditor" data-setting="followEditor" type="checkbox" />
+                    </div>
+                    <div class="settings-row">
+                        <label for="set-breadcrumbs">Navigation trail<span class="settings-hint">Record every visited place over the graph — click a chip or press Backspace to go back</span></label>
+                        <input id="set-breadcrumbs" data-setting="breadcrumbs" type="checkbox" />
+                    </div>
+                    <div class="settings-row">
+                        <label for="set-edgeClickSelect">Select both nodes on edge click<span class="settings-hint">Clicking an edge always frames both files and glows the edge pink; this also multi-selects them</span></label>
+                        <input id="set-edgeClickSelect" data-setting="edgeClickSelect" type="checkbox" />
+                    </div>
+                </section>
+                <section class="settings-group">
+                    <h4 class="settings-group-title">🚀 Pilot &amp; gamepad</h4>
+                    <div class="settings-row">
+                        <label for="set-flightSpeed">Flight speed<span class="settings-hint">Pilot mode base speed (×, scene-scaled)</span></label>
+                        <input id="set-flightSpeed" data-setting="flightSpeed" type="number" min="0.25" max="4" step="0.05" />
+                    </div>
+                    <div class="settings-row">
+                        <label for="set-flightSmoothing">Flight smoothing<span class="settings-hint">Acceleration / damping time constant (s) — low = snappy</span></label>
+                        <input id="set-flightSmoothing" data-setting="flightSmoothing" type="number" min="0.02" max="0.5" step="0.01" />
+                    </div>
+                    <div class="settings-row">
+                        <label for="set-mouseSensitivity">Mouse look sensitivity<span class="settings-hint">Radians per pixel while flying</span></label>
+                        <input id="set-mouseSensitivity" data-setting="mouseSensitivity" type="number" min="0.0005" max="0.01" step="0.0005" />
+                    </div>
+                    <div class="settings-row">
+                        <label for="set-invertY">Invert mouse Y (flight)<span class="settings-hint">Flight look: moving up looks down</span></label>
+                        <input id="set-invertY" data-setting="invertY" type="checkbox" />
+                    </div>
+                    <div class="settings-row">
+                        <label for="set-gamepadEnabled">Gamepad in pilot mode<span class="settings-hint">Left stick moves, right stick looks, L2/R2 descend/boost (DualSense, Xbox…)</span></label>
+                        <input id="set-gamepadEnabled" data-setting="gamepadEnabled" type="checkbox" />
+                    </div>
+                </section>
+                <section class="settings-group">
+                    <h4 class="settings-group-title">🛡️ Risk &amp; analysis</h4>
+                    <div class="settings-row">
+                        <label for="set-riskWindow">Risk history window<span class="settings-hint">Git history used for churn, scoring and explanations</span></label>
+                        <select id="set-riskWindow" data-setting="riskWindow">
+                            <option value="30">30 days</option>
+                            <option value="90">90 days</option>
+                            <option value="365">365 days</option>
+                        </select>
+                    </div>
+                    <div class="settings-row">
+                        <label for="set-complexityTrendThreshold">Complexity trend threshold<span class="settings-hint">Complexity points per 30 days that flag a file as degrading</span></label>
+                        <input id="set-complexityTrendThreshold" data-setting="complexityTrendThreshold" type="number" min="0" max="20" step="0.1" />
+                    </div>
+                    <div class="settings-row">
+                        <label for="set-riskCentrality">Use PageRank centrality<span class="settings-hint">Replace fan-in with PageRank in the risk score</span></label>
+                        <input id="set-riskCentrality" data-setting="riskCentrality" type="checkbox" />
+                    </div>
+                    <div class="settings-row">
+                        <label for="set-autoRefresh">Auto-refresh on save<span class="settings-hint">Re-analyze changed files automatically</span></label>
+                        <input id="set-autoRefresh" data-setting="autoRefresh" type="checkbox" />
+                    </div>
+                </section>
+                <section class="settings-group">
+                    <h4 class="settings-group-title">💡 Editors &amp; hints</h4>
+                    <div class="settings-row">
+                        <label>Dead code exemptions<span class="settings-hint">Framework/test rules always visible in the detail panel — defaults stay active</span></label>
+                        <button id="dead-code-rules-open" class="settings-action-btn" type="button">Edit rules…</button>
+                    </div>
+                    <div class="settings-row">
+                        <label>Architecture rules<span class="settings-hint">Layers, deny rules and baseline — stored in <code>.aura/arch-rules.json</code></span></label>
+                        <button id="arch-rules-open" class="settings-action-btn" type="button">Edit rules…</button>
+                    </div>
+                    <div class="settings-row">
+                        <label for="set-codeLens">Symbol CodeLens<span class="settings-hint">⟡ focus · flow · impact above the functions and classes of analyzed files</span></label>
+                        <input id="set-codeLens" data-setting="codeLens" type="checkbox" />
+                    </div>
+                    <div class="settings-row">
+                        <label for="set-hover">Import hover<span class="settings-hint">Metrics card on import specifiers (size, complexity, fan-in/out, layer, risk) with actions</span></label>
+                        <input id="set-hover" data-setting="hover" type="checkbox" />
+                    </div>
+                </section>
                 <div class="settings-footer">
                     <span id="settings-open-vscode">Open VS Code Settings →</span>
                     <span class="settings-hint">All settings: Extensions → Aura Visualizer</span>
@@ -2610,12 +2625,11 @@ export class WebviewProvider {
             </div>
             <div class="help-modal-body">
 
-                <h3>✨ What's New in 1.6.0</h3>
+                <h2 class="help-block">What's new</h2>
+                <h3>1.6.0</h3>
                 <p><strong>🏙️ Code City — a new tab.</strong> The same graph read as a city: every file is a <strong>building</strong>, its height is the metric you pick (cognitive by default, or cyclomatic, lines, fan-in, fan-out, PageRank or <strong>risk</strong>), its footprint its size, its district its folder. It has its own scene and camera, so orbiting the city never touches the 3D graph. The <strong>hot band</strong> — 5 % of the buildings, min 3, max 20 — takes the red end of the ramp and a <code>#1…#N</code> badge; everything else is muted, and documentation, data, config and assets are drawn as <strong>grey glass</strong>, outside the ranking. <strong>Click</strong> to read a building (white = selected, blue = it depends on, amber = depends on it, purple = both), <strong>double-click</strong> to open the file, click a district plate to drill into a folder, or switch to <strong>function granularity</strong> for one tower per function. The inspector carries the metrics, the risk score with its reasons, the complexity sparkline and a mini relation map. A floating <strong>🗺️ Map</strong>, <strong>🌀 Warps</strong> scoped to the City and <strong>📤 Export</strong> → PNG or a <strong>1600×900 postcard</strong> come with it.</p>
                 <p><strong>🛡️ Risk score v2.</strong> A hotspot is <em>reworked</em>, not merely <em>changed</em>: the git half of the score now weighs the <strong>volume of lines rewritten</strong> relative to the file's size, <strong>recency</strong>, the number of <strong>authors</strong> and the share of <strong>bug-fix commits</strong>. The structural half stays dominant on purpose.</p>
                 <p><strong>🧭 One interface, everywhere.</strong> Every tab wears the same toolbar shell; the 3D-only controls (map, warps, export, link) left the global top bar for the graph's own bar, so nothing on screen pretends to apply to a tab it does not. Warps, communities and both minimaps are one floating-window type, each remembering its position and whether it was open. <strong>📤 Export</strong> lists what the current view can actually produce — <strong>every</strong> tab has one now: CSV for Treemap, Matrix (Markdown), Chord (SVG + CSV), Timeline, Table and Co-change, Markdown for Metrics, and the report buttons of Risk and Architecture unchanged — and the four bespoke cross-view buttons became a single <strong>◫ View in</strong> menu, alongside <strong>↗ Open</strong>.</p>
-                <p><strong>⚡ Clicking a building is instant.</strong> Selecting used to ask the engine to recreate every box — 21.7 ms for 762 buildings, 109 ms at function granularity — on a later frame, which is why the outlines lit up a frame before the selection colours. It now recolours the meshes it already owns: ~0.4 ms, in the same frame.</p>
-
                 <h3>Previously in 1.5.2</h3>
                 <p><strong>🧩 Script tags are dependencies too.</strong> Files loaded as a plain <code>&lt;script&gt;</code> expose a namespace and read each other's through it. Aura pairs every <code>window.X</code> / <code>globalThis.X</code> definition with its reads straight from the AST (comments and strings never count) and emits a cyan <code>global-use</code> edge at confidence <strong>0.6</strong> — the <code>script</code> edge says “loaded by”, <code>global-use</code> says “used by”. Fan-in, blast radius and cycles now treat <code>sprites.js</code> and the rest of the satellites as the connected module they are; the <strong>Edge confidence</strong> slider hides them above 0.6, and incremental saves keep the index current.</p>
                 <p><strong>🎯 Files that come back no longer pile up in the middle.</strong> A filter change never starts a live settle: re-admitted files are <strong>seeded next to their already-placed neighbours</strong> at the graph's own spacing (0.6 × the median settled edge length, capped at 5 % of the scene), or <strong>grouped by folder</strong> when they have none, and a batch of 5+ files gets a <strong>synchronous reflow</strong> in the data digest. Calibrated on two real repositories: p90 edge 436 → 225 units on ThorV2, worst stranded edge 1300 → 457.</p>
@@ -2624,12 +2638,7 @@ export class WebviewProvider {
                 <p><strong>🤖 Four new agent tools</strong> — <code>build</code> (is the graph still in sync with <code>HEAD</code>?), <code>explain_file</code> (one-call file briefing), <code>hotspots_in_changes</code> (risk inside the working tree or a branch diff) and <code>list_repositories</code> (repo and worktrees) — bringing the MCP server to <strong>22 tools</strong>, every hit carrying <code>file</code>, <code>line</code> and a ready-to-cite <code>anchor</code>, plus operating instructions sent on connect.</p>
                 <p><strong>🐞 Fixed:</strong> the symbol-search <strong>ripple was invisible</strong> (its sprite was destroyed one frame after creation by the node rebuild — it now lives in the scene, waits for the camera flight to land and lasts 1.2 s), a <strong>Save button that could go dead</strong> in the layers editor, globs that silently matched zero files on a differently-cased checkout, nodes piling up after a filter change, and an unwanted zoom-out on load.</p>
 
-                <h3>Previously in 1.5.1</h3>
-                <p>Shareable view links, branch review, transitive imports, Find Symbol, architecture rules with baseline and structured editors, the parse-failure report, the Communities/Layers palette with Ask Aura on a layer, gamepad pilot mode, Symbol CodeLens, blast radius from the code, import hover and a single status-bar switch.</p>
-
-                <h3>🤖 Where to Ask Aura</h3>
-                <p>AI lives in <strong>VS Code Chat</strong>, not inside the graph panel. Mention <code>@aura</code> for grounded answers (<code>/explain</code>, <code>/impact</code>, <code>/path</code>, <code>/hotspots</code>, <code>/query</code>), or click any <strong>✨ Ask Aura</strong> button — file detail, clusters, community cards, layer cards, Risk dashboard, explorer context menu — to pre-attach the current view context. The old in-panel assistant (✨ tab button) has been removed: there is a single conversational surface. External agents reach the same deterministic evaluation through the <strong>Language Model tools</strong> and the built-in <strong>MCP server</strong> (22 tools).</p>
-
+                <h2 class="help-block">What you can do</h2>
                 <h3>🖱️ Interactive Exploration</h3>
                 <table class="help-table">
                     <tr><td><kbd>Click</kbd></td><td>Select node, show detail panel, focus camera (distance set by <code>auraVisualizer.focusDistance</code>)</td></tr>
@@ -2643,11 +2652,6 @@ export class WebviewProvider {
                     <tr><td><kbd>Background click</kbd></td><td>Clear all selections</td></tr>
                 </table>
                 <p><strong>Focus distance</strong> — how far from the node the camera parks when you focus it: a click, a search jump, a CodeLens focus, a breadcrumb restore or the 👁 follow editor. <code>auraVisualizer.focusDistance</code> (40–400 scene units, default <strong>120</strong>) or the <strong>Focus distance</strong> slider in ⚙️ Settings: lower for a tight close-up, higher to keep the surrounding neighbourhood in view. Edge clicks size their own framing instead, and warps / view links replay their stored pose.</p>
-
-                <h3>🗂️ Detail Panel</h3>
-                <p>The detail panel is organized into collapsible sections: <strong>📋 File details</strong> groups metrics, <strong>Ask Aura</strong> actions and <strong>📝 Note</strong>; <strong>Symbols</strong>, <strong>Dependencies</strong> and <strong>Dependents</strong> use readable cards. Empty sections (no symbols, no dependency, no dependent) are hidden automatically, and every section can be folded from its header.</p>
-                <p><strong>🔗 Transitive imports</strong> and <strong>📥 Transitive dependents</strong> go further when you expand them: the closure is computed on demand (<code>Imports 42 files · depth 4</code>), the <strong>deepest chain</strong> is printed (<code>a.ts → b.ts → d.ts</code>) and every file gets a depth badge — direct ones in bold, click to select. Cycle-safe, capped at 500 files; <code>auraVisualizer.transitiveDepth</code> (1–10) sets how many hops are followed.</p>
-
                 <h3>🎹 Keyboard Shortcuts</h3>
                 <table class="help-table">
                     <tr><td><kbd>Ctrl+K</kbd></td><td>Open the query filter bar</td></tr>
@@ -2669,18 +2673,38 @@ export class WebviewProvider {
                     <tr><td><kbd>Backspace</kbd> / <kbd>Alt</kbd>+<kbd>←</kbd></td><td>Navigation trail: back to the previous place</td></tr>
                     <tr><td><kbd>Escape</kbd></td><td>Reset all selections and modes (in pilot: exit the flight)</td></tr>
                 </table>
-
                 <h3>🧭 Navigation Trail</h3>
                 <p><strong>Off by default</strong> — enable it with <code>auraVisualizer.breadcrumbs</code> or the <strong>Navigation trail</strong> checkbox in ⚙️ Settings. Once on, every jump — a file click, a search hit, a CodeLens focus, a pin, a blast radius, an applied query, a warp or a shared view — is recorded on a thin strip over the graph: <code>⟡ extension.ts › 📌 Pinned: codelens.ts › 🔍 layer=web › 🌀 Architecture</code>. Click a chip to <strong>return</strong> to that place (selection, pin/blast mode, query, tab and camera pose) and drop everything after it; <strong>⟵</strong>, <kbd>Backspace</kbd> or <kbd>Alt</kbd>+<kbd>←</kbd> steps back one place.</p>
                 <p>Consecutive duplicates are collapsed and the last <strong>20</strong> places are kept, so clicking the same file twice never fills the trail. Entries store <strong>ids and numbers only</strong> — never live node or Three.js objects — so a re-analysis can never leave a dead reference behind. The strip stays hidden until there is a second place to go back to; <strong>✕</strong> clears it, and <kbd>Esc</kbd> records a <strong>Reset</strong> place so even a full reset is reversible. Unlike 🌀 Warps (named, persisted poses) and 🔗 View links (shared views), the trail is the session's own history.</p>
+                <h3>🔎 Find Symbol</h3>
+                <p>The top-right search box lists files first, then matching <strong>symbols</strong> (⚡ <code>path:line</code>): clicking a symbol explodes its file, selects the exact function and, once the camera has landed, fires a <strong>one-shot ring</strong> around it — a light-blue pulse that grows and fades in ~1.2 s, then removes itself. From anywhere in VS Code, <strong>Aura: Find Symbol…</strong> opens a QuickPick over the whole symbol index — kind chips (<code>function (82)</code>, <code>method (140)</code>…) as the first rows, live filtering, ↑↓ then Enter to jump to the exploded symbol.</p>
+                <h3>🌀 Warp Points</h3>
+                <p>Save named camera bookmarks of the 3D view: the <strong>🌀 Warps</strong> toolbar button opens the floating panel; its <strong>📌</strong> button captures the current pose (camera position + view target + orientation). Click a warp to fly there (smooth 800 ms tween), re-capture or rename it, and assign quick slots — <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>1–9</kbd> flies back from anywhere (plain <kbd>Alt</kbd>+<kbd>digit</kbd> is captured by VS Code). The <strong>🏠 Home</strong> row returns to the default fit-to-view pose.</p>
+                <p>Warps are stored in <code>.aura/warps.json</code> — local to your workspace, never committed.</p>
+                <p>The command palette has <strong>Aura: Add Warp Here</strong>: it opens the same naming modal on the current camera pose, so a bookmark can be captured without reaching for the panel.</p>
+                <h3>🚀 Pilot Mode (free flight)</h3>
+                <p>The <strong>🚀 Pilot</strong> toolbar button switches to free-flight navigation: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move (camera-relative — physical key layout, so AZERTY gets ZQSD), <kbd>Q</kbd>/<kbd>E</kbd> down/up, mouse look (click locks the pointer), mouse wheel adjusts the speed, <kbd>Shift</kbd> boosts. Hold the <strong>left mouse button</strong> to fly forward and the <strong>right button</strong> to fly backward — steer by looking; keys keep working in parallel. Press <kbd>Esc</kbd> to exit — or simply hit <kbd>Space</kbd> to toggle pilot mode on/off. The orbit controls take over seamlessly at the exact same view. Flight speed, smoothing, mouse sensitivity and Y-inversion live in <strong>⚙️ Settings</strong>.</p>
+                <p><strong>🎮 Gamepad</strong> (DualSense, DualShock, Xbox — any pad reporting the W3C <em>standard</em> mapping, on by default): <strong>left stick</strong> translates, <strong>right stick</strong> looks (its rate follows the mouse-sensitivity setting), the analog <strong>L2</strong> descends and <strong>R2</strong> boosts proportionally to the trigger travel. <strong>✕</strong> resets the camera to a full-graph overview, a <strong>touchpad click</strong> re-aims at the graph centre without moving, <strong>d-pad ↑/↓</strong> step the speed multiplier (like the wheel), <strong>Options</strong> resets it to ×1 and <strong>○</strong> leaves the flight. Sticks pass a 15% deadzone and a response curve so fine nudges stay precise, and keyboard + pad inputs add up. Pads are only polled while flying — and a browser hides a pad until one of its buttons has been pressed once with the window focused. Turn it off with <code>auraVisualizer.gamepadEnabled</code> or the <strong>⚙️ Settings</strong> checkbox.</p>
+                <h3>👁 Follow Editor</h3>
+                <p>When you switch editor tabs, the camera flies to the matching file and selects it exactly like a click — same glow, explorer selection and detail panel, at a fixed 120-unit close-up. This keeps the node readable even from a far overview and avoids creeping closer when alternating files. The <strong>👁</strong> toolbar button toggles it; any manual orbit, pan or zoom pauses following so the camera never fights you — click 👁 again to resume. The choice is saved in the view state and as the <code>auraVisualizer.followEditor</code> setting.</p>
+                <h3>🔍 Query Filter</h3>
+                <p>Open the query bar with the <strong>🔍 button</strong> (far right of the tab bar) or <kbd>Ctrl+K</kbd> / <kbd>Cmd+K</kbd> — it stays hidden until you need it. Type a boolean expression over node metrics, e.g. <code>complexity &gt; 20 AND fanIn &gt; 5</code>.</p>
+                <p><strong>Fields:</strong> <code>complexity</code>, <code>cognitive</code>, <code>loc</code>, <code>fanin</code> / <code>fanout</code>, <code>size</code>, <code>mtime</code> / <code>lastmodified</code>, <code>symbols</code>, <code>deadexports</code>, <code>cochange</code>, <code>language</code>, <code>name</code>, <code>path</code>, <code>group</code>, <code>extension</code>, <code>community</code>, and flags <code>isorphan</code> / <code>isdead</code> / <code>incycle</code> / <code>ispinned</code> / <code>dirty</code> / <code>hasnote</code> / <code>stalenote</code>.</p>
+                <p><strong>Operators:</strong> <code>==</code>, <code>!=</code>, <code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, <code>&lt;=</code>, <code>~</code> (regex), <code>!~</code>, <code>in [ ... ]</code>, plus <code>AND</code> / <code>OR</code> / <code>NOT</code>.</p>
+                <p><strong>Modes:</strong> <strong>Highlight</strong> (dim non-matching), <strong>Filter</strong> (hide non-matching), <strong>Select</strong> (multi-select). Press <strong>⭐</strong> to save a query and <strong>📚</strong> to reopen saved ones.</p>
+                <h3>🗺️ Minimap</h3>
+                <p>Toggle with the <strong>🗺️ Map</strong> button. Shows a top-down overview of all nodes. The white rectangle indicates the camera viewport. Click on the minimap to navigate. Drag the header to reposition.</p>
 
+                <h2 class="help-block">What you can read</h2>
+                <h3>🗂️ Detail Panel</h3>
+                <p>The detail panel is organized into collapsible sections: <strong>📋 File details</strong> groups metrics, <strong>Ask Aura</strong> actions and <strong>📝 Note</strong>; <strong>Symbols</strong>, <strong>Dependencies</strong> and <strong>Dependents</strong> use readable cards. Empty sections (no symbols, no dependency, no dependent) are hidden automatically, and every section can be folded from its header.</p>
+                <p><strong>🔗 Transitive imports</strong> and <strong>📥 Transitive dependents</strong> go further when you expand them: the closure is computed on demand (<code>Imports 42 files · depth 4</code>), the <strong>deepest chain</strong> is printed (<code>a.ts → b.ts → d.ts</code>) and every file gets a depth badge — direct ones in bold, click to select. Cycle-safe, capped at 500 files; <code>auraVisualizer.transitiveDepth</code> (1–10) sets how many hops are followed.</p>
                 <h3>🏙️ Code City</h3>
                 <p>The <strong>🏙️ City</strong> tab is the same graph read as a city, in its own scene with its own camera. Every file is a building; the bar chooses what each channel encodes — <strong>height</strong> (cognitive by default, or cyclomatic, lines, fan-in, fan-out, PageRank, risk), <strong>footprint</strong> (√ by default, or linear, log), <strong>colour</strong> (the height ramp, the risk score, the language, the layer, the district) and <strong>districts</strong> (folder, layer, community). The <strong>mapping</strong> dropdown switches between quantiles, linear and thresholds.</p>
                 <p><strong>Reading it.</strong> The <strong>hot band</strong> — 5 % of the buildings, never fewer than 3 nor more than 20 — takes the red end of the ramp and a <code>#1…#N</code> badge; the rest of the city is muted so the eye only goes where it matters. Documentation, data, config and assets are drawn as <strong>grey glass</strong> and never ranked. District names hang off the <strong>edge of the plan on leader lines</strong> and are hidden by the buildings in front of them.</p>
                 <p><strong>Selection.</strong> <kbd>Click</kbd> a building: it turns <strong>white</strong>, the files it depends on turn <strong>blue</strong>, the files that depend on it turn <strong>amber</strong>, files in both directions turn <strong>purple</strong>, and everything else dims — outlines included. <kbd>Double-click</kbd> opens the file in the editor (at its line when the city shows functions). Clicking a <strong>district plate</strong> drills into that folder; the breadcrumb and the child chips at the bottom walk back out.</p>
                 <p><strong>Scale.</strong> With <strong>function granularity</strong> every function is a tower and the file becomes the district. The city grows with the <strong>square root</strong> of its building count while the ground keeps a <strong>fixed grid</strong>, so the streets stay a ruler; above <strong>1 500</strong> buildings contact shadows switch themselves off.</p>
                 <p><strong>Furniture.</strong> <strong>🗺️ Map</strong> is a floating plan of the whole city with the camera footprint (<strong>⟲</strong> reframes it), <strong>🌀 Warps</strong> are camera bookmarks <strong>scoped to the City</strong> — a pose saved here is not offered in the graph — and <strong>📤 Export</strong> writes a <strong>PNG</strong> or a <strong>1600×900 postcard</strong> with a caption. The legend (bottom left) carries the switches for <strong>district names</strong>, <strong>rank badges</strong> and <strong>shadows</strong>. The inspector's action bar has <strong>↗ Open</strong> (the same as double-clicking) and <strong>◫ View in</strong> to send the file to the 3D Graph or the Treemap.</p>
-
                 <h3>🌡️ Heatmap Modes</h3>
                 <table class="help-table">
                     <tr><td><strong>Off</strong></td><td>Color by programming language</td></tr>
@@ -2694,20 +2718,15 @@ export class WebviewProvider {
                     <tr><td><strong>Last Modified</strong></td><td>File modification time</td></tr>
                     <tr><td><strong>Communities</strong></td><td>Architectural modules (Louvain algorithm)</td></tr>
                 </table>
-
                 <h3>🧩 Community Detection</h3>
                 <p>Communities are computed once from the <strong>code-only</strong> Louvain snapshot and shared by the palette, <code>@aura</code> and MCP. Documentation nodes and <code>doc-reference</code> edges stay visible in the graph but are excluded from communities, fan-in, PageRank and risk. Each card shows the full <strong>hub path</strong>, the code file count and the number of files currently visible after filters. Use <strong>✏️</strong> to rename a community (persisted; empty restores the hub path) and <strong>✨</strong> to ask Aura with that exact membership. Use the floating palette to toggle communities on/off. Documentation nodes stay in the graph with <strong>yellow labels</strong> so they remain visually distinct from code.</p>
-
                 <h3>☠️ Dead Code & Exemptions</h3>
                 <p>The <strong>☠️ Dead</strong> filter and the detail panel show unused exports. Framework-owned entry points and callbacks are exempted by default: <code>main</code>, VS Code lifecycle, React components, Vue hooks, SwiftUI <code>body</code>, Java servlet methods, Unity callbacks, Arduino <code>setup</code>/<code>loop</code> and test files. Exempted symbols remain visible with their reason. Custom rules are edited from <strong>⚙️ Settings → Dead code exemptions</strong> in a structured editor (reason, names, regex, globs, languages, kinds, ordering) validated before saving; they are stored in <code>.aura/dead-code.json</code> and defaults always stay active.</p>
-
                 <h3>💥 Blast Radius</h3>
                 <p><kbd>Shift+Right-click</kbd> on a file to see all files that transitively depend on it. Nodes are colored by depth of impact: White (source) → Red → Orange → Yellow → Green.</p>
                 <p>The same analysis starts from your code: right-click changed files in <strong>Source Control</strong>, or use the <strong>radio-tower icon in the editor title</strong>, the <strong>editor</strong> right-click menu and the Explorer context menu. Selecting several files in Source Control seeds the <strong>multi-seed cascade</strong> — every selected file at depth 0, their dependents colored by depth. Files outside the workspace or outside the analyzed graph are skipped, and the panel only opens when at least one file matches.</p>
-
                 <h3>▶ Flow Trace</h3>
                 <p>In the detail panel, click the <strong>▶</strong> button next to a function to trace its outgoing call chain across files. Files light up progressively by call depth.</p>
-
                 <h3>🧠 Function Metrics</h3>
                 <p>For <strong>JavaScript/TypeScript/TSX, Python, C/C++, Java, Go, Rust, Kotlin, Swift, C#, PHP, Lua and Bash</strong>, Aura computes metrics per function from the AST. The detail panel shows a <code>cog N · MI N</code> chip next to each function; hover it for cyclomatic complexity, Halstead volume and function length. The <strong>📋 Table</strong> has a sortable <strong>Cog. max</strong> column (highest cognitive score among the file's functions), and the <strong>🧠 Cognitive</strong> heatmap colors files by that maximum.</p>
                 <ul>
@@ -2715,69 +2734,65 @@ export class WebviewProvider {
                     <li><strong>Cyclomatic complexity</strong> is McCabe's count (branches, loops, cases, catch, logical operators).</li>
                     <li><strong>Halstead volume</strong> counts approximate operator/operand tokens in the function body; <strong>MI</strong> is the Maintainability Index (0–100, higher is better) derived from volume, cyclomatic complexity and length.</li>
                 </ul>
-
                 <h3>⑂ Function Flowcharts</h3>
                 <p>Click the <strong>⑂</strong> button next to a function to open its <strong>flowchart</strong> — built on demand from the source AST (JS/TS/TSX, Python, C, C++). Conditions fork into <strong>T</strong>/<strong>F</strong> branches that re-join, loops get a framed body with a <strong>back edge</strong>, <code>switch</code> cases line up as columns, and <code>try</code>/<code>catch</code>/<code>finally</code> stack as labelled frames. <strong>Red dashed</strong> boxes are <strong>dead code</strong> (unreachable after a return/throw); the badge shows the function's <strong>cognitive complexity</strong>, <strong>maintainability index</strong> and <strong>decision count</strong>.</p>
                 <p><strong>Click a step</strong> to open the file at its line, and click an underlined <strong>call chip</strong> (<code>↳ fn()</code>) to drill into the called function — the breadcrumb at the top walks back. <strong>⤓ SVG</strong> exports a standalone vector file, the window drags by its header and resizes from any edge or corner, and <kbd>Esc</kbd> closes it.</p>
-
                 <h3>🔁 Symbol Cycles</h3>
                 <p>Aura builds a function→function call graph from every resolved call site. <strong>Direct recursion</strong> (<code>walk() → walk()</code>) and <strong>mutual recursion</strong> (<code>parse() → validate() → parse()</code>) are shown in the detail panel's <strong>🔄 Symbol cycles</strong> section with the file and call line of every step, and the flowchart badge adds <strong>🔁 recursive</strong> or <strong>🔁 mutual recursion</strong>. Calls that resolve to several same-name candidates are marked <strong>ambiguous</strong> (confidence 0.5). Cycles are persisted in <code>.aura/graph.db</code> and exposed by the <code>find_cycles</code> MCP tool as <code>symbol_cycles</code>.</p>
+                <h3>💠 PageRank Centrality</h3>
+                <p>Aura computes a PageRank score over the structural <strong>code</strong> graph: a file is central when the files depending on it are themselves central. Documentation and <code>doc-reference</code> links are excluded. The detail panel shows the score, and the <strong>💠 Centrality</strong> toolbar button draws a soft violet halo around the <strong>top 10%</strong> most central code files. It is off by default to keep the graph readable and is saved with the view state.</p>
+                <p>The optional <code>auraVisualizer.riskCentrality</code> setting replaces the fan-in percentile with the PageRank centrality percentile in the risk score (same 0.20 weight); the default is <code>false</code>, so existing scores are unchanged. <code>resolve_context</code> uses PageRank when the database provides it, falling back to fan-in otherwise.</p>
+                <h3>📑 Tabbed Views</h3>
+                <p>Switch between <strong>9 tabs</strong> in the tab bar for different perspectives:</p>
+                <table class="help-table">
+                    <tr><td><strong>✦ 3D Graph</strong></td><td>Interactive 3D force-directed dependency graph</td></tr>
+                    <tr><td><strong>🗺️ Treemap</strong></td><td>Files nested by directory, sized by LOC/complexity</td></tr>
+                    <tr><td><strong>🗑️ Matrix</strong></td><td>N×N Dependency Structure Matrix (DSM)</td></tr>
+                    <tr><td><strong>🎵 Chord</strong></td><td>Dependency flows between groups (directories/languages/communities)</td></tr>
+                    <tr><td><strong>📊 Metrics</strong></td><td>Bar charts of LOC, complexity, fan-in/out</td></tr>
+                    <tr><td><strong>📈 Timeline</strong></td><td>Metric evolution over git history</td></tr>
+                    <tr><td><strong>📋 Table</strong></td><td>Sortable, filterable file spreadsheet (LOC, complexity, cognitive max, fan-in/out, symbols)</td></tr>
+                    <tr><td><strong>🛡️ Risk</strong></td><td>Codebase risk dashboard (health score, churn, bus factor)</td></tr>
+                    <tr><td><strong>🔗 Co-change</strong></td><td>Temporal co-change pairs — files changing together without a direct dependency, with virtual graph links</td></tr>
+                </table>
+                <h3>🏛️ Architecture Rules</h3>
+                <p>Create or edit <code>.aura/arch-rules.json</code> from the <strong>🏛️ Architecture</strong> tab or <strong>⚙️ Settings → Architecture rules</strong>. The structured editor manages layers, deny targets, slices, cycles and exceptions with live validation; renaming a layer updates every rule. Layers are matched by glob (first match wins), deny rules follow the real dependency direction, <code>slices</code> isolate sibling feature folders, and <code>no-cycles</code> checks the aggregated file → layer graph.</p>
+                <p>Only <strong>new</strong> violations alert once you baseline the current ones (<code>.aura/arch-baseline.json</code>). <strong>Ca</strong> = external files depending on a layer, <strong>Ce</strong> = external files it depends on, <strong>I = Ce / (Ca + Ce)</strong>. Documentation is outside the model: <code>.md</code> nodes and <code>doc-reference</code> edges are never evaluated.</p>
+                <p>Query examples: <code>layer == domain AND archviolations > 0</code> and <code>isarchviolator</code>. The MCP tool <code>get_architecture_violations</code> exposes the same evaluation to AI agents.</p>
+                <h3>🛡️ Risk Map</h3>
+                <p>Open the <strong>🛡️ Risk</strong> tab for a codebase health dashboard. It uses a transparent risk score: <code>100 × (0.21·complexity + 0.18·centrality + 0.08·fan-out + 0.12·cycle + 0.12·dead-code + 0.09·rewrite + 0.06·recency + 0.06·frequency + 0.05·authors + 0.03·fixes)</code> — the structural half stays dominant on purpose. <code>centrality</code> is fan-in, or PageRank when <code>auraVisualizer.riskCentrality</code> is on; <code>rewrite</code> is the volume of lines added and removed relative to the file's size today, <code>recency</code> weights a commit made today over one at the window's edge, and <code>fixes</code> is the share of commits whose message looks like a bug fix. Documentation is outside architectural risk: docs are not scored and <code>doc-reference</code> links do not inflate fan-in or PageRank. Exempted framework symbols are not counted as dead code.</p>
+                <p>Complexity, fan-in, fan-out and churn are <strong>percentile ranks inside your repository</strong> (0 = lowest file, 1 = highest), so the score is a standing relative to this codebase. A <strong>History window</strong> selector (30 / 90 / 365 days) drives churn, scoring and explanations. Churn is <strong>rename-aware</strong>: files moved with <code>git mv</code> keep their history across the rename.</p>
+                <p>High / Medium / Low file lists are collapsible, each row explains <em>why</em> a file scores that way, and clicking a file selects it in the 3D graph. Also included: <strong>📈 Risk Trend</strong>, <strong>📈 Complexity Trend</strong> (per-file sparklines + slope), <strong>🔥 Recently Hot</strong> (last 30 days), <strong>📊 Churn × Complexity</strong> scatter (log scale), and <strong>👤 Bus Factor</strong> (files with a single author). Use <strong>📤 Export Report</strong> to write <code>.aura/risk-report.md</code>.</p>
+                <p><strong>Complexity Trend</strong> is rebuilt from Time Travel commit deltas: a least-squares slope per 30 days plus R² flags files whose complexity keeps growing. The <strong>Trend</strong> column in the Table is sortable; adjust the threshold with <code>auraVisualizer.complexityTrendThreshold</code> (default 0.5 point / 30 days).</p>
+                <h3>🔗 Temporal Co-change</h3>
+                <p>The <strong>🔗 Co-change</strong> tab finds files that keep changing in the same commits <em>without</em> a direct import/dependency — an implicit contract (API + client, test + implementation, shared config…). Run Time Travel (⏱️) first so git history is available.</p>
+                <p>Pairs are ranked by <strong>Jaccard</strong> = <code>cochanges / (A commits + B commits − cochanges)</code>; <strong>support</strong> is the share of analysed multi-file commits touching both files. Renames are followed, deletions and giant commits (&gt;50 files) are ignored. <strong>Show on graph</strong> adds virtual magenta links for the strongest pairs; the <strong>🔗 Co-change</strong> filter toggles them and the heatmap mode colors files by their strongest coupling score. Queries can use <code>cochange &gt; 0.6</code>.</p>
 
-                <h3>🔎 Find Symbol</h3>
-                <p>The top-right search box lists files first, then matching <strong>symbols</strong> (⚡ <code>path:line</code>): clicking a symbol explodes its file, selects the exact function and, once the camera has landed, fires a <strong>one-shot ring</strong> around it — a light-blue pulse that grows and fades in ~1.2 s, then removes itself. From anywhere in VS Code, <strong>Aura: Find Symbol…</strong> opens a QuickPick over the whole symbol index — kind chips (<code>function (82)</code>, <code>method (140)</code>…) as the first rows, live filtering, ↑↓ then Enter to jump to the exploded symbol.</p>
-
+                <h2 class="help-block">Integrations &amp; details</h2>
+                <h3>🤖 Where to Ask Aura</h3>
+                <p>AI lives in <strong>VS Code Chat</strong>, not inside the graph panel. Mention <code>@aura</code> for grounded answers (<code>/explain</code>, <code>/impact</code>, <code>/path</code>, <code>/hotspots</code>, <code>/query</code>), or click any <strong>✨ Ask Aura</strong> button — file detail, clusters, community cards, layer cards, Risk dashboard, explorer context menu — to pre-attach the current view context. The old in-panel assistant (✨ tab button) has been removed: there is a single conversational surface. External agents reach the same deterministic evaluation through the <strong>Language Model tools</strong> and the built-in <strong>MCP server</strong> (22 tools).</p>
                 <h3>🔗 Share a View</h3>
                 <p><strong>🔗 Link</strong> (top bar) copies a <code>vscode://</code> link that reopens this exact view elsewhere: active tab, every filter, the camera pose (anchored to the files in view, like a warp) and the query expression. Paste it in a chat or an issue — opening it launches VS Code, opens Aura and applies the view once the graph is rendered. The payload is versioned, capped at 8 KB and fully validated: a corrupted link shows a message instead of breaking the panel.</p>
-
                 <h3>⏳ Time Travel</h3>
                 <p>Navigate git history commit by commit. Changed files are color-coded: <span style="color:#00ff88">● green</span> = added, <span style="color:#ff2080">● pink</span> = removed, <span style="color:#ffff00">● yellow</span> = modified. Edges follow the same scheme. Press <kbd>V</kbd> or click <strong>⇄</strong> to enter <strong>Compare mode</strong> with a dual slider to diff any two commits.</p>
                 <p><strong>Reviewing a branch</strong> — run <em>Aura: Review Current Branch</em> (or the compare icon in the Source Control title bar): Aura reads <code>git diff main...HEAD</code> and shows a strip over the graph with the touched files, <code>+/−</code> lines and the complexity delta, seeds <strong>💥 Blast</strong> from those files and pre-fills <strong>⇄ Compare</strong> with the merge-base and HEAD.</p>
                 <p><strong>Shallow clone</strong> — a <code>--depth 1</code> checkout (<code>actions/checkout</code>'s CI default) only has one commit, so churn, co-change and complexity trends would be silently underestimated. Aura detects it once per analysis (<code>git rev-parse --is-shallow-repository</code>, with a <code>.git/shallow</code> fallback) and shows a <strong>⚠️ banner</strong> at the top of this tab plus a caption under <strong>Codebase Health</strong> in the Risk tab, with <code>git fetch --unshallow</code> and a <strong>Copy</strong> button. Nothing runs behind your back, and the banner clears itself once the history is complete.</p>
-
                 <h3>✏️ Git Working Tree</h3>
                 <p>Files with uncommitted changes wear a thin <span style="color:#ffb300">● amber ring</span> in the graph — read straight from <code>git status</code> (modified, staged, untracked, renamed, conflicts). The detail panel shows the exact state on its <strong>Git</strong> line.</p>
                 <p>The <strong>✏️ Dirty</strong> toolbar button filters the graph down to those files (nodes and links); the <code>dirty</code> flag does the same in queries. The VS Code status bar shows the risk of the file you are editing and switches to <strong>⚠ N hotspots in your changes</strong> when your changes touch high-risk files — click it to reveal them in the Risk tab. Deleted files are ignored, and <code>auraVisualizer.statusBar</code> turns every Aura badge off in one switch.</p>
-
                 <h3>📝 Notes</h3>
                 <p>Click a file node to annotate it: the detail panel's <strong>📝 Note</strong> section takes free text (up to 2 000 chars) plus one of five colors. Annotated files wear a <strong>pulsing note-colored ring + dot</strong> in the graph — animated, so they stay visible at any zoom.</p>
                 <p>The <strong>📝 Notes</strong> toolbar button (next to ✏️ Dirty) shows / hides the indicators; the <code>hasnote</code> query flag finds annotated files. When a file is modified after its note was written, the note header shows <strong>⚠️ À revoir</strong>, the badge counts stale notes and <strong>✓ Mark reviewed</strong> refreshes the note timestamp. The <strong>⚠️ Stale</strong> filter isolates those files; <code>stalenote</code> does the same in queries. Notes are stored in <code>.aura/annotations.json</code> — local to your workspace, never committed.</p>
-
-                <h3>💠 PageRank Centrality</h3>
-                <p>Aura computes a PageRank score over the structural <strong>code</strong> graph: a file is central when the files depending on it are themselves central. Documentation and <code>doc-reference</code> links are excluded. The detail panel shows the score, and the <strong>💠 Centrality</strong> toolbar button draws a soft violet halo around the <strong>top 10%</strong> most central code files. It is off by default to keep the graph readable and is saved with the view state.</p>
-                <p>The optional <code>auraVisualizer.riskCentrality</code> setting replaces the fan-in percentile with the PageRank centrality percentile in the risk score (same 0.20 weight); the default is <code>false</code>, so existing scores are unchanged. <code>resolve_context</code> uses PageRank when the database provides it, falling back to fan-in otherwise.</p>
-
-                <h3>🌀 Warp Points</h3>
-                <p>Save named camera bookmarks of the 3D view: the <strong>🌀 Warps</strong> toolbar button opens the floating panel; its <strong>📌</strong> button captures the current pose (camera position + view target + orientation). Click a warp to fly there (smooth 800 ms tween), re-capture or rename it, and assign quick slots — <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>1–9</kbd> flies back from anywhere (plain <kbd>Alt</kbd>+<kbd>digit</kbd> is captured by VS Code). The <strong>🏠 Home</strong> row returns to the default fit-to-view pose.</p>
-                <p>Warps are stored in <code>.aura/warps.json</code> — local to your workspace, never committed.</p>
-                <p>The command palette has <strong>Aura: Add Warp Here</strong>: it opens the same naming modal on the current camera pose, so a bookmark can be captured without reaching for the panel.</p>
-
-                <h3>🚀 Pilot Mode (free flight)</h3>
-                <p>The <strong>🚀 Pilot</strong> toolbar button switches to free-flight navigation: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move (camera-relative — physical key layout, so AZERTY gets ZQSD), <kbd>Q</kbd>/<kbd>E</kbd> down/up, mouse look (click locks the pointer), mouse wheel adjusts the speed, <kbd>Shift</kbd> boosts. Hold the <strong>left mouse button</strong> to fly forward and the <strong>right button</strong> to fly backward — steer by looking; keys keep working in parallel. Press <kbd>Esc</kbd> to exit — or simply hit <kbd>Space</kbd> to toggle pilot mode on/off. The orbit controls take over seamlessly at the exact same view. Flight speed, smoothing, mouse sensitivity and Y-inversion live in <strong>⚙️ Settings</strong>.</p>
-                <p><strong>🎮 Gamepad</strong> (DualSense, DualShock, Xbox — any pad reporting the W3C <em>standard</em> mapping, on by default): <strong>left stick</strong> translates, <strong>right stick</strong> looks (its rate follows the mouse-sensitivity setting), the analog <strong>L2</strong> descends and <strong>R2</strong> boosts proportionally to the trigger travel. <strong>✕</strong> resets the camera to a full-graph overview, a <strong>touchpad click</strong> re-aims at the graph centre without moving, <strong>d-pad ↑/↓</strong> step the speed multiplier (like the wheel), <strong>Options</strong> resets it to ×1 and <strong>○</strong> leaves the flight. Sticks pass a 15% deadzone and a response curve so fine nudges stay precise, and keyboard + pad inputs add up. Pads are only polled while flying — and a browser hides a pad until one of its buttons has been pressed once with the window focused. Turn it off with <code>auraVisualizer.gamepadEnabled</code> or the <strong>⚙️ Settings</strong> checkbox.</p>
-
-                <h3>👁 Follow Editor</h3>
-                <p>When you switch editor tabs, the camera flies to the matching file and selects it exactly like a click — same glow, explorer selection and detail panel, at a fixed 120-unit close-up. This keeps the node readable even from a far overview and avoids creeping closer when alternating files. The <strong>👁</strong> toolbar button toggles it; any manual orbit, pan or zoom pauses following so the camera never fights you — click 👁 again to resume. The choice is saved in the view state and as the <code>auraVisualizer.followEditor</code> setting.</p>
-
                 <h3>📂 Directory Filtering</h3>
                 <p>In the <strong>File Explorer</strong> panel, each directory has a checkbox to show/hide its files in the graph. Use the <strong>All</strong> / <strong>None</strong> buttons for batch selection. Directories are checked by default.</p>
-
                 <h3>💬 Import Hover</h3>
                 <p>Hover an <strong>import specifier</strong> (<code>from './x'</code>, <code>require('x')</code>, Python <code>import</code>, <code>#include</code>, Java/Kotlin, Go, Rust <code>use</code>, C# <code>using</code>, Ruby/PHP, Lua, Bash <code>source</code>) to get the target file's card in place: language, LOC, cyclomatic/cognitive complexity, fan-out/fan-in, architecture layer with its violations and the risk bucket. Three links follow — <strong>⟡ Focus in Aura</strong>, <strong>💥 Blast radius</strong>, <strong>📂 Open file</strong>.</p>
                 <p>Specifiers resolve with the same confidence ladder as the graph edges (relative → exact → extension → path suffix → basename); an ambiguous or unknown import shows nothing, and arbitrary text never produces a hover. Metrics come from the in-memory graph, so it is instant, and <code>auraVisualizer.hover</code> turns the feature off.</p>
-
                 <h3>🤖 Agent Context Files</h3>
                 <p><strong>Aura: Generate Agent Context</strong> writes what an AI assistant never knows when it opens an unfamiliar repository: <code>.aura/hotspots.json</code> (the same <code>get_hotspots</code> payload the MCP server returns), <code>.aura/HOTSPOTS.md</code> (readable table — <code>.aura/</code> is git-ignored) and a short block inside <code>AGENTS.md</code>, <code>.github/copilot-instructions.md</code> or <code>CLAUDE.md</code> — the first one that already exists, in that order.</p>
                 <p>The block sits between <code>&lt;!-- aura:begin --&gt;</code> and <code>&lt;!-- aura:end --&gt;</code> and lists the top 10 hotspots with their reasons plus the repository health line (cycles, dead exports, architecture violations). Regenerating replaces only what is between the markers, so the prose around it is never touched; only paths and metrics are written — never source code. If no instruction file exists the command offers to create <code>AGENTS.md</code>, and <code>auraVisualizer.agentContext</code> (off by default) refreshes everything silently after each analysis — that automatic path only updates a file that already exists.</p>
-
                 <h3>🎛️ Command Palette</h3>
                 <p>From anywhere in VS Code: <strong>Aura: Focus File in Graph…</strong> (fuzzy picker over analyzed files — path, language, directory, LOC, fan-in/out, layer, violations), <strong>Aura: Apply Saved Query…</strong> (replays a query saved from the query bar with its stored mode, most recent first) and <strong>Aura: Add Warp Here</strong> (warp naming modal on the current camera pose). The file picker lists code only — documentation nodes are excluded — and caps at 5 000 entries.</p>
-
-                <h3>🔍 Query Filter</h3>
-                <p>Open the query bar with the <strong>🔍 button</strong> (far right of the tab bar) or <kbd>Ctrl+K</kbd> / <kbd>Cmd+K</kbd> — it stays hidden until you need it. Type a boolean expression over node metrics, e.g. <code>complexity &gt; 20 AND fanIn &gt; 5</code>.</p>
-                <p><strong>Fields:</strong> <code>complexity</code>, <code>cognitive</code>, <code>loc</code>, <code>fanin</code> / <code>fanout</code>, <code>size</code>, <code>mtime</code> / <code>lastmodified</code>, <code>symbols</code>, <code>deadexports</code>, <code>cochange</code>, <code>language</code>, <code>name</code>, <code>path</code>, <code>group</code>, <code>extension</code>, <code>community</code>, and flags <code>isorphan</code> / <code>isdead</code> / <code>incycle</code> / <code>ispinned</code> / <code>dirty</code> / <code>hasnote</code> / <code>stalenote</code>.</p>
-                <p><strong>Operators:</strong> <code>==</code>, <code>!=</code>, <code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, <code>&lt;=</code>, <code>~</code> (regex), <code>!~</code>, <code>in [ ... ]</code>, plus <code>AND</code> / <code>OR</code> / <code>NOT</code>.</p>
-                <p><strong>Modes:</strong> <strong>Highlight</strong> (dim non-matching), <strong>Filter</strong> (hide non-matching), <strong>Select</strong> (multi-select). Press <strong>⭐</strong> to save a query and <strong>📚</strong> to reopen saved ones.</p>
-
                 <h3>⚙️ In-App Settings</h3>
                 <p>The <strong>⚙️ button</strong> in the tab bar (next to 🔍 Query) opens a settings modal — changes apply instantly and are saved to your workspace settings:</p>
                 <table class="help-table">
@@ -2794,24 +2809,18 @@ export class WebviewProvider {
                     <tr><td><strong>Auto-refresh on save</strong></td><td>Re-analyze changed files automatically</td></tr>
                 </table>
                 <p>The footer link opens the full <code>auraVisualizer.*</code> settings list in VS Code.</p>
-
                 <h3>🔗 Function Call Labels</h3>
                 <p>In the detail panel, <code>function-call</code> links display the actual function name (e.g. <code>helper()</code>). For C/C++, function-call links are only created between files connected via <code>#include</code> — no false positives.</p>
-
                 <h3>🧭 Import Aliases</h3>
                 <p>Aura resolves imports through your project configuration: <code>tsconfig.json</code>/<code>jsconfig.json</code> <strong>baseUrl + paths</strong> (including simple relative <code>extends</code>), static Vite/webpack <code>resolve.alias</code> entries, and Python <code>src/</code> layouts. Relative imports, extension/index probing, vendored suffix matches and basename fallbacks remain available. Aliased imports therefore create real edges instead of false orphan files, and the history worker uses the same resolver for consistent deltas.</p>
-
                 <h3>🎯 Edge Confidence</h3>
                 <p>Each edge carries a resolution confidence: <strong>1.0</strong> exact/relative/alias, <strong>0.9</strong> extension/index, <strong>0.8</strong> suffix, <strong>0.6</strong> basename, <strong>0.5</strong> ambiguous (several candidates). Function calls score <strong>0.8</strong> for a unique target and <strong>0.5</strong> when ambiguous; inheritance is <strong>0.9</strong>. Use the <strong>Edge confidence</strong> toolbar selector to hide weaker links, and read the badge next to each dependency in the detail panel. Old databases default to <strong>1.0</strong>.</p>
-
                 <h3>🧩 Re-showing hidden files</h3>
                 <p>A filter change never starts a live settle — that is what kept the settled layout from drifting every time you toggled a language or a folder. Two repair steps run instead, both invisible: files that come back (a re-enabled language, an orphan/dead-code/cycle toggle, leaving a query filter) are <strong>seeded next to their already-placed neighbours</strong>, at the graph's own spacing (0.6 × the median settled edge length, capped at 5 % of the scene), or — when they have no placed neighbour — <strong>grouped by folder</strong> at a depth of their own; and when a feed re-admits a <strong>significant batch</strong> (5 nodes or more), a short <strong>synchronous warmup</strong> (10 ticks + 1 per 20 nodes, capped at 30) rebalances everything, because seeding cannot rescue a file the filter left stranded far from its neighbours. Those ticks run inside the data digest, <strong>before the first paint</strong>: no animation, no tween — the graph simply reappears coherent. The trade-off is explicit: re-showing a type may rearrange the layout (warps and breadcrumbs still replay their stored pose). Nothing is persisted — re-opening the panel lays the graph out from scratch.</p>
                 <p>The <strong>Spread</strong> slider works the same way: the new forces are settled by a <strong>20-tick synchronous warmup</strong> (debounced by 160 ms while you drag), so the graph jumps straight to its new spacing instead of drifting for a second — no tween, and the engine stays quiet afterwards.</p>
                 <p>The <strong>camera</strong> keeps the pose it starts with: there is <strong>no automatic zoom-to-fit</strong> on load (it used to pull back 1.5 s after opening, and everybody zoomed straight back in). Press <kbd>F</kbd> / <strong>Recenter</strong>, or click the background, when you actually want the whole graph framed.</p>
-
                 <h3>⚡ Instant Startup</h3>
                 <p>The graph is cached in a local SQLite database (<code>.aura/graph.db</code>). On next launch, the cached graph loads instantly. A fingerprint (<code>git HEAD</code> + settings + parser version + file size/mtime list) skips analysis entirely when nothing changed; otherwise only added/modified/deleted files are re-parsed and sent as a delta. File saves still trigger incremental O(1) updates.</p>
-
                 <h3>📤 Export for AI</h3>
                 <p>The <strong>📤 Export</strong> button opens a guided export: choose <strong>Markdown</strong> or <strong>JSON</strong>, pick the sections (modules, contracts, hotspots, cycles, dead code) and a token budget (2k / 4k / 8k / 16k / no limit). The export estimates tokens at ~4 chars/token and reports any truncation explicitly. Save it or copy it straight into a prompt.</p>
                 <p>Aura also includes a built-in MCP server and the <strong>@aura</strong> chat participant for direct AI integration.</p>
@@ -2819,39 +2828,6 @@ export class WebviewProvider {
                 <p><strong>Four tools cover the whole session</strong> (MCP and <code>@aura</code> alike). <code>build</code> answers “is the graph still in sync?” — analysis age, file/link counts, the commit analysed vs <code>HEAD</code>, a <code>stale</code> flag and its reason, so an agent never quotes outdated metrics. <code>explain_file</code> returns one aggregated briefing per file (metrics, risk with reasons, cycles, dead code, call sites, dependencies, heritage, co-change, community). <code>hotspots_in_changes</code> ranks the changed files by risk — working tree by default, branch vs merge base with <code>base</code> — with <code>+/-</code> counts and reasons. <code>list_repositories</code> declares the served root, database, analysis age and every <code>git worktree</code> with its branch. The MCP server also sends operating instructions on connect (call <code>build</code> first, prefer Aura over shell <code>git</code>, quote anchors, report staleness).</p>
                 <p>Use <strong>Aura: Export Architecture Report</strong> from the Command Palette to generate a Markdown document with a Mermaid module graph, top dependencies, hotspots, cycles and dead exports. Documentation files are excluded by default. <strong>Aura: Export Architecture Report with AI Narrative</strong> adds a written explanation generated from that deterministic report by the selected VS Code model.</p>
                 <p><strong>Aura: Export Metrics (CSV/JSON)</strong> exports one row per file with LOC, complexity, cognitive max, fan-in/out, churn, authors and risk score, ready for a spreadsheet or a dashboard.</p>
-
-                <h3>🗺️ Minimap</h3>
-                <p>Toggle with the <strong>🗺️ Map</strong> button. Shows a top-down overview of all nodes. The white rectangle indicates the camera viewport. Click on the minimap to navigate. Drag the header to reposition.</p>
-
-                <h3>📑 Tabbed Views</h3>
-                <p>Switch between <strong>9 tabs</strong> in the tab bar for different perspectives:</p>
-                <table class="help-table">
-                    <tr><td><strong>✦ 3D Graph</strong></td><td>Interactive 3D force-directed dependency graph</td></tr>
-                    <tr><td><strong>🗺️ Treemap</strong></td><td>Files nested by directory, sized by LOC/complexity</td></tr>
-                    <tr><td><strong>🗑️ Matrix</strong></td><td>N×N Dependency Structure Matrix (DSM)</td></tr>
-                    <tr><td><strong>🎵 Chord</strong></td><td>Dependency flows between groups (directories/languages/communities)</td></tr>
-                    <tr><td><strong>📊 Metrics</strong></td><td>Bar charts of LOC, complexity, fan-in/out</td></tr>
-                    <tr><td><strong>📈 Timeline</strong></td><td>Metric evolution over git history</td></tr>
-                    <tr><td><strong>📋 Table</strong></td><td>Sortable, filterable file spreadsheet (LOC, complexity, cognitive max, fan-in/out, symbols)</td></tr>
-                    <tr><td><strong>🛡️ Risk</strong></td><td>Codebase risk dashboard (health score, churn, bus factor)</td></tr>
-                    <tr><td><strong>🔗 Co-change</strong></td><td>Temporal co-change pairs — files changing together without a direct dependency, with virtual graph links</td></tr>
-                </table>
-
-                <h3>🏛️ Architecture Rules</h3>
-                <p>Create or edit <code>.aura/arch-rules.json</code> from the <strong>🏛️ Architecture</strong> tab or <strong>⚙️ Settings → Architecture rules</strong>. The structured editor manages layers, deny targets, slices, cycles and exceptions with live validation; renaming a layer updates every rule. Layers are matched by glob (first match wins), deny rules follow the real dependency direction, <code>slices</code> isolate sibling feature folders, and <code>no-cycles</code> checks the aggregated file → layer graph.</p>
-                <p>Only <strong>new</strong> violations alert once you baseline the current ones (<code>.aura/arch-baseline.json</code>). <strong>Ca</strong> = external files depending on a layer, <strong>Ce</strong> = external files it depends on, <strong>I = Ce / (Ca + Ce)</strong>. Documentation is outside the model: <code>.md</code> nodes and <code>doc-reference</code> edges are never evaluated.</p>
-                <p>Query examples: <code>layer == domain AND archviolations > 0</code> and <code>isarchviolator</code>. The MCP tool <code>get_architecture_violations</code> exposes the same evaluation to AI agents.</p>
-
-                <h3>🛡️ Risk Map</h3>
-                <p>Open the <strong>🛡️ Risk</strong> tab for a codebase health dashboard. It uses a transparent risk score: <code>100 × (0.21·complexity + 0.18·centrality + 0.08·fan-out + 0.12·cycle + 0.12·dead-code + 0.09·rewrite + 0.06·recency + 0.06·frequency + 0.05·authors + 0.03·fixes)</code> — the structural half stays dominant on purpose. <code>centrality</code> is fan-in, or PageRank when <code>auraVisualizer.riskCentrality</code> is on; <code>rewrite</code> is the volume of lines added and removed relative to the file's size today, <code>recency</code> weights a commit made today over one at the window's edge, and <code>fixes</code> is the share of commits whose message looks like a bug fix. Documentation is outside architectural risk: docs are not scored and <code>doc-reference</code> links do not inflate fan-in or PageRank. Exempted framework symbols are not counted as dead code.</p>
-                <p>Complexity, fan-in, fan-out and churn are <strong>percentile ranks inside your repository</strong> (0 = lowest file, 1 = highest), so the score is a standing relative to this codebase. A <strong>History window</strong> selector (30 / 90 / 365 days) drives churn, scoring and explanations. Churn is <strong>rename-aware</strong>: files moved with <code>git mv</code> keep their history across the rename.</p>
-                <p>High / Medium / Low file lists are collapsible, each row explains <em>why</em> a file scores that way, and clicking a file selects it in the 3D graph. Also included: <strong>📈 Risk Trend</strong>, <strong>📈 Complexity Trend</strong> (per-file sparklines + slope), <strong>🔥 Recently Hot</strong> (last 30 days), <strong>📊 Churn × Complexity</strong> scatter (log scale), and <strong>👤 Bus Factor</strong> (files with a single author). Use <strong>📤 Export Report</strong> to write <code>.aura/risk-report.md</code>.</p>
-                <p><strong>Complexity Trend</strong> is rebuilt from Time Travel commit deltas: a least-squares slope per 30 days plus R² flags files whose complexity keeps growing. The <strong>Trend</strong> column in the Table is sortable; adjust the threshold with <code>auraVisualizer.complexityTrendThreshold</code> (default 0.5 point / 30 days).</p>
-
-                <h3>🔗 Temporal Co-change</h3>
-                <p>The <strong>🔗 Co-change</strong> tab finds files that keep changing in the same commits <em>without</em> a direct import/dependency — an implicit contract (API + client, test + implementation, shared config…). Run Time Travel (⏱️) first so git history is available.</p>
-                <p>Pairs are ranked by <strong>Jaccard</strong> = <code>cochanges / (A commits + B commits − cochanges)</code>; <strong>support</strong> is the share of analysed multi-file commits touching both files. Renames are followed, deletions and giant commits (&gt;50 files) are ignored. <strong>Show on graph</strong> adds virtual magenta links for the strongest pairs; the <strong>🔗 Co-change</strong> filter toggles them and the heatmap mode colors files by their strongest coupling score. Queries can use <code>cochange &gt; 0.6</code>.</p>
-
                 <h3>🔗 Edge Colors</h3>
                 <table class="help-table">
                     <tr><td><span style="color:#4fc3f7">━━</span> <strong>include</strong></td><td>C <code>#include "file.h"</code></td></tr>
@@ -2870,7 +2846,6 @@ export class WebviewProvider {
                 </table>
                 <p><strong>Script tags are dependencies too.</strong> The <code>script</code> edge records “loaded by”; the cyan <code>global-use</code> edge records “used by”. Files that expose a namespace (<code>window.AuraSprites = { … }</code>) and files that read it (<code>AuraSprites.ripple(…)</code>, or the guarded <code>window.AuraTimeline.state()</code>) are paired from the AST — comments and string literals never count — with confidence <strong>0.6</strong>, so they show up in fan-in, blast radius and cycles, and the <strong>Edge confidence</strong> slider hides them above 0.6 if the noise bothers you. Incremental saves keep the index current: a changed file re-registers its own namespaces and re-emits its own edges.</p>
                 <p><strong>Clicking an edge</strong> frames both of its endpoints and draws a <strong>pink glow</strong> along it: the camera keeps the angle you are looking from and pulls back just enough for the pair to fit (bounding sphere + FOV, 20 % padding). The glow is a pair of additive shells that follow the link frame by frame — a <code>TubeGeometry</code> along the very Bézier three-forcegraph draws in <strong>curved</strong> mode (so it never cuts a straight chord), a cylinder in straight mode — so it works on any GPU, unlike the bloom pass which needs the <em>bloom</em> selected-node effect. Both files are multi-selected as well (aggregate stats in the detail panel); <code>auraVisualizer.edgeClickSelect</code> turns that selection off. The highlight clears on the next click. Edges are picked with a wider raycast tolerance than their 1–2 px width, so they are easy to hit.</p>
-
                 <h3>📄 Documentation in the Graph</h3>
                 <p>Markdown, plain-text and reStructuredText files (<code>.md</code>, <code>.markdown</code>, <code>.txt</code>, <code>.rst</code>) are first-class nodes. They are <strong>hidden by default</strong> — toggle the <strong>📄 Docs</strong> button in the toolbar to show them.</p>
                 <p>Thin dotted <code>doc-reference</code> edges automatically link each doc file to the code files it mentions — detected from symbol names (functions, classes, methods, exports) and basenames like <code>extension.ts</code>. These edges do <em>not</em> count toward fan-in / fan-out, so hotspot metrics stay clean.</p>

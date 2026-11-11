@@ -1438,8 +1438,26 @@
                     else if (this.type === 'number' || this.type === 'range') value = parseFloat(this.value);
                     else value = this.value;
                     applyLocalSetting(key, value);
+                    syncSettingVisibility();
                     vscode.postMessage({ type: 'updateSetting', payload: { key: key, value: value } });
                 });
+            }
+        }
+
+        /**
+         * Some rows only mean something under another setting — the three bloom
+         * sliders do nothing while the effect is Glow. `data-visible-when` says
+         * "key=value", so the rule stays in the markup instead of here.
+         */
+        function syncSettingVisibility() {
+            var modal = $('#settings-modal');
+            if (!modal) return;
+            var cfg = window.AURA_CONFIG || {};
+            var rows = modal.querySelectorAll('[data-visible-when]');
+            for (var i = 0; i < rows.length; i++) {
+                var rule = String(rows[i].dataset.visibleWhen || '').split('=');
+                var shown = !rule[0] || String(cfg[rule[0]]) === rule[1];
+                rows[i].style.display = shown ? '' : 'none';
             }
         }
 
@@ -1466,6 +1484,7 @@
             if (focusSlider && focusVal) {
                 focusVal.textContent = String(Math.round(parseFloat(focusSlider.value) || FOCUS_DISTANCE_DEFAULT));
             }
+            syncSettingVisibility();
         }
 
         // Minimap toggle
