@@ -1788,10 +1788,10 @@ export class WebviewProvider {
     <!-- Metrics View -->
     <div id="metrics-view" class="tab-content" data-tab="metrics">
         <div class="view-toolbar metrics-toolbar">
-            <div class="view-title">📊 Metrics</div>
-                <div class="view-bar-actions">
-                    <button type="button" class="top-btn" data-export-tab="metrics" title="Export the summary as Markdown">📤 Export</button>
-                </div>
+            <h2>📊 Metrics</h2>
+            <div class="metrics-toolbar-actions">
+                <button type="button" class="risk-export-btn" data-export-tab="metrics" title="Export the summary as Markdown">📤 Export</button>
+            </div>
         </div>
         <div id="metrics-body"></div>
     </div>

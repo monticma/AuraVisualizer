@@ -432,10 +432,10 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
     <!-- Metrics View -->
     <div id="metrics-view" class="tab-content" data-tab="metrics">
         <div class="view-toolbar metrics-toolbar">
-            <div class="view-title">\u{1F4CA} Metrics</div>
-                <div class="view-bar-actions">
-                    <button type="button" class="top-btn" data-export-tab="metrics" title="Export the summary as Markdown">\u{1F4E4} Export</button>
-                </div>
+            <h2>\u{1F4CA} Metrics</h2>
+            <div class="metrics-toolbar-actions">
+                <button type="button" class="risk-export-btn" data-export-tab="metrics" title="Export the summary as Markdown">\u{1F4E4} Export</button>
+            </div>
         </div>
         <div id="metrics-body"></div>
     </div>

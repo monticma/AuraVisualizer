@@ -4158,6 +4158,27 @@ select option {
     padding: 16px;
 }
 
+/* The three titled views — Risk, Architecture, Metrics — share one bar: title
+   on the left at 15 px, its actions on the right in the badge button style. */
+.arch-toolbar,
+.risk-toolbar,
+.metrics-toolbar {
+    justify-content: space-between;
+}
+
+.metrics-toolbar h2 {
+    font-size: 15px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.metrics-toolbar-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
 .arch-toolbar {
     justify-content: space-between;
 }
