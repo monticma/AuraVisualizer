@@ -221,6 +221,13 @@
         setupDrag();
         var close = document.getElementById('city-minimap-close');
         if (close) close.addEventListener('click', function () { setOpen(false); });
+        var reset = document.getElementById('city-minimap-reset');
+        if (reset) {
+            reset.addEventListener('click', function () {
+                if (typeof hooks.onReset === 'function') hooks.onReset();
+                draw();
+            });
+        }
         if (canvas) {
             canvas.addEventListener('mousedown', onCanvasDown);
             canvas.addEventListener('mousemove', onCanvasMove);

@@ -35,6 +35,19 @@ describe('warps: parse / serialize', () => {
         expect(parseWarps('42')).toEqual([]);
     });
 
+    it('keeps the scene scope of a City warp and defaults to the graph', () => {
+        // The City and the 3D graph live in different worlds: a pose replayed in
+        // the wrong one frames nothing, so the scope has to survive the host.
+        const city = makeWarp({ ...pose(), scope: 'city' }, 1000)!;
+        expect(city.scope).toBe('city');
+        expect(parseWarps(serializeWarps([city]))[0].scope).toBe('city');
+
+        const graph = makeWarp(pose(), 1000)!;
+        expect(graph.scope).toBeUndefined();
+        // An unknown scope is not trusted.
+        expect(makeWarp({ ...pose(), scope: 'elsewhere' }, 1000)!.scope).toBeUndefined();
+    });
+
     it('round-trips a list through serialize/parse', () => {
         const warp = makeWarp(pose(), 2000)!;
         const raw = serializeWarps([warp]);

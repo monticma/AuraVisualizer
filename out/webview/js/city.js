@@ -1687,6 +1687,8 @@
                 getGraph: function () { return state.graph; },
                 getSelected: function () { return state.selected; },
                 getRect: function (id) { return id ? state.byId[id] : null; },
+                // The minimap's ⟲ button: back to the framing the city opens with.
+                onReset: function () { frameCity(); },
             });
             var mapBtn = $('#city-minimap-toggle');
             if (mapBtn) {

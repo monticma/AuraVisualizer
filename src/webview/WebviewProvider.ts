@@ -1736,6 +1736,7 @@ export class WebviewProvider {
         <div id="city-minimap" class="hidden">
             <div class="city-minimap-header">
                 <span>🗺️ City map</span>
+                <button id="city-minimap-reset" title="Back to the initial framing">⟲</button>
                 <button id="city-minimap-close" title="Close">✕</button>
             </div>
             <canvas id="city-minimap-canvas" width="200" height="200"></canvas>
