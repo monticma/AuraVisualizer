@@ -1549,6 +1549,12 @@
     var dsmGroupBy = 'directory';
     var dsmSortBy = 'group';
     var dsmTooltipEl = null;
+    // What the interactions read. `#dsm-container` outlives every render, so its
+    // listeners are attached once (setupDSM) and look at the last table built
+    // here — the rows they point at are recreated on every visit to the tab.
+    var dsmSorted = [];
+    var dsmMatrix = [];
+    var dsmWired = false;
 
     function setupDSM() {
         var groupSelect = $('#dsm-group-by');
@@ -1560,6 +1566,101 @@
         if (sortSelect) sortSelect.addEventListener('change', function() {
             dsmSortBy = this.value;
             renderDSM();
+        });
+
+        // Interactions belong here, not in renderDSM(). The container survives
+        // every render, so listeners attached inside it piled up — one more per
+        // visit to the tab — and a click opened the file once per copy (2x, 3x,
+        // 4x… as you kept coming back). Same handlers, attached once.
+        var container = $('#dsm-container');
+        if (!container || dsmWired) return;
+        dsmWired = true;
+        dsmTooltipEl = document.createElement('div');
+        dsmTooltipEl.className = 'dsm-tooltip';
+        document.body.appendChild(dsmTooltipEl);
+
+        // Hover highlights the row and the column, the tooltip names both ends.
+        container.addEventListener('mouseover', function(e) {
+            var cell = e.target.closest('.dsm-cell');
+            var rowHdr = e.target.closest('.dsm-row-hdr');
+            var colHdr = e.target.closest('.dsm-col-hdr');
+
+            // Clear previous highlights
+            var prevRows = container.querySelectorAll('.dsm-highlight-row');
+            for (var i = 0; i < prevRows.length; i++) prevRows[i].classList.remove('dsm-highlight-row');
+            var prevCols = container.querySelectorAll('.dsm-highlight-col');
+            for (var i = 0; i < prevCols.length; i++) prevCols[i].classList.remove('dsm-highlight-col');
+
+            if (cell && cell.dataset.row !== undefined) {
+                var ri = parseInt(cell.dataset.row);
+                var ci = parseInt(cell.dataset.col);
+                // Highlight row and column
+                var rows = container.querySelectorAll('tr');
+                if (rows[ri + 1]) rows[ri + 1].classList.add('dsm-highlight-row');
+                // Highlight column cells
+                for (var r = 0; r < rows.length; r++) {
+                    var cells = rows[r].children;
+                    if (cells[ci + 1]) cells[ci + 1].classList.add('dsm-highlight-col');
+                }
+                // Tooltip
+                var srcNode = dsmSorted[ri];
+                var tgtNode = dsmSorted[ci];
+                var isBidi = dsmMatrix[ci] && dsmMatrix[ci][ri];
+                dsmTooltipEl.innerHTML =
+                    '<div class="dsm-tooltip-title">' + escapeHtml(srcNode.id) + '</div>' +
+                    '<div class="dsm-tooltip-meta">→ depends on → <strong>' + escapeHtml(tgtNode.id) + '</strong>' +
+                    (isBidi ? '<br><span style="color:#ff6b6b">↺ Circular dependency</span>' : '') +
+                    '</div>';
+                dsmTooltipEl.classList.add('visible');
+            } else if (rowHdr) {
+                var idx = parseInt(rowHdr.dataset.idx);
+                var rows = container.querySelectorAll('tr');
+                if (rows[idx + 1]) rows[idx + 1].classList.add('dsm-highlight-row');
+                var n = dsmSorted[idx];
+                dsmTooltipEl.innerHTML =
+                    '<div class="dsm-tooltip-title">' + escapeHtml(n.id) + '</div>' +
+                    '<div class="dsm-tooltip-meta">Fan-out: ' + (n.fanOut || 0) + ' · Fan-in: ' + (n.fanIn || 0) + '<br>' +
+                    'Complexity: ' + (n.complexity || 0) + ' · LOC: ' + (n.linesOfCode || 0) + '</div>';
+                dsmTooltipEl.classList.add('visible');
+            } else if (colHdr) {
+                var idx = parseInt(colHdr.dataset.idx);
+                var rows = container.querySelectorAll('tr');
+                for (var r = 0; r < rows.length; r++) {
+                    var cells = rows[r].children;
+                    if (cells[idx + 1]) cells[idx + 1].classList.add('dsm-highlight-col');
+                }
+                var n = dsmSorted[idx];
+                dsmTooltipEl.innerHTML =
+                    '<div class="dsm-tooltip-title">' + escapeHtml(n.id) + '</div>' +
+                    '<div class="dsm-tooltip-meta">Fan-out: ' + (n.fanOut || 0) + ' · Fan-in: ' + (n.fanIn || 0) + '<br>' +
+                    'Complexity: ' + (n.complexity || 0) + ' · LOC: ' + (n.linesOfCode || 0) + '</div>';
+                dsmTooltipEl.classList.add('visible');
+            } else {
+                dsmTooltipEl.classList.remove('visible');
+            }
+        });
+
+        container.addEventListener('mousemove', function(e) {
+            if (dsmTooltipEl.classList.contains('visible')) {
+                dsmTooltipEl.style.left = (e.clientX + 12) + 'px';
+                dsmTooltipEl.style.top = (e.clientY + 12) + 'px';
+            }
+        });
+
+        container.addEventListener('mouseleave', function() {
+            if (dsmTooltipEl) dsmTooltipEl.classList.remove('visible');
+            var prevRows = container.querySelectorAll('.dsm-highlight-row');
+            for (var i = 0; i < prevRows.length; i++) prevRows[i].classList.remove('dsm-highlight-row');
+            var prevCols = container.querySelectorAll('.dsm-highlight-col');
+            for (var i = 0; i < prevCols.length; i++) prevCols[i].classList.remove('dsm-highlight-col');
+        });
+
+        // Click on dep cell → open source file
+        container.addEventListener('click', function(e) {
+            var cell = e.target.closest('.dsm-cell-dep');
+            if (!cell) return;
+            var node = dsmSorted[parseInt(cell.dataset.row, 10)];
+            if (node) hooks.postMessage({ type: 'openFile', payload: { path: node.id } });
         });
     }
 
@@ -1701,98 +1802,10 @@
 
         container.innerHTML = html;
 
-        // Tooltip
-        if (!dsmTooltipEl) {
-            dsmTooltipEl = document.createElement('div');
-            dsmTooltipEl.className = 'dsm-tooltip';
-            document.body.appendChild(dsmTooltipEl);
-        }
-
-        // Interactions: hover highlight row/col, tooltip
-        container.addEventListener('mouseover', function(e) {
-            var cell = e.target.closest('.dsm-cell');
-            var rowHdr = e.target.closest('.dsm-row-hdr');
-            var colHdr = e.target.closest('.dsm-col-hdr');
-
-            // Clear previous highlights
-            var prevRows = container.querySelectorAll('.dsm-highlight-row');
-            for (var i = 0; i < prevRows.length; i++) prevRows[i].classList.remove('dsm-highlight-row');
-            var prevCols = container.querySelectorAll('.dsm-highlight-col');
-            for (var i = 0; i < prevCols.length; i++) prevCols[i].classList.remove('dsm-highlight-col');
-
-            if (cell && cell.dataset.row !== undefined) {
-                var ri = parseInt(cell.dataset.row);
-                var ci = parseInt(cell.dataset.col);
-                // Highlight row and column
-                var rows = container.querySelectorAll('tr');
-                if (rows[ri + 1]) rows[ri + 1].classList.add('dsm-highlight-row');
-                // Highlight column cells
-                for (var r = 0; r < rows.length; r++) {
-                    var cells = rows[r].children;
-                    if (cells[ci + 1]) cells[ci + 1].classList.add('dsm-highlight-col');
-                }
-                // Tooltip
-                var srcNode = sortedNodes[ri];
-                var tgtNode = sortedNodes[ci];
-                var isBidi = matrix[ci] && matrix[ci][ri];
-                dsmTooltipEl.innerHTML =
-                    '<div class="dsm-tooltip-title">' + escapeHtml(srcNode.id) + '</div>' +
-                    '<div class="dsm-tooltip-meta">→ depends on → <strong>' + escapeHtml(tgtNode.id) + '</strong>' +
-                    (isBidi ? '<br><span style="color:#ff6b6b">↺ Circular dependency</span>' : '') +
-                    '</div>';
-                dsmTooltipEl.classList.add('visible');
-            } else if (rowHdr) {
-                var idx = parseInt(rowHdr.dataset.idx);
-                var rows = container.querySelectorAll('tr');
-                if (rows[idx + 1]) rows[idx + 1].classList.add('dsm-highlight-row');
-                var n = sortedNodes[idx];
-                dsmTooltipEl.innerHTML =
-                    '<div class="dsm-tooltip-title">' + escapeHtml(n.id) + '</div>' +
-                    '<div class="dsm-tooltip-meta">Fan-out: ' + (n.fanOut || 0) + ' · Fan-in: ' + (n.fanIn || 0) + '<br>' +
-                    'Complexity: ' + (n.complexity || 0) + ' · LOC: ' + (n.linesOfCode || 0) + '</div>';
-                dsmTooltipEl.classList.add('visible');
-            } else if (colHdr) {
-                var idx = parseInt(colHdr.dataset.idx);
-                var rows = container.querySelectorAll('tr');
-                for (var r = 0; r < rows.length; r++) {
-                    var cells = rows[r].children;
-                    if (cells[idx + 1]) cells[idx + 1].classList.add('dsm-highlight-col');
-                }
-                var n = sortedNodes[idx];
-                dsmTooltipEl.innerHTML =
-                    '<div class="dsm-tooltip-title">' + escapeHtml(n.id) + '</div>' +
-                    '<div class="dsm-tooltip-meta">Fan-out: ' + (n.fanOut || 0) + ' · Fan-in: ' + (n.fanIn || 0) + '<br>' +
-                    'Complexity: ' + (n.complexity || 0) + ' · LOC: ' + (n.linesOfCode || 0) + '</div>';
-                dsmTooltipEl.classList.add('visible');
-            } else {
-                dsmTooltipEl.classList.remove('visible');
-            }
-        });
-
-        container.addEventListener('mousemove', function(e) {
-            if (dsmTooltipEl.classList.contains('visible')) {
-                dsmTooltipEl.style.left = (e.clientX + 12) + 'px';
-                dsmTooltipEl.style.top = (e.clientY + 12) + 'px';
-            }
-        });
-
-        container.addEventListener('mouseleave', function() {
-            if (dsmTooltipEl) dsmTooltipEl.classList.remove('visible');
-            var prevRows = container.querySelectorAll('.dsm-highlight-row');
-            for (var i = 0; i < prevRows.length; i++) prevRows[i].classList.remove('dsm-highlight-row');
-            var prevCols = container.querySelectorAll('.dsm-highlight-col');
-            for (var i = 0; i < prevCols.length; i++) prevCols[i].classList.remove('dsm-highlight-col');
-        });
-
-        // Click on dep cell → open source file
-        container.addEventListener('click', function(e) {
-            var cell = e.target.closest('.dsm-cell-dep');
-            if (cell) {
-                var ri = parseInt(cell.dataset.row);
-                var nodeId = sortedNodes[ri].id;
-                hooks.postMessage({ type: 'openFile', payload: { path: nodeId } });
-            }
-        });
+        // What setupDSM()'s handlers read: the table is rebuilt on every visit
+        // to this tab, the listeners are not.
+        dsmSorted = sortedNodes;
+        dsmMatrix = matrix;
     }
 
     // ============================================================
