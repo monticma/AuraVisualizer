@@ -997,37 +997,55 @@ html, body {
     border-color: rgba(96, 165, 250, 0.55);
 }
 
-/* Cross-view actions: one bar, under the panel header, in both inspectors.
-   Icons only, hugging the left edge — the row is a place for gestures, not a
+/* Actions toolbar: both inspectors get the same band under their header, built
+   on the tabs' .view-toolbar recipe — full-bleed, its own hairline, sidebar
+   background — so a strip of controls looks the same wherever it appears.
+   Icons only, hugging the left edge: the row is a place for gestures, not a
    second title. Every button carries its own tooltip. */
 .panel-actions {
     display: flex;
     align-items: center;
     justify-content: flex-start;
-    gap: 4px;
-    padding: 0 16px 10px;
+    gap: 6px;
+    box-sizing: border-box;
+    min-height: 40px;
+    padding: 6px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--aura-sidebar-bg);
+    flex-shrink: 0;
+    /* The graph panel scrolls as a whole; the City panel scrolls its body only.
+       Sticky keeps the gestures in the same place in both — reachable while
+       reading a long inspector. No-op in the City, where the band never moves. */
+    position: sticky;
+    top: 0;
+    z-index: 2;
 }
 
+/* Same recipe as .top-btn, squared off for a single glyph. The outline is
+   hard-coded alpha rather than `--aura-border`: a faint border on a 28 px
+   square leaves a bare glyph, and these have no label to carry them. */
 .panel-action-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 26px;
-    height: 26px;
+    width: 28px;
+    height: 28px;
     padding: 0;
-    background: rgba(96, 165, 250, 0.12);
-    border: 1px solid rgba(96, 165, 250, 0.3);
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.16);
     color: var(--aura-fg);
+    opacity: 0.85;
     border-radius: 6px;
     cursor: pointer;
     font-size: 14px;
     line-height: 1;
-    transition: background 0.15s, border-color 0.15s;
+    transition: all 0.15s;
 }
 
 .panel-action-btn:hover {
-    background: rgba(96, 165, 250, 0.24);
-    border-color: rgba(96, 165, 250, 0.55);
+    opacity: 1;
+    background: rgba(96, 165, 250, 0.1);
+    border-color: var(--aura-accent);
 }
 
 .panel-action-btn:focus-visible {
@@ -5075,7 +5093,7 @@ select option {
 
 /* The City inspector reuses .panel-actions; only its insets differ (the panel
    header is padded 20 px, the graph panel 16 px). */
-#city-side-actions { padding: 10px 20px 0; }
+#city-side-actions { padding: 6px 20px; }
 
 .city-side-empty { opacity: 0.5; font-style: italic; }
 
