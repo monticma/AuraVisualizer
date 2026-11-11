@@ -286,6 +286,30 @@ export class WebviewProvider {
                             void this.handleExportImageData(message.payload.dataUrl);
                         }
                         break;
+                    case 'exportText': {
+                        // A view exporting what it knows (CSV, Markdown, SVG):
+                        // the host offers Save… or Copy to clipboard.
+                        const p = (message.payload || {}) as {
+                            kind?: string;
+                            filename?: string;
+                            content?: string;
+                        };
+                        if (p && typeof p.content === 'string' && p.content) {
+                            const name = typeof p.filename === 'string' && p.filename
+                                ? p.filename
+                                : 'aura-export.txt';
+                            const ext = (name.split('.').pop() || '').toLowerCase();
+                            const filters: Record<string, string[]> = ext === 'csv'
+                                ? { CSV: ['csv'] }
+                                : ext === 'md'
+                                    ? { Markdown: ['md'] }
+                                    : ext === 'svg'
+                                        ? { SVG: ['svg'] }
+                                        : { Text: ['txt'] };
+                            void saveOrCopyText(p.kind || 'Export', p.content, name, filters);
+                        }
+                        break;
+                    }
                     case 'exportImageError':
                         if (message.payload && typeof message.payload.message === 'string') {
                             void vscode.window.showWarningMessage('Aura: PNG export failed — ' + message.payload.message);
@@ -1762,7 +1786,15 @@ export class WebviewProvider {
     </div>
 
     <!-- Metrics View -->
-    <div id="metrics-view" class="tab-content" data-tab="metrics"></div>
+    <div id="metrics-view" class="tab-content" data-tab="metrics">
+        <div class="view-toolbar metrics-toolbar">
+            <h2>📊 Metrics</h2>
+            <div class="metrics-toolbar-actions">
+                <button type="button" class="risk-export-btn" data-export-tab="metrics" title="Export the summary as Markdown">📤 Export</button>
+            </div>
+        </div>
+        <div id="metrics-body"></div>
+    </div>
 
     <!-- Risk View -->
     <div id="risk-view" class="tab-content" data-tab="risk">
@@ -1932,6 +1964,9 @@ export class WebviewProvider {
                 </select></label>
                 <button id="treemap-city" type="button" class="treemap-city-btn" title="Open the 2.5D City view">🏙️ See as city</button>
             </div>
+                <div class="view-bar-actions">
+                    <button type="button" class="top-btn" data-export-tab="treemap" title="Export the cells as CSV">📤 Export</button>
+                </div>
         </div>
         <div id="treemap-container"></div>
     </div>
@@ -1948,6 +1983,9 @@ export class WebviewProvider {
                 </select></label>
                 <span class="chord-stats" id="chord-stats"></span>
             </div>
+                <div class="view-bar-actions">
+                    <button type="button" class="top-btn" data-export-tab="chord" title="Export the diagram as SVG or the flows as CSV">📤 Export</button>
+                </div>
         </div>
         <div id="chord-container"></div>
     </div>
@@ -1972,6 +2010,9 @@ export class WebviewProvider {
                 </select></label>
                 <span class="tchart-stats" id="tchart-stats"></span>
             </div>
+                <div class="view-bar-actions">
+                    <button type="button" class="top-btn" data-export-tab="timeline" title="Export the series as CSV">📤 Export</button>
+                </div>
         </div>
         <div id="tchart-container"></div>
     </div>
@@ -1994,6 +2035,9 @@ export class WebviewProvider {
                 </select></label>
                 <span class="dsm-stats" id="dsm-stats"></span>
             </div>
+                <div class="view-bar-actions">
+                    <button type="button" class="top-btn" data-export-tab="dsm" title="Export the dependency list as Markdown">📤 Export</button>
+                </div>
         </div>
         <div id="dsm-container"></div>
     </div>
@@ -2019,6 +2063,9 @@ export class WebviewProvider {
                 </label>
                 <button id="coupling-show-graph" class="risk-export-btn" title="Show the top pairs as virtual links in the 3D graph">Show on graph</button>
             </div>
+            <div class="view-bar-actions">
+                <button type="button" class="top-btn" data-export-tab="coupling" title="Export the pairs as CSV">📤 Export</button>
+            </div>
         </div>
         <p id="coupling-summary" class="coupling-summary"></p>
         <div class="table-scroll">
@@ -2042,6 +2089,9 @@ export class WebviewProvider {
     <div id="table-view" class="tab-content" data-tab="table">        <div class="view-toolbar table-toolbar">
             <span class="search-icon">⌕</span>
             <input type="text" id="table-search" placeholder="Filter files..." autocomplete="off">
+                <div class="view-bar-actions">
+                    <button type="button" class="top-btn" data-export-tab="table" title="Export every file with its metrics as CSV">📤 Export</button>
+                </div>
         </div>
         <div class="table-scroll">
             <table class="aura-table">
@@ -2563,9 +2613,8 @@ export class WebviewProvider {
                 <h3>✨ What's New in 1.6.0</h3>
                 <p><strong>🏙️ Code City — a new tab.</strong> The same graph read as a city: every file is a <strong>building</strong>, its height is the metric you pick (cognitive by default, or cyclomatic, lines, fan-in, fan-out, PageRank or <strong>risk</strong>), its footprint its size, its district its folder. It has its own scene and camera, so orbiting the city never touches the 3D graph. The <strong>hot band</strong> — 5 % of the buildings, min 3, max 20 — takes the red end of the ramp and a <code>#1…#N</code> badge; everything else is muted, and documentation, data, config and assets are drawn as <strong>grey glass</strong>, outside the ranking. <strong>Click</strong> to read a building (white = selected, blue = it depends on, amber = depends on it, purple = both), <strong>double-click</strong> to open the file, click a district plate to drill into a folder, or switch to <strong>function granularity</strong> for one tower per function. The inspector carries the metrics, the risk score with its reasons, the complexity sparkline and a mini relation map. A floating <strong>🗺️ Map</strong>, <strong>🌀 Warps</strong> scoped to the City and <strong>📤 Export</strong> → PNG or a <strong>1600×900 postcard</strong> come with it.</p>
                 <p><strong>🛡️ Risk score v2.</strong> A hotspot is <em>reworked</em>, not merely <em>changed</em>: the git half of the score now weighs the <strong>volume of lines rewritten</strong> relative to the file's size, <strong>recency</strong>, the number of <strong>authors</strong> and the share of <strong>bug-fix commits</strong>. The structural half stays dominant on purpose.</p>
-                <p><strong>🧭 One interface, everywhere.</strong> Every tab wears the same toolbar shell; the 3D-only controls (map, warps, export, link) left the global top bar for the graph's own bar, so nothing on screen pretends to apply to a tab it does not. Warps, communities and both minimaps are one floating-window type, each remembering its position and whether it was open. <strong>📤 Export</strong> lists what the current view can actually produce, and the four bespoke cross-view buttons became a single <strong>◫ View in</strong> menu, alongside <strong>↗ Open</strong>.</p>
+                <p><strong>🧭 One interface, everywhere.</strong> Every tab wears the same toolbar shell; the 3D-only controls (map, warps, export, link) left the global top bar for the graph's own bar, so nothing on screen pretends to apply to a tab it does not. Warps, communities and both minimaps are one floating-window type, each remembering its position and whether it was open. <strong>📤 Export</strong> lists what the current view can actually produce — <strong>every</strong> tab has one now: CSV for Treemap, Matrix (Markdown), Chord (SVG + CSV), Timeline, Table and Co-change, Markdown for Metrics, and the report buttons of Risk and Architecture unchanged — and the four bespoke cross-view buttons became a single <strong>◫ View in</strong> menu, alongside <strong>↗ Open</strong>.</p>
                 <p><strong>⚡ Clicking a building is instant.</strong> Selecting used to ask the engine to recreate every box — 21.7 ms for 762 buildings, 109 ms at function granularity — on a later frame, which is why the outlines lit up a frame before the selection colours. It now recolours the meshes it already owns: ~0.4 ms, in the same frame.</p>
-                <p><strong>🐞 Fixed:</strong> district names drawing over the buildings in front of them, the City legend's switches being unclickable, a shadow map showing the previous city after a drill-down, a postcard caption running off the sheet, and documentation edges inflating the City inspector's fan counts.</p>
 
                 <h3>Previously in 1.5.2</h3>
                 <p><strong>🧩 Script tags are dependencies too.</strong> Files loaded as a plain <code>&lt;script&gt;</code> expose a namespace and read each other's through it. Aura pairs every <code>window.X</code> / <code>globalThis.X</code> definition with its reads straight from the AST (comments and strings never count) and emits a cyan <code>global-use</code> edge at confidence <strong>0.6</strong> — the <code>script</code> edge says “loaded by”, <code>global-use</code> says “used by”. Fan-in, blast radius and cycles now treat <code>sprites.js</code> and the rest of the satellites as the connected module they are; the <strong>Edge confidence</strong> slider hides them above 0.6, and incremental saves keep the index current.</p>

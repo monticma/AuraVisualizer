@@ -828,12 +828,19 @@
                 });
             });
         }
+        var writeReport = function () {
+            if (!riskReportData) return;
+            hooks.postMessage({ type: 'exportRiskReport', payload: { markdown: generateRiskReportMarkdown(riskReportData) } });
+        };
         var exportBtn = $('#risk-export');
-        if (exportBtn) {
-            exportBtn.addEventListener('click', function() {
-                if (!riskReportData) return;
-                hooks.postMessage({ type: 'exportRiskReport', payload: { markdown: generateRiskReportMarkdown(riskReportData) } });
-            });
+        if (exportBtn) exportBtn.addEventListener('click', writeReport);
+        // Same producer in the shared registry, so the family is complete for
+        // any view that lists what another one can produce. The bar keeps its
+        // direct button: a menu with a single entry is one click too many.
+        if (window.AuraExportMenu && typeof window.AuraExportMenu.register === 'function') {
+            window.AuraExportMenu.register('risk', [
+                { label: '📝 Markdown', hint: 'the full report, reasons included', run: writeReport },
+            ]);
         }
         var windowSelect = $('#risk-window');
         if (windowSelect) {

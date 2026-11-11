@@ -79,6 +79,8 @@
         selected: null,
         clickMemo: { id: null, at: 0 },   // double-click bookkeeping (city-core)
         meshById: {},         // every box the engine built, by building id
+        plates: [],           // { mesh, key } — the district plates, drillable
+        platesWired: false,   // the canvas click that drills in listens once
         scope: '',            // '' = whole city, otherwise a district key path
         observer: null,
         hudMeta: null,
@@ -377,6 +379,7 @@
             else child.material.dispose();
         });
         state.decor = null;
+        state.plates = [];
         // The edge buffer died with the group: never paint into it again.
         state.edgeIdi = null;
     }
@@ -491,11 +494,15 @@
                 new T.MeshLambertMaterial({ color: new T.Color(districtColor(district.key)).multiplyScalar(0.34) })
             );
             plate.receiveShadow = true;
+            // A plate is a door: clicking it enters that district (see
+            // `districtUnder`). The key is what the breadcrumb uses.
+            plate.userData.cityDistrict = district.key;
             plate.position.set(
                 (district.x + district.w / 2 - 0.5) * cityScale(),
                 plateAltitude(district.depth) - scaled(1.2),
                 (district.z + district.d / 2 - 0.5) * cityScale()
             );
+            state.plates.push({ mesh: plate, key: district.key });
             group.add(plate);
         }
 
@@ -763,6 +770,78 @@
         return changed;
     }
 
+    /** The WebGL canvas, without forcing a render (unlike `canvasElement`). */
+    function rendererCanvas() {
+        if (!state.graph || typeof state.graph.renderer !== 'function') return null;
+        try {
+            var renderer = state.graph.renderer();
+            return renderer && renderer.domElement ? renderer.domElement : null;
+        } catch (_) { return null; }
+    }
+
+    /**
+     * Which district plate is under the pointer, if any.
+     *
+     * The plates sit *under* the buildings, so a ray aimed at a tower also
+     * crosses its district plate: the nearest hit decides, and a building
+     * always wins — otherwise clicking a building would drill in instead of
+     * selecting, and a double-click would try to open a folder.
+     */
+    function districtUnder(event) {
+        var T = window.THREE;
+        if (!T || !state.graph || !state.plates.length) return '';
+        var canvas = rendererCanvas();
+        var camera = null;
+        try { camera = state.graph.camera(); } catch (_) { camera = null; }
+        if (!canvas || !camera || !canvas.getBoundingClientRect) return '';
+        var rect = canvas.getBoundingClientRect();
+        if (!rect.width || !rect.height) return '';
+        var pointer = new T.Vector2(
+            ((event.clientX - rect.left) / rect.width) * 2 - 1,
+            -((event.clientY - rect.top) / rect.height) * 2 + 1
+        );
+        var targets = [];
+        for (var id in state.meshById) {
+            if (Object.prototype.hasOwnProperty.call(state.meshById, id)) targets.push(state.meshById[id]);
+        }
+        for (var p = 0; p < state.plates.length; p++) targets.push(state.plates[p].mesh);
+        var raycaster = new T.Raycaster();
+        raycaster.setFromCamera(pointer, camera);
+        var hits = raycaster.intersectObjects(targets, false);
+        if (!hits.length) return '';
+        var direct = hits[0].object && hits[0].object.userData
+            ? hits[0].object.userData.cityDistrict
+            : '';
+        return direct || '';
+    }
+
+    /**
+     * Click a district plate to enter it. The library only reports node and
+     * background clicks, so the plate needs its own pointer handling — and it
+     * has to tell a click from an orbit: 4 px of travel is a drag, not a
+     * choice. The breadcrumb and the child chips still work; this is the
+     * gesture you try first.
+     */
+    function wirePlateClick() {
+        if (state.platesWired) return;
+        var canvas = rendererCanvas();
+        if (!canvas || !canvas.addEventListener) return;
+        state.platesWired = true;
+        var down = null;
+        canvas.addEventListener('pointerdown', function (event) {
+            down = { x: event.clientX, y: event.clientY, at: Date.now() };
+        });
+        canvas.addEventListener('pointerup', function (event) {
+            var start = down;
+            down = null;
+            if (!start) return;
+            if (Math.abs(event.clientX - start.x) > 4 || Math.abs(event.clientY - start.y) > 4) return;
+            if (Date.now() - start.at > 600) return;
+            var key = districtUnder(event);
+            if (key) setScope(key);
+        });
+    }
+
     function ensureGraph() {
         if (state.graph) return state.graph;
         if (!window.ForceGraph3D) return null;
@@ -807,6 +886,7 @@
                 }
             }
         } catch (_) { /* older 3d-force-graph: leave the camera alone */ }
+        wirePlateClick();
         return state.graph;
     }
 
@@ -1767,6 +1847,9 @@
     }
     function activate() {
         ensureGraph();
+        // The canvas may not have existed when the graph was built: this is
+        // idempotent, so every activation is a chance to wire it for real.
+        wirePlateClick();
         if (!state.plan) applyPlan();
         else resize();
         flushPendingReveal();
@@ -1957,6 +2040,12 @@
         ranks: function () { return state.ranks !== false; },
         setRanks: function (on) { setRanks(on); },
         leaderCount: function () { return state.labelLeaderCount || 0; },
+        /** District keys of the plates on screen — one door per district. */
+        plateKeys: function () {
+            var keys = [];
+            for (var i = 0; i < state.plates.length; i++) keys.push(state.plates[i].key);
+            return keys;
+        },
         shadows: function () { return state.shadows !== false; },
         setShadows: function (on) { setShadows(on); },
         /** Whether buildings actually cast right now (the budget can veto it). */
@@ -1970,5 +2059,13 @@
         postcardLayout: function () { return postcardCaptionLayout(POSTCARD_H, POSTCARD_BAND); },
         options: OPTIONS,
         graph: function () { return state.graph; },
+        /** District keys the plates carry — the drill-in targets. */
+        plates: function () {
+            var keys = [];
+            for (var i = 0; i < state.plates.length; i++) keys.push(state.plates[i].key);
+            return keys;
+        },
+        /** Whether the canvas listens for the drill-in gesture. */
+        platesWired: function () { return state.platesWired === true; },
     };
 })();

@@ -166,7 +166,9 @@
     // ============================================================
     function renderMetrics() {
         syncCtx();
-        var container = $('#metrics-view');
+        // The tab carries a toolbar now, so the dashboard draws into its own
+        // child — rendering into #metrics-view would wipe the bar.
+        var container = $('#metrics-body') || $('#metrics-view');
         if (!container || !graphData) return;
 
         var nodes = graphData.nodes || [];
@@ -1544,6 +1546,229 @@
     }
 
     // ============================================================
+    // Exports — "what this view knows how to say" (Interface.md §6)
+    //
+    // One button per view, one menu whose contents depend on the view. Every
+    // producer here is the same shape: build the text the view would show, and
+    // hand it to the host, which offers Save… or Copy to clipboard.
+    // ============================================================
+
+    /** RFC 4180-ish: quote what needs it, so a path with a comma survives. */
+    function csvCell(value) {
+        var text = value === null || value === undefined ? '' : String(value);
+        return /[",\n\r]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
+    }
+
+    function toCsv(header, rows) {
+        var out = [header.map(csvCell).join(',')];
+        for (var i = 0; i < rows.length; i++) out.push(rows[i].map(csvCell).join(','));
+        return out.join('\n') + '\n';
+    }
+
+    function saveText(kind, filename, content) {
+        if (!content) return;
+        hooks.postMessage({
+            type: 'exportText',
+            payload: { kind: kind, filename: filename, content: content }
+        });
+    }
+
+    function exportTreemapCsv() {
+        if (!graphData) return;
+        var rows = [];
+        var nodes = graphData.nodes || [];
+        for (var i = 0; i < nodes.length; i++) {
+            var n = nodes[i];
+            rows.push([n.id, n.language || '', n.linesOfCode || 0, n.complexity || 0,
+                typeof n.cognitive === 'number' ? n.cognitive : '',
+                n.fanIn || 0, n.fanOut || 0, n.group || '', n.layer || '']);
+        }
+        saveText('Treemap cells', 'aura-treemap.csv', toCsv(
+            ['path', 'language', 'loc', 'complexity', 'cognitive', 'fan_in', 'fan_out', 'folder', 'layer'],
+            rows));
+    }
+
+    /**
+     * The matrix as Markdown: a 200×200 table is unreadable, so the export is
+     * the information the grid carries — who depends on whom — grouped by row.
+     */
+    function exportDsmMarkdown() {
+        if (!dsmSorted.length) return;
+        var deps = 0;
+        var lines = ['# Dependency structure matrix', '',
+            dsmSorted.length + ' files · grouped by ' + dsmGroupBy + ' · sorted by ' + dsmSortBy, ''];
+        for (var i = 0; i < dsmSorted.length; i++) {
+            var out = [];
+            for (var j = 0; j < dsmSorted.length; j++) {
+                if (dsmMatrix[i] && dsmMatrix[i][j]) out.push('`' + dsmSorted[j].id + '`');
+            }
+            if (!out.length) continue;
+            deps += out.length;
+            lines.push('- **`' + dsmSorted[i].id + '`** → ' + out.join(', '));
+        }
+        lines.splice(2, 0, dsmSorted.length + ' files · ' + deps + ' dependencies', '');
+        saveText('Matrix', 'aura-dsm.md', lines.join('\n') + '\n');
+    }
+
+    /** The chord diagram *is* an SVG: serialise it, no rasteriser needed. */
+    function exportChordSvg() {
+        var svg = document.querySelector('#chord-container svg');
+        if (!svg) return;
+        var copy = svg.cloneNode(true);
+        copy.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        copy.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+        saveText('Chord diagram', 'aura-chord.svg', new XMLSerializer().serializeToString(copy));
+    }
+
+    /** The chord's grouping rule, for the CSV — the render keeps a local copy. */
+    function chordGroupKey() {
+        return function (node) {
+            if (chordGroupBy === 'language') return node.language || 'unknown';
+            if (chordGroupBy === 'layer') return node.layer || 'unlayered';
+            if (chordGroupBy === 'community') {
+                var cid = communityMap[node.id];
+                if (cid != null && communityNames[cid]) return communityNames[cid].name;
+                return 'ungrouped';
+            }
+            var parts = String(node.id || '').split('/');
+            return parts.length > 1 ? parts[0] : '.';
+        };
+    }
+
+    function exportChordCsv() {
+        if (!graphData) return;
+        var groupOf = chordGroupKey();
+        var flows = {};
+        var links = graphData.links || [];
+        for (var i = 0; i < links.length; i++) {
+            var source = typeof links[i].source === 'object' ? links[i].source : { id: links[i].source };
+            var target = typeof links[i].target === 'object' ? links[i].target : { id: links[i].target };
+            var from = groupOf(source) || 'unknown';
+            var to = groupOf(target) || 'unknown';
+            if (from === to) continue;
+            var key = from + '\u0000' + to;
+            flows[key] = (flows[key] || 0) + 1;
+        }
+        var rows = [];
+        for (var k in flows) {
+            if (!Object.prototype.hasOwnProperty.call(flows, k)) continue;
+            var parts = k.split('\u0000');
+            rows.push([parts[0], parts[1], flows[k]]);
+        }
+        rows.sort(function (a, b) { return b[2] - a[2]; });
+        saveText('Chord flows', 'aura-chord-flows.csv', toCsv(['from', 'to', 'dependencies'], rows));
+    }
+
+    function exportTimelineCsv() {
+        var snapshots = computeTimelineSnapshots();
+        if (!snapshots || !snapshots.length) return;
+        var rows = [];
+        for (var i = 0; i < snapshots.length; i++) {
+            var s = snapshots[i];
+            rows.push([s.date || '', s.hash || '', s.files || 0, s.loc || 0,
+                typeof s.complexity === 'number' ? s.complexity.toFixed(3) : '',
+                s.totalComplexity || 0, s.author || '', s.message || '']);
+        }
+        saveText('Timeline series', 'aura-timeline.csv', toCsv(
+            ['date', 'commit', 'files', 'loc', 'avg_complexity', 'total_complexity', 'author', 'message'],
+            rows));
+    }
+
+    function exportTableCsv() {
+        if (!graphData) return;
+        var nodes = graphData.nodes || [];
+        var rows = [];
+        for (var i = 0; i < nodes.length; i++) {
+            var n = nodes[i];
+            var cognitive = fileCognitiveMax(n);
+            rows.push([n.id, n.language || '', n.linesOfCode || 0, n.complexity || 0,
+                cognitive === null ? '' : cognitive,
+                n.fanIn || 0, n.fanOut || 0,
+                n.symbols && n.symbols.totalSymbols ? n.symbols.totalSymbols : 0,
+                n.group || '', n.layer || '']);
+        }
+        saveText('File table', 'aura-files.csv', toCsv(
+            ['path', 'language', 'loc', 'complexity', 'cognitive_max', 'fan_in', 'fan_out', 'symbols', 'folder', 'layer'],
+            rows));
+    }
+
+    function exportCouplingCsv() {
+        var pairs = cochangeResult && cochangeResult.pairs ? cochangeResult.pairs.slice() : [];
+        if (!pairs.length) return;
+        pairs.sort(compareCoupling);
+        var rows = [];
+        for (var i = 0; i < pairs.length; i++) {
+            var p = pairs[i];
+            rows.push([p.a, p.b, p.cochanges, Number(p.jaccard).toFixed(3),
+                (Number(p.support) * 100).toFixed(1) + '%', p.aCommits, p.bCommits]);
+        }
+        saveText('Co-change pairs', 'aura-cochange.csv', toCsv(
+            ['file_a', 'file_b', 'cochanges', 'jaccard', 'support', 'a_commits', 'b_commits'], rows));
+    }
+
+    /** Metrics is a dashboard, so the export is the summary it draws. */
+    function exportMetricsMarkdown() {
+        if (!graphData) return;
+        var nodes = graphData.nodes || [];
+        var links = graphData.links || [];
+        var byLang = {};
+        var totalLoc = 0;
+        var totalComplexity = 0;
+        var deadEnds = 0;
+        for (var i = 0; i < nodes.length; i++) {
+            var n = nodes[i];
+            var lang = n.language || 'unknown';
+            if (!byLang[lang]) byLang[lang] = { files: 0, loc: 0, complexity: 0 };
+            byLang[lang].files++;
+            byLang[lang].loc += n.linesOfCode || 0;
+            byLang[lang].complexity += n.complexity || 0;
+            totalLoc += n.linesOfCode || 0;
+            totalComplexity += n.complexity || 0;
+            if (!(n.fanIn || 0)) deadEnds++;
+        }
+        var langs = Object.keys(byLang).sort(function (a, b) { return byLang[b].loc - byLang[a].loc; });
+        var lines = ['# Repository metrics', '',
+            '- **' + nodes.length + '** files · **' + links.length + '** links',
+            '- **' + totalLoc + '** lines · **' + totalComplexity + '** complexity',
+            '- ' + (nodes.length ? (totalComplexity / nodes.length).toFixed(2) : '0') + ' average complexity per file',
+            '- **' + deadEnds + '** files nothing imports',
+            '', '| Language | Files | Lines | Complexity |', '|---|---:|---:|---:|'];
+        for (var l = 0; l < langs.length; l++) {
+            var e = byLang[langs[l]];
+            lines.push('| ' + langs[l] + ' | ' + e.files + ' | ' + e.loc + ' | ' + e.complexity + ' |');
+        }
+        saveText('Metrics summary', 'aura-metrics.md', lines.join('\n') + '\n');
+    }
+
+    /** Register what each view can produce. Called once, from init(). */
+    function setupExports() {
+        if (!window.AuraExportMenu || typeof window.AuraExportMenu.register !== 'function') return;
+        var register = window.AuraExportMenu.register;
+        register('treemap', [
+            { label: '📄 CSV', hint: 'one row per cell, with the metrics behind it', run: exportTreemapCsv },
+        ]);
+        register('dsm', [
+            { label: '📝 Markdown', hint: 'the dependency list the matrix carries', run: exportDsmMarkdown },
+        ]);
+        register('chord', [
+            { label: '🖼️ SVG', hint: 'the diagram itself, vector', run: exportChordSvg },
+            { label: '📄 CSV', hint: 'flows between groups', run: exportChordCsv },
+        ]);
+        register('timeline', [
+            { label: '📄 CSV', hint: 'the series, one row per commit', run: exportTimelineCsv },
+        ]);
+        register('table', [
+            { label: '📄 CSV', hint: 'every file with its metrics', run: exportTableCsv },
+        ]);
+        register('coupling', [
+            { label: '📄 CSV', hint: 'the pairs, with Jaccard and support', run: exportCouplingCsv },
+        ]);
+        register('metrics', [
+            { label: '📝 Markdown', hint: 'the summary by language', run: exportMetricsMarkdown },
+        ]);
+    }
+
+    // ============================================================
     // DSM (Dependency Structure Matrix) View
     // ============================================================
     var dsmGroupBy = 'directory';
@@ -2038,6 +2263,7 @@
     // ============================================================
     function init(injected) {
         hooks = injected || {};
+        setupExports();
     }
 
     /**

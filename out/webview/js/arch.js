@@ -1092,11 +1092,19 @@
         if (reset) reset.addEventListener('click', function () {
             hooks.postMessage({ type: 'resetArchBaseline' });
         });
-        var exportBtn = $('#arch-export');
-        if (exportBtn) exportBtn.addEventListener('click', function () {
+        var writeReport = function () {
             var markdown = buildMarkdown();
             if (markdown) hooks.postMessage({ type: 'exportArchViolations', payload: { markdown: markdown } });
-        });
+        };
+        var exportBtn = $('#arch-export');
+        if (exportBtn) exportBtn.addEventListener('click', writeReport);
+        // Same producer in the shared registry (see risk.js for the rationale
+        // on keeping the direct button).
+        if (window.AuraExportMenu && typeof window.AuraExportMenu.register === 'function') {
+            window.AuraExportMenu.register('arch', [
+                { label: '📝 Markdown', hint: 'violations, layers and cycles', run: writeReport },
+            ]);
+        }
         setupEditor();
         render();
     }
