@@ -1689,6 +1689,10 @@
                 getRect: function (id) { return id ? state.byId[id] : null; },
                 // The minimap's ⟲ button: back to the framing the city opens with.
                 onReset: function () { frameCity(); },
+                // Open/closed is view state, owned by app.js.
+                onChange: function (open) {
+                    if (window.AuraChrome) window.AuraChrome.setCityMinimap(open);
+                },
             });
             var mapBtn = $('#city-minimap-toggle');
             if (mapBtn) {

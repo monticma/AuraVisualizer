@@ -138,7 +138,9 @@
 
     function toggle() {
         if (!root) return;
-        setOpen(root.classList.contains('hidden'));
+        var open = root.classList.contains('hidden');
+        setOpen(open);
+        if (typeof hooks.onChange === 'function') hooks.onChange(open);
     }
 
     // --- Camera pan from inside the map -------------------------------------
@@ -220,7 +222,10 @@
         }
         setupDrag();
         var close = document.getElementById('city-minimap-close');
-        if (close) close.addEventListener('click', function () { setOpen(false); });
+        if (close) close.addEventListener('click', function () {
+            setOpen(false);
+            if (typeof hooks.onChange === 'function') hooks.onChange(false);
+        });
         var reset = document.getElementById('city-minimap-reset');
         if (reset) {
             reset.addEventListener('click', function () {

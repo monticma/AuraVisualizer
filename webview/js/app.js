@@ -1472,14 +1472,14 @@
         var minimapClose = $('#minimap-close');
         if (minimapBtn && minimapEl) {
             minimapBtn.addEventListener('click', function() {
-                minimapEl.classList.toggle('hidden');
-                minimapBtn.classList.toggle('active', !minimapEl.classList.contains('hidden'));
+                minimapOpen.graph = minimapEl.classList.contains('hidden');
+                applyMinimapVisibility();
                 saveViewState();
             });
             if (minimapClose) {
                 minimapClose.addEventListener('click', function() {
-                    minimapEl.classList.add('hidden');
-                    minimapBtn.classList.remove('active');
+                    minimapOpen.graph = false;
+                    applyMinimapVisibility();
                     saveViewState();
                 });
             }
@@ -4853,6 +4853,31 @@
         return out;
     }
 
+    /**
+     * Minimaps follow the scene: the graph's window only exists on the graph
+     * tab, the City's inside its own tab. The *intent* survives the switch.
+     */
+    function applyMinimapVisibility() {
+        var mm = $('#minimap');
+        var mmBtn = $('#btn-minimap');
+        if (mm) mm.classList.toggle('hidden', !(activeTab === 'graph' && minimapOpen.graph));
+        if (mmBtn) mmBtn.classList.toggle('active', !!minimapOpen.graph);
+        if (window.AuraCityMinimap) window.AuraCityMinimap.setOpen(!!minimapOpen.city);
+    }
+
+    /**
+     * The City map is driven by the app, like the graph's: the window module
+     * draws and drags, but the open flag lives with the other view state so it
+     * survives a restart and a tab switch.
+     */
+    window.AuraChrome = {
+        setCityMinimap: function (open) {
+            minimapOpen.city = !!open;
+            applyMinimapVisibility();
+            saveViewState();
+        },
+    };
+
     /** Put a floating panel back on its CSS anchor (default corner and size). */
     function resetPalettePosition(el) {
         if (!el || !el.style) return;
@@ -4900,6 +4925,12 @@
      * other.
      */
     var warpsOpen = { graph: false, city: false };
+    /**
+     * Minimaps: one open flag per 3D scene. The graph's window used to be saved
+     * straight from the DOM, so a tab switch — which hides every graph overlay —
+     * persisted `false` and the window never came back.
+     */
+    var minimapOpen = { graph: false, city: false };
     var warpsPositions = { graph: null, city: null };
     var switchingTab = false;
 
@@ -4954,7 +4985,8 @@
             spreadMultiplier: spreadMultiplier,
             focusDepth: focusDepth,
             showExplorer: showExplorer,
-            showMinimap: !$('#minimap').classList.contains('hidden'),
+            showMinimap: minimapOpen.graph,
+            showMinimapCity: minimapOpen.city,
             // The panel belongs to both scenes; each keeps its own intent.
             showWarps: (warpsOpen[warpsScope()] = warpsPanelVisibleIntent()),
             showWarpsCity: warpsOpen.city,
@@ -5189,13 +5221,10 @@
             }
         }
 
-        // Minimap
-        if (typeof state.showMinimap === 'boolean') {
-            var mm = $('#minimap');
-            var mmBtn = $('#btn-minimap');
-            if (mm) mm.classList.toggle('hidden', !state.showMinimap);
-            if (mmBtn) mmBtn.classList.toggle('active', !!state.showMinimap);
-        }
+        // Minimaps — one intent per scene.
+        if (typeof state.showMinimap === 'boolean') minimapOpen.graph = state.showMinimap;
+        if (typeof state.showMinimapCity === 'boolean') minimapOpen.city = state.showMinimapCity;
+        applyMinimapVisibility();
 
         // Warps panel — one intent per 3D scene.
         if (typeof state.showWarps === 'boolean') warpsOpen.graph = state.showWarps;
@@ -6492,7 +6521,7 @@
         var timeBar = $('#timeline-bar');
         // Graph-only overlays. The warps panel is handled separately: it belongs
         // to both 3D scenes, with its own open flag and position per scene.
-        var overlays = ['#heatmap-legend', '#community-palette', '#minimap', '#tooltip'];
+        var overlays = ['#heatmap-legend', '#community-palette', '#tooltip'];
 
         // The PNG capture grabs the WebGL canvas, which is display:none on every
         // other tab — a hidden button is better than a blank picture.
@@ -6556,6 +6585,7 @@
                 if (warpsPositions[entering]) restorePalettePosition(wp, warpsPositions[entering]);
                 else resetPalettePosition(wp);
             }
+            applyMinimapVisibility();
         })();
 
         // The warp list belongs to the scene on screen.
