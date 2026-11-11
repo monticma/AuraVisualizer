@@ -5266,13 +5266,22 @@ select option {
 .city-legend-swatch.risk-medium,
 .city-legend-swatch.risk-high { margin-left: 4px; }
 
-/* Names & ranks toggle: the one legend row you can click. */
+/* Toggles: the only legend rows you can click. The panel itself stays
+   click-through so it never eats a canvas drag. */
 .city-legend-toggle {
     display: flex;
     align-items: center;
     gap: 6px;
     cursor: pointer;
     user-select: none;
+    pointer-events: auto;
+}
+
+/* Separates what the map *means* from what you can switch on and off. */
+.city-legend-sep {
+    height: 1px;
+    margin: 4px 0 3px;
+    background: rgba(255, 255, 255, 0.09);
 }
 
 .city-legend-toggle input {

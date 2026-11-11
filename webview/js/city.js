@@ -528,6 +528,12 @@
             if (!name) continue;
             var sprite = window.AuraSprites.labelSprite(name.toUpperCase() + '/', 'rgba(255, 255, 255, 0.6)');
             if (!sprite) continue;
+            // Occlusion: a name hidden behind a block must not float over it. The
+            // cached sprite shares its material with every clone (and with the 3D
+            // graph's labels), so this one gets a copy.
+            sprite.material = sprite.material.clone();
+            sprite.material.depthTest = true;
+            sprite.material.depthWrite = false;
             sprite.scale.multiplyScalar(scaled(1.6));
 
             var x0 = (district.x - 0.5) * scale;
@@ -594,6 +600,9 @@
             if (!rank) continue;
             var sprite = window.AuraSprites.labelSprite('#' + rank, 'rgba(255, 209, 102, 0.95)');
             if (!sprite) continue;
+            sprite.material = sprite.material.clone();
+            sprite.material.depthTest = true;
+            sprite.material.depthWrite = false;
             sprite.scale.multiplyScalar(scaled(1.25));
             // Exactly on top of the block: rank is a *place*, not a decoration.
             sprite.position.set(

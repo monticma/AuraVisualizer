@@ -380,6 +380,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
                 <div class="city-legend-row" id="city-legend-colour" hidden></div>
                 <div class="city-legend-row"><span class="city-legend-swatch hot"></span><span id="city-legend-hot">top 20</span></div>
                 <div class="city-legend-row"><span class="city-legend-swatch glass"></span>docs, data, config, assets \u2014 not ranked</div>
+                <div class="city-legend-sep"></div>
                 <div class="city-legend-row"><label class="city-legend-toggle" title="Draw district names on leader lines at the edge of the city"><input id="city-names" type="checkbox" checked> district names</label></div>
                 <div class="city-legend-row"><label class="city-legend-toggle" title="Draw the #1\u2026#N badges of the hot band"><input id="city-ranks" type="checkbox" checked> rank badges</label></div>
                 <div class="city-legend-row"><label class="city-legend-toggle" title="Contact shadows (dropped above 1 500 buildings to keep the frame rate)"><input id="city-shadows" type="checkbox" checked> shadows</label></div>
