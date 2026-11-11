@@ -1679,6 +1679,22 @@
         if (shadowsBox) {
             shadowsBox.addEventListener('change', function () { setShadows(shadowsBox.checked); });
         }
+        // Floating map: the module draws the plan, we only hand it the state.
+        if (window.AuraCityMinimap) {
+            window.AuraCityMinimap.init({
+                getPlan: function () { return state.plan; },
+                getScale: function () { return cityScale(); },
+                getGraph: function () { return state.graph; },
+                getSelected: function () { return state.selected; },
+                getRect: function (id) { return id ? state.byId[id] : null; },
+            });
+            var mapBtn = $('#city-minimap-toggle');
+            if (mapBtn) {
+                mapBtn.addEventListener('click', function () {
+                    window.AuraCityMinimap.toggle();
+                });
+            }
+        }
         var treemapBtn = $('#treemap-city');
         if (treemapBtn) {
             treemapBtn.addEventListener('click', function () {
@@ -1775,6 +1791,7 @@
         shadowLive: function () { return state.shadowLive === true; },
         postcard: function () { exportPostcard(); },
         exportPng: function () { exportPng(); },
+        minimap: function () { return window.AuraCityMinimap; },
         /** Caption baselines — exposed so the harness can prove nothing overflows. */
         postcardLayout: function () { return postcardCaptionLayout(POSTCARD_H, POSTCARD_BAND); },
         options: OPTIONS,

@@ -1312,6 +1312,9 @@ export class WebviewProvider {
         const cityCoreUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'city-core.js')
         );
+        const cityMinimapUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'city-minimap.js')
+        );
         const cityUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'city.js')
         );
@@ -1695,6 +1698,8 @@ export class WebviewProvider {
                 </select>
             </label>
             <div class="view-bar-actions">
+                <button id="city-minimap-toggle" type="button" class="city-select" title="Floating map — drag it anywhere">🗺️ Map</button>
+                <button id="city-warps-toggle" type="button" class="city-select" title="Warp points — camera bookmarks for the City">🌀 Warps</button>
                 <button id="city-export" type="button" class="city-select" data-export-tab="city" title="Export what this view can produce">📤 Export</button>
             </div>
         </div>
@@ -1725,6 +1730,15 @@ export class WebviewProvider {
                 </header>
                 <div id="city-side-body"></div>
             </aside>
+        </div>
+        <!-- Floating map: same window as the graph's minimap, draggable and
+             remembered. It lives inside the tab so it hides with the tab. -->
+        <div id="city-minimap" class="hidden">
+            <div class="city-minimap-header">
+                <span>🗺️ City map</span>
+                <button id="city-minimap-close" title="Close">✕</button>
+            </div>
+            <canvas id="city-minimap-canvas" width="200" height="200"></canvas>
         </div>
         <!-- District bar: at the bottom, where the 3D Graph puts #filter-bar. -->
         <div id="city-crumbs" class="hidden"></div>
@@ -2815,6 +2829,7 @@ export class WebviewProvider {
     <script nonce="${nonce}" src="${spritesUri}"></script>
     <script nonce="${nonce}" src="${seedCoreUri}"></script>
     <script nonce="${nonce}" src="${cityCoreUri}"></script>
+    <script nonce="${nonce}" src="${cityMinimapUri}"></script>
     <script nonce="${nonce}" src="${cityUri}"></script>
     <script nonce="${nonce}" src="${panelsUri}"></script>
     <script nonce="${nonce}" src="${breadcrumbsUri}"></script>

@@ -5343,7 +5343,16 @@
         // Warp points (warps.js) — inject live-state hooks, then wire the UI
         if (window.AuraWarps) {
             AuraWarps.init({
-                getGraph: function () { return graph; },
+                // Warps belong to the scene they bookmark: the City has its own
+                // camera and its own scale, so a graph pose applied there would
+                // be nonsense. The scope decides which list the panel shows.
+                getGraph: function () {
+                    if (activeTab === 'city' && window.AuraCityView && AuraCityView.graph()) {
+                        return AuraCityView.graph();
+                    }
+                    return graph;
+                },
+                getScope: function () { return activeTab === 'city' ? 'city' : 'graph'; },
                 getGraphData: function () { return graphData; },
                 getWarps: function () { return warps; },
                 findNode: findNode,
@@ -6490,6 +6499,9 @@
                 }
             }
         }
+
+        // The warp list belongs to the scene on screen.
+        if (window.AuraWarps && typeof AuraWarps.render === 'function') AuraWarps.render();
 
         // Pause/resume WebGL
         if (tabName === 'graph') {
