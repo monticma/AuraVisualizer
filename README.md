@@ -17,21 +17,23 @@
 
 ---
 
-## What's New in 1.5.2
+## What's New in 1.6.0
 
-- **🧩 Script-tag coupling (`global-use`)** — files loaded as plain `<script>` (no `import`, no module system) expose a namespace and consume each other through it. Aura now pairs the `window.X` / `globalThis.X` definitions with their reads straight from the AST, so `sprites.js` ⇄ `app.js` become real edges: the `script` edge says *loaded by*, the cyan `global-use` edge says *used by*, confidence **0.6**. Fan-in, blast radius and cycles stop treating those files as isolated — on this project's own webview, 19 satellites go from 9 isolated nodes to one connected module. Incremental re-analysis keeps the index current, and a parser-version guard forces the single full re-analysis needed to backfill old databases.
-- **🎯 A layout that stays put** — re-shown files used to pile up in the middle, on the force engine's starting spiral. They are now **seeded next to their already-placed neighbours**, at the graph's own spacing (`0.6 × the median settled edge length`, capped at 5 % of the scene), or **grouped by folder** when they have no placed neighbour; a batch of 5+ re-admitted files also gets a **synchronous reflow** (10 ticks + 1 per 20 nodes, capped at 30) inside the data digest. Calibrated on two real repositories: ThorV2's `p90` edge goes from 436 back to **225** units (settled baseline 228), and a stranded file's worst edge from 1300 to 457.
-- **⚡ Layout changes are silent now** — the **Spread** slider, the DAG toggle and the spread restore settle with a 20-tick warmup before the first paint (160 ms debounce) instead of re-heating the engine: same equilibrium, zero drift, no second of wobble. And Aura no longer zooms the camera out 1.5 s after loading — the view stays where the library puts it, so a large repository no longer shrinks into an unreadable soup; **Recenter** (`F`) still fits everything.
-- **🏛️ Layer globs and editor repaired** — matching is **case-insensitive**, so a rule written with a different casing from the checkout no longer matches **0 files** silently (`0 → 31` on the repository that exposed it); every row shows how many files its globs capture with a live **⚠ 0 file** warning, **＋ Add layer** seeds a valid `layer-1` → `src/layer-1/**`, deleting a layer drops the deny rules that started from it, and a disabled **Save** now explains itself in its tooltip.
-- **🤖 Four new MCP/LM tools** — `build` (is the graph still in sync with `HEAD`?), `explain_file` (one-call file briefing), `hotspots_in_changes` (risk inside the working tree or a branch diff) and `list_repositories` (repo and worktrees), bringing the server to **22 tools**, every payload carrying `file` + `line` + a ready-to-cite `anchor`. The server also ships operating instructions on connect.
-- **🧭 Navigation and review toolkit** — click an **edge** to frame both endpoints and glow it along its curve, a **breadcrumb trail** of every jump (`auraVisualizer.breadcrumbs`), a **shallow-clone banner** instead of silently understated churn, a fixed **`focusDistance`**, markdown/hotspot **agent context files** (`Aura: Generate Agent Context`) and **`path:line` anchors** in every AI answer.
-- **Fixed in 1.5.2** — the symbol-search **ripple was invisible** (its sprite was destroyed one frame after creation by the node rebuild; it now lives in the scene, waits for the camera to land and lasts 1.2 s, see below), a **Save button that could go dead** in the layers editor, globs that silently matched **zero files** on a differently-cased checkout, nodes piling up after a filter and an unwanted zoom-out on load.
+- **🏙️ Code City — a new tab, and the same graph read as a city.** Every file becomes a **building**: its height is the metric you choose (cognitive complexity by default, or cyclomatic, lines, fan-in, fan-out, PageRank or **risk**), its footprint is its size, its district is its folder. Height, footprint, colour, mapping (quantiles / linear / thresholds) and districts (folder, layer, community) are all in the City's own bar. It lives in **its own tab with its own scene and camera** — orbiting the city never touches the 3D graph.
+  - **A readable city, not a wireframe.** The **hot band** — 5 % of the buildings, never fewer than 3 nor more than 20 — takes the red end of the ramp and a **#1…#N badge**; everything else is muted, so the eye goes where it matters. Documentation, data, config and assets are drawn as **grey glass** and never ranked. Streets stay a readable gutter at every zoom, and the district names hang off the **edge of the plan on leader lines**, occluded by the buildings in front of them.
+  - **Selection answers a different question.** Click a building: it turns white, the files it **depends on** turn blue, the files that **depend on it** turn amber, both directions turn purple, and the rest of the city dims — outlines included, one notch darker than the facade.
+  - **Read it, then open it.** The inspector gives the metrics, the district, the **risk score with the reasons behind it**, the complexity sparkline and a mini relation map. **Double-click** a building (or **↗ Open**) to open the file — at its line when the city is showing functions.
+  - **Drill down and zoom out.** Click a district plate to enter a folder (breadcrumb + child chips at the bottom), or switch to **function granularity**: one tower per function, the file becomes the district — ~5 000 buildings for a repository this size. The city grows with **√building count** while the ground keeps a **fixed grid**, so the streets stay a ruler; above 1 500 buildings contact shadows switch themselves off.
+  - **The same furniture as the graph**: a floating **🗺️ Map** with the camera footprint and a reframe button, **🌀 Warps scoped to the City**, and **📤 Export** → **PNG** or a **1600×900 postcard** with a caption.
+- **🛡️ Risk score v2 — a hotspot is *reworked*, not merely *changed*.** The git half of the score now weighs the **volume of lines rewritten** (relative to the file's size today), **recency** (a commit made today counts, one at the window's edge does not), the **number of authors** and the **share of bug-fix commits**. The structural half stays dominant on purpose — Aura is an architecture tool, git refines the ranking rather than driving it.
+- **🧭 One interface, everywhere.** Every tab now wears the **same toolbar shell** (one background, one hairline, one height); the 3D-only controls (map, warps, export, link) left the global top bar for the **graph's own bar**, so nothing on screen pretends to apply to a tab it does not; the tab bar holds tabs and nothing else. Warps, communities and both minimaps are **one floating-window type**, each remembers its position per scene, and each remembers **whether it was open**.
+- **📤 One export, one jump.** Each view registers what it can produce, so **Export** lists what the current tab can actually do (PNG, report, AI context, postcard…). The four bespoke "look at this elsewhere" buttons became a single **◫ View in** menu, in the graph's inspector and in the City's, next to a **↗ Open** that pairs with it.
+- **⚡ Clicking a building is instant.** Selecting used to ask the engine to recreate every box — 21.7 ms for 762 buildings, 109 ms at function granularity — on a later frame, which is why the outlines lit up a frame before the selection colours. It now recolours the meshes it already owns: ~0.4 ms, in the same frame.
+- **Fixed in 1.6.0** — district names were drawing over the buildings in front of them; the City legend's switches were unclickable (the panel is click-through so it never eats a camera drag); the shadow map was a picture of the previous city after a drill-down; the postcard caption ran off the sheet; documentation edges inflated the City inspector's fan counts.
+
+_Previously in 1.5.2: `global-use` edges for plain `<script>` files, a layout that stays put when files come back, silent spread/DAG reflows, case-insensitive layer globs, four new agent tools and the navigation trail._
 
 _Previously in 1.5.1: shareable view links, branch review, transitive imports, Find Symbol, architecture rules with baseline and structured editors, the parse-failure report, the Communities/Layers palette with Ask Aura, gamepad pilot mode, Symbol CodeLens, blast radius from the code, import hover and a single status-bar switch._
-
-_Previously in 1.4.1 and earlier: code-only communities, dead-code framework exemptions, PageRank centrality, complexity trends, yellow documentation labels, edge confidence and import aliases._
-
----
 
 ## Features
 
@@ -43,6 +45,29 @@ Files become interactive 3D nodes, dependencies become edges. The graph uses phy
 - **Edge colors** reflect dependency type (import, include, function call, etc.)
 - **Directional arrows** show dependency direction
 - **Animated particles** flow along highlighted paths
+
+### Code City 🏙️
+
+The **🏙️ City** tab is the same graph read as a city — its own tab, its own scene and camera, so orbiting here never touches the 3D graph. Every file is a building and every channel of the city is a control in its bar:
+
+| Channel | What it encodes |
+|---------|-----------------|
+| **Height** | cognitive (default), cyclomatic, lines, fan-in, fan-out, PageRank or **risk** |
+| **Footprint** | the file's size, distributed by √ (default), linear or log |
+| **Colour** | the height ramp, the risk score, the language, the layer or the district |
+| **Districts** | its folder (default), its architecture layer or its community |
+
+Mapping is **quantiles**, **linear** or **thresholds** — quantiles keep a small repository's skyline readable.
+
+- **The hot band** — 5 % of the buildings, never fewer than 3 nor more than 20 — takes the red end of the ramp and a **#1…#N badge**. Everything else is muted, so the eye only goes where it matters, and the red always means "the handful you can count".
+- **Not everything is ranked** — documentation, data, config and assets are drawn as **grey glass**: visible, but clearly outside the ranking.
+- **Click** a building: it turns **white**, the files it depends on turn **blue**, the files that depend on it turn **amber**, files in both directions turn **purple**, and the rest of the city dims — outlines included, one notch darker than the facade.
+- **Double-click** a building to open the file in the editor — at its line when the city shows functions. District names hang off the **edge of the plan on leader lines**, and are occluded by the buildings in front of them.
+- **Drill down**: click a district plate to enter a folder; the breadcrumb and the child chips at the bottom walk back out.
+- **Function granularity** builds one tower per function and turns the file into the district (~5 000 buildings on a repository this size). The city grows with **√building count** while the **ground keeps a fixed grid**, so the streets stay a ruler at every size; above 1 500 buildings contact shadows switch themselves off.
+- **Inspector** — metrics, district, the **risk score with its reasons** and the complexity sparkline, a mini map of the file's relations, and the shared action bar: **↗ Open** in the editor, **◫ View in** another view.
+- **Same furniture as the graph** — a floating **🗺️ Map** with the camera footprint and a reframe button, **🌀 Warps scoped to the City** (a pose saved here is not offered in the graph), and **📤 Export** → **PNG** or a **1600×900 postcard** with a caption naming the method and the hottest buildings.
+- **The legend** (bottom left) explains the encoding and carries the switches for **district names**, **rank badges** and **shadows**.
 
 ### Multi-Language Support
 
@@ -211,7 +236,16 @@ A rule needs a `reason` and at least one of `name`, `namePattern` or `path`; `la
 
 Open the **🛡️ Risk** tab for a codebase health dashboard built on a transparent, explainable risk score:
 
-`risk = 100 × (0.30·complexity + 0.20·fan-in + 0.10·fan-out + 0.15·cycle + 0.15·dead-code + 0.10·churn)`
+`risk = 100 × (0.21·complexity + 0.18·centrality + 0.08·fan-out + 0.12·cycle + 0.12·dead-code
+          + 0.09·rewrite + 0.06·recency + 0.06·frequency + 0.05·authors + 0.03·fixes)`
+
+The structural half stays dominant on purpose — Aura is an architecture tool, and git history
+refines the ranking rather than driving it. **Rewrite** is the volume of lines added and removed
+inside the window relative to the file's size today, **recency** weights a commit made today over
+one at the window's edge, **frequency** is the commit count, **authors** the number of distinct
+authors and **fixes** the share of commits whose message looks like a bug fix.
+
+`centrality` is fan-in, or PageRank when `auraVisualizer.riskCentrality` is on.
 
 Documentation files are outside the architectural risk model: they are not scored, and `doc-reference` links do not inflate fan-in or PageRank. The doc links remain visible in the graph for exploration.
 
@@ -651,11 +685,12 @@ This turns the Explorer into a fast outline / go-to-symbol navigator across your
 
 ### Tabbed Views
 
-Switch between **10 visualization tabs** for different perspectives on your codebase:
+Switch between **11 visualization tabs** for different perspectives on your codebase:
 
 | Tab | Description |
 |-----|-------------|
 | **✦ 3D Graph** | Interactive 3D force-directed dependency graph (default) |
+| **🏙️ City** | The same graph as a 2.5D city — one building per file, height = the metric you pick, footprint = its size, districts = its folder. Click to read, double-click to open, click a plate to drill in |
 | **🗺️ Treemap** | Files nested by directory, sized by LOC or complexity, colored by metric. Click to zoom into subdirectories, breadcrumb navigation to zoom out. |
 | **🗑️ Matrix** | N×N Dependency Structure Matrix (DSM). Rows and columns are files; a colored cell means a dependency exists. Red cells with ↺ indicate circular dependencies. Group by directory, language, architecture layer, or community — a forbidden layer dependency is a red cell with ✖. |
 | **🎵 Chord** | Chord diagram showing dependency flows between groups (directories, languages, architecture layers, or communities). Ribbon thickness reflects flow volume. Hover to highlight a group and its connections. |

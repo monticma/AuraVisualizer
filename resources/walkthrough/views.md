@@ -1,6 +1,6 @@
 ## Tabbed Views
 
-Aura offers **10 visualization tabs** — each gives a different perspective on your codebase architecture.
+Aura offers **11 visualization tabs** — each gives a different perspective on your codebase architecture.
 
 ### How to switch
 
@@ -11,6 +11,7 @@ Click any tab in the **tab bar** below the toolbar. The 3D graph pauses when you
 | Tab | What it shows |
 |-----|--------------|
 | **✦ 3D Graph** | The interactive 3D force-directed dependency graph (default view) |
+| **🏙️ City** | The same graph as a 2.5D city: a building per file, height = the metric you pick, footprint = its size, districts = its folder. Click to read, double-click to open, click a plate to drill in |
 | **🗺️ Treemap** | Files as nested rectangles, sized by LOC or complexity, colored by a metric. Click a directory to zoom in, use the breadcrumb to zoom out |
 | **🗑️ Matrix** | Dependency Structure Matrix (DSM) — an N×N grid where each colored cell is a dependency. Red cells with ↺ = circular dependency |
 | **🎵 Chord** | Chord diagram — ribbons show dependency flows between groups. Thicker ribbon = more dependencies |
@@ -46,8 +47,16 @@ Click any tab in the **tab bar** below the toolbar. The 3D graph pauses when you
 - Hover a data point to see commit details (hash, message, author, date)
 - The chart updates automatically as more commits are scanned
 
+### City tips
+- **Height** offers cognitive, cyclomatic, lines, fan-in, fan-out, PageRank and **risk** — so the skyline can be the risk score itself
+- The **hot band** is always 5 % of the buildings (min 3, max 20) and carries the `#1…#N` badges; the rest of the city stays muted on purpose
+- **Click** a building: white = selected, blue = it depends on, amber = depends on it, purple = both. The outlines follow
+- **Double-click** opens the file; clicking a district plate drills into that folder, and the breadcrumb walks back out
+- **Function granularity** makes one tower per function and the file becomes the district — the city scales with √n, the ground keeps a fixed grid
+- **🗺️ Map** and **🌀 Warps** work here too, with their own position and their own saved poses; **📤 Export** gives a PNG or a 1600×900 postcard
+
 ### Risk Map tips
-- Risk = `100 × (0.30·complexity + 0.20·fan-in + 0.10·fan-out + 0.15·cycle + 0.15·dead-code + 0.10·churn)`
+- Risk = `100 × (0.21·complexity + 0.18·centrality + 0.08·fan-out + 0.12·cycle + 0.12·dead-code + 0.09·rewrite + 0.06·recency + 0.06·frequency + 0.05·authors + 0.03·fixes)` — the structural half stays dominant, git history refines the ranking
 - Documentation is outside architectural risk: docs are not scored and `doc-reference` links do not inflate fan-in or PageRank
 - Framework/test exemptions do not count as dead code; they remain visible in the detail panel with their reason
 - Complexity, fan-in, fan-out and churn are **percentile ranks inside your repository** — a score is a standing relative to *this* codebase
