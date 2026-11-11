@@ -88,46 +88,83 @@ export async function getWorkingTreeFiles(cwd: string): Promise<Map<string, GitF
 }
 
 /**
- * Get the full commit index using git log --name-status.
+ * Get the full commit index using `git log --raw --numstat`.
+ *
+ * `--raw` gives the status letter and, for renames, both paths; `--numstat`
+ * gives the lines added/removed. Git accepts both at once but emits them as two
+ * consecutive blocks for the same commit — hence the two-phase parse below, with
+ * an index-based zip guarded by an equal-count check (a commit whose blocks
+ * disagree keeps its files but loses its line counts, never the reverse).
+ *
+ * Line volumes are what turns "changed 30 times" into "rewritten 2×".
  * Returns commits from newest to oldest.
  */
 export async function getCommitIndex(cwd: string): Promise<CommitInfo[]> {
     const { stdout } = await execFileAsync('git', [
         'log',
-        '--pretty=format:%H%n%aI%n%an%n%s',
-        '--name-status',
+        // NUL starts a record: subjects can contain anything but NUL, so the
+        // split is unambiguous whatever the commit messages look like.
+        '--pretty=format:%x00%H%n%aI%n%an%n%s',
+        '--raw',
+        '--numstat',
         '-M',              // rename detection, independent of the user's diff.renames config
         '--diff-filter=ADMR',
         '--no-merges',
     ], { cwd, maxBuffer: MAX_BUFFER });
 
     const commits: CommitInfo[] = [];
-    const blocks = stdout.split('\n\n');
+    for (const record of stdout.split('\0')) {
+        const lines = record.split('\n');
+        let i = 0;
+        while (i < lines.length && lines[i].trim() === '') i++;
+        if (i + 3 >= lines.length) continue;
 
-    for (const block of blocks) {
-        const lines = block.split('\n').filter(l => l.length > 0);
-        if (lines.length < 4) continue;
-
-        const hash = lines[0];
-        const date = lines[1];
-        const author = lines[2];
-        const message = lines[3];
+        const hash = lines[i].trim();
+        const date = lines[i + 1].trim();
+        const author = lines[i + 2];
+        const message = lines[i + 3];
+        if (!hash || !date) continue;
 
         const files: CommitFileChange[] = [];
-        for (let i = 4; i < lines.length; i++) {
+        const volumes: { additions: number; deletions: number }[] = [];
+        for (i = i + 4; i < lines.length; i++) {
             const line = lines[i];
-            const match = line.match(/^([ADMR])\d*\t(.+?)(?:\t(.+))?$/);
-            if (!match) continue;
+            if (!line) continue;
 
-            const status = match[1] as CommitFileChange['status'];
-            if (status === 'R') {
-                files.push({ status, path: match[3] || match[2], oldPath: match[2] });
-            } else {
-                files.push({ status, path: match[2] });
+            if (line[0] === ':') {
+                // :100644 100644 <oldsha> <newsha> M\tpath[\tnewpath]
+                const tab = line.indexOf('\t');
+                if (tab < 0) continue;
+                const meta = line.slice(0, tab).trim().split(/\s+/);
+                const letter = (meta[meta.length - 1] || '')[0];
+                const parts = line.slice(tab + 1).split('\t');
+                if (letter === 'R') {
+                    if (parts.length >= 2 && parts[1]) {
+                        files.push({ status: 'R', path: parts[1], oldPath: parts[0] });
+                    }
+                } else if (letter === 'A' || letter === 'M' || letter === 'D') {
+                    if (parts[0]) files.push({ status: letter, path: parts[0] });
+                }
+                continue;
+            }
+
+            // 12\t34\tpath — or "-\t-\tpath" for binary files
+            const volume = /^(\d+|-)\t(\d+|-)\t/.exec(line);
+            if (volume) {
+                volumes.push({
+                    additions: volume[1] === '-' ? 0 : parseInt(volume[1], 10),
+                    deletions: volume[2] === '-' ? 0 : parseInt(volume[2], 10),
+                });
             }
         }
 
         if (files.length > 0) {
+            if (volumes.length === files.length) {
+                for (let f = 0; f < files.length; f++) {
+                    files[f].additions = volumes[f].additions;
+                    files[f].deletions = volumes[f].deletions;
+                }
+            }
             commits.push({ hash, date, author, message, files });
         }
     }

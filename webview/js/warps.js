@@ -16,6 +16,8 @@
     // Mirrors refreshed from hooks at every entry point (see syncCtx).
     var graph = null;
     var warps = [];
+    /** Which scene the panel is showing: 'graph' or 'city'. */
+    var scope = 'graph';
     var warpEditId = null;     // warp modal: null = capturing a new warp, else the edited warp id
 
     var $ = function(sel) { return document.querySelector(sel); };
@@ -24,6 +26,7 @@
         if (!hooks.getGraph) return;
         graph = hooks.getGraph();
         warps = hooks.getWarps() || [];
+        scope = hooks.getScope ? (hooks.getScope() || 'graph') : 'graph';
     }
 
     // ============================================================
@@ -298,16 +301,25 @@
         });
         list.appendChild(home);
 
-        if (!warps.length) {
+        // Only the warps of the scene on screen: a City pose has no meaning in
+        // the graph, and the other way round.
+        var mine = [];
+        for (var k = 0; k < warps.length; k++) {
+            if ((warps[k].scope || 'graph') === scope) mine.push(warps[k]);
+        }
+
+        if (!mine.length) {
             var empty = document.createElement('div');
             empty.className = 'warps-empty';
-            empty.textContent = 'No warps yet — travel somewhere, then press the 📌 button above.';
+            empty.textContent = scope === 'city'
+                ? 'No warps for the City yet — travel somewhere, then press the 📌 button above.'
+                : 'No warps yet — travel somewhere, then press the 📌 button above.';
             list.appendChild(empty);
             return;
         }
 
-        for (var i = 0; i < warps.length; i++) {
-            list.appendChild(buildWarpRow(warps[i]));
+        for (var i = 0; i < mine.length; i++) {
+            list.appendChild(buildWarpRow(mine[i]));
         }
     }
 
@@ -418,23 +430,27 @@
             postWarp({
                 id: existing.id, createdAt: existing.createdAt, name: name,
                 quickSlot: slot || null,
+                scope: existing.scope || scope,
                 pos: existing.pos, target: existing.target, quat: existing.quat, up: existing.up, fov: existing.fov,
                 anchor: existing.anchor || null
             });
         } else {
             var pose = captureWarpPose();
             if (!pose) return;
-            postWarp({ name: name, quickSlot: slot || null, pos: pose.pos, target: pose.target, quat: pose.quat, up: pose.up, fov: pose.fov, anchor: pose.anchor || null });
+            postWarp({ name: name, quickSlot: slot || null, scope: scope, pos: pose.pos, target: pose.target, quat: pose.quat, up: pose.up, fov: pose.fov, anchor: pose.anchor || null });
         }
         hideWarpModal();
     }
 
     function setWarpsPanelVisible(visible) {
         var panel = $('#warps-panel');
-        var btn = $('#btn-warps-panel');
         if (!panel) return;
         panel.classList.toggle('hidden', !visible);
-        if (btn) btn.classList.toggle('active', !!visible);
+        var buttons = ['#btn-warps-panel', '#city-warps-toggle'];
+        for (var b = 0; b < buttons.length; b++) {
+            var btn = $(buttons[b]);
+            if (btn) btn.classList.toggle('active', !!visible);
+        }
         if (visible) renderWarpsPanel();
         hooks.saveViewState(); // open/closed state persists across sessions
     }
@@ -448,6 +464,9 @@
     function setupWarps() {
         var panelBtn = $('#btn-warps-panel');
         if (panelBtn) panelBtn.addEventListener('click', function () { toggleWarpsPanel(); });
+        // Same panel, opened from the City bar.
+        var cityPanelBtn = $('#city-warps-toggle');
+        if (cityPanelBtn) cityPanelBtn.addEventListener('click', function () { toggleWarpsPanel(); });
 
         var closeBtn = $('#warps-panel-close');
         if (closeBtn) closeBtn.addEventListener('click', function () { setWarpsPanelVisible(false); });

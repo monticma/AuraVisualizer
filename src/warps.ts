@@ -74,9 +74,18 @@ export interface Warp {
     anchor?: WarpAnchor;
     /** Exclusive quick slot, 1..QUICK_SLOT_COUNT (Alt+1..9 in the webview). */
     quickSlot?: number;
+    /**
+     * Which scene the pose belongs to. Absent means 'graph' — the only scene
+     * that had warps before the City — so older files keep their meaning.
+     * A City pose and a graph pose live in different worlds; replaying one in
+     * the other frames nothing.
+     */
+    scope?: WarpScope;
     createdAt: number;  // epoch ms
     updatedAt: number;  // epoch ms
 }
+
+export type WarpScope = 'graph' | 'city';
 
 export type WarpList = Warp[];
 
@@ -177,6 +186,9 @@ export function makeWarp(value: unknown, now: number = Date.now(), fallbackName:
         fov: normalizeFov(rec.fov),
         anchor: normalizeAnchor(rec.anchor),
         quickSlot: normalizeQuickSlot(rec.quickSlot),
+        // Written only for the City: absent keeps meaning "graph", so existing
+        // files (and the tests that pin their exact shape) stay untouched.
+        ...(rec.scope === 'city' ? { scope: 'city' as WarpScope } : {}),
         createdAt,
         updatedAt: isFiniteNumber(rec.updatedAt) ? rec.updatedAt : now,
     };

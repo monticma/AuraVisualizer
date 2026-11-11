@@ -90,6 +90,16 @@ html, body {
     overflow: hidden;
     min-height: 0;
     position: relative;
+    /* The tab is a column now: #graph-bar on top, then the canvas. Every other
+       child is absolutely positioned and starts below the bar via
+       --graph-bar-h, so the panels never cover it. */
+    flex-direction: column;
+}
+
+/* Height of `#graph-bar` (the shared .view-toolbar shell: 40px + its 1px
+   border), consumed by the panels and the canvas overlays below. */
+#middle-row {
+    --graph-bar-h: 41px;
 }
 
 /* ============================================================
@@ -132,7 +142,7 @@ html, body {
    ============================================================ */
 #review-bar {
     position: absolute;
-    top: 8px;
+    top: calc(var(--graph-bar-h, 41px) + 8px);
     left: 50%;
     transform: translateX(-50%);
     z-index: 160;
@@ -245,7 +255,7 @@ html, body {
    ============================================================ */
 #breadcrumb-bar {
     position: absolute;
-    top: 8px;
+    top: calc(var(--graph-bar-h, 41px) + 8px);
     left: 50%;
     transform: translateX(-50%);
     z-index: 155;
@@ -358,17 +368,15 @@ html, body {
     font-size: 13px;
 }
 .qb-toggle:hover { background: var(--aura-border); }
-#tab-bar .qb-toggle {
-    margin-left: 8px;
-    align-self: center;
-}
-#tab-bar #qb-toggle {
-    margin-left: auto;
-}
-#tab-bar .qb-toggle.active {
-    background: var(--aura-accent);
-    color: #fff;
+/* The query toggle lives in the view bar now, and the settings gear next to
+   Help: the tab bar holds tabs only. */
+.qb-toggle.active {
+    background: rgba(96,165,250,0.1);
     border-color: var(--aura-accent);
+}
+#graph-bar .qb-toggle {
+    padding: 4px 8px;
+    font-size: 11px;
 }
 .qb-input {
     flex: 1;
@@ -550,11 +558,14 @@ html, body {
     margin-right: 4px;
 }
 
-.top-btn.active {
+.top-btn.active,
+.city-select.active {
     opacity: 1;
-    color: var(--aura-accent);
+    /* Same recipe as .filter-btn.active: accent border, tinted background, text
+       left alone. The blue text made the top buttons read as links rather than
+       as engaged toggles. */
     border-color: var(--aura-accent);
-    background: rgba(96,165,250,0.12);
+    background: rgba(96,165,250,0.1);
 }
 
 .top-btn.paused {
@@ -844,9 +855,9 @@ html, body {
    ============================================================ */
 #detail-panel {
     position: absolute;
-    top: 0;
+    top: var(--graph-bar-h, 41px);
     right: 0;
-    height: 100%;
+    height: calc(100% - var(--graph-bar-h, 41px));
     width: 320px;
     background: var(--aura-sidebar-bg);
     border-left: 1px solid var(--aura-border);
@@ -984,6 +995,44 @@ html, body {
 .ai-action-btn:hover {
     background: rgba(96, 165, 250, 0.24);
     border-color: rgba(96, 165, 250, 0.55);
+}
+
+/* Actions toolbar: both inspectors get the same band under their header, built
+   on the tabs' .view-toolbar recipe — full-bleed, its own hairline, sidebar
+   background — so a strip of controls looks the same wherever it appears.
+   Icons only, hugging the left edge: the row is a place for gestures, not a
+   second title. Every button carries its own tooltip. */
+.panel-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+    box-sizing: border-box;
+    min-height: 40px;
+    padding: 6px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--aura-sidebar-bg);
+    flex-shrink: 0;
+    /* The graph panel scrolls as a whole; the City panel scrolls its body only.
+       Sticky keeps the gestures in the same place in both — reachable while
+       reading a long inspector. No-op in the City, where the band never moves. */
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+/* Same recipe as .top-btn — every toolbar in the app wears it — so this class
+   only lays the glyph and its label side by side. */
+.panel-action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    line-height: 1;
+}
+
+.panel-action-btn:focus-visible {
+    outline: 2px solid var(--aura-accent);
+    outline-offset: 1px;
 }
 
 .community-ask {
@@ -1426,16 +1475,16 @@ html, body {
 /* ============================================================
    Warp Points (panel + modal)
    ============================================================ */
-#warps-panel {
+/* ============================================================
+   FLOATING WINDOWS — one type for warps, communities and both maps.
+   The containers keep their own geometry (size, anchor, resize); the chrome,
+   the header and every header button come from here, so a ✕ looks like a ✕
+   wherever it sits.
+   ============================================================ */
+.float-window {
     position: fixed;
-    top: 80px;
-    right: 16px;
-    width: 240px;
-    min-width: 180px;
-    min-height: 100px;
-    max-height: 70vh;
     background: var(--aura-sidebar-bg);
-    border: 1px solid var(--aura-border);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: var(--radius);
     z-index: 200;
     font-size: 12px;
@@ -1444,42 +1493,76 @@ html, body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    resize: both;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
 }
-#warps-panel.hidden { display: none; }
 
-.warps-panel-header {
+.float-window.hidden { display: none; }
+
+.float-window-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 8px 10px;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 10px;
     font-weight: 600;
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     color: rgba(201, 209, 217, 0.7);
-    border-bottom: 1px solid var(--aura-border);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     flex-shrink: 0;
     cursor: grab;
     user-select: none;
 }
-.warps-panel-header:active { cursor: grabbing; }
 
-.warps-panel-actions { display: flex; gap: 4px; }
-.warps-panel-actions button {
+.float-window-header:active { cursor: grabbing; }
+
+.float-window-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Actions live at the right edge, always, and every button is the same box. */
+.float-window-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+}
+
+.float-window-btn {
     background: transparent;
-    border: 1px solid var(--aura-border);
+    border: 1px solid rgba(255, 255, 255, 0.14);
     color: var(--aura-text-secondary);
     padding: 2px 6px;
-    border-radius: 3px;
+    border-radius: 4px;
     cursor: pointer;
     font-size: 10px;
+    line-height: 1.4;
+    text-transform: none;
+    letter-spacing: 0;
 }
-.warps-panel-actions button:hover {
+
+.float-window-btn:hover {
     background: rgba(96, 165, 250, 0.15);
     color: var(--aura-text);
 }
+
+#warps-panel {
+    /* 80px put the panel just under the tab bar; the graph bar now lives there,
+       so it starts below it (41px = --graph-bar-h). */
+    top: 121px;
+    right: 16px;
+    width: 240px;
+    min-width: 180px;
+    min-height: 100px;
+    max-height: 70vh;
+    resize: both;
+}
+#warps-panel.hidden { display: none; }
+
+
 
 #warps-list {
     overflow-y: auto;
@@ -1861,14 +1944,17 @@ html, body {
    ============================================================ */
 #explorer-panel {
     position: absolute;
-    top: 0;
+    top: var(--graph-bar-h, 41px);
     left: 0;
-    height: 100%;
+    height: calc(100% - var(--graph-bar-h, 41px));
     width: 260px;
     background: var(--aura-sidebar-bg);
     border-right: 1px solid var(--aura-border);
-    overflow-y: auto;
-    overflow-x: hidden;
+    /* The tree scrolls, not the panel: with the panel scrolling, its scrollbar
+       sat on top of the sticky header and clipped the "None" button. */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     transition: transform 0.25s ease;
@@ -1888,14 +1974,19 @@ html, body {
     letter-spacing: 0.5px;
     color: rgba(201, 209, 217, 0.5);
     border-bottom: 1px solid var(--aura-border);
-    position: sticky;
-    top: 0;
     background: var(--vscode-sideBar-background, #0d1117);
-    z-index: 1;
-    min-width: 260px;
+    flex: 0 0 auto;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 8px;
+}
+
+.explorer-tree {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .explorer-header h3 {
@@ -2000,68 +2091,20 @@ html, body {
    Community Palette
    ============================================================ */
 #community-palette {
-    position: fixed;
-    top: 80px;
+    top: 121px;
     right: 16px;
     width: 310px;
     min-width: 240px;
     min-height: 120px;
     max-height: 80vh;
-    background: var(--aura-sidebar-bg);
-    border: 1px solid var(--aura-border);
-    border-radius: var(--radius);
-    z-index: 200;
-    font-size: 12px;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
     resize: both;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.35);
 }
 
 #community-palette.hidden { display: none; }
 
-.community-palette-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 10px;
-    font-weight: 600;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: rgba(201, 209, 217, 0.7);
-    border-bottom: 1px solid var(--aura-border);
-    flex-shrink: 0;
-    cursor: grab;
-    user-select: none;
-}
 
-.community-palette-header:active {
-    cursor: grabbing;
-}
 
-.community-palette-actions {
-    display: flex;
-    gap: 4px;
-}
 
-.community-palette-actions button {
-    background: transparent;
-    border: 1px solid var(--aura-border);
-    color: var(--aura-text-secondary);
-    padding: 2px 6px;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 10px;
-}
-
-.community-palette-actions button:hover {
-    background: rgba(96, 165, 250, 0.15);
-    color: var(--aura-text);
-}
 
 /* Palette mode combobox (Communities ↔ Architecture layers) */
 #palette-mode {
@@ -2760,44 +2803,10 @@ html, body {
    Minimap
    ============================================================ */
 #minimap {
-    position: fixed;
     bottom: calc(var(--aura-bottom-bars, 48px) + 12px); /* fallback = legacy 60px */
     left: 16px;
     width: 210px;
-    background: var(--aura-sidebar-bg);
-    border: 1px solid var(--aura-border);
-    border-radius: var(--radius);
-    z-index: 200;
-    font-size: 12px;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.35);
 }
-.minimap-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 4px 8px;
-    border-bottom: 1px solid var(--aura-border);
-    cursor: grab;
-    user-select: none;
-    font-size: 11px;
-    opacity: 0.8;
-}
-.minimap-header:active { cursor: grabbing; }
-.minimap-header button {
-    background: none;
-    border: none;
-    color: var(--aura-text);
-    cursor: pointer;
-    font-size: 12px;
-    opacity: 0.6;
-    padding: 0 2px;
-}
-.minimap-header button:hover { opacity: 1; }
 #minimap-canvas {
     display: block;
     width: 100%;
@@ -2902,14 +2911,49 @@ html, body {
     flex-direction: column;
     min-height: 0;
 }
-.treemap-toolbar {
+/* ============================================================
+   VIEW TOOLBAR — one shell for every tab (docs/Ideas/Interface.md, lot P0)
+   The border is hard-coded on purpose: `--aura-border` resolves to
+   `--vscode-panel-border`, which many themes draw almost invisibly, so half the
+   tabs looked like they had no bar at all. Same for the background: without it
+   a 1px line is all that separates the controls from the content.
+   ============================================================ */
+.view-toolbar {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--aura-border);
-    flex-shrink: 0;
     gap: 12px;
+    flex-wrap: wrap;
+    box-sizing: border-box;
+    min-height: 40px;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--aura-sidebar-bg);
+    flex-shrink: 0;
+    font-size: 11px;
+}
+
+/* Identity slot: what this tab is showing, in one line, at control size. */
+.view-toolbar h2,
+.view-toolbar .view-title,
+.view-toolbar .coupling-title {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    margin: 0;
+    white-space: nowrap;
+}
+
+/* Counts and summaries are pushed to the right, where the eye expects totals. */
+.view-toolbar .chord-stats,
+.view-toolbar .dsm-stats,
+.view-toolbar .tchart-stats,
+.view-toolbar .view-stats {
+    margin-left: auto;
+}
+
+/* Per-view blocks keep only what is genuinely theirs. */
+.treemap-toolbar {
+    justify-content: space-between;
 }
 #treemap-breadcrumb {
     display: flex;
@@ -3028,11 +3072,6 @@ html, body {
     min-height: 0;
 }
 .dsm-toolbar {
-    display: flex;
-    align-items: center;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--aura-border);
-    flex-shrink: 0;
     gap: 12px;
 }
 .dsm-controls {
@@ -3185,11 +3224,6 @@ html, body {
     min-height: 0;
 }
 .chord-toolbar {
-    display: flex;
-    align-items: center;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--aura-border);
-    flex-shrink: 0;
     gap: 12px;
 }
 .chord-controls {
@@ -3299,11 +3333,6 @@ html, body {
     min-height: 0;
 }
 .tchart-toolbar {
-    display: flex;
-    align-items: center;
-    padding: 8px 12px;
-    border-bottom: 1px solid var(--aura-border);
-    flex-shrink: 0;
     gap: 12px;
 }
 .tchart-controls {
@@ -3411,16 +3440,14 @@ html, body {
     flex: 1;
     overflow: hidden;
     flex-direction: column;
-    padding: 12px;
+    padding: 0;
+}
+
+#coupling-view .table-scroll {
+    margin: 0 12px 12px;
 }
 .coupling-toolbar {
-    display: flex;
-    align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin-bottom: 6px;
-    flex-shrink: 0;
 }
 .coupling-title {
     font-size: 15px;
@@ -3441,7 +3468,7 @@ html, body {
     opacity: 0.8;
 }
 .coupling-summary {
-    margin: 0 0 8px;
+    margin: 8px 12px;
     font-size: 11px;
     opacity: 0.7;
 }
@@ -3483,14 +3510,16 @@ html, body {
     flex: 1;
     overflow: hidden;
     flex-direction: column;
-    padding: 12px;
+    padding: 0;
+}
+
+/* Same air under the bar as the Risk view puts under its own (16px before the
+   first card): the table used to start flush against the toolbar. */
+#table-view .table-scroll {
+    margin: 16px 12px 12px;
 }
 #table-view .table-toolbar {
-    display: flex;
-    align-items: center;
     gap: 8px;
-    margin-bottom: 8px;
-    flex-shrink: 0;
 }
 #table-view .table-toolbar input {
     flex: 1;
@@ -3584,18 +3613,13 @@ html, body {
    ============================================================ */
 #risk-view {
     flex-direction: column;
-    padding: 16px;
+    padding: 0;
     overflow-y: auto;
-    gap: 14px;
 }
 #risk-view.active { display: flex; }
 
 .risk-toolbar {
-    display: flex;
-    align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    flex-shrink: 0;
 }
 .risk-toolbar h2 {
     font-size: 15px;
@@ -3641,6 +3665,7 @@ html, body {
     display: flex;
     flex-direction: column;
     gap: 14px;
+    padding: 16px;
 }
 
 .risk-section {
@@ -4120,9 +4145,8 @@ select option {
    ============================================================ */
 #arch-view {
     flex-direction: column;
-    padding: 16px;
+    padding: 0;
     overflow-y: auto;
-    gap: 14px;
 }
 #arch-view.active { display: flex; }
 
@@ -4131,14 +4155,11 @@ select option {
     display: flex;
     flex-direction: column;
     gap: 14px;
+    padding: 16px;
 }
 
 .arch-toolbar {
-    display: flex;
-    align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    flex-shrink: 0;
 }
 .arch-toolbar h2 {
     font-size: 15px;
@@ -4806,3 +4827,610 @@ select option {
     white-space: pre-wrap;
 }
 .dc-editor-actions { margin-top: 0; }
+
+/* ============================================================
+   City view (V5-07) — its own tab, its own scene
+   ============================================================ */
+#city-view {
+    position: relative;
+    overflow: hidden;
+    flex-direction: column;
+    min-height: 0;
+}
+
+/* Holds the canvas + the overlays, so the inspector starts below the toolbars
+   (same relationship as #detail-panel inside the 3D Graph tab). */
+#city-stage {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#city-canvas {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    position: relative;
+    overflow: hidden;
+}
+
+#city-canvas canvas { display: block; }
+
+/* The 3D Graph's own controls, inside the canvas it acts on. They used to sit in
+   the global top bar, where six of the eight buttons were inert on the other ten
+   tabs. z-index 45 keeps it under the explorer/detail panels (50), so a panel
+   simply slides over it instead of fighting it. */
+/* The graph's bar holds its actions on the right, the way Risk and Architecture
+   do: the left slot stays free for the state (filters, scope) the way the other
+   tabs show theirs. */
+/* Right slot of a view bar: the actions of the view, pushed to the far edge. */
+.view-bar-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto;
+    flex-wrap: wrap;
+}
+
+#graph-bar .top-btn {
+    padding: 4px 8px;
+    font-size: 11px;
+}
+
+/* Bottom-left family (Proposition B of docs/Ideas/Interface.md): the status
+   band and the legend are the same kind of object — quiet text floating over
+   the scene — so they share one box. The graph can join later by taking the
+   same classes; nothing here touches it today. */
+.view-status,
+.view-legend {
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: rgba(13, 17, 23, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #b0bec5;
+    font-size: 11px;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
+
+/* The column that holds them. Two absolutely positioned boxes at bottom: 12px
+   and bottom: 52px had to agree on the band's height forever — the 52 was a
+   measurement, not a layout. A flex column cannot drift. */
+#city-overlays {
+    position: absolute;
+    left: 12px;
+    bottom: 12px;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    /* Sized by content on purpose: the band's line is a file path plus its
+       numbers, and truncating it hides the answer. The legend caps itself. */
+    /* Click-through, so a drag that starts on the legend still orbits the
+       city; the toggles and the band take their clicks back below. */
+    pointer-events: none;
+}
+
+#city-hud {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    pointer-events: auto;
+}
+
+#city-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    line-height: 1.35;
+    max-width: 240px;
+    pointer-events: none;
+}
+
+#city-hud-meta { white-space: nowrap; }
+
+#city-hud-graph {
+    display: none;
+    padding: 2px 8px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: transparent;
+    color: #e0e0e0;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+#city-hud-graph:hover { background: rgba(255, 255, 255, 0.08); }
+
+#city-controls {
+    color: #b0bec5;
+    /* The stage below owns the remaining height; the bar never grows. */
+    flex: 0 0 auto;
+}
+
+.city-field {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    opacity: 0.7;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+/* Same control as every other tab (`.treemap-controls select`). */
+.city-select {
+    background: var(--aura-input-bg);
+    border: 1px solid var(--aura-input-border);
+    color: var(--aura-fg);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 11px;
+    cursor: pointer;
+    outline: none;
+}
+
+/* City — inspector panel (right) and hover tooltip.
+   Same shell as #detail-panel: 320 px, blurred sidebar, slides in from the
+   right on a 0.25 s transform (no layout thrash, no popping). */
+#city-side {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 320px;
+    display: flex;
+    flex-direction: column;
+    background: var(--aura-sidebar-bg);
+    border-left: 1px solid var(--aura-border);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transform: translateX(100%);
+    pointer-events: none;
+    transition: transform 0.25s ease;
+    z-index: 3;
+    overflow: hidden;
+}
+
+#city-side.open {
+    transform: translateX(0);
+    pointer-events: auto;
+}
+
+#city-side-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--aura-border);
+    min-width: 320px;
+}
+
+#city-side-icon { font-size: 28px; flex-shrink: 0; margin-top: 2px; }
+
+#city-side-info { flex: 1; min-width: 0; }
+
+#city-side-title {
+    font-weight: 600;
+    font-size: 15px;
+    word-break: break-word;
+}
+
+#city-side-path {
+    display: block;
+    font-size: 11px;
+    opacity: 0.5;
+    margin-top: 4px;
+    word-break: break-all;
+    font-family: monospace;
+}
+
+#city-side-close {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    background: none;
+    border: none;
+    color: var(--aura-fg);
+    font-size: 18px;
+    cursor: pointer;
+    opacity: 0.5;
+    padding: 4px;
+    border-radius: 4px;
+    transition: opacity 0.15s, background 0.15s;
+}
+
+#city-side-close:hover { opacity: 1; background: rgba(255, 255, 255, 0.06); }
+
+#city-side-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0 0 14px;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+/* Sections are separated by a hairline, exactly like .panel-section. */
+.city-side-section {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--aura-border);
+}
+
+.city-side-section:last-child { border-bottom: none; }
+
+/* Section headers: exactly .panel-section-title from the 3D Graph panel. */
+.city-side-label {
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 11px;
+    font-weight: 600;
+    opacity: 0.5;
+    margin-bottom: 6px;
+}
+
+
+/* Metrics: the 2-column stacked grid of .panel-meta (label 11 px, value 14 px). */.city-side-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 12px;
+}
+
+.city-side-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.city-side-k {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    opacity: 0.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.city-side-v {
+    font-size: 14px;
+    font-weight: 500;
+    font-family: monospace;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* The City inspector reuses .panel-actions; only its insets differ (the panel
+   header is padded 20 px, the graph panel 16 px). */
+#city-side-actions { padding: 6px 20px; }
+
+.city-side-empty { opacity: 0.5; font-style: italic; }
+
+.city-tip-name { font-weight: 600; }
+.city-tip-meta { opacity: 0.75; font-variant-numeric: tabular-nums; }
+.city-tip-dir { margin-top: 2px; }
+.city-tip-out { color: #e0b53a; }
+.city-tip-in { color: #4fc3f7; }
+.city-tip-hint { margin-top: 4px; opacity: 0.55; font-size: 11px; }
+
+/* City — district drill-down (breadcrumb + child chips) */
+/* District bar. It sat under the toolbar; it now closes the view from below,
+   the way #filter-bar closes the 3D Graph. */
+#city-crumbs {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 6px 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--aura-sidebar-bg);
+    font-size: 11px;
+    color: #b0bec5;
+    flex: 0 0 auto;
+}
+
+#city-crumbs.hidden { display: none; }
+
+.city-crumb {
+    padding: 1px 7px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: transparent;
+    color: inherit;
+    font-size: 11px;
+    cursor: pointer;
+    max-width: 260px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.city-crumb:hover { background: rgba(255, 255, 255, 0.08); }
+
+.city-crumb.current {
+    border-color: rgba(224, 181, 58, 0.6);
+    color: #e0b53a;
+    cursor: default;
+}
+
+.city-crumb-sep { opacity: 0.35; }
+
+.city-crumb-count { opacity: 0.45; margin-left: 4px; font-variant-numeric: tabular-nums; }
+
+/* Treemap → City hand-off */
+.treemap-city-btn {
+    padding: 3px 9px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: transparent;
+    color: inherit;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.treemap-city-btn:hover { background: rgba(255, 255, 255, 0.08); }
+
+/* City — mini dependency map (CodeCity-style) */
+.city-rel-svg {
+    width: 100%;
+    height: auto;
+    display: block;
+    overflow: visible;
+}
+
+.city-rel-link {
+    stroke-width: 1;
+    opacity: 0.45;
+}
+
+.city-rel {
+    cursor: pointer;
+}
+
+.city-rel circle { transition: r 90ms ease; }
+.city-rel:hover circle { r: 5.5; }
+
+.city-rel text {
+    font-size: 9px;
+    fill: #b0bec5;
+    pointer-events: none;
+}
+
+.city-rel:hover text { fill: #ffffff; }
+
+.city-rel-self {
+    font-size: 9px;
+    fill: #e0e0e0;
+}
+
+.city-rel-more {
+    font-size: 9px;
+    fill: #78909c;
+}
+
+.city-rel-legend {
+    margin-top: 6px;
+    font-size: 10px;
+    opacity: 0.75;
+    display: flex;
+    gap: 10px;
+}
+
+.city-rel-legend .rel-out { color: #4fc3f7; }
+.city-rel-legend .rel-in { color: #e0b53a; }
+
+/* ============================================================
+   Search hits (treemap cell / table row)
+   ============================================================ */
+.treemap-cell.treemap-file-hit {
+    outline: 2px solid #ffffff;
+    outline-offset: -2px;
+    z-index: 3;
+    animation: aura-hit-pulse 1.2s ease-in-out 2;
+}
+
+.aura-table tr.table-hit td {
+    background: rgba(96,165,250,0.22);
+    box-shadow: inset 0 0 0 1px rgba(96,165,250,0.55);
+}
+
+@keyframes aura-hit-pulse {
+    0%, 100% { outline-color: #ffffff; }
+    50% { outline-color: rgba(96,165,250,0.35); }
+}
+
+/* City — legend rows. The box itself (padding, background, border, radius) is
+   the shared .view-legend family rule, next to #city-overlays. */
+.city-legend-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.city-legend-swatch {
+    width: 9px;
+    height: 9px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.city-legend-swatch.hot { background: #d1462f; }
+.city-legend-swatch.glass {
+    background: rgba(190, 200, 212, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+/* Colour channel: same three buckets as .risk-file-row and the inspector. */
+.city-legend-swatch.risk-low { background: #3fb950; }
+.city-legend-swatch.risk-medium { background: #d29922; }
+.city-legend-swatch.risk-high { background: #f85149; }
+.city-legend-swatch.rainbow { background: linear-gradient(90deg, #4fc3f7, #ba68c8, #e0b53a); }
+
+/* A swatch followed by a word needs a breath between the pairs. */
+#city-legend-colour { gap: 5px; }
+.city-legend-swatch.risk-medium,
+.city-legend-swatch.risk-high { margin-left: 4px; }
+
+/* Toggles: the only legend rows you can click. The panel itself stays
+   click-through so it never eats a canvas drag. */
+.city-legend-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    user-select: none;
+    pointer-events: auto;
+}
+
+/* Separates what the map *means* from what you can switch on and off. */
+.city-legend-sep {
+    height: 1px;
+    margin: 4px 0 3px;
+    background: rgba(255, 255, 255, 0.09);
+}
+
+.city-legend-toggle input {
+    margin: 0;
+    width: 11px;
+    height: 11px;
+    accent-color: #d1462f;
+}
+
+/* ============================================================
+   City inspector — risk block
+   Same palette as .risk-file-row so a score reads the same in both views.
+   ============================================================ */
+.city-risk-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.city-risk-score {
+    min-width: 30px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 14px;
+    border-radius: 6px;
+    padding: 2px 6px;
+}
+
+.city-risk-bar {
+    flex: 1 1 0;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+}
+
+.city-risk-bar > i {
+    display: block;
+    height: 100%;
+    border-radius: 2px;
+}
+
+.city-risk[data-bucket="high"] .city-risk-score { background: rgba(248, 81, 73, 0.18); color: #f85149; }
+.city-risk[data-bucket="high"] .city-risk-bar > i { background: #f85149; }
+.city-risk[data-bucket="medium"] .city-risk-score { background: rgba(210, 153, 34, 0.18); color: #d29922; }
+.city-risk[data-bucket="medium"] .city-risk-bar > i { background: #d29922; }
+.city-risk[data-bucket="low"] .city-risk-score { background: rgba(63, 185, 80, 0.18); color: #3fb950; }
+.city-risk[data-bucket="low"] .city-risk-bar > i { background: #3fb950; }
+
+.city-risk-reasons {
+    margin: 8px 0 0;
+    padding-left: 16px;
+    font-size: 11px;
+    line-height: 1.5;
+    opacity: 0.85;
+}
+
+.city-risk-reasons li { margin-bottom: 3px; }
+
+.city-risk-stats {
+    margin-top: 8px;
+    font-size: 11px;
+    opacity: 0.55;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Complexity sparkline + trend badge — .trend-spark / .trend-badge styles come
+   from the Risk dashboard, so the same line reads the same in both places. */
+.city-risk-trend {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+/* ============================================================
+   Export menu — one entry per view (export-menu.js)
+   ============================================================ */
+.view-export-menu {
+    position: fixed;
+    z-index: 900;
+    min-width: 230px;
+    padding: 4px;
+    border-radius: 8px;
+    background: var(--aura-sidebar-bg);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.view-export-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 7px 10px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--aura-fg);
+    text-align: left;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.view-export-item:hover {
+    background: rgba(96, 165, 250, 0.14);
+}
+
+.view-export-label { font-weight: 600; }
+
+.view-export-hint {
+    font-size: 11px;
+    opacity: 0.55;
+}
+
+/* ============================================================
+   City minimap — same floating window as the graph's #minimap
+   ============================================================ */
+#city-minimap {
+    bottom: calc(var(--aura-bottom-bars, 48px) + 12px);
+    left: 16px;
+    width: 210px;
+}
+
+#city-minimap.hidden { display: none; }
+
+
+
+#city-minimap-canvas {
+    display: block;
+    cursor: crosshair;
+}

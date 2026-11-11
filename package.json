@@ -2,7 +2,7 @@
   "name": "aura-visualizer-3D",
   "displayName": "Aura 3D Visualizer",
   "description": "Visualize your codebase in 3D directly in VSCode — interactive dependency graph with force-directed layout",
-  "version": "1.5.2",
+  "version": "1.6.0",
   "publisher": "monticma-aura",
   "icon": "resources/aura-star-icon.png",
   "repository": {
@@ -663,6 +663,11 @@
           "default": false,
           "description": "Use PageRank centrality instead of fan-in in the risk score (optional V2-16 factor)"
         },
+        "auraVisualizer.fixKeywords": {
+          "type": "string",
+          "default": "\\b(fix|fixes|fixed|bug|bugs|hotfix|regress|regression|revert)\\b",
+          "description": "Regular expression matched against commit messages to recognise bug fixes; the share of fixes is one of the risk score components"
+        },
         "auraVisualizer.rotateSpeed": {
           "type": "number",
           "default": 1,
@@ -791,9 +796,17 @@
           {
             "id": "tabbed-views",
             "title": "Switch Between Views",
-            "description": "Use the **tab bar** to switch between 10 views: 3D Graph, Treemap, Matrix (DSM), Chord Diagram, Metrics Dashboard, Timeline Chart, File Table, Risk Dashboard, Architecture Rules and Temporal Co-change.\n\nEach view offers a different perspective on your architecture.",
+            "description": "Use the **tab bar** to switch between 11 views: 3D Graph, Code City, Treemap, Matrix (DSM), Chord Diagram, Metrics Dashboard, Timeline Chart, File Table, Risk Dashboard, Architecture Rules and Temporal Co-change.\n\nEach view offers a different perspective on your architecture.",
             "media": {
               "markdown": "resources/walkthrough/views.md"
+            }
+          },
+          {
+            "id": "code-city",
+            "title": "Walk Through the City",
+            "description": "The **🏙️ City** tab turns the same graph into a 2.5D city: every file is a building, its height is the metric you choose and its footprint is its size. **Click** a building to read it, **double-click** to open the file, and click a district plate to drill into a folder.",
+            "media": {
+              "markdown": "resources/walkthrough/city.md"
             }
           },
           {

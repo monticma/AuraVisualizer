@@ -7,7 +7,7 @@ import * as path from 'path';
 import { Worker } from 'worker_threads';
 import type { GraphData, GraphMeta, GraphLink } from '../analyzer/index';
 import type { GraphDB } from '../graph-db';
-import { normalizeRiskWindow } from '../risk/risk-core';
+import { DEFAULT_FIX_KEYWORDS, normalizeRiskWindow } from '../risk/risk-core';
 import { parseDeadCodeRules } from '../analysis/dead-code';
 import { ARCH_RULES_FILE, parseArchRules } from '../arch/arch-core';
 import type { RiskSnapshot } from '../risk/risk-service';
@@ -1300,11 +1300,23 @@ export class WebviewProvider {
         const exportUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'export.js')
         );
+        const exportMenuUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'export-menu.js')
+        );
         const spritesUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'sprites.js')
         );
         const seedCoreUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'seed-core.js')
+        );
+        const cityCoreUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'city-core.js')
+        );
+        const cityMinimapUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'city-minimap.js')
+        );
+        const cityUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'city.js')
         );
         const panelsUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'panels.js')
@@ -1344,7 +1356,6 @@ export class WebviewProvider {
         <!-- Top Bar -->
         <header id="top-bar">
             <div class="top-bar-left">
-                <button id="btn-toggle-explorer" class="top-btn icon-btn" title="Toggle explorer (☰)">☰</button>
                 <div id="logo">
                     <span class="logo-icon">✦</span>
                     <span class="logo-text">AURA</span>
@@ -1354,7 +1365,7 @@ export class WebviewProvider {
             <div class="top-bar-center">
                 <div id="search-container">
                     <span class="search-icon">⌕</span>
-                    <input type="text" id="search-input" placeholder="Search file..." autocomplete="off">
+                    <input type="text" id="search-input" placeholder="Search" autocomplete="off" title="Search a file or a symbol (3D Graph and City tabs)">
                     <div id="search-results" class="hidden"></div>
                 </div>
             </div>
@@ -1366,14 +1377,9 @@ export class WebviewProvider {
                     <span class="stat-separator hidden" id="stat-parse-separator">·</span>
                     <span class="stat stat-warn hidden" id="stat-parse-failures" role="button" tabindex="0" title="Files that could not be parsed cleanly — click for details">⚠ 0 parse failures</span>
                 </div>
-                <button id="btn-export-image" class="top-btn" title="Export a high-resolution PNG of the 3D graph (3D Graph tab)">📷</button>
-                <button id="btn-follow-editor" class="top-btn" aria-pressed="true" title="Follow editor (on) — camera flies to the active file">👁</button>
-                <button id="btn-export" class="top-btn" title="Export AI context (Markdown/JSON) — selectable sections and token budget">📤 Export</button>
-                <button id="btn-minimap" class="top-btn" title="Toggle minimap">🗺️ Map</button>
-                <button id="btn-warps-panel" class="top-btn" title="Warp points — named camera bookmarks">🌀 Warps</button>
-                <button id="btn-copy-link" class="top-btn" title="Copy a vscode:// link that reopens this exact view — tab, filters, camera and query">🔗 Link</button>
                 <button id="btn-refresh" class="top-btn" title="Refresh analysis">🔄 Refresh</button>
                 <button id="btn-help" class="top-btn" title="Help & shortcuts">❓ Help</button>
+                <button id="settings-toggle" type="button" class="top-btn" title="Aura settings">⚙️</button>
             </div>
         </header>
 
@@ -1381,6 +1387,7 @@ export class WebviewProvider {
         <nav id="tab-bar">
             <button class="tab-btn active" data-tab="graph">✦ 3D Graph</button>
             <button class="tab-btn" data-tab="treemap">🗺️ Treemap</button>
+            <button class="tab-btn" data-tab="city">🏙️ City</button>
             <button class="tab-btn" data-tab="dsm">🗑️ Matrix</button>
             <button class="tab-btn" data-tab="chord">🎵 Chord</button>
             <button class="tab-btn" data-tab="metrics">📊 Metrics</button>
@@ -1389,8 +1396,6 @@ export class WebviewProvider {
             <button class="tab-btn" data-tab="risk">🛡️ Risk</button>
             <button class="tab-btn" data-tab="arch">🏛️ Architecture</button>
             <button class="tab-btn" data-tab="coupling">🔗 Co-change</button>
-            <button id="qb-toggle" class="qb-toggle" title="Toggle query bar (Ctrl+K)">🔍</button>
-            <button id="settings-toggle" type="button" class="qb-toggle" title="Aura settings">⚙️</button>
         </nav>
 
         <!-- Query Bar (collapsible) -->
@@ -1419,6 +1424,20 @@ export class WebviewProvider {
 
         <!-- Middle Row: Explorer + Graph + Detail -->
         <div id="middle-row" class="tab-content active" data-tab="graph">
+            <!-- The graph's own bar, same shell as every other tab. It must stay
+                 OUT of #graph-container: the renderer clears that node's innerHTML
+                 when it mounts. -->
+            <div id="graph-bar" class="view-toolbar">
+                <button id="btn-toggle-explorer" class="top-btn" title="Files and folders of this repository">☰ Files</button>
+                <button id="qb-toggle" class="qb-toggle" title="Toggle query bar (Ctrl+K)">🔍 Query</button>
+                <div class="view-bar-actions">
+                    <button id="btn-follow-editor" class="top-btn" aria-pressed="true" title="Follow editor (on) — camera flies to the active file">👁 Follow</button>
+                    <button id="graph-export" type="button" class="top-btn" data-export-tab="graph" title="Export what this view can produce">📤 Export</button>
+                    <button id="btn-minimap" class="top-btn" title="Toggle minimap">🗺️ Map</button>
+                    <button id="btn-warps-panel" class="top-btn" title="Warp points — named camera bookmarks">🌀 Warps</button>
+                    <button id="btn-copy-link" class="top-btn" title="Copy a vscode:// link that reopens this exact view — tab, filters, camera and query">🔗 Link</button>
+                </div>
+            </div>
             <!-- Branch review summary (V3-07) — driven by git, over the graph -->
             <div id="review-bar" class="hidden">
                 <span class="review-label" id="review-label">main...HEAD</span>
@@ -1443,7 +1462,7 @@ export class WebviewProvider {
                 <div id="explorer-tree" class="explorer-tree"></div>
             </aside>
 
-            <!-- 3D Graph Container -->
+            <!-- 3D Graph Container — the renderer owns its content. -->
             <div id="graph-container"></div>
 
             <!-- Loading Overlay (outside graph-container so it survives graph init) -->
@@ -1469,6 +1488,9 @@ export class WebviewProvider {
                 <span id="panel-path" class="panel-path">—</span>
             </div>
             <button id="panel-close" class="panel-close">✕</button>
+        </div>
+        <div class="panel-actions" id="panel-actions">
+            <button id="panel-city" type="button" class="top-btn panel-action-btn" data-open-in-tab="graph" title="Show this file in another view — City or Treemap">◫ View in</button>
         </div>
         <details class="panel-section panel-collapsible" id="overview-section" open>
             <summary class="panel-section-header">
@@ -1623,12 +1645,128 @@ export class WebviewProvider {
     </aside>
     </div><!-- /middle-row -->
 
+    <!-- City View (V5-07) — 2.5D: files are buildings, districts are raised plates.
+         Its own scene and camera: nothing is shared with the 3D graph tab. -->
+    <div id="city-view" class="tab-content" data-tab="city">
+        <div id="city-controls" class="view-toolbar">
+            <label class="city-field" for="city-granularity" title="What each building stands for: a file, or a single function">Granularity
+                <select id="city-granularity" class="city-select">
+                    <option value="files" selected>files</option>
+                    <option value="functions">functions</option>
+                </select>
+            </label>
+            <label class="city-field" for="city-height" title="What the building height encodes">Height
+                <select id="city-height" class="city-select">
+                    <option value="cognitive" selected>cognitive</option>
+                    <option value="complexity">complexity</option>
+                    <option value="linesOfCode">lines</option>
+                    <option value="fanIn">fan-in</option>
+                    <option value="fanOut">fan-out</option>
+                    <option value="pagerank">pagerank</option>
+                    <option value="risk">risk</option>
+                </select>
+            </label>
+            <label class="city-field" for="city-footprint" title="What the footprint (area share) encodes">Footprint
+                <select id="city-footprint" class="city-select">
+                    <option value="linesOfCode" selected>lines</option>
+                    <option value="size">size</option>
+                    <option value="fanIn">fan-in</option>
+                    <option value="fanOut">fan-out</option>
+                </select>
+            </label>
+            <label class="city-field" for="city-colour" title="What the building colour encodes">Colour
+                <select id="city-colour" class="city-select">
+                    <option value="height" selected>height</option>
+                    <option value="risk">risk</option>
+                    <option value="language">language</option>
+                    <option value="layer">layer</option>
+                    <option value="district">district</option>
+                </select>
+            </label>
+            <label class="city-field" for="city-mapping" title="How the height metric becomes a building height">Mapping
+                <select id="city-mapping" class="city-select">
+                    <option value="quantiles" selected>5 tiers</option>
+                    <option value="linear">linear</option>
+                    <option value="threshold">threshold</option>
+                </select>
+            </label>
+            <label class="city-field" for="city-districts" title="What groups files into districts">Districts
+                <select id="city-districts" class="city-select">
+                    <option value="group" selected>folders</option>
+                    <option value="layer">layers</option>
+                    <option value="community">communities</option>
+                </select>
+            </label>
+            <div class="view-bar-actions">
+                <button id="city-minimap-toggle" type="button" class="city-select" title="Floating map — drag it anywhere">🗺️ Map</button>
+                <button id="city-warps-toggle" type="button" class="city-select" title="Warp points — camera bookmarks for the City">🌀 Warps</button>
+                <button id="city-export" type="button" class="city-select" data-export-tab="city" title="Export what this view can produce">📤 Export</button>
+            </div>
+        </div>
+        <!-- Stage: the panel is anchored here, below the toolbar, exactly
+             like #detail-panel sits under the 3D Graph toolbar. -->
+        <div id="city-stage">
+            <div id="city-canvas"></div>
+            <!-- Bottom-left family: the legend sits over the status band in one
+                 column, so neither has to guess the other's height. Outside
+                 #city-canvas: the renderer owns that node. -->
+            <div id="city-overlays">
+            <div id="city-legend" class="view-legend">
+                <div class="city-legend-row" id="city-legend-encoding">height = cognitive · footprint = lines</div>
+                <div class="city-legend-row" id="city-legend-colour" hidden></div>
+                <div class="city-legend-row"><span class="city-legend-swatch hot"></span><span id="city-legend-hot">top 20</span></div>
+                <div class="city-legend-row"><span class="city-legend-swatch glass"></span>docs, data, config, assets — not ranked</div>
+                <div class="city-legend-sep"></div>
+                <div class="city-legend-row"><label class="city-legend-toggle" title="Draw district names on leader lines at the edge of the city"><input id="city-names" type="checkbox" checked> district names</label></div>
+                <div class="city-legend-row"><label class="city-legend-toggle" title="Draw the #1…#N badges of the hot band"><input id="city-ranks" type="checkbox" checked> rank badges</label></div>
+                <div class="city-legend-row"><label class="city-legend-toggle" title="Contact shadows (dropped above 1 500 buildings to keep the frame rate)"><input id="city-shadows" type="checkbox" checked> shadows</label></div>
+            </div>
+            <div id="city-hud" class="view-status">
+                <span id="city-hud-meta">Click a building</span>
+                <button id="city-hud-graph" type="button" title="Focus this file in the 3D Graph tab">⌖ Focus in graph</button>
+            </div>
+            </div>
+            <aside id="city-side" aria-live="polite">
+                <header id="city-side-head">
+                    <div id="city-side-icon">📄</div>
+                    <div id="city-side-info">
+                        <h2 id="city-side-title">Building</h2>
+                        <span id="city-side-path">—</span>
+                    </div>
+                    <button id="city-side-close" type="button" title="Close">✕</button>
+                </header>
+                <!-- Same action bar as #detail-panel: left-aligned icons, one
+                     tooltip each. Static markup, so it survives the body being
+                     re-rendered on every selection. -->
+                <div id="city-side-actions" class="panel-actions">
+                    <button type="button" class="top-btn panel-action-btn" data-city-action="open" title="Open this file in the editor — or double-click the building">↗ Open</button>
+                    <button type="button" class="top-btn panel-action-btn" data-open-in-tab="city" title="Show this file in another view — 3D Graph or Treemap">◫ View in</button>
+                </div>
+                <div id="city-side-body"></div>
+            </aside>
+        </div>
+        <!-- Floating map: same window as the graph's minimap, draggable and
+             remembered. It lives inside the tab so it hides with the tab. -->
+        <div id="city-minimap" class="float-window hidden">
+            <div class="city-minimap-header float-window-header">
+                <span class="float-window-title">🗺️ City map</span>
+                <div class="float-window-actions">
+                    <button id="city-minimap-reset" class="float-window-btn" title="Back to the initial framing">⟲</button>
+                    <button id="city-minimap-close" class="float-window-btn" title="Close">✕</button>
+                </div>
+            </div>
+            <canvas id="city-minimap-canvas" width="200" height="200"></canvas>
+        </div>
+        <!-- District bar: at the bottom, where the 3D Graph puts #filter-bar. -->
+        <div id="city-crumbs" class="hidden"></div>
+    </div>
+
     <!-- Metrics View -->
     <div id="metrics-view" class="tab-content" data-tab="metrics"></div>
 
     <!-- Risk View -->
     <div id="risk-view" class="tab-content" data-tab="risk">
-        <div class="risk-toolbar">
+        <div class="view-toolbar risk-toolbar">
             <h2>🛡️ Codebase Risk Map</h2>
             <div class="risk-toolbar-actions">
                 <label class="risk-window-label" for="risk-window" title="How much git history is used for churn and scoring">
@@ -1764,7 +1902,7 @@ export class WebviewProvider {
 
     <!-- Architecture Rules View (V2-20) -->
     <div id="arch-view" class="tab-content" data-tab="arch">
-        <div class="arch-toolbar">
+        <div class="view-toolbar arch-toolbar">
             <h2>🏛️ Architecture Rules</h2>
             <div class="arch-toolbar-actions">
                 <button id="arch-edit-rules" type="button" class="risk-export-btn" title="Create or open .aura/arch-rules.json">⚙️ Edit rules</button>
@@ -1778,7 +1916,7 @@ export class WebviewProvider {
 
     <!-- Treemap View -->
     <div id="treemap-view" class="tab-content" data-tab="treemap">
-        <div class="treemap-toolbar">
+        <div class="view-toolbar treemap-toolbar">
             <div id="treemap-breadcrumb"><span class="treemap-crumb treemap-crumb-root" data-path="">root</span></div>
             <div class="treemap-controls">
                 <label>Size: <select id="treemap-size-metric">
@@ -1792,6 +1930,7 @@ export class WebviewProvider {
                     <option value="fanOut">Fan-out</option>
                     <option value="language">Language</option>
                 </select></label>
+                <button id="treemap-city" type="button" class="treemap-city-btn" title="Open the 2.5D City view">🏙️ See as city</button>
             </div>
         </div>
         <div id="treemap-container"></div>
@@ -1799,7 +1938,7 @@ export class WebviewProvider {
 
     <!-- Chord Diagram View -->
     <div id="chord-view" class="tab-content" data-tab="chord">
-        <div class="chord-toolbar">
+        <div class="view-toolbar chord-toolbar">
             <div class="chord-controls">
                 <label>Group by: <select id="chord-group-by">
                     <option value="directory" selected>Directory</option>
@@ -1823,7 +1962,7 @@ export class WebviewProvider {
             <button id="shallow-copy" class="shallow-btn" title="Copy the fix command">Copy</button>
             <button id="shallow-close" class="shallow-btn" title="Hide for this session">✕</button>
         </div>
-        <div class="tchart-toolbar">
+        <div class="view-toolbar tchart-toolbar">
             <div class="tchart-controls">
                 <label>Metric: <select id="tchart-metric">
                     <option value="loc" selected>Lines of Code</option>
@@ -1839,7 +1978,7 @@ export class WebviewProvider {
 
     <!-- DSM View -->
     <div id="dsm-view" class="tab-content" data-tab="dsm">
-        <div class="dsm-toolbar">
+        <div class="view-toolbar dsm-toolbar">
             <div class="dsm-controls">
                 <label>Group by: <select id="dsm-group-by">
                     <option value="directory" selected>Directory</option>
@@ -1861,7 +2000,7 @@ export class WebviewProvider {
 
     <!-- Coupling View -->
     <div id="coupling-view" class="tab-content" data-tab="coupling">
-        <div class="coupling-toolbar">
+        <div class="view-toolbar coupling-toolbar">
             <div class="coupling-title">🔗 Temporal Co-change</div>
             <div class="coupling-actions">
                 <label class="coupling-label">Window
@@ -1900,7 +2039,7 @@ export class WebviewProvider {
     </div>
 
     <!-- Table View -->
-    <div id="table-view" class="tab-content" data-tab="table">        <div class="table-toolbar">
+    <div id="table-view" class="tab-content" data-tab="table">        <div class="view-toolbar table-toolbar">
             <span class="search-icon">⌕</span>
             <input type="text" id="table-search" placeholder="Filter files..." autocomplete="off">
         </div>
@@ -2093,28 +2232,28 @@ export class WebviewProvider {
     </div>
 
     <!-- Group Palette (overlay) — Communities or Architecture layers -->
-    <div id="community-palette" class="hidden">
-        <div class="community-palette-header">
+    <div id="community-palette" class="float-window hidden">
+        <div class="community-palette-header float-window-header">
             <select id="palette-mode" class="palette-mode" title="Palette content — Communities groups the Louvain partition, Layers groups the architecture rules. Documentation is excluded from both.">
                 <option value="community">🧩 Communities</option>
                 <option value="layers">🏛️ Layers</option>
             </select>
-            <div class="community-palette-actions">
-                <button id="community-select-all" title="Select all">All</button>
-                <button id="community-select-none" title="Unselect all">None</button>
-                <button id="community-palette-close" title="Close">✕</button>
+            <div class="community-palette-actions float-window-actions">
+                <button id="community-select-all" class="float-window-btn" title="Select all">All</button>
+                <button id="community-select-none" class="float-window-btn" title="Unselect all">None</button>
+                <button id="community-palette-close" class="float-window-btn" title="Close">✕</button>
             </div>
         </div>
         <div id="community-list"></div>
     </div>
 
     <!-- Warps Panel (overlay) -->
-    <div id="warps-panel" class="hidden">
-        <div class="warps-panel-header">
-            <span>🌀 Warps</span>
-            <div class="warps-panel-actions">
-                <button id="warps-capture" title="Capture the current view">📌</button>
-                <button id="warps-panel-close" title="Close">✕</button>
+    <div id="warps-panel" class="float-window hidden">
+        <div class="warps-panel-header float-window-header">
+            <span class="float-window-title">🌀 Warps</span>
+            <div class="warps-panel-actions float-window-actions">
+                <button id="warps-capture" class="float-window-btn" title="Capture the current view">📌</button>
+                <button id="warps-panel-close" class="float-window-btn" title="Close">✕</button>
             </div>
         </div>
         <div id="warps-list"></div>
@@ -2176,10 +2315,12 @@ export class WebviewProvider {
     </div>
 
     <!-- Minimap (overlay) -->
-    <div id="minimap" class="hidden">
-        <div class="minimap-header">
-            <span>🗺️ Minimap</span>
-            <button id="minimap-close" title="Close">✕</button>
+    <div id="minimap" class="float-window hidden">
+        <div class="minimap-header float-window-header">
+            <span class="float-window-title">🗺️ Minimap</span>
+            <div class="float-window-actions">
+                <button id="minimap-close" class="float-window-btn" title="Close">✕</button>
+            </div>
         </div>
         <canvas id="minimap-canvas" width="200" height="200"></canvas>
     </div>
@@ -2419,7 +2560,14 @@ export class WebviewProvider {
             </div>
             <div class="help-modal-body">
 
-                <h3>✨ What's New in 1.5.2</h3>
+                <h3>✨ What's New in 1.6.0</h3>
+                <p><strong>🏙️ Code City — a new tab.</strong> The same graph read as a city: every file is a <strong>building</strong>, its height is the metric you pick (cognitive by default, or cyclomatic, lines, fan-in, fan-out, PageRank or <strong>risk</strong>), its footprint its size, its district its folder. It has its own scene and camera, so orbiting the city never touches the 3D graph. The <strong>hot band</strong> — 5 % of the buildings, min 3, max 20 — takes the red end of the ramp and a <code>#1…#N</code> badge; everything else is muted, and documentation, data, config and assets are drawn as <strong>grey glass</strong>, outside the ranking. <strong>Click</strong> to read a building (white = selected, blue = it depends on, amber = depends on it, purple = both), <strong>double-click</strong> to open the file, click a district plate to drill into a folder, or switch to <strong>function granularity</strong> for one tower per function. The inspector carries the metrics, the risk score with its reasons, the complexity sparkline and a mini relation map. A floating <strong>🗺️ Map</strong>, <strong>🌀 Warps</strong> scoped to the City and <strong>📤 Export</strong> → PNG or a <strong>1600×900 postcard</strong> come with it.</p>
+                <p><strong>🛡️ Risk score v2.</strong> A hotspot is <em>reworked</em>, not merely <em>changed</em>: the git half of the score now weighs the <strong>volume of lines rewritten</strong> relative to the file's size, <strong>recency</strong>, the number of <strong>authors</strong> and the share of <strong>bug-fix commits</strong>. The structural half stays dominant on purpose.</p>
+                <p><strong>🧭 One interface, everywhere.</strong> Every tab wears the same toolbar shell; the 3D-only controls (map, warps, export, link) left the global top bar for the graph's own bar, so nothing on screen pretends to apply to a tab it does not. Warps, communities and both minimaps are one floating-window type, each remembering its position and whether it was open. <strong>📤 Export</strong> lists what the current view can actually produce, and the four bespoke cross-view buttons became a single <strong>◫ View in</strong> menu, alongside <strong>↗ Open</strong>.</p>
+                <p><strong>⚡ Clicking a building is instant.</strong> Selecting used to ask the engine to recreate every box — 21.7 ms for 762 buildings, 109 ms at function granularity — on a later frame, which is why the outlines lit up a frame before the selection colours. It now recolours the meshes it already owns: ~0.4 ms, in the same frame.</p>
+                <p><strong>🐞 Fixed:</strong> district names drawing over the buildings in front of them, the City legend's switches being unclickable, a shadow map showing the previous city after a drill-down, a postcard caption running off the sheet, and documentation edges inflating the City inspector's fan counts.</p>
+
+                <h3>Previously in 1.5.2</h3>
                 <p><strong>🧩 Script tags are dependencies too.</strong> Files loaded as a plain <code>&lt;script&gt;</code> expose a namespace and read each other's through it. Aura pairs every <code>window.X</code> / <code>globalThis.X</code> definition with its reads straight from the AST (comments and strings never count) and emits a cyan <code>global-use</code> edge at confidence <strong>0.6</strong> — the <code>script</code> edge says “loaded by”, <code>global-use</code> says “used by”. Fan-in, blast radius and cycles now treat <code>sprites.js</code> and the rest of the satellites as the connected module they are; the <strong>Edge confidence</strong> slider hides them above 0.6, and incremental saves keep the index current.</p>
                 <p><strong>🎯 Files that come back no longer pile up in the middle.</strong> A filter change never starts a live settle: re-admitted files are <strong>seeded next to their already-placed neighbours</strong> at the graph's own spacing (0.6 × the median settled edge length, capped at 5 % of the scene), or <strong>grouped by folder</strong> when they have none, and a batch of 5+ files gets a <strong>synchronous reflow</strong> in the data digest. Calibrated on two real repositories: p90 edge 436 → 225 units on ThorV2, worst stranded edge 1300 → 457.</p>
                 <p><strong>⚡ Silent layout changes.</strong> The <strong>Spread</strong> slider, the DAG toggle and the spread restore settle with a 20-tick warmup (160 ms debounce) before the first paint — same equilibrium, no drift, no visible wobble. And the camera no longer zooms out 1.5 s after loading: the view stays where it starts, and <strong>Recenter</strong> (<kbd>F</kbd>) still fits everything when you ask for it.</p>
@@ -2476,6 +2624,13 @@ export class WebviewProvider {
                 <h3>🧭 Navigation Trail</h3>
                 <p><strong>Off by default</strong> — enable it with <code>auraVisualizer.breadcrumbs</code> or the <strong>Navigation trail</strong> checkbox in ⚙️ Settings. Once on, every jump — a file click, a search hit, a CodeLens focus, a pin, a blast radius, an applied query, a warp or a shared view — is recorded on a thin strip over the graph: <code>⟡ extension.ts › 📌 Pinned: codelens.ts › 🔍 layer=web › 🌀 Architecture</code>. Click a chip to <strong>return</strong> to that place (selection, pin/blast mode, query, tab and camera pose) and drop everything after it; <strong>⟵</strong>, <kbd>Backspace</kbd> or <kbd>Alt</kbd>+<kbd>←</kbd> steps back one place.</p>
                 <p>Consecutive duplicates are collapsed and the last <strong>20</strong> places are kept, so clicking the same file twice never fills the trail. Entries store <strong>ids and numbers only</strong> — never live node or Three.js objects — so a re-analysis can never leave a dead reference behind. The strip stays hidden until there is a second place to go back to; <strong>✕</strong> clears it, and <kbd>Esc</kbd> records a <strong>Reset</strong> place so even a full reset is reversible. Unlike 🌀 Warps (named, persisted poses) and 🔗 View links (shared views), the trail is the session's own history.</p>
+
+                <h3>🏙️ Code City</h3>
+                <p>The <strong>🏙️ City</strong> tab is the same graph read as a city, in its own scene with its own camera. Every file is a building; the bar chooses what each channel encodes — <strong>height</strong> (cognitive by default, or cyclomatic, lines, fan-in, fan-out, PageRank, risk), <strong>footprint</strong> (√ by default, or linear, log), <strong>colour</strong> (the height ramp, the risk score, the language, the layer, the district) and <strong>districts</strong> (folder, layer, community). The <strong>mapping</strong> dropdown switches between quantiles, linear and thresholds.</p>
+                <p><strong>Reading it.</strong> The <strong>hot band</strong> — 5 % of the buildings, never fewer than 3 nor more than 20 — takes the red end of the ramp and a <code>#1…#N</code> badge; the rest of the city is muted so the eye only goes where it matters. Documentation, data, config and assets are drawn as <strong>grey glass</strong> and never ranked. District names hang off the <strong>edge of the plan on leader lines</strong> and are hidden by the buildings in front of them.</p>
+                <p><strong>Selection.</strong> <kbd>Click</kbd> a building: it turns <strong>white</strong>, the files it depends on turn <strong>blue</strong>, the files that depend on it turn <strong>amber</strong>, files in both directions turn <strong>purple</strong>, and everything else dims — outlines included. <kbd>Double-click</kbd> opens the file in the editor (at its line when the city shows functions). Clicking a <strong>district plate</strong> drills into that folder; the breadcrumb and the child chips at the bottom walk back out.</p>
+                <p><strong>Scale.</strong> With <strong>function granularity</strong> every function is a tower and the file becomes the district. The city grows with the <strong>square root</strong> of its building count while the ground keeps a <strong>fixed grid</strong>, so the streets stay a ruler; above <strong>1 500</strong> buildings contact shadows switch themselves off.</p>
+                <p><strong>Furniture.</strong> <strong>🗺️ Map</strong> is a floating plan of the whole city with the camera footprint (<strong>⟲</strong> reframes it), <strong>🌀 Warps</strong> are camera bookmarks <strong>scoped to the City</strong> — a pose saved here is not offered in the graph — and <strong>📤 Export</strong> writes a <strong>PNG</strong> or a <strong>1600×900 postcard</strong> with a caption. The legend (bottom left) carries the switches for <strong>district names</strong>, <strong>rank badges</strong> and <strong>shadows</strong>. The inspector's action bar has <strong>↗ Open</strong> (the same as double-clicking) and <strong>◫ View in</strong> to send the file to the 3D Graph or the Treemap.</p>
 
                 <h3>🌡️ Heatmap Modes</h3>
                 <table class="help-table">
@@ -2639,7 +2794,7 @@ export class WebviewProvider {
                 <p>Query examples: <code>layer == domain AND archviolations > 0</code> and <code>isarchviolator</code>. The MCP tool <code>get_architecture_violations</code> exposes the same evaluation to AI agents.</p>
 
                 <h3>🛡️ Risk Map</h3>
-                <p>Open the <strong>🛡️ Risk</strong> tab for a codebase health dashboard. It uses a transparent risk score: <code>100 × (0.30·complexity + 0.20·fan-in + 0.10·fan-out + 0.15·cycle + 0.15·dead-code + 0.10·churn)</code>. Documentation is outside architectural risk: docs are not scored and <code>doc-reference</code> links do not inflate fan-in or PageRank. Exempted framework symbols are not counted as dead code.</p>
+                <p>Open the <strong>🛡️ Risk</strong> tab for a codebase health dashboard. It uses a transparent risk score: <code>100 × (0.21·complexity + 0.18·centrality + 0.08·fan-out + 0.12·cycle + 0.12·dead-code + 0.09·rewrite + 0.06·recency + 0.06·frequency + 0.05·authors + 0.03·fixes)</code> — the structural half stays dominant on purpose. <code>centrality</code> is fan-in, or PageRank when <code>auraVisualizer.riskCentrality</code> is on; <code>rewrite</code> is the volume of lines added and removed relative to the file's size today, <code>recency</code> weights a commit made today over one at the window's edge, and <code>fixes</code> is the share of commits whose message looks like a bug fix. Documentation is outside architectural risk: docs are not scored and <code>doc-reference</code> links do not inflate fan-in or PageRank. Exempted framework symbols are not counted as dead code.</p>
                 <p>Complexity, fan-in, fan-out and churn are <strong>percentile ranks inside your repository</strong> (0 = lowest file, 1 = highest), so the score is a standing relative to this codebase. A <strong>History window</strong> selector (30 / 90 / 365 days) drives churn, scoring and explanations. Churn is <strong>rename-aware</strong>: files moved with <code>git mv</code> keep their history across the rename.</p>
                 <p>High / Medium / Low file lists are collapsible, each row explains <em>why</em> a file scores that way, and clicking a file selects it in the 3D graph. Also included: <strong>📈 Risk Trend</strong>, <strong>📈 Complexity Trend</strong> (per-file sparklines + slope), <strong>🔥 Recently Hot</strong> (last 30 days), <strong>📊 Churn × Complexity</strong> scatter (log scale), and <strong>👤 Bus Factor</strong> (files with a single author). Use <strong>📤 Export Report</strong> to write <code>.aura/risk-report.md</code>.</p>
                 <p><strong>Complexity Trend</strong> is rebuilt from Time Travel commit deltas: a least-squares slope per 30 days plus R² flags files whose complexity keeps growing. The <strong>Trend</strong> column in the Table is sortable; adjust the threshold with <code>auraVisualizer.complexityTrendThreshold</code> (default 0.5 point / 30 days).</p>
@@ -2703,8 +2858,12 @@ export class WebviewProvider {
     <script nonce="${nonce}" src="${detailUri}"></script>
     <script nonce="${nonce}" src="${queryUiUri}"></script>
     <script nonce="${nonce}" src="${exportUri}"></script>
+    <script nonce="${nonce}" src="${exportMenuUri}"></script>
     <script nonce="${nonce}" src="${spritesUri}"></script>
     <script nonce="${nonce}" src="${seedCoreUri}"></script>
+    <script nonce="${nonce}" src="${cityCoreUri}"></script>
+    <script nonce="${nonce}" src="${cityMinimapUri}"></script>
+    <script nonce="${nonce}" src="${cityUri}"></script>
     <script nonce="${nonce}" src="${panelsUri}"></script>
     <script nonce="${nonce}" src="${breadcrumbsUri}"></script>
     <script nonce="${nonce}" src="${appUri}"></script>

@@ -10,7 +10,14 @@
 
     // VSCode API
     var vscode = acquireVsCodeApi();
-
+    // `acquireVsCodeApi()` can only be called once per document, so satellites
+    // that need to talk to the host (city.js: open a file) go through this bridge
+    // instead of acquiring their own handle.
+    window.AuraHost = {
+        post: function(message) {
+            try { vscode.postMessage(message); } catch (_) { /* panel closed */ }
+        }
+    };
     // ============================================================
     // State
     // ============================================================
@@ -541,6 +548,10 @@
                 postMessage: function (msg) { vscode.postMessage(msg); }
             });
         }
+        // One popover for every `<button data-export-tab>` in the window, and
+        // one for every `<button data-open-in-tab>`.
+        if (window.AuraExportMenu) window.AuraExportMenu.init();
+        if (window.AuraOpenIn) window.AuraOpenIn.init();
         if (window.AuraDetail) {
             AuraDetail.init({
                 getGraphData: function () { return graphData; },
@@ -1337,6 +1348,17 @@
                 if (statusEl) statusEl.textContent = 'Refreshing analysis...';
             });
         }
+        // Both graph exports are entries of the shared Export menu.
+        if (window.AuraExportMenu) {
+            window.AuraExportMenu.register('graph', [
+                { label: '📷 PNG', hint: 'high-resolution capture of the graph', run: function () {
+                    if (window.AuraExport) window.AuraExport.capture();
+                } },
+                { label: '📤 AI context', hint: 'Markdown or JSON, with a token budget', run: function () {
+                    vscode.postMessage({ type: 'requestExport' });
+                } },
+            ]);
+        }
         var exportBtn = $('#btn-export');
         if (exportBtn) {
             exportBtn.addEventListener('click', function() {
@@ -1452,14 +1474,14 @@
         var minimapClose = $('#minimap-close');
         if (minimapBtn && minimapEl) {
             minimapBtn.addEventListener('click', function() {
-                minimapEl.classList.toggle('hidden');
-                minimapBtn.classList.toggle('active', !minimapEl.classList.contains('hidden'));
+                minimapOpen.graph = minimapEl.classList.contains('hidden');
+                applyMinimapVisibility();
                 saveViewState();
             });
             if (minimapClose) {
                 minimapClose.addEventListener('click', function() {
-                    minimapEl.classList.add('hidden');
-                    minimapBtn.classList.remove('active');
+                    minimapOpen.graph = false;
+                    applyMinimapVisibility();
                     saveViewState();
                 });
             }
@@ -4833,6 +4855,42 @@
         return out;
     }
 
+    /**
+     * Minimaps follow the scene: the graph's window only exists on the graph
+     * tab, the City's inside its own tab. The *intent* survives the switch.
+     */
+    function applyMinimapVisibility() {
+        var mm = $('#minimap');
+        var mmBtn = $('#btn-minimap');
+        if (mm) mm.classList.toggle('hidden', !(activeTab === 'graph' && minimapOpen.graph));
+        if (mmBtn) mmBtn.classList.toggle('active', !!minimapOpen.graph);
+        if (window.AuraCityMinimap) window.AuraCityMinimap.setOpen(!!minimapOpen.city);
+    }
+
+    /**
+     * The City map is driven by the app, like the graph's: the window module
+     * draws and drags, but the open flag lives with the other view state so it
+     * survives a restart and a tab switch.
+     */
+    window.AuraChrome = {
+        setCityMinimap: function (open) {
+            minimapOpen.city = !!open;
+            applyMinimapVisibility();
+            saveViewState();
+        },
+    };
+
+    /** Put a floating panel back on its CSS anchor (default corner and size). */
+    function resetPalettePosition(el) {
+        if (!el || !el.style) return;
+        el.style.left = '';
+        el.style.top = '';
+        el.style.right = '';
+        el.style.bottom = '';
+        el.style.width = '';
+        el.style.height = '';
+    }
+
     /** Restore a saved palette position/size, clamped to the current viewport. */
     function restorePalettePosition(el, pos, alsoBottom) {
         if (!el || !pos) return;
@@ -4862,12 +4920,31 @@
         }, 400);
     }
 
-    /** Whether the warps panel should be open — even when a tab switch force-hides it. */
+    /**
+     * Warps panel: one open flag and one drag position **per 3D scene**. The
+     * panel existed for the graph only; the City now shares the panel but not
+     * the bookmarks, and moving the window in one scene must not move it in the
+     * other.
+     */
+    var warpsOpen = { graph: false, city: false };
+    /**
+     * Minimaps: one open flag per 3D scene. The graph's window used to be saved
+     * straight from the DOM, so a tab switch — which hides every graph overlay —
+     * persisted `false` and the window never came back.
+     */
+    var minimapOpen = { graph: false, city: false };
+    var warpsPositions = { graph: null, city: null };
+    var switchingTab = false;
+
+    function warpsScope() {
+        return activeTab === 'city' ? 'city' : 'graph';
+    }
+
+    /** Whether the warps panel is open in the scene on screen. */
     function warpsPanelVisibleIntent() {
         var wp = $('#warps-panel');
         if (!wp) return false;
-        if (activeTab === 'graph') return !wp.classList.contains('hidden');
-        return !!wp._wasVisible;
+        return !wp.classList.contains('hidden');
     }
 
     /** Stable keys of the highlighted communities (numeric ids can be renumbered). */
@@ -4910,14 +4987,24 @@
             spreadMultiplier: spreadMultiplier,
             focusDepth: focusDepth,
             showExplorer: showExplorer,
-            showMinimap: !$('#minimap').classList.contains('hidden'),
-            showWarps: warpsPanelVisibleIntent(),
-            // Floating panels — keep user-dragged positions across sessions
-            palettePositions: {
-                warps: capturePalettePosition($('#warps-panel')),
-                community: capturePalettePosition($('#community-palette')),
-                minimap: capturePalettePosition($('#minimap'))
-            }
+            showMinimap: minimapOpen.graph,
+            showMinimapCity: minimapOpen.city,
+            // The panel belongs to both scenes; each keeps its own intent.
+            showWarps: (warpsOpen[warpsScope()] = warpsPanelVisibleIntent()),
+            showWarpsCity: warpsOpen.city,
+            // Floating panels — keep user-dragged positions across sessions.
+            // The warps slot written is the one of the scene on screen; the
+            // other keeps what it had, so moving the window in the City never
+            // moves it in the graph.
+            palettePositions: (function () {
+                warpsPositions[warpsScope()] = capturePalettePosition($('#warps-panel'));
+                return {
+                    warps: warpsPositions.graph,
+                    warpsCity: warpsPositions.city,
+                    community: capturePalettePosition($('#community-palette')),
+                    minimap: capturePalettePosition($('#minimap'))
+                };
+            })()
         };
     }
 
@@ -4938,7 +5025,7 @@
     var renderInitRetries = 0;
 
     function saveViewState() {
-        if (!viewStateReady) return;
+        if (!viewStateReady || switchingTab) return;
         vscode.postMessage({ type: 'saveViewState', payload: collectViewState() });
     }
 
@@ -5136,23 +5223,25 @@
             }
         }
 
-        // Minimap
-        if (typeof state.showMinimap === 'boolean') {
-            var mm = $('#minimap');
-            var mmBtn = $('#btn-minimap');
-            if (mm) mm.classList.toggle('hidden', !state.showMinimap);
-            if (mmBtn) mmBtn.classList.toggle('active', !!state.showMinimap);
-        }
+        // Minimaps — one intent per scene.
+        if (typeof state.showMinimap === 'boolean') minimapOpen.graph = state.showMinimap;
+        if (typeof state.showMinimapCity === 'boolean') minimapOpen.city = state.showMinimapCity;
+        applyMinimapVisibility();
 
-        // Warps panel — graph-tab-only panel: a tab switch force-hides it
-        // without changing the user's intent (kept in _wasVisible).
-        if (typeof state.showWarps === 'boolean') {
-            if (window.AuraWarps) window.AuraWarps.setVisible(state.showWarps);
+        // Warps panel — one intent per 3D scene.
+        if (typeof state.showWarps === 'boolean') warpsOpen.graph = state.showWarps;
+        if (typeof state.showWarpsCity === 'boolean') warpsOpen.city = state.showWarpsCity;
+        if (state.palettePositions) {
+            warpsPositions.graph = state.palettePositions.warps || null;
+            warpsPositions.city = state.palettePositions.warpsCity || null;
         }
+        if (window.AuraWarps) window.AuraWarps.setVisible(!!warpsOpen[warpsScope()]);
 
         // Floating palette positions (drag positions persist across sessions)
         if (state.palettePositions) {
-            restorePalettePosition($('#warps-panel'), state.palettePositions.warps);
+            var wpEl = $('#warps-panel');
+            if (warpsPositions[warpsScope()]) restorePalettePosition(wpEl, warpsPositions[warpsScope()]);
+            else resetPalettePosition(wpEl);
             restorePalettePosition($('#community-palette'), state.palettePositions.community);
             restorePalettePosition($('#minimap'), state.palettePositions.minimap, true);
         }
@@ -5323,7 +5412,16 @@
         // Warp points (warps.js) — inject live-state hooks, then wire the UI
         if (window.AuraWarps) {
             AuraWarps.init({
-                getGraph: function () { return graph; },
+                // Warps belong to the scene they bookmark: the City has its own
+                // camera and its own scale, so a graph pose applied there would
+                // be nonsense. The scope decides which list the panel shows.
+                getGraph: function () {
+                    if (activeTab === 'city' && window.AuraCityView && AuraCityView.graph()) {
+                        return AuraCityView.graph();
+                    }
+                    return graph;
+                },
+                getScope: function () { return activeTab === 'city' ? 'city' : 'graph'; },
                 getGraphData: function () { return graphData; },
                 getWarps: function () { return warps; },
                 findNode: findNode,
@@ -6423,12 +6521,27 @@
         // Show/hide graph-only UI elements
         var filterBar = $('#filter-bar');
         var timeBar = $('#timeline-bar');
-        var overlays = ['#heatmap-legend', '#community-palette', '#minimap', '#warps-panel', '#tooltip'];
+        // Graph-only overlays. The warps panel is handled separately: it belongs
+        // to both 3D scenes, with its own open flag and position per scene.
+        var overlays = ['#heatmap-legend', '#community-palette', '#tooltip'];
 
         // The PNG capture grabs the WebGL canvas, which is display:none on every
         // other tab — a hidden button is better than a blank picture.
         var exportImageBtn = $('#btn-export-image');
         if (exportImageBtn) exportImageBtn.classList.toggle('hidden', tabName !== 'graph');
+
+        // The search box drives the view on screen: the per-building views (3D
+        // graph, city) and the two file-level views (treemap, table). On the
+        // aggregate tabs it would have nothing to point at.
+        var searchBox = $('#search-container');
+        if (searchBox) {
+            var searchable = (tabName === 'graph' || tabName === 'city' || tabName === 'treemap' || tabName === 'table');
+            searchBox.classList.toggle('hidden', !searchable);
+            if (!searchable) {
+                var searchResults = $('#search-results');
+                if (searchResults) searchResults.classList.add('hidden');
+            }
+        }
 
         if (tabName !== 'graph') {
             if (prevTab === 'graph') {
@@ -6457,6 +6570,28 @@
                 }
             }
         }
+
+        // Warps panel: save the intent of the scene we are leaving, then restore
+        // the one of the scene we are entering. Both scene-scoped, and the panel
+        // is hidden for every other tab.
+        (function () {
+            var wp = $('#warps-panel');
+            if (!wp) return;
+            var leaving = prevTab === 'city' ? 'city' : (prevTab === 'graph' ? 'graph' : null);
+            if (leaving) warpsOpen[leaving] = !wp.classList.contains('hidden');
+            var entering = tabName === 'city' ? 'city' : (tabName === 'graph' ? 'graph' : null);
+            switchingTab = true;
+            if (window.AuraWarps) window.AuraWarps.setVisible(entering ? !!warpsOpen[entering] : false);
+            switchingTab = false;
+            if (entering) {
+                if (warpsPositions[entering]) restorePalettePosition(wp, warpsPositions[entering]);
+                else resetPalettePosition(wp);
+            }
+            applyMinimapVisibility();
+        })();
+
+        // The warp list belongs to the scene on screen.
+        if (window.AuraWarps && typeof AuraWarps.render === 'function') AuraWarps.render();
 
         // Pause/resume WebGL
         if (tabName === 'graph') {
