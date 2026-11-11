@@ -1489,8 +1489,8 @@ export class WebviewProvider {
             </div>
             <button id="panel-close" class="panel-close">✕</button>
         </div>
-        <div class="panel-actions">
-            <button id="panel-city" type="button" class="panel-city-btn" data-open-in-tab="graph" title="Show this file in another view">Ouvrir dans ▾</button>
+        <div class="panel-actions" id="panel-actions">
+            <button id="panel-city" type="button" class="panel-action-btn" data-open-in-tab="graph" title="Show this file in another view — City or Treemap">◫</button>
         </div>
         <details class="panel-section panel-collapsible" id="overview-section" open>
             <summary class="panel-section-header">
@@ -1730,6 +1730,13 @@ export class WebviewProvider {
                     </div>
                     <button id="city-side-close" type="button" title="Close">✕</button>
                 </header>
+                <!-- Same action bar as #detail-panel: left-aligned icons, one
+                     tooltip each. Static markup, so it survives the body being
+                     re-rendered on every selection. -->
+                <div id="city-side-actions" class="panel-actions">
+                    <button type="button" class="panel-action-btn" data-city-action="open" title="Open this file in the editor — or double-click the building">↗</button>
+                    <button type="button" class="panel-action-btn" data-open-in-tab="city" title="Show this file in another view — 3D Graph or Treemap">◫</button>
+                </div>
                 <div id="city-side-body"></div>
             </aside>
         </div>

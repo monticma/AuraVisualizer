@@ -838,9 +838,12 @@
         var section = $('#ai-actions-section');
         if (!section) return;
         section.style.display = '';
-        // A cluster is not a file: there is no building to point at.
+        // A cluster is not a file: there is no building to point at. The whole
+        // bar follows, otherwise an empty strip stays above the first section.
         var cityBtn = $('#panel-city');
         if (cityBtn) cityBtn.style.display = node._isCluster ? 'none' : '';
+        var actions = $('#panel-actions');
+        if (actions) actions.style.display = node._isCluster ? 'none' : '';
         var explain = $('#ai-explain');
         var impact = $('#ai-impact');
         var tests = $('#ai-tests');

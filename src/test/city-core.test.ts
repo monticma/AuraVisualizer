@@ -10,12 +10,14 @@ import {
     metricValue,
     functionNodes,
     cityScaleFor,
+    registerClick,
     fileKind,
     topBandSize,
     BASE_CITY_SCALE,
     REFERENCE_BUILDINGS,
     MIN_CITY_SCALE,
     MAX_CITY_SCALE,
+    DOUBLE_CLICK_MS,
     MIN_HEIGHT_RATIO,
     DEFAULT_HEIGHT_COUNT,
     type CityNodeLike,
@@ -513,5 +515,43 @@ describe('city-core · top band', () => {
         expect(topBandSize(762)).toBe(20);   // 5 % = 39 → capped
         expect(topBandSize(4993)).toBe(20);
         expect(topBandSize(200)).toBe(10);   // 5 % = 10, between the bounds
+    });
+});
+
+describe('city-core · double-click', () => {
+    const blank = { id: null, at: 0 };
+
+    it('recognises the second click on the same building', () => {
+        const first = registerClick(blank, 'a.ts', 1000);
+        expect(first.double).toBe(false);
+        const second = registerClick(first.next, 'a.ts', 1000 + 120);
+        expect(second.double).toBe(true);
+    });
+
+    it('never pairs two different buildings', () => {
+        const first = registerClick(blank, 'a.ts', 1000);
+        const other = registerClick(first.next, 'b.ts', 1010);
+        expect(other.double).toBe(false);
+        expect(other.next.id).toBe('b.ts');
+    });
+
+    it('closes the window at DOUBLE_CLICK_MS', () => {
+        const first = registerClick(blank, 'a.ts', 1000);
+        expect(registerClick(first.next, 'a.ts', 1000 + DOUBLE_CLICK_MS).double).toBe(true);
+        expect(registerClick(first.next, 'a.ts', 1000 + DOUBLE_CLICK_MS + 1).double).toBe(false);
+    });
+
+    it('re-arms after a pair: three clicks open once', () => {
+        const a = registerClick(blank, 'a.ts', 1000);
+        const b = registerClick(a.next, 'a.ts', 1100);
+        const c = registerClick(b.next, 'a.ts', 1200);
+        expect([a.double, b.double, c.double]).toEqual([false, true, false]);
+        expect(c.next.id).toBe('a.ts');
+    });
+
+    it('ignores a click with no id and a clock that went backwards', () => {
+        expect(registerClick(blank, '', 1000).double).toBe(false);
+        const first = registerClick(blank, 'a.ts', 2000);
+        expect(registerClick(first.next, 'a.ts', 1500).double).toBe(false);
     });
 });

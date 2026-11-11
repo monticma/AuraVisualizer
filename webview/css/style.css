@@ -997,26 +997,42 @@ html, body {
     border-color: rgba(96, 165, 250, 0.55);
 }
 
-/* Cross-view jump: the same secondary-button look as the Ask Aura actions,
-   sitting right under the panel header so it is the first thing you can do. */
+/* Cross-view actions: one bar, under the panel header, in both inspectors.
+   Icons only, hugging the left edge — the row is a place for gestures, not a
+   second title. Every button carries its own tooltip. */
 .panel-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 4px;
     padding: 0 16px 10px;
 }
 
-.panel-city-btn {
+.panel-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    padding: 0;
     background: rgba(96, 165, 250, 0.12);
     border: 1px solid rgba(96, 165, 250, 0.3);
     color: var(--aura-fg);
     border-radius: 6px;
-    padding: 6px 10px;
     cursor: pointer;
-    font-size: 12px;
+    font-size: 14px;
+    line-height: 1;
     transition: background 0.15s, border-color 0.15s;
 }
 
-.panel-city-btn:hover {
+.panel-action-btn:hover {
     background: rgba(96, 165, 250, 0.24);
     border-color: rgba(96, 165, 250, 0.55);
+}
+
+.panel-action-btn:focus-visible {
+    outline: 2px solid var(--aura-accent);
+    outline-offset: 1px;
 }
 
 .community-ask {
@@ -5057,27 +5073,9 @@ select option {
     text-overflow: ellipsis;
 }
 
-.city-side-actions {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-}
-
-.city-side-actions button {
-    padding: 6px 10px;
-    border-radius: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    background: transparent;
-    color: inherit;
-    font-size: 12px;
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
-}
-
-.city-side-actions button:hover {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.3);
-}
+/* The City inspector reuses .panel-actions; only its insets differ (the panel
+   header is padded 20 px, the graph panel 16 px). */
+#city-side-actions { padding: 10px 20px 0; }
 
 .city-side-empty { opacity: 0.5; font-style: italic; }
 
@@ -5086,6 +5084,7 @@ select option {
 .city-tip-dir { margin-top: 2px; }
 .city-tip-out { color: #e0b53a; }
 .city-tip-in { color: #4fc3f7; }
+.city-tip-hint { margin-top: 4px; opacity: 0.55; font-size: 11px; }
 
 /* City — district drill-down (breadcrumb + child chips) */
 /* District bar. It sat under the toolbar; it now closes the view from below,

@@ -77,6 +77,7 @@
         scale: 0,             // world width of the plan, set by applyPlan
         relations: { in: {}, out: {} },
         selected: null,
+        clickMemo: { id: null, at: 0 },   // double-click bookkeeping (city-core)
         scope: '',            // '' = whole city, otherwise a district key path
         observer: null,
         hudMeta: null,
@@ -117,6 +118,8 @@
             if (state.relations.out[key]) html += '<div class="city-tip-dir city-tip-in">← used by the selection</div>';
             if (state.relations.in[key]) html += '<div class="city-tip-dir city-tip-out">→ depends on the selection</div>';
         }
+        // The one gesture that is not visible in the geometry.
+        html += '<div class="city-tip-hint">double-click to open in the editor</div>';
         return html;
     }
 
@@ -1028,14 +1031,31 @@
         return { in: inbound, out: outbound, docs: docs };
     }
 
-    function selectBuilding(node) {
+    /**
+     * A click selects and opens the inspector; a **double-click opens the file in
+     * the editor**. The library gives us one call per click and no event type, so
+     * the second click is recognised by time and identity — and only for real
+     * canvas clicks (`event` is absent on the programmatic calls, e.g. a click on
+     * a satellite in the relations map, which must never open a file).
+     */
+    function selectBuilding(node, event) {
         if (!node || !node.id) return;
+        var double = false;
+        if (event) {
+            var lib = window.AuraCity;
+            if (lib && typeof lib.registerClick === 'function') {
+                var hit = lib.registerClick(state.clickMemo, node.id, Date.now());
+                state.clickMemo = hit.next;
+                double = hit.double;
+            }
+        }
         state.selected = node.id;
         state.relations = computeRelations(relationKey(state.nodeById[node.id] || node));
         if (state.graph) state.graph.nodeThreeObject(buildingFor);
         paintEdges();
         updateHud();
         renderSide();
+        if (double) openSelectedFile(0);
     }
 
     function clearSelection() {
@@ -1103,11 +1123,6 @@
         if (risk) html += risk;
 
         html += relationGraph();
-
-        html += '<div class="city-side-section city-side-actions">'
-            + '<button type="button" data-city-action="open">Open file</button>'
-            + '<button type="button" data-open-in-tab="city">Ouvrir dans ▾</button>'
-            + '</div>';
 
         body.innerHTML = html;
     }
@@ -1528,7 +1543,9 @@
     }
 
     function wireSide() {
-        var body = $('#city-side-body');
+        // The action bar lives in the panel, not in the re-rendered body, so the
+        // delegation has to sit on the panel itself to cover both.
+        var side = $('#city-side');
         var close = $('#city-side-close');
         var crumbs = $('#city-crumbs');
         if (crumbs) {
@@ -1542,13 +1559,13 @@
             });
         }
         if (close) close.addEventListener('click', clearSelection);
-        if (!body) return;
-        body.addEventListener('click', function (event) {
+        if (!side) return;
+        side.addEventListener('click', function (event) {
             var target = event.target;
-            while (target && target !== body && !target.getAttribute('data-city-goto') && !target.getAttribute('data-city-action')) {
+            while (target && target !== side && !target.getAttribute('data-city-goto') && !target.getAttribute('data-city-action')) {
                 target = target.parentNode;
             }
-            if (!target || target === body) return;
+            if (!target || target === side || !target.getAttribute) return;
             var goto = target.getAttribute('data-city-goto');
             if (goto) {
                 if (state.byId[goto]) selectBuilding({ id: goto });
@@ -1826,6 +1843,16 @@
     window.AuraCityView = {
         activate: activate,
         select: function (id) { selectBuilding({ id: id }); },
+        /**
+         * One canvas click on a building, exactly the code path the renderer
+         * takes. Two of them inside DOUBLE_CLICK_MS open the file — the harness
+         * proves that without a real mouse.
+         */
+        click: function (id) {
+            if (!id) return false;
+            selectBuilding({ id: id }, {});
+            return state.selected === id;
+        },
         reveal: reveal,
         revealSymbol: revealSymbol,
         /** Other views' entry point: switch tab, then select this file. */

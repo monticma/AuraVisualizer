@@ -157,8 +157,8 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
             </div>
             <button id="panel-close" class="panel-close">\u2715</button>
         </div>
-        <div class="panel-actions">
-            <button id="panel-city" type="button" class="panel-city-btn" data-open-in-tab="graph" title="Show this file in another view">Ouvrir dans \u25BE</button>
+        <div class="panel-actions" id="panel-actions">
+            <button id="panel-city" type="button" class="panel-action-btn" data-open-in-tab="graph" title="Show this file in another view \u2014 City or Treemap">\u25EB</button>
         </div>
         <details class="panel-section panel-collapsible" id="overview-section" open>
             <summary class="panel-section-header">
@@ -398,6 +398,13 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
                     </div>
                     <button id="city-side-close" type="button" title="Close">\u2715</button>
                 </header>
+                <!-- Same action bar as #detail-panel: left-aligned icons, one
+                     tooltip each. Static markup, so it survives the body being
+                     re-rendered on every selection. -->
+                <div id="city-side-actions" class="panel-actions">
+                    <button type="button" class="panel-action-btn" data-city-action="open" title="Open this file in the editor \u2014 or double-click the building">\u2197</button>
+                    <button type="button" class="panel-action-btn" data-open-in-tab="city" title="Show this file in another view \u2014 3D Graph or Treemap">\u25EB</button>
+                </div>
                 <div id="city-side-body"></div>
             </aside>
         </div>

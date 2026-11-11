@@ -26,6 +26,7 @@ var AuraCity = (() => {
     DEFAULT_FUNCTION_LIMIT: () => DEFAULT_FUNCTION_LIMIT,
     DEFAULT_GAP: () => DEFAULT_GAP,
     DEFAULT_HEIGHT_COUNT: () => DEFAULT_HEIGHT_COUNT,
+    DOUBLE_CLICK_MS: () => DOUBLE_CLICK_MS,
     MAX_CITY_SCALE: () => MAX_CITY_SCALE,
     MIN_CITY_SCALE: () => MIN_CITY_SCALE,
     MIN_HEIGHT_RATIO: () => MIN_HEIGHT_RATIO,
@@ -41,6 +42,7 @@ var AuraCity = (() => {
     heightFor: () => heightFor,
     layoutCity: () => layoutCity,
     metricValue: () => metricValue,
+    registerClick: () => registerClick,
     squarify: () => squarify,
     tierEdges: () => tierEdges,
     tierOf: () => tierOf,
@@ -153,6 +155,14 @@ var AuraCity = (() => {
     if (n === 0)
       return BASE_CITY_SCALE;
     return Math.max(MIN_CITY_SCALE, Math.min(MAX_CITY_SCALE, BASE_CITY_SCALE * Math.sqrt(n / REFERENCE_BUILDINGS)));
+  }
+  var DOUBLE_CLICK_MS = 350;
+  function registerClick(memo, id, now, windowMs = DOUBLE_CLICK_MS) {
+    if (!id)
+      return { double: false, next: { id: null, at: now } };
+    const elapsed = now - memo.at;
+    const double = memo.id === id && elapsed >= 0 && elapsed <= windowMs;
+    return { double, next: { id: double ? null : id, at: now } };
   }
   var DEFAULT_FUNCTION_LIMIT = 2e3;
   function positiveOr(value, fallback) {

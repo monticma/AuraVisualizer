@@ -246,6 +246,39 @@ export function cityScaleFor(count: number): number {
 }
 
 /**
+ * Two clicks on the same building inside this window are a double-click. 350 ms
+ * is the platform default; 500 ms feels sticky while the orbit camera is still
+ * easing after the first click.
+ */
+export const DOUBLE_CLICK_MS = 350;
+
+/** What the previous click was, for `registerClick`. */
+export interface ClickMemo {
+    id: string | null;
+    at: number;
+}
+
+/**
+ * Fold one click into the memo and say whether it *completes* a double-click.
+ *
+ * Only the second click of a pair counts, and a pair needs the **same**
+ * building: clicking A then B must never open A. Every plain click re-arms the
+ * memo, so three fast clicks are a double-click followed by a fresh first click
+ * — not two opens.
+ */
+export function registerClick(
+    memo: ClickMemo,
+    id: string,
+    now: number,
+    windowMs: number = DOUBLE_CLICK_MS,
+): { double: boolean; next: ClickMemo } {
+    if (!id) return { double: false, next: { id: null, at: now } };
+    const elapsed = now - memo.at;
+    const double = memo.id === id && elapsed >= 0 && elapsed <= windowMs;
+    return { double, next: { id: double ? null : id, at: now } };
+}
+
+/**
  * Default cap on the functions turned into buildings, per file. High enough to
  * keep every real file whole (the largest amalgamation seen — mongoose.c — holds
  * 875 functions), low enough to stop a generated file from owning the city.
