@@ -1458,18 +1458,16 @@ html, body {
 /* ============================================================
    Warp Points (panel + modal)
    ============================================================ */
-#warps-panel {
+/* ============================================================
+   FLOATING WINDOWS — one type for warps, communities and both maps.
+   The containers keep their own geometry (size, anchor, resize); the chrome,
+   the header and every header button come from here, so a ✕ looks like a ✕
+   wherever it sits.
+   ============================================================ */
+.float-window {
     position: fixed;
-    /* 80px put the panel just under the tab bar; the graph bar now lives there,
-       so it starts below it (41px = --graph-bar-h). */
-    top: 121px;
-    right: 16px;
-    width: 240px;
-    min-width: 180px;
-    min-height: 100px;
-    max-height: 70vh;
     background: var(--aura-sidebar-bg);
-    border: 1px solid var(--aura-border);
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: var(--radius);
     z-index: 200;
     font-size: 12px;
@@ -1478,42 +1476,76 @@ html, body {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    resize: both;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
 }
-#warps-panel.hidden { display: none; }
 
-.warps-panel-header {
+.float-window.hidden { display: none; }
+
+.float-window-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 8px 10px;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 10px;
     font-weight: 600;
     font-size: 11px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     color: rgba(201, 209, 217, 0.7);
-    border-bottom: 1px solid var(--aura-border);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     flex-shrink: 0;
     cursor: grab;
     user-select: none;
 }
-.warps-panel-header:active { cursor: grabbing; }
 
-.warps-panel-actions { display: flex; gap: 4px; }
-.warps-panel-actions button {
+.float-window-header:active { cursor: grabbing; }
+
+.float-window-title {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Actions live at the right edge, always, and every button is the same box. */
+.float-window-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+}
+
+.float-window-btn {
     background: transparent;
-    border: 1px solid var(--aura-border);
+    border: 1px solid rgba(255, 255, 255, 0.14);
     color: var(--aura-text-secondary);
     padding: 2px 6px;
-    border-radius: 3px;
+    border-radius: 4px;
     cursor: pointer;
     font-size: 10px;
+    line-height: 1.4;
+    text-transform: none;
+    letter-spacing: 0;
 }
-.warps-panel-actions button:hover {
+
+.float-window-btn:hover {
     background: rgba(96, 165, 250, 0.15);
     color: var(--aura-text);
 }
+
+#warps-panel {
+    /* 80px put the panel just under the tab bar; the graph bar now lives there,
+       so it starts below it (41px = --graph-bar-h). */
+    top: 121px;
+    right: 16px;
+    width: 240px;
+    min-width: 180px;
+    min-height: 100px;
+    max-height: 70vh;
+    resize: both;
+}
+#warps-panel.hidden { display: none; }
+
+
 
 #warps-list {
     overflow-y: auto;
@@ -2042,70 +2074,20 @@ html, body {
    Community Palette
    ============================================================ */
 #community-palette {
-    position: fixed;
-    /* 80px put the panel just under the tab bar; the graph bar now lives there,
-       so it starts below it (41px = --graph-bar-h). */
     top: 121px;
     right: 16px;
     width: 310px;
     min-width: 240px;
     min-height: 120px;
     max-height: 80vh;
-    background: var(--aura-sidebar-bg);
-    border: 1px solid var(--aura-border);
-    border-radius: var(--radius);
-    z-index: 200;
-    font-size: 12px;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
     resize: both;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.35);
 }
 
 #community-palette.hidden { display: none; }
 
-.community-palette-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 8px 10px;
-    font-weight: 600;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: rgba(201, 209, 217, 0.7);
-    border-bottom: 1px solid var(--aura-border);
-    flex-shrink: 0;
-    cursor: grab;
-    user-select: none;
-}
 
-.community-palette-header:active {
-    cursor: grabbing;
-}
 
-.community-palette-actions {
-    display: flex;
-    gap: 4px;
-}
 
-.community-palette-actions button {
-    background: transparent;
-    border: 1px solid var(--aura-border);
-    color: var(--aura-text-secondary);
-    padding: 2px 6px;
-    border-radius: 3px;
-    cursor: pointer;
-    font-size: 10px;
-}
-
-.community-palette-actions button:hover {
-    background: rgba(96, 165, 250, 0.15);
-    color: var(--aura-text);
-}
 
 /* Palette mode combobox (Communities ↔ Architecture layers) */
 #palette-mode {
@@ -2804,44 +2786,10 @@ html, body {
    Minimap
    ============================================================ */
 #minimap {
-    position: fixed;
     bottom: calc(var(--aura-bottom-bars, 48px) + 12px); /* fallback = legacy 60px */
     left: 16px;
     width: 210px;
-    background: var(--aura-sidebar-bg);
-    border: 1px solid var(--aura-border);
-    border-radius: var(--radius);
-    z-index: 200;
-    font-size: 12px;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.35);
 }
-.minimap-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 4px 8px;
-    border-bottom: 1px solid var(--aura-border);
-    cursor: grab;
-    user-select: none;
-    font-size: 11px;
-    opacity: 0.8;
-}
-.minimap-header:active { cursor: grabbing; }
-.minimap-header button {
-    background: none;
-    border: none;
-    color: var(--aura-text);
-    cursor: pointer;
-    font-size: 12px;
-    opacity: 0.6;
-    padding: 0 2px;
-}
-.minimap-header button:hover { opacity: 1; }
 #minimap-canvas {
     display: block;
     width: 100%;
@@ -5448,45 +5396,14 @@ select option {
    City minimap — same floating window as the graph's #minimap
    ============================================================ */
 #city-minimap {
-    position: fixed;
     bottom: calc(var(--aura-bottom-bars, 48px) + 12px);
     left: 16px;
     width: 210px;
-    background: var(--aura-sidebar-bg);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: var(--radius);
-    z-index: 200;
-    font-size: 12px;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
 }
 
 #city-minimap.hidden { display: none; }
 
-.city-minimap-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 4px 8px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    cursor: grab;
-    user-select: none;
-    font-size: 11px;
-    opacity: 0.85;
-}
 
-.city-minimap-header button {
-    background: none;
-    border: none;
-    color: inherit;
-    cursor: pointer;
-    font-size: 11px;
-    padding: 0 2px;
-}
 
 #city-minimap-canvas {
     display: block;

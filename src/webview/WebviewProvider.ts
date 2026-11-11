@@ -1733,11 +1733,13 @@ export class WebviewProvider {
         </div>
         <!-- Floating map: same window as the graph's minimap, draggable and
              remembered. It lives inside the tab so it hides with the tab. -->
-        <div id="city-minimap" class="hidden">
-            <div class="city-minimap-header">
-                <span>🗺️ City map</span>
-                <button id="city-minimap-reset" title="Back to the initial framing">⟲</button>
-                <button id="city-minimap-close" title="Close">✕</button>
+        <div id="city-minimap" class="float-window hidden">
+            <div class="city-minimap-header float-window-header">
+                <span class="float-window-title">🗺️ City map</span>
+                <div class="float-window-actions">
+                    <button id="city-minimap-reset" class="float-window-btn" title="Back to the initial framing">⟲</button>
+                    <button id="city-minimap-close" class="float-window-btn" title="Close">✕</button>
+                </div>
             </div>
             <canvas id="city-minimap-canvas" width="200" height="200"></canvas>
         </div>
@@ -2216,28 +2218,28 @@ export class WebviewProvider {
     </div>
 
     <!-- Group Palette (overlay) — Communities or Architecture layers -->
-    <div id="community-palette" class="hidden">
-        <div class="community-palette-header">
+    <div id="community-palette" class="float-window hidden">
+        <div class="community-palette-header float-window-header">
             <select id="palette-mode" class="palette-mode" title="Palette content — Communities groups the Louvain partition, Layers groups the architecture rules. Documentation is excluded from both.">
                 <option value="community">🧩 Communities</option>
                 <option value="layers">🏛️ Layers</option>
             </select>
-            <div class="community-palette-actions">
-                <button id="community-select-all" title="Select all">All</button>
-                <button id="community-select-none" title="Unselect all">None</button>
-                <button id="community-palette-close" title="Close">✕</button>
+            <div class="community-palette-actions float-window-actions">
+                <button id="community-select-all" class="float-window-btn" title="Select all">All</button>
+                <button id="community-select-none" class="float-window-btn" title="Unselect all">None</button>
+                <button id="community-palette-close" class="float-window-btn" title="Close">✕</button>
             </div>
         </div>
         <div id="community-list"></div>
     </div>
 
     <!-- Warps Panel (overlay) -->
-    <div id="warps-panel" class="hidden">
-        <div class="warps-panel-header">
-            <span>🌀 Warps</span>
-            <div class="warps-panel-actions">
-                <button id="warps-capture" title="Capture the current view">📌</button>
-                <button id="warps-panel-close" title="Close">✕</button>
+    <div id="warps-panel" class="float-window hidden">
+        <div class="warps-panel-header float-window-header">
+            <span class="float-window-title">🌀 Warps</span>
+            <div class="warps-panel-actions float-window-actions">
+                <button id="warps-capture" class="float-window-btn" title="Capture the current view">📌</button>
+                <button id="warps-panel-close" class="float-window-btn" title="Close">✕</button>
             </div>
         </div>
         <div id="warps-list"></div>
@@ -2299,10 +2301,12 @@ export class WebviewProvider {
     </div>
 
     <!-- Minimap (overlay) -->
-    <div id="minimap" class="hidden">
-        <div class="minimap-header">
-            <span>🗺️ Minimap</span>
-            <button id="minimap-close" title="Close">✕</button>
+    <div id="minimap" class="float-window hidden">
+        <div class="minimap-header float-window-header">
+            <span class="float-window-title">🗺️ Minimap</span>
+            <div class="float-window-actions">
+                <button id="minimap-close" class="float-window-btn" title="Close">✕</button>
+            </div>
         </div>
         <canvas id="minimap-canvas" width="200" height="200"></canvas>
     </div>

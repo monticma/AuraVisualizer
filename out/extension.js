@@ -401,11 +401,13 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
         </div>
         <!-- Floating map: same window as the graph's minimap, draggable and
              remembered. It lives inside the tab so it hides with the tab. -->
-        <div id="city-minimap" class="hidden">
-            <div class="city-minimap-header">
-                <span>\u{1F5FA}\uFE0F City map</span>
-                <button id="city-minimap-reset" title="Back to the initial framing">\u27F2</button>
-                <button id="city-minimap-close" title="Close">\u2715</button>
+        <div id="city-minimap" class="float-window hidden">
+            <div class="city-minimap-header float-window-header">
+                <span class="float-window-title">\u{1F5FA}\uFE0F City map</span>
+                <div class="float-window-actions">
+                    <button id="city-minimap-reset" class="float-window-btn" title="Back to the initial framing">\u27F2</button>
+                    <button id="city-minimap-close" class="float-window-btn" title="Close">\u2715</button>
+                </div>
             </div>
             <canvas id="city-minimap-canvas" width="200" height="200"></canvas>
         </div>
@@ -884,28 +886,28 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
     </div>
 
     <!-- Group Palette (overlay) \u2014 Communities or Architecture layers -->
-    <div id="community-palette" class="hidden">
-        <div class="community-palette-header">
+    <div id="community-palette" class="float-window hidden">
+        <div class="community-palette-header float-window-header">
             <select id="palette-mode" class="palette-mode" title="Palette content \u2014 Communities groups the Louvain partition, Layers groups the architecture rules. Documentation is excluded from both.">
                 <option value="community">\u{1F9E9} Communities</option>
                 <option value="layers">\u{1F3DB}\uFE0F Layers</option>
             </select>
-            <div class="community-palette-actions">
-                <button id="community-select-all" title="Select all">All</button>
-                <button id="community-select-none" title="Unselect all">None</button>
-                <button id="community-palette-close" title="Close">\u2715</button>
+            <div class="community-palette-actions float-window-actions">
+                <button id="community-select-all" class="float-window-btn" title="Select all">All</button>
+                <button id="community-select-none" class="float-window-btn" title="Unselect all">None</button>
+                <button id="community-palette-close" class="float-window-btn" title="Close">\u2715</button>
             </div>
         </div>
         <div id="community-list"></div>
     </div>
 
     <!-- Warps Panel (overlay) -->
-    <div id="warps-panel" class="hidden">
-        <div class="warps-panel-header">
-            <span>\u{1F300} Warps</span>
-            <div class="warps-panel-actions">
-                <button id="warps-capture" title="Capture the current view">\u{1F4CC}</button>
-                <button id="warps-panel-close" title="Close">\u2715</button>
+    <div id="warps-panel" class="float-window hidden">
+        <div class="warps-panel-header float-window-header">
+            <span class="float-window-title">\u{1F300} Warps</span>
+            <div class="warps-panel-actions float-window-actions">
+                <button id="warps-capture" class="float-window-btn" title="Capture the current view">\u{1F4CC}</button>
+                <button id="warps-panel-close" class="float-window-btn" title="Close">\u2715</button>
             </div>
         </div>
         <div id="warps-list"></div>
@@ -967,10 +969,12 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
     </div>
 
     <!-- Minimap (overlay) -->
-    <div id="minimap" class="hidden">
-        <div class="minimap-header">
-            <span>\u{1F5FA}\uFE0F Minimap</span>
-            <button id="minimap-close" title="Close">\u2715</button>
+    <div id="minimap" class="float-window hidden">
+        <div class="minimap-header float-window-header">
+            <span class="float-window-title">\u{1F5FA}\uFE0F Minimap</span>
+            <div class="float-window-actions">
+                <button id="minimap-close" class="float-window-btn" title="Close">\u2715</button>
+            </div>
         </div>
         <canvas id="minimap-canvas" width="200" height="200"></canvas>
     </div>
