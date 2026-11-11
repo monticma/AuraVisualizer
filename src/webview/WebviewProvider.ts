@@ -2623,7 +2623,13 @@ export class WebviewProvider {
                 <span>✦ Aura Help — v${version}</span>
                 <button id="help-modal-close" title="Close">✕</button>
             </div>
-            <div class="help-modal-body">
+            <div class="help-modal-shell">
+                <nav id="help-toc" aria-label="Help contents">
+                    <input id="help-search" type="search" placeholder="Search the help…" autocomplete="off" />
+                    <div id="help-toc-list"></div>
+                    <div id="help-search-count" class="help-toc-count"></div>
+                </nav>
+                <div class="help-modal-body" id="help-body">
 
                 <h2 class="help-block">What's new</h2>
                 <h3>1.6.0</h3>
@@ -2850,6 +2856,7 @@ export class WebviewProvider {
                 <p>Markdown, plain-text and reStructuredText files (<code>.md</code>, <code>.markdown</code>, <code>.txt</code>, <code>.rst</code>) are first-class nodes. They are <strong>hidden by default</strong> — toggle the <strong>📄 Docs</strong> button in the toolbar to show them.</p>
                 <p>Thin dotted <code>doc-reference</code> edges automatically link each doc file to the code files it mentions — detected from symbol names (functions, classes, methods, exports) and basenames like <code>extension.ts</code>. These edges do <em>not</em> count toward fan-in / fan-out, so hotspot metrics stay clean.</p>
                 <p>Doc content is chunked by heading and indexed in a full-text search index. AI assistants can query it through the <code>search_docs</code> MCP tool.</p>
+                </div>
             </div>
         </div>
     </div>

@@ -2746,12 +2746,113 @@ html, body {
     color: var(--aura-text);
 }
 
+/* Help is a reference you search, not a story you read: a contents column on
+   the left (generated from the headings) and the text on the right. The modal is
+   wider than the others because it now carries two columns. */
+#help-modal .help-modal-content {
+    width: 940px;
+    max-width: 94vw;
+}
+
+.help-modal-shell {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+
+#help-toc {
+    width: 220px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding: 12px 0 12px 12px;
+    border-right: 1px solid var(--aura-border);
+    background: rgba(0, 0, 0, 0.12);
+}
+
+#help-search {
+    flex-shrink: 0;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px 8px;
+    margin-bottom: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    color: var(--aura-text);
+    font-size: 12px;
+}
+
+#help-search:focus {
+    outline: none;
+    border-color: var(--aura-accent);
+}
+
+#help-toc-list {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+    padding-right: 8px;
+}
+
+.help-toc-group {
+    margin: 10px 0 2px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
+    color: var(--aura-text);
+    opacity: 0.45;
+}
+
+.help-toc-group:first-child {
+    margin-top: 0;
+}
+
+.help-toc-link {
+    display: block;
+    padding: 3px 6px;
+    border-radius: 5px;
+    color: var(--aura-text-secondary);
+    font-size: 11.5px;
+    line-height: 1.35;
+    text-decoration: none;
+    cursor: pointer;
+    opacity: 0.85;
+}
+
+.help-toc-link:hover {
+    background: rgba(96, 165, 250, 0.12);
+    color: var(--aura-text);
+    opacity: 1;
+}
+
+.help-toc-link.active {
+    background: rgba(96, 165, 250, 0.16);
+    color: var(--aura-text);
+}
+
+.help-toc-count {
+    flex-shrink: 0;
+    padding-top: 8px;
+    font-size: 10px;
+    opacity: 0.45;
+}
+
 .help-modal-body {
     padding: 16px 20px;
     overflow-y: auto;
     font-size: 13px;
     line-height: 1.6;
     color: var(--aura-text-secondary);
+}
+
+/* Only the help body is a flex child (next to the contents column); the editor
+   modals that reuse this class keep their own layout. */
+#help-modal .help-modal-body {
+    flex: 1;
+    min-width: 0;
 }
 
 /* Four named blocks instead of one 45-section scroll: what's new, what you can

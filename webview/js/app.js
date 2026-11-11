@@ -1381,6 +1381,10 @@
         if (helpBtn && helpModal) {
             helpBtn.addEventListener('click', function() {
                 helpModal.classList.toggle('hidden');
+                if (!helpModal.classList.contains('hidden')) {
+                    var box = $('#help-search');
+                    if (box) box.focus();
+                }
             });
             if (helpClose) {
                 helpClose.addEventListener('click', function() {
@@ -1389,6 +1393,131 @@
             }
             helpModal.addEventListener('click', function(e) {
                 if (e.target === helpModal) helpModal.classList.add('hidden');
+            });
+        }
+        setupHelp();
+
+        /**
+         * Help is a reference: you arrive with a word in mind. The contents are
+         * generated from the headings themselves — a hand-kept list of 44 titles
+         * would drift on the first section added — and the search filters the
+         * sections, the contents and the block titles together.
+         */
+        function setupHelp() {
+            var body = $('#help-body');
+            var list = $('#help-toc-list');
+            var search = $('#help-search');
+            var count = $('#help-search-count');
+            if (!body || !list || !search) return;
+
+            // One entry per section, grouped by the block it belongs to.
+            var entries = [];
+            var group = null;
+            var children = body.children;
+            for (var i = 0; i < children.length; i++) {
+                var el = children[i];
+                if (el.classList.contains('help-block')) {
+                    group = document.createElement('div');
+                    group.className = 'help-toc-group';
+                    group.textContent = el.textContent.trim();
+                    list.appendChild(group);
+                    continue;
+                }
+                if (el.tagName !== 'H3') continue;
+                var id = el.id || ('help-sec-' + entries.length);
+                el.id = id;
+                var link = document.createElement('a');
+                link.className = 'help-toc-link';
+                link.href = '#' + id;
+                link.textContent = el.textContent.trim();
+                link.dataset.target = id;
+                list.appendChild(link);
+                entries.push({ heading: el, link: link, group: group, text: '' });
+            }
+
+            // Everything a section says, once — searching 44 sections on every
+            // keystroke must not walk the DOM 44 times.
+            for (var e = 0; e < entries.length; e++) {
+                var text = entries[e].heading.textContent;
+                var node = entries[e].heading.nextElementSibling;
+                while (node && node.tagName !== 'H3' && !node.classList.contains('help-block')) {
+                    text += ' ' + node.textContent;
+                    node = node.nextElementSibling;
+                }
+                entries[e].text = text.toLowerCase();
+            }
+
+            function hideSection(entry, hidden) {
+                var node = entry.heading;
+                while (node && node.tagName !== 'H3' && !node.classList.contains('help-block')) {
+                    node.style.display = hidden ? 'none' : '';
+                    node = node.nextElementSibling;
+                }
+                entry.heading.style.display = hidden ? 'none' : '';
+                entry.link.style.display = hidden ? 'none' : '';
+            }
+
+            function blockHasVisibleLink(group) {
+                if (!group) return true;
+                var next = group.nextElementSibling;
+                while (next && !next.classList.contains('help-toc-group')) {
+                    if (next.classList.contains('help-toc-link') && next.style.display !== 'none') return true;
+                    next = next.nextElementSibling;
+                }
+                return false;
+            }
+
+            function applyFilter() {
+                var query = String(search.value || '').trim().toLowerCase();
+                var shown = 0;
+                for (var e = 0; e < entries.length; e++) {
+                    var hit = !query || entries[e].text.indexOf(query) !== -1;
+                    hideSection(entries[e], !hit);
+                    if (hit) shown++;
+                }
+                // Block titles follow their links, and the headings in the text
+                // follow their sections.
+                var groups = list.querySelectorAll('.help-toc-group');
+                for (var g = 0; g < groups.length; g++) {
+                    groups[g].style.display = blockHasVisibleLink(groups[g]) ? '' : 'none';
+                }
+                var blocks = body.querySelectorAll('.help-block');
+                for (var b = 0; b < blocks.length; b++) {
+                    var next = blocks[b].nextElementSibling;
+                    var any = false;
+                    while (next && !next.classList.contains('help-block')) {
+                        if (next.tagName === 'H3' && next.style.display !== 'none') { any = true; break; }
+                        next = next.nextElementSibling;
+                    }
+                    blocks[b].style.display = any ? '' : 'none';
+                }
+                if (count) {
+                    count.textContent = !query ? ''
+                        : shown === 0 ? 'Nothing matches'
+                            : shown + (shown === 1 ? ' section' : ' sections');
+                }
+            }
+
+            search.addEventListener('input', applyFilter);
+            search.addEventListener('keydown', function(event) {
+                if (event.key === 'Escape') {
+                    search.value = '';
+                    applyFilter();
+                    event.stopPropagation();
+                }
+            });
+
+            list.addEventListener('click', function(event) {
+                var link = event.target.closest ? event.target.closest('.help-toc-link') : null;
+                if (!link) return;
+                event.preventDefault();
+                var target = document.getElementById(link.dataset.target);
+                if (!target) return;
+                body.scrollTop = target.getBoundingClientRect().top
+                    - body.getBoundingClientRect().top + body.scrollTop;
+                var links = list.querySelectorAll('.help-toc-link');
+                for (var l = 0; l < links.length; l++) links[l].classList.remove('active');
+                link.classList.add('active');
             });
         }
 
