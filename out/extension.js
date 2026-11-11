@@ -375,7 +375,11 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
              like #detail-panel sits under the 3D Graph toolbar. -->
         <div id="city-stage">
             <div id="city-canvas"></div>
-            <div id="city-legend">
+            <!-- Bottom-left family: the legend sits over the status band in one
+                 column, so neither has to guess the other's height. Outside
+                 #city-canvas: the renderer owns that node. -->
+            <div id="city-overlays">
+            <div id="city-legend" class="view-legend">
                 <div class="city-legend-row" id="city-legend-encoding">height = cognitive \xB7 footprint = lines</div>
                 <div class="city-legend-row" id="city-legend-colour" hidden></div>
                 <div class="city-legend-row"><span class="city-legend-swatch hot"></span><span id="city-legend-hot">top 20</span></div>
@@ -385,9 +389,10 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
                 <div class="city-legend-row"><label class="city-legend-toggle" title="Draw the #1\u2026#N badges of the hot band"><input id="city-ranks" type="checkbox" checked> rank badges</label></div>
                 <div class="city-legend-row"><label class="city-legend-toggle" title="Contact shadows (dropped above 1 500 buildings to keep the frame rate)"><input id="city-shadows" type="checkbox" checked> shadows</label></div>
             </div>
-            <div id="city-hud">
+            <div id="city-hud" class="view-status">
                 <span id="city-hud-meta">Click a building</span>
                 <button id="city-hud-graph" type="button" title="Focus this file in the 3D Graph tab">\u2316 Focus in graph</button>
+            </div>
             </div>
             <aside id="city-side" aria-live="polite">
                 <header id="city-side-head">
