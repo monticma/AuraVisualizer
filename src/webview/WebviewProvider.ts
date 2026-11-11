@@ -2749,16 +2749,18 @@ export class WebviewProvider {
                 <p>Aura computes a PageRank score over the structural <strong>code</strong> graph: a file is central when the files depending on it are themselves central. Documentation and <code>doc-reference</code> links are excluded. The detail panel shows the score, and the <strong>💠 Centrality</strong> toolbar button draws a soft violet halo around the <strong>top 10%</strong> most central code files. It is off by default to keep the graph readable and is saved with the view state.</p>
                 <p>The optional <code>auraVisualizer.riskCentrality</code> setting replaces the fan-in percentile with the PageRank centrality percentile in the risk score (same 0.20 weight); the default is <code>false</code>, so existing scores are unchanged. <code>resolve_context</code> uses PageRank when the database provides it, falling back to fan-in otherwise.</p>
                 <h3>📑 Tabbed Views</h3>
-                <p>Switch between <strong>9 tabs</strong> in the tab bar for different perspectives:</p>
+                <p>Switch between <strong>11 tabs</strong> in the tab bar, in this order, for different perspectives:</p>
                 <table class="help-table">
                     <tr><td><strong>✦ 3D Graph</strong></td><td>Interactive 3D force-directed dependency graph</td></tr>
                     <tr><td><strong>🗺️ Treemap</strong></td><td>Files nested by directory, sized by LOC/complexity</td></tr>
+                    <tr><td><strong>🏙️ City</strong></td><td>The same graph as a 2.5D city — one building per file, height = the metric you pick, footprint = its size, districts = its folder. Click to read, double-click to open, click a district plate to drill in</td></tr>
                     <tr><td><strong>🗑️ Matrix</strong></td><td>N×N Dependency Structure Matrix (DSM)</td></tr>
                     <tr><td><strong>🎵 Chord</strong></td><td>Dependency flows between groups (directories/languages/communities)</td></tr>
                     <tr><td><strong>📊 Metrics</strong></td><td>Bar charts of LOC, complexity, fan-in/out</td></tr>
                     <tr><td><strong>📈 Timeline</strong></td><td>Metric evolution over git history</td></tr>
                     <tr><td><strong>📋 Table</strong></td><td>Sortable, filterable file spreadsheet (LOC, complexity, cognitive max, fan-in/out, symbols)</td></tr>
                     <tr><td><strong>🛡️ Risk</strong></td><td>Codebase risk dashboard (health score, churn, bus factor)</td></tr>
+                    <tr><td><strong>🏛️ Architecture</strong></td><td>Layer rules — violations by rule, Ca/Ce/instability per layer, aggregated cycles, unlayered files, baseline and Markdown export</td></tr>
                     <tr><td><strong>🔗 Co-change</strong></td><td>Temporal co-change pairs — files changing together without a direct dependency, with virtual graph links</td></tr>
                 </table>
                 <h3>🏛️ Architecture Rules</h3>
