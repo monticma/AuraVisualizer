@@ -510,12 +510,17 @@
     function buildDistrictLabels(plan, group) {
         var T = window.THREE;
         if (!T || !plan || !window.AuraSprites || typeof window.AuraSprites.labelSprite !== 'function') return;
-        // "Names & ranks" off: the city stays readable without a single word on
-        // it — that is what a screenshot for someone else's eyes needs.
+        // "District names" off: the city stays readable without a word on it —
+        // that is what a screenshot for someone else's eyes needs.
         if (state.names === false) { state.labelCount = 0; return; }
         var scale = cityScale();
         var ranked = plan.districts.slice().sort(function (a, b) { return (b.w * b.d) - (a.w * a.d); });
+        var leaders = [];
         var drawn = 0;
+        // A plate that touches the edge of the plan gets a callout: a line from
+        // the middle of that edge outwards, the name at its end. Floating names
+        // over the blocks were unreadable as soon as the camera tilted.
+        var EDGE = 0.002;
         for (var i = 0; i < ranked.length && drawn < 40; i++) {
             var district = ranked[i];
             if (district.w * scale < scaled(30) || district.d * scale < scaled(16)) continue;
@@ -524,15 +529,51 @@
             var sprite = window.AuraSprites.labelSprite(name.toUpperCase() + '/', 'rgba(255, 255, 255, 0.6)');
             if (!sprite) continue;
             sprite.scale.multiplyScalar(scaled(1.6));
-            sprite.position.set(
-                (district.x + district.w * 0.14 - 0.5) * scale,
-                plateAltitude(district.depth) + scaled(2.5),
-                (district.z + district.d * 0.14 - 0.5) * scale
-            );
+
+            var x0 = (district.x - 0.5) * scale;
+            var x1 = (district.x + district.w - 0.5) * scale;
+            var z0 = (district.z - 0.5) * scale;
+            var z1 = (district.z + district.d - 0.5) * scale;
+            var y = plateAltitude(district.depth) + scaled(1.4);
+
+            var out = null;   // unit vector pointing away from the city
+            if (district.x <= EDGE) out = { x: -1, z: 0, mx: x0, mz: (z0 + z1) / 2 };
+            else if (district.x + district.w >= 1 - EDGE) out = { x: 1, z: 0, mx: x1, mz: (z0 + z1) / 2 };
+            else if (district.z <= EDGE) out = { x: 0, z: -1, mx: (x0 + x1) / 2, mz: z0 };
+            else if (district.z + district.d >= 1 - EDGE) out = { x: 0, z: 1, mx: (x0 + x1) / 2, mz: z1 };
+
+            if (out) {
+                var reach = scaled(12);
+                var tipX = out.mx + out.x * reach;
+                var tipZ = out.mz + out.z * reach;
+                leaders.push(out.mx, y, out.mz, tipX, y, tipZ);
+                sprite.position.set(tipX + out.x * scaled(6), y + scaled(1.2), tipZ + out.z * scaled(6));
+            } else {
+                // Nested plate: nothing touches the edge, keep it on the block.
+                sprite.position.set(
+                    (district.x + district.w * 0.14 - 0.5) * scale,
+                    plateAltitude(district.depth) + scaled(2.5),
+                    (district.z + district.d * 0.14 - 0.5) * scale
+                );
+            }
             sprite.renderOrder = 2;
             group.add(sprite);
             drawn++;
         }
+
+        if (leaders.length > 0) {
+            var geometry = new T.BufferGeometry();
+            geometry.setAttribute('position', new T.Float32BufferAttribute(leaders, 3));
+            var lines = new T.LineSegments(geometry, new T.LineBasicMaterial({
+                color: '#7d8b99',
+                transparent: true,
+                opacity: 0.55,
+                depthWrite: false,
+            }));
+            lines.renderOrder = 1;
+            group.add(lines);
+        }
+        state.labelLeaderCount = leaders.length / 6;
         state.labelCount = drawn;
     }
 
@@ -545,7 +586,7 @@
         var T = window.THREE;
         if (!T || !plan || !window.AuraSprites || typeof window.AuraSprites.labelSprite !== 'function') return;
         if (!state.rankOf) return;
-        if (state.names === false) { state.badgeCount = 0; return; }
+        if (state.ranks === false) { state.badgeCount = 0; return; }
         var drawn = 0;
         for (var i = 0; i < plan.rects.length; i++) {
             var rect = plan.rects[i];
@@ -1555,7 +1596,21 @@
         }
     }
 
-    /** Names & ranks on or off: rebuilds the decor, keeps the plan and selection. */
+    /** Rank badges on or off — independent of the district names. */
+    function setRanks(on) {
+        state.ranks = on !== false;
+        try {
+            var raw = window.localStorage.getItem(STORE_KEY);
+            var saved = raw ? JSON.parse(raw) : {};
+            saved.ranks = state.ranks;
+            window.localStorage.setItem(STORE_KEY, JSON.stringify(saved));
+        } catch (_) { /* private mode */ }
+        var box = $('#city-ranks');
+        if (box) box.checked = state.ranks;
+        if (state.plan) buildDecor(state.plan);
+    }
+
+    /** District names on or off: rebuilds the decor, keeps the plan and selection. */
     function setNames(on) {        state.names = on !== false;
         try {
             var raw = window.localStorage.getItem(STORE_KEY);
@@ -1575,6 +1630,7 @@
             try {
                 var saved = JSON.parse(raw);
                 if (saved.names === false) state.names = false;
+                if (saved.ranks === false) state.ranks = false;
                 if (saved.shadows === false) state.shadows = false;
                 for (var i = 0; i < CONTROLS.length; i++) {
                     var key = CONTROLS[i].key;
@@ -1588,6 +1644,8 @@
         syncControls();
         var namesBox = $('#city-names');
         if (namesBox) namesBox.checked = state.names !== false;
+        var ranksBox = $('#city-ranks');
+        if (ranksBox) ranksBox.checked = state.ranks !== false;
         var shadowsBox = $('#city-shadows');
         if (shadowsBox) shadowsBox.checked = state.shadows !== false;
     }
@@ -1674,6 +1732,10 @@
         var namesBox = $('#city-names');
         if (namesBox) {
             namesBox.addEventListener('change', function () { setNames(namesBox.checked); });
+        }
+        var ranksBox = $('#city-ranks');
+        if (ranksBox) {
+            ranksBox.addEventListener('change', function () { setRanks(ranksBox.checked); });
         }
         var shadowsBox = $('#city-shadows');
         if (shadowsBox) {
@@ -1801,6 +1863,9 @@
         },
         names: function () { return state.names !== false; },
         setNames: function (on) { setNames(on); },
+        ranks: function () { return state.ranks !== false; },
+        setRanks: function (on) { setRanks(on); },
+        leaderCount: function () { return state.labelLeaderCount || 0; },
         shadows: function () { return state.shadows !== false; },
         setShadows: function (on) { setShadows(on); },
         /** Whether buildings actually cast right now (the budget can veto it). */
