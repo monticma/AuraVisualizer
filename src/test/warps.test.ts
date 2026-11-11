@@ -4,6 +4,7 @@ import {
     MAX_WARPS,
     generateWarpId,
     makeWarp,
+    mergeWarpUpdate,
     normalizeQuickSlot,
     normalizeWarpName,
     parseWarps,
@@ -268,5 +269,28 @@ describe('warps: node anchor', () => {
         const warp = makeWarp(pose({ id: 'old' }), 1000)!;
         expect(warp.anchor).toBeUndefined();
         expect(parseWarps(serializeWarps([warp]))[0].anchor).toBeUndefined();
+    });
+});
+
+describe('warps · update merging', () => {
+    const pose = () => ({ pos: { x: 1, y: 2, z: 3 }, target: { x: 0, y: 0, z: 0 } });
+
+    it('keeps the scope when the update forgets it', () => {
+        const stored = makeWarp({ ...pose(), scope: 'city', name: 'Den' }, 1000)!;
+        const updated = makeWarp(mergeWarpUpdate(stored, { id: stored.id, ...pose(), name: 'Den 2' }), 2000)!;
+        expect(updated.scope).toBe('city');
+        expect(updated.name).toBe('Den 2');
+    });
+
+    it('lets an explicit scope win', () => {
+        const stored = makeWarp({ ...pose(), scope: 'city' }, 1000)!;
+        const merged = mergeWarpUpdate(stored, { id: stored.id, scope: 'graph' }) as Record<string, unknown>;
+        expect(merged.scope).toBe('graph');
+    });
+
+    it('ignores a non-object payload', () => {
+        const stored = makeWarp({ ...pose(), scope: 'city' }, 1000)!;
+        expect(mergeWarpUpdate(stored, null)).toBe(stored);
+        expect(mergeWarpUpdate(stored, 'nope')).toBe(stored);
     });
 });

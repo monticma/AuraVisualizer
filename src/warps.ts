@@ -194,6 +194,20 @@ export function makeWarp(value: unknown, now: number = Date.now(), fallbackName:
     };
 }
 
+/**
+ * Fold an update into the warp it replaces.
+ *
+ * A warp is rebuilt from a flat record on every save, so any caller that forgets
+ * a field silently resets it — `scope` was dropped by the City's "re-capture this
+ * pose" button, which moved the warp into the graph's palette. Updating an
+ * existing id therefore merges over the stored entry: an absent field means
+ * "unchanged", and an explicit one (a deliberate move between scenes) still wins.
+ */
+export function mergeWarpUpdate(existing: Warp, incoming: unknown): unknown {
+    if (!incoming || typeof incoming !== 'object') return existing;
+    return { ...existing, ...(incoming as Record<string, unknown>) };
+}
+
 /** Validate one stored entry; the index drives the "Warp N" fallback name. */
 export function normalizeWarp(value: unknown, index: number = 0, now: number = Date.now()): Warp | null {
     return makeWarp(value, now, 'Warp ' + (index + 1));

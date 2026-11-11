@@ -13,7 +13,7 @@ import { ARCH_RULES_FILE, parseArchRules } from '../arch/arch-core';
 import type { RiskSnapshot } from '../risk/risk-service';
 import { parseAnnotations, serializeAnnotations, withNote, withoutNote, type AnnotationMap } from '../annotations';
 import { saveOrCopyText, saveBinary } from '../export/save';
-import { makeWarp, parseWarps, removeWarp, serializeWarps, upsertWarp, type WarpList } from '../warps';
+import { makeWarp, mergeWarpUpdate, parseWarps, removeWarp, serializeWarps, upsertWarp, type WarpList } from '../warps';
 import type { FunctionFlow } from '../flow/flow-core';
 import type { ViewLinkPayload } from '../deeplinks';
 import type { BranchReviewPayload } from '../git/branch-diff-core';
@@ -738,9 +738,14 @@ export class WebviewProvider {
 
     private async handleSaveWarp(payload: unknown): Promise<void> {
         try {
-            const warp = makeWarp(payload);
+            const current = await this.loadWarps();
+            // An update merges over the stored warp: a caller that omits a
+            // field means "unchanged", not "reset it".
+            const id = (payload as { id?: string } | null)?.id;
+            const existing = id ? current.find(w => w.id === id) : undefined;
+            const warp = makeWarp(existing ? mergeWarpUpdate(existing, payload) : payload);
             if (!warp) return; // Unusable pose (missing coordinates) — ignore.
-            const list = upsertWarp(await this.loadWarps(), warp);
+            const list = upsertWarp(current, warp);
             await this.persistWarps(list);
             await this.sendWarps();
         } catch (err) {

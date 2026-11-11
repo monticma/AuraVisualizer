@@ -366,6 +366,11 @@
             postWarp({
                 id: warp.id, createdAt: warp.createdAt, name: warp.name,
                 quickSlot: warp.quickSlot || null,
+                // The scope travels with the record: the host rebuilds the warp
+                // with `makeWarp`, and an absent scope means "graph" — which is
+                // how a re-captured City warp used to jump into the graph's
+                // palette and vanish from this one.
+                scope: warp.scope || scope,
                 pos: pose.pos, target: pose.target, quat: pose.quat, up: pose.up, fov: pose.fov,
                 anchor: pose.anchor || null
             });
