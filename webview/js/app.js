@@ -4853,6 +4853,17 @@
         return out;
     }
 
+    /** Put a floating panel back on its CSS anchor (default corner and size). */
+    function resetPalettePosition(el) {
+        if (!el || !el.style) return;
+        el.style.left = '';
+        el.style.top = '';
+        el.style.right = '';
+        el.style.bottom = '';
+        el.style.width = '';
+        el.style.height = '';
+    }
+
     /** Restore a saved palette position/size, clamped to the current viewport. */
     function restorePalettePosition(el, pos, alsoBottom) {
         if (!el || !pos) return;
@@ -4947,13 +4958,19 @@
             // The panel belongs to both scenes; each keeps its own intent.
             showWarps: (warpsOpen[warpsScope()] = warpsPanelVisibleIntent()),
             showWarpsCity: warpsOpen.city,
-            // Floating panels — keep user-dragged positions across sessions
-            palettePositions: {
-                warps: activeTab === 'city' ? warpsPositions.graph : capturePalettePosition($('#warps-panel')),
-                warpsCity: activeTab === 'city' ? capturePalettePosition($('#warps-panel')) : warpsPositions.city,
-                community: capturePalettePosition($('#community-palette')),
-                minimap: capturePalettePosition($('#minimap'))
-            }
+            // Floating panels — keep user-dragged positions across sessions.
+            // The warps slot written is the one of the scene on screen; the
+            // other keeps what it had, so moving the window in the City never
+            // moves it in the graph.
+            palettePositions: (function () {
+                warpsPositions[warpsScope()] = capturePalettePosition($('#warps-panel'));
+                return {
+                    warps: warpsPositions.graph,
+                    warpsCity: warpsPositions.city,
+                    community: capturePalettePosition($('#community-palette')),
+                    minimap: capturePalettePosition($('#minimap'))
+                };
+            })()
         };
     }
 
@@ -5191,7 +5208,9 @@
 
         // Floating palette positions (drag positions persist across sessions)
         if (state.palettePositions) {
-            restorePalettePosition($('#warps-panel'), warpsPositions[warpsScope()]);
+            var wpEl = $('#warps-panel');
+            if (warpsPositions[warpsScope()]) restorePalettePosition(wpEl, warpsPositions[warpsScope()]);
+            else resetPalettePosition(wpEl);
             restorePalettePosition($('#community-palette'), state.palettePositions.community);
             restorePalettePosition($('#minimap'), state.palettePositions.minimap, true);
         }
@@ -6533,7 +6552,10 @@
             switchingTab = true;
             if (window.AuraWarps) window.AuraWarps.setVisible(entering ? !!warpsOpen[entering] : false);
             switchingTab = false;
-            if (entering) restorePalettePosition(wp, warpsPositions[entering]);
+            if (entering) {
+                if (warpsPositions[entering]) restorePalettePosition(wp, warpsPositions[entering]);
+                else resetPalettePosition(wp);
+            }
         })();
 
         // The warp list belongs to the scene on screen.
