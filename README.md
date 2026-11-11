@@ -27,6 +27,7 @@
   - **The same furniture as the graph**: a floating **🗺️ Map** with the camera footprint and a reframe button, **🌀 Warps scoped to the City**, and **📤 Export** → **PNG** or a **1600×900 postcard** with a caption.
 - **🛡️ Risk score v2 — a hotspot is *reworked*, not merely *changed*.** The git half of the score now weighs the **volume of lines rewritten** (relative to the file's size today), **recency** (a commit made today counts, one at the window's edge does not), the **number of authors** and the **share of bug-fix commits**. The structural half stays dominant on purpose — Aura is an architecture tool, git refines the ranking rather than driving it.
 - **🧭 One interface, everywhere.** Every tab now wears the **same toolbar shell** (one background, one hairline, one height); the 3D-only controls (map, warps, export, link) left the global top bar for the **graph's own bar**, so nothing on screen pretends to apply to a tab it does not; the tab bar holds tabs and nothing else. Warps, communities and both minimaps are **one floating-window type**, each remembers its position per scene, and each remembers **whether it was open**.
+- **⚙️ The two reference windows are organised.** **Settings** was a flat list of 22 controls where risk, camera, links and pilot came out interleaved; it now has **five named groups** (Graph & links · Camera & selection · Pilot & gamepad · Risk & analysis · Editors & hints), and the three bloom sliders only appear when the selected-node effect *is* bloom. **Help** was 45 sections in one scroll; it is now a two-pane reference — a **contents column generated from the headings** and a **search box** that filters sections, contents and block titles on the full text ("warp" finds the nine sections that mention it, not just the one that names it).
 - **📤 One export, one jump — in every view.** Each tab now has an **📤 Export** that lists what *that* view can say: PNG and AI context (3D Graph), PNG and postcard (City), CSV of the cells (Treemap), Markdown of the dependency list (Matrix), SVG of the diagram and CSV of the flows (Chord), CSV of the series (Timeline), CSV of the files (Table), CSV of the pairs (Co-change), Markdown of the summary (Metrics). Risk and Architecture already wrote their own Markdown reports, so their one-click button stays. The four bespoke "look at this elsewhere" buttons became a single **◫ View in** menu, in the graph's inspector and in the City's, next to a **↗ Open** that pairs with it.
 
 _Previously in 1.5.2: `global-use` edges for plain `<script>` files, a layout that stays put when files come back, silent spread/DAG reflows, case-insensitive layer globs, four new agent tools and the navigation trail._
@@ -628,7 +629,7 @@ Toggle language buttons in the filter bar to show/hide files by type. Each butto
 
 ### In-App Settings ⚙️
 
-The **⚙️ button** in the tab bar (next to 🔍 Query) opens an in-app settings modal — no need to dig into VS Code settings:
+The **⚙️ button** in the tab bar (next to 🔍 Query) opens an in-app settings modal — no need to dig into VS Code settings. The controls are grouped: **Graph & links**, **Camera & selection**, **Pilot & gamepad**, **Risk & analysis**, **Editors & hints**. The bloom sliders only show when the selected-node effect is *bloom*.
 
 | Control | Effect |
 |---------|--------|

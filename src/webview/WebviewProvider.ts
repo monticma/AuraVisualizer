@@ -2807,7 +2807,8 @@ export class WebviewProvider {
                 <h3>🎛️ Command Palette</h3>
                 <p>From anywhere in VS Code: <strong>Aura: Focus File in Graph…</strong> (fuzzy picker over analyzed files — path, language, directory, LOC, fan-in/out, layer, violations), <strong>Aura: Apply Saved Query…</strong> (replays a query saved from the query bar with its stored mode, most recent first) and <strong>Aura: Add Warp Here</strong> (warp naming modal on the current camera pose). The file picker lists code only — documentation nodes are excluded — and caps at 5 000 entries.</p>
                 <h3>⚙️ In-App Settings</h3>
-                <p>The <strong>⚙️ button</strong> in the tab bar (next to 🔍 Query) opens a settings modal — changes apply instantly and are saved to your workspace settings:</p>
+                <p>The <strong>⚙️ button</strong> in the tab bar (next to 🔍 Query) opens a settings modal — changes apply instantly and are saved to your workspace settings. The rows are grouped into <strong>Graph &amp; links</strong>, <strong>Camera &amp; selection</strong>, <strong>Pilot &amp; gamepad</strong>, <strong>Risk &amp; analysis</strong> and <strong>Editors &amp; hints</strong>; the three bloom sliders appear only when the node effect is <em>bloom</em>.</p>
+                <p>This help window works the same way: the <strong>contents column</strong> on the left is built from the section titles, and the <strong>search field</strong> above it filters the sections on their whole text — Escape clears it.</p>
                 <table class="help-table">
                     <tr><td><strong>Risk history window</strong></td><td>30 / 90 / 365 days — drives the Risk Map, the status bar and hotspots</td></tr>
                     <tr><td><strong>PageRank centrality</strong></td><td>Use the PageRank percentile instead of fan-in in the risk score (off by default)</td></tr>

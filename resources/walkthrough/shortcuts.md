@@ -36,7 +36,7 @@ Quick access to every feature without leaving the keyboard.
 | **🔗 Co-change** | Show virtual temporal-coupling links for the strongest co-change pairs |
 | **🌀 Warps** | Warp points panel — capture the current view (📌), fly back to any saved pose, quick slots |
 | **🚀 Pilot** | Free flight — WASD/QE to move, mouse to look, hold left/right click to advance/retreat (`Space` toggles) · gamepad: sticks move/look, L2 down, R2 boost, ✕ reset, ○ exit |
-| **⚙️ Settings** | Open the in-app settings modal — rotation speed, link style, node effect, risk window, dead-code exemptions, follow editor, auto-refresh |
+| **⚙️ Settings** | Open the in-app settings modal — five groups: graph & links, camera & selection, pilot & gamepad, risk & analysis, editors & hints |
 
 ### Toolbar sliders
 
@@ -48,7 +48,9 @@ Quick access to every feature without leaving the keyboard.
 
 ### In-App Settings ⚙️
 
-The **⚙️ button** (next to 🔍 Query) opens an in-app settings modal — changes apply instantly and are saved to your workspace settings:
+The **⚙️ button** (next to 🔍 Query) opens an in-app settings modal — changes apply instantly and are saved to your workspace settings. The rows are grouped (**Graph & links**, **Camera & selection**, **Pilot & gamepad**, **Risk & analysis**, **Editors & hints**) and the bloom sliders only appear when the node effect is *bloom*.
+
+The **❓ Help** window is a reference you search: a contents column built from the section titles on the left, a search field above it that filters whole sections, and `Escape` to clear.
 
 - **Risk history window** — 30 / 90 / 365 days (Risk Map, status bar and hotspots)
 - **Complexity trend threshold** — complexity points per 30 days that flag a file as degrading (default 0.5)
