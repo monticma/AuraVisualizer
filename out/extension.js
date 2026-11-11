@@ -158,7 +158,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
             <button id="panel-close" class="panel-close">\u2715</button>
         </div>
         <div class="panel-actions">
-            <button id="panel-city" type="button" class="panel-city-btn" title="Open the City tab and select this file">\u{1F3D9}\uFE0F See in city</button>
+            <button id="panel-city" type="button" class="panel-city-btn" data-open-in-tab="graph" title="Show this file in another view">Ouvrir dans \u25BE</button>
         </div>
         <details class="panel-section panel-collapsible" id="overview-section" open>
             <summary class="panel-section-header">

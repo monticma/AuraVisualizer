@@ -876,16 +876,19 @@
      * its block at function granularity).
      */
     function setupCityAction() {
-        var btn = $('#panel-city');
-        if (!btn) return;
-        btn.addEventListener('click', function () {
+        // The button is the shared "Open in…" menu: the graph can hand the
+        // selected file to the City or to the Treemap.
+        if (!document.getElementById('panel-city')) return;
+        if (!window.AuraOpenIn || typeof window.AuraOpenIn.register !== 'function') return;
+        window.AuraOpenIn.register('graph', function () {
             var node = hooks.getSelectedNode();
-            if (!node || node._isCluster) return;
+            if (!node || node._isCluster) return [];
             var id = node.path && node.path.length > 0 ? node.path : node.id;
-            if (!id) return;
-            if (window.AuraCityView && typeof window.AuraCityView.showFile === 'function') {
-                window.AuraCityView.showFile(id);
-            }
+            if (!id) return [];
+            return [
+                { label: '🏙️ City', hint: 'select its building', run: function () { window.AuraViews.open('city', id); } },
+                { label: '🗺️ Treemap', hint: 'reveal it in its folder', run: function () { window.AuraViews.open('treemap', id); } },
+            ];
         });
     }
 

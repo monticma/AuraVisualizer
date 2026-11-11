@@ -88,17 +88,23 @@
         }, 0);
     }
 
-    /** Wire every `<button data-export-tab="…">` in the document. */
+    /**
+     * Wire the menu buttons by delegation: the City inspector is re-rendered on
+     * every selection, so a direct binding would be lost on the first click.
+     */
+    function wireAttribute(attribute, opener) {
+        document.addEventListener('click', function (event) {
+            var btn = event.target && event.target.closest
+                ? event.target.closest('[' + attribute + ']')
+                : null;
+            if (!btn) return;
+            event.stopPropagation();
+            opener(btn, btn.getAttribute(attribute));
+        });
+    }
+
     function setup() {
-        var buttons = document.querySelectorAll('[data-export-tab]');
-        for (var i = 0; i < buttons.length; i++) {
-            (function (btn) {
-                btn.addEventListener('click', function (event) {
-                    event.stopPropagation();
-                    open(btn, btn.getAttribute('data-export-tab'));
-                });
-            })(buttons[i]);
-        }
+        wireAttribute('data-export-tab', open);
     }
 
     window.AuraExportMenu = {
@@ -106,6 +112,77 @@
         register: register,
         entriesFor: entriesFor,
         open: open,
+        close: close,
+        isOpen: function () { return !!menu; },
+    };
+
+    // ============================================================
+    // "Open in…" — the same popover, but the entries are computed when it
+    // opens: they depend on what is selected right now.
+    // ============================================================
+    var openInProviders = {};
+
+    /**
+     * Register a provider for one view: `register('city', function () { return
+     * [{ label, hint, run }]; })`. Returning an empty list means "nothing to
+     * offer" and the menu simply does not open.
+     */
+    function registerOpenIn(tab, provider) {
+        if (!tab || typeof provider !== 'function') return;
+        openInProviders[tab] = provider;
+    }
+
+    function openInEntries(tab) {
+        var provider = openInProviders[tab];
+        if (typeof provider !== 'function') return [];
+        try { return provider() || []; } catch (_) { return []; }
+    }
+
+    function openInMenu(btn, tab) {
+        var entries = openInEntries(tab);
+        if (!entries.length) return;
+        if (anchor === btn) { close(); return; }
+        close();
+        // Reuse the export renderer with an explicit list.
+        anchor = btn;
+        menu = document.createElement('div');
+        menu.className = 'view-export-menu';
+        menu.setAttribute('role', 'menu');
+        var html = '';
+        for (var i = 0; i < entries.length; i++) {
+            html += '<button type="button" class="view-export-item" role="menuitem"'
+                + ' data-export-entry="' + i + '">'
+                + '<span class="view-export-label">' + entries[i].label + '</span>'
+                + (entries[i].hint
+                    ? '<span class="view-export-hint">' + entries[i].hint + '</span>'
+                    : '')
+                + '</button>';
+        }
+        menu.innerHTML = html;
+        menu.addEventListener('click', function (event) {
+            var item = event.target && event.target.closest
+                ? event.target.closest('[data-export-entry]')
+                : null;
+            if (!item) return;
+            var entry = entries[Number(item.getAttribute('data-export-entry'))];
+            close();
+            if (entry && typeof entry.run === 'function') entry.run();
+        });
+        var rect = btn.getBoundingClientRect();
+        menu.style.top = Math.round(rect.bottom + 6) + 'px';
+        menu.style.right = Math.round(Math.max(8, window.innerWidth - rect.right)) + 'px';
+        document.body.appendChild(menu);
+        setTimeout(function () {
+            document.addEventListener('mousedown', onDocMouseDown, true);
+            document.addEventListener('keydown', onKeyDown, true);
+        }, 0);
+    }
+
+    window.AuraOpenIn = {
+        init: function () { wireAttribute('data-open-in-tab', openInMenu); },
+        register: registerOpenIn,
+        entriesFor: openInEntries,
+        open: openInMenu,
         close: close,
         isOpen: function () { return !!menu; },
     };

@@ -2027,8 +2027,29 @@
         hooks = injected || {};
     }
 
+    /**
+     * Show one file in another view. Every "Open in…" entry goes through here,
+     * so the target views do not each grow their own jump protocol.
+     */
+    function openIn(target, id) {
+        if (!target || !id) return false;
+        var tab = document.querySelector('.tab-btn[data-tab="' + target + '"]');
+        if (!tab) return false;
+        tab.click();
+        if (target === 'graph') {
+            window.dispatchEvent(new MessageEvent('message', {
+                data: { type: 'focusNode', payload: { nodeId: id, reveal: true } },
+            }));
+            return true;
+        }
+        if (target === 'city' && window.AuraCityView) return window.AuraCityView.showFile(id);
+        if (target === 'treemap') return revealTreemapFile(id);
+        return true;
+    }
+
     window.AuraViews = {
         init: init,
+        open: openIn,
         // Tab renderers — called by switchTab()
         renderMetrics: renderMetrics,
         renderCoupling: renderCoupling,

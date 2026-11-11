@@ -548,8 +548,10 @@
                 postMessage: function (msg) { vscode.postMessage(msg); }
             });
         }
-        // One popover for every `<button data-export-tab>` in the window.
+        // One popover for every `<button data-export-tab>` in the window, and
+        // one for every `<button data-open-in-tab>`.
         if (window.AuraExportMenu) window.AuraExportMenu.init();
+        if (window.AuraOpenIn) window.AuraOpenIn.init();
         if (window.AuraDetail) {
             AuraDetail.init({
                 getGraphData: function () { return graphData; },

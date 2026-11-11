@@ -1056,7 +1056,7 @@
 
         html += '<div class="city-side-section city-side-actions">'
             + '<button type="button" data-city-action="open">Open file</button>'
-            + '<button type="button" data-city-action="graph">⌖ Focus in graph</button>'
+            + '<button type="button" data-open-in-tab="city">Ouvrir dans ▾</button>'
             + '</div>';
 
         body.innerHTML = html;
@@ -1679,6 +1679,18 @@
         if (shadowsBox) {
             shadowsBox.addEventListener('change', function () { setShadows(shadowsBox.checked); });
         }
+        // What the City can hand to another view: the selected file.
+        if (window.AuraOpenIn && typeof window.AuraOpenIn.register === 'function') {
+            window.AuraOpenIn.register('city', function () {
+                var id = state.selected ? filePathOf(state.selected) : '';
+                if (!id) return [];
+                return [
+                    { label: '✦ 3D Graph', hint: 'focus this file in the graph', run: function () { window.AuraViews.open('graph', id); } },
+                    { label: '🗺️ Treemap', hint: 'reveal it in its folder', run: function () { window.AuraViews.open('treemap', id); } },
+                ];
+            });
+        }
+
         // Floating map: the module draws the plan, we only hand it the state.
         if (window.AuraCityMinimap) {
             window.AuraCityMinimap.init({
