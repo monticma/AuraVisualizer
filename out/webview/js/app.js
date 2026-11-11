@@ -4882,12 +4882,25 @@
         }, 400);
     }
 
-    /** Whether the warps panel should be open — even when a tab switch force-hides it. */
+    /**
+     * Warps panel: one open flag and one drag position **per 3D scene**. The
+     * panel existed for the graph only; the City now shares the panel but not
+     * the bookmarks, and moving the window in one scene must not move it in the
+     * other.
+     */
+    var warpsOpen = { graph: false, city: false };
+    var warpsPositions = { graph: null, city: null };
+    var switchingTab = false;
+
+    function warpsScope() {
+        return activeTab === 'city' ? 'city' : 'graph';
+    }
+
+    /** Whether the warps panel is open in the scene on screen. */
     function warpsPanelVisibleIntent() {
         var wp = $('#warps-panel');
         if (!wp) return false;
-        if (activeTab === 'graph') return !wp.classList.contains('hidden');
-        return !!wp._wasVisible;
+        return !wp.classList.contains('hidden');
     }
 
     /** Stable keys of the highlighted communities (numeric ids can be renumbered). */
@@ -4931,10 +4944,13 @@
             focusDepth: focusDepth,
             showExplorer: showExplorer,
             showMinimap: !$('#minimap').classList.contains('hidden'),
-            showWarps: warpsPanelVisibleIntent(),
+            // The panel belongs to both scenes; each keeps its own intent.
+            showWarps: (warpsOpen[warpsScope()] = warpsPanelVisibleIntent()),
+            showWarpsCity: warpsOpen.city,
             // Floating panels — keep user-dragged positions across sessions
             palettePositions: {
-                warps: capturePalettePosition($('#warps-panel')),
+                warps: activeTab === 'city' ? warpsPositions.graph : capturePalettePosition($('#warps-panel')),
+                warpsCity: activeTab === 'city' ? capturePalettePosition($('#warps-panel')) : warpsPositions.city,
                 community: capturePalettePosition($('#community-palette')),
                 minimap: capturePalettePosition($('#minimap'))
             }
@@ -4958,7 +4974,7 @@
     var renderInitRetries = 0;
 
     function saveViewState() {
-        if (!viewStateReady) return;
+        if (!viewStateReady || switchingTab) return;
         vscode.postMessage({ type: 'saveViewState', payload: collectViewState() });
     }
 
@@ -5164,15 +5180,18 @@
             if (mmBtn) mmBtn.classList.toggle('active', !!state.showMinimap);
         }
 
-        // Warps panel — graph-tab-only panel: a tab switch force-hides it
-        // without changing the user's intent (kept in _wasVisible).
-        if (typeof state.showWarps === 'boolean') {
-            if (window.AuraWarps) window.AuraWarps.setVisible(state.showWarps);
+        // Warps panel — one intent per 3D scene.
+        if (typeof state.showWarps === 'boolean') warpsOpen.graph = state.showWarps;
+        if (typeof state.showWarpsCity === 'boolean') warpsOpen.city = state.showWarpsCity;
+        if (state.palettePositions) {
+            warpsPositions.graph = state.palettePositions.warps || null;
+            warpsPositions.city = state.palettePositions.warpsCity || null;
         }
+        if (window.AuraWarps) window.AuraWarps.setVisible(!!warpsOpen[warpsScope()]);
 
         // Floating palette positions (drag positions persist across sessions)
         if (state.palettePositions) {
-            restorePalettePosition($('#warps-panel'), state.palettePositions.warps);
+            restorePalettePosition($('#warps-panel'), warpsPositions[warpsScope()]);
             restorePalettePosition($('#community-palette'), state.palettePositions.community);
             restorePalettePosition($('#minimap'), state.palettePositions.minimap, true);
         }
@@ -6452,7 +6471,9 @@
         // Show/hide graph-only UI elements
         var filterBar = $('#filter-bar');
         var timeBar = $('#timeline-bar');
-        var overlays = ['#heatmap-legend', '#community-palette', '#minimap', '#warps-panel', '#tooltip'];
+        // Graph-only overlays. The warps panel is handled separately: it belongs
+        // to both 3D scenes, with its own open flag and position per scene.
+        var overlays = ['#heatmap-legend', '#community-palette', '#minimap', '#tooltip'];
 
         // The PNG capture grabs the WebGL canvas, which is display:none on every
         // other tab — a hidden button is better than a blank picture.
@@ -6499,6 +6520,21 @@
                 }
             }
         }
+
+        // Warps panel: save the intent of the scene we are leaving, then restore
+        // the one of the scene we are entering. Both scene-scoped, and the panel
+        // is hidden for every other tab.
+        (function () {
+            var wp = $('#warps-panel');
+            if (!wp) return;
+            var leaving = prevTab === 'city' ? 'city' : (prevTab === 'graph' ? 'graph' : null);
+            if (leaving) warpsOpen[leaving] = !wp.classList.contains('hidden');
+            var entering = tabName === 'city' ? 'city' : (tabName === 'graph' ? 'graph' : null);
+            switchingTab = true;
+            if (window.AuraWarps) window.AuraWarps.setVisible(entering ? !!warpsOpen[entering] : false);
+            switchingTab = false;
+            if (entering) restorePalettePosition(wp, warpsPositions[entering]);
+        })();
 
         // The warp list belongs to the scene on screen.
         if (window.AuraWarps && typeof AuraWarps.render === 'function') AuraWarps.render();
