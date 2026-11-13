@@ -70,7 +70,7 @@ Every view carries an **📤 Export** in its bar, and the menu lists what *that*
 - The VS Code **status bar** mirrors the risk of the file you are editing and warns with `⚠ N hotspots in your changes` when your working tree touches high-risk files — click it to jump to that file here. Deleted files are ignored, and `auraVisualizer.statusBar` turns all Aura badges off at once
 - Buckets: High ≥ 66, Medium 33–65, Low < 33
 - Click any file in a list to select it and focus it in the 3D graph
-- 📤 Export Report writes `.aura/risk-report.md` (reasons included)
+- 📤 Export writes `.aura/risk-report.md` (reasons included)
 - Churn, Recently Hot, and Bus Factor require the git **Time Travel** scan
 
 ### Co-change tips

@@ -3076,21 +3076,6 @@ html, body {
     border-style: dashed;
 }
 
-.view-action--primary {
-    padding: 4px 10px;
-    background: var(--aura-badge-bg);
-    border: none;
-    color: #fff;
-    opacity: 1;
-    font-weight: 600;
-    white-space: nowrap;
-    transition: filter 0.15s;
-}
-
-.view-action--primary:hover {
-    filter: brightness(1.12);
-}
-
 .view-select {
     padding: 3px 6px;
     background: var(--aura-input-bg);

@@ -1795,7 +1795,7 @@ export class WebviewProvider {
         <div class="view-toolbar metrics-toolbar">
             <h2>📊 Metrics</h2>
             <div class="metrics-toolbar-actions">
-                <button type="button" class="view-action view-action--primary" data-export-tab="metrics" title="Export the summary as Markdown">📤 Export</button>
+                <button type="button" class="view-action" data-export-tab="metrics" title="Export the summary as Markdown">📤 Export</button>
             </div>
         </div>
         <div id="metrics-body"></div>
@@ -1814,8 +1814,8 @@ export class WebviewProvider {
                         <option value="365">365 days</option>
                     </select>
                 </label>
-                <button id="risk-ask-aura" type="button" class="view-action view-action--primary" title="Ask @aura for the top 3 actions on this Risk dashboard">✨ Ask Aura</button>
-                <button id="risk-export" type="button" class="view-action view-action--primary" title="Export a Markdown report to .aura/risk-report.md">📤 Export Report</button>
+                <button id="risk-ask-aura" type="button" class="view-action" title="Ask @aura for the top 3 actions on this Risk dashboard">✨ Ask Aura</button>
+                <button id="risk-export" type="button" class="view-action" title="Export a Markdown report to .aura/risk-report.md">📤 Export</button>
             </div>
         </div>
         <div id="risk-content">
@@ -1942,10 +1942,10 @@ export class WebviewProvider {
         <div class="view-toolbar arch-toolbar">
             <h2>🏛️ Architecture Rules</h2>
             <div class="arch-toolbar-actions">
-                <button id="arch-edit-rules" type="button" class="view-action view-action--primary" title="Create or open .aura/arch-rules.json">⚙️ Edit rules</button>
-                <button id="arch-baseline" type="button" class="view-action view-action--primary" title="Freeze current violations so only new ones alert">📌 Baseline violations</button>
-                <button id="arch-reset-baseline" type="button" class="view-action view-action--primary" title="Clear the baseline: every violation alerts again">↺ Reset baseline</button>
-                <button id="arch-export" type="button" class="view-action view-action--primary" title="Export a Markdown report">📤 Export report</button>
+                <button id="arch-edit-rules" type="button" class="view-action" title="Create or open .aura/arch-rules.json">⚙️ Edit rules</button>
+                <button id="arch-baseline" type="button" class="view-action" title="Freeze current violations so only new ones alert">📌 Baseline violations</button>
+                <button id="arch-reset-baseline" type="button" class="view-action" title="Clear the baseline: every violation alerts again">↺ Reset baseline</button>
+                <button id="arch-export" type="button" class="view-action" title="Export a Markdown report">📤 Export</button>
             </div>
         </div>
         <div id="arch-content"></div>
@@ -2775,7 +2775,7 @@ export class WebviewProvider {
                 <h3>🛡️ Risk Map</h3>
                 <p>Open the <strong>🛡️ Risk</strong> tab for a codebase health dashboard. It uses a transparent risk score: <code>100 × (0.21·complexity + 0.18·centrality + 0.08·fan-out + 0.12·cycle + 0.12·dead-code + 0.09·rewrite + 0.06·recency + 0.06·frequency + 0.05·authors + 0.03·fixes)</code> — the structural half stays dominant on purpose. <code>centrality</code> is fan-in, or PageRank when <code>auraVisualizer.riskCentrality</code> is on; <code>rewrite</code> is the volume of lines added and removed relative to the file's size today, <code>recency</code> weights a commit made today over one at the window's edge, and <code>fixes</code> is the share of commits whose message looks like a bug fix. Documentation is outside architectural risk: docs are not scored and <code>doc-reference</code> links do not inflate fan-in or PageRank. Exempted framework symbols are not counted as dead code.</p>
                 <p>Complexity, fan-in, fan-out and churn are <strong>percentile ranks inside your repository</strong> (0 = lowest file, 1 = highest), so the score is a standing relative to this codebase. A <strong>History window</strong> selector (30 / 90 / 365 days) drives churn, scoring and explanations. Churn is <strong>rename-aware</strong>: files moved with <code>git mv</code> keep their history across the rename.</p>
-                <p>High / Medium / Low file lists are collapsible, each row explains <em>why</em> a file scores that way, and clicking a file selects it in the 3D graph. Also included: <strong>📈 Risk Trend</strong>, <strong>📈 Complexity Trend</strong> (per-file sparklines + slope), <strong>🔥 Recently Hot</strong> (last 30 days), <strong>📊 Churn × Complexity</strong> scatter (log scale), and <strong>👤 Bus Factor</strong> (files with a single author). Use <strong>📤 Export Report</strong> to write <code>.aura/risk-report.md</code>.</p>
+                <p>High / Medium / Low file lists are collapsible, each row explains <em>why</em> a file scores that way, and clicking a file selects it in the 3D graph. Also included: <strong>📈 Risk Trend</strong>, <strong>📈 Complexity Trend</strong> (per-file sparklines + slope), <strong>🔥 Recently Hot</strong> (last 30 days), <strong>📊 Churn × Complexity</strong> scatter (log scale), and <strong>👤 Bus Factor</strong> (files with a single author). Use <strong>📤 Export</strong> to write <code>.aura/risk-report.md</code>.</p>
                 <p><strong>Complexity Trend</strong> is rebuilt from Time Travel commit deltas: a least-squares slope per 30 days plus R² flags files whose complexity keeps growing. The <strong>Trend</strong> column in the Table is sortable; adjust the threshold with <code>auraVisualizer.complexityTrendThreshold</code> (default 0.5 point / 30 days).</p>
                 <h3>🔗 Temporal Co-change</h3>
                 <p>The <strong>🔗 Co-change</strong> tab finds files that keep changing in the same commits <em>without</em> a direct import/dependency — an implicit contract (API + client, test + implementation, shared config…). Run Time Travel (⏱️) first so git history is available.</p>

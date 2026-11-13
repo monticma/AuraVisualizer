@@ -434,7 +434,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
         <div class="view-toolbar metrics-toolbar">
             <h2>\u{1F4CA} Metrics</h2>
             <div class="metrics-toolbar-actions">
-                <button type="button" class="view-action view-action--primary" data-export-tab="metrics" title="Export the summary as Markdown">\u{1F4E4} Export</button>
+                <button type="button" class="view-action" data-export-tab="metrics" title="Export the summary as Markdown">\u{1F4E4} Export</button>
             </div>
         </div>
         <div id="metrics-body"></div>
@@ -453,8 +453,8 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
                         <option value="365">365 days</option>
                     </select>
                 </label>
-                <button id="risk-ask-aura" type="button" class="view-action view-action--primary" title="Ask @aura for the top 3 actions on this Risk dashboard">\u2728 Ask Aura</button>
-                <button id="risk-export" type="button" class="view-action view-action--primary" title="Export a Markdown report to .aura/risk-report.md">\u{1F4E4} Export Report</button>
+                <button id="risk-ask-aura" type="button" class="view-action" title="Ask @aura for the top 3 actions on this Risk dashboard">\u2728 Ask Aura</button>
+                <button id="risk-export" type="button" class="view-action" title="Export a Markdown report to .aura/risk-report.md">\u{1F4E4} Export</button>
             </div>
         </div>
         <div id="risk-content">
@@ -581,10 +581,10 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
         <div class="view-toolbar arch-toolbar">
             <h2>\u{1F3DB}\uFE0F Architecture Rules</h2>
             <div class="arch-toolbar-actions">
-                <button id="arch-edit-rules" type="button" class="view-action view-action--primary" title="Create or open .aura/arch-rules.json">\u2699\uFE0F Edit rules</button>
-                <button id="arch-baseline" type="button" class="view-action view-action--primary" title="Freeze current violations so only new ones alert">\u{1F4CC} Baseline violations</button>
-                <button id="arch-reset-baseline" type="button" class="view-action view-action--primary" title="Clear the baseline: every violation alerts again">\u21BA Reset baseline</button>
-                <button id="arch-export" type="button" class="view-action view-action--primary" title="Export a Markdown report">\u{1F4E4} Export report</button>
+                <button id="arch-edit-rules" type="button" class="view-action" title="Create or open .aura/arch-rules.json">\u2699\uFE0F Edit rules</button>
+                <button id="arch-baseline" type="button" class="view-action" title="Freeze current violations so only new ones alert">\u{1F4CC} Baseline violations</button>
+                <button id="arch-reset-baseline" type="button" class="view-action" title="Clear the baseline: every violation alerts again">\u21BA Reset baseline</button>
+                <button id="arch-export" type="button" class="view-action" title="Export a Markdown report">\u{1F4E4} Export</button>
             </div>
         </div>
         <div id="arch-content"></div>
@@ -1414,7 +1414,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
                 <h3>\u{1F6E1}\uFE0F Risk Map</h3>
                 <p>Open the <strong>\u{1F6E1}\uFE0F Risk</strong> tab for a codebase health dashboard. It uses a transparent risk score: <code>100 \xD7 (0.21\xB7complexity + 0.18\xB7centrality + 0.08\xB7fan-out + 0.12\xB7cycle + 0.12\xB7dead-code + 0.09\xB7rewrite + 0.06\xB7recency + 0.06\xB7frequency + 0.05\xB7authors + 0.03\xB7fixes)</code> \u2014 the structural half stays dominant on purpose. <code>centrality</code> is fan-in, or PageRank when <code>auraVisualizer.riskCentrality</code> is on; <code>rewrite</code> is the volume of lines added and removed relative to the file's size today, <code>recency</code> weights a commit made today over one at the window's edge, and <code>fixes</code> is the share of commits whose message looks like a bug fix. Documentation is outside architectural risk: docs are not scored and <code>doc-reference</code> links do not inflate fan-in or PageRank. Exempted framework symbols are not counted as dead code.</p>
                 <p>Complexity, fan-in, fan-out and churn are <strong>percentile ranks inside your repository</strong> (0 = lowest file, 1 = highest), so the score is a standing relative to this codebase. A <strong>History window</strong> selector (30 / 90 / 365 days) drives churn, scoring and explanations. Churn is <strong>rename-aware</strong>: files moved with <code>git mv</code> keep their history across the rename.</p>
-                <p>High / Medium / Low file lists are collapsible, each row explains <em>why</em> a file scores that way, and clicking a file selects it in the 3D graph. Also included: <strong>\u{1F4C8} Risk Trend</strong>, <strong>\u{1F4C8} Complexity Trend</strong> (per-file sparklines + slope), <strong>\u{1F525} Recently Hot</strong> (last 30 days), <strong>\u{1F4CA} Churn \xD7 Complexity</strong> scatter (log scale), and <strong>\u{1F464} Bus Factor</strong> (files with a single author). Use <strong>\u{1F4E4} Export Report</strong> to write <code>.aura/risk-report.md</code>.</p>
+                <p>High / Medium / Low file lists are collapsible, each row explains <em>why</em> a file scores that way, and clicking a file selects it in the 3D graph. Also included: <strong>\u{1F4C8} Risk Trend</strong>, <strong>\u{1F4C8} Complexity Trend</strong> (per-file sparklines + slope), <strong>\u{1F525} Recently Hot</strong> (last 30 days), <strong>\u{1F4CA} Churn \xD7 Complexity</strong> scatter (log scale), and <strong>\u{1F464} Bus Factor</strong> (files with a single author). Use <strong>\u{1F4E4} Export</strong> to write <code>.aura/risk-report.md</code>.</p>
                 <p><strong>Complexity Trend</strong> is rebuilt from Time Travel commit deltas: a least-squares slope per 30 days plus R\xB2 flags files whose complexity keeps growing. The <strong>Trend</strong> column in the Table is sortable; adjust the threshold with <code>auraVisualizer.complexityTrendThreshold</code> (default 0.5 point / 30 days).</p>
                 <h3>\u{1F517} Temporal Co-change</h3>
                 <p>The <strong>\u{1F517} Co-change</strong> tab finds files that keep changing in the same commits <em>without</em> a direct import/dependency \u2014 an implicit contract (API + client, test + implementation, shared config\u2026). Run Time Travel (\u23F1\uFE0F) first so git history is available.</p>
