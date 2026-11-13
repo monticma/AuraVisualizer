@@ -569,7 +569,8 @@ Filter, highlight, or select files with the built-in **Aura Query Language** —
 - Open it with the **🔍 button** (graph bar) or `Ctrl+K` / `Cmd+K`: a **floating palette**, not a bar — it never takes height away from the graph. It opens centred the first time, then reopens exactly where you dropped it (`⟲` recentres, `✕` closes).
 - Type an expression such as `complexity > 20 AND fanIn > 5` — **results apply as you type**, in all three modes (**Highlight** / **Filter** / **Select**): there is no Apply button. The summary line reads `N / M files · P%`.
 - While a query is applied, a **chip in the graph bar** recalls it — `🔍 expression · N files · mode`: click it to reopen the palette, `✕` on the chip to clear.
-- **⭐ Save** stores the expression; **📚 Saved** unfolds the list *inside* the palette — click a row to apply it, `✕` on the row to delete it.
+- Two fields, not one: the **name** comes first (it gets the caret when the palette opens — typing a name never summons the field list) and the **expression** below. Leave the name empty and one is generated (`Query 3`) instead of copying the expression.
+- **⭐ Save** stores the name + expression; saving under a name that already exists **updates** that query rather than adding a twin. **📚 Saved** unfolds the list *inside* the palette — click a row to apply it, `✏️` renames it in place (<kbd>Enter</kbd> saves, <kbd>Esc</kbd> cancels), `✕` deletes it.
 
 **Available fields:**
 

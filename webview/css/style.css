@@ -1261,7 +1261,7 @@ html, body {
     display: flex;
     flex-direction: column;
     gap: 2px;
-    padding: 6px 26px 6px 12px;
+    padding: 6px 46px 6px 12px; /* room for ✏️ and ✕ */
     cursor: pointer;
     border-left: 2px solid transparent;
     transition: background 0.1s, border-color 0.1s;
@@ -1363,6 +1363,12 @@ html, body {
 .query-input:focus { border-color: var(--aura-accent); }
 .query-input.qb-error-state { border-color: #ff5252; }
 
+/* The saved-query name is a label, not code: proportional instead of monospace. */
+#qb-name {
+    font-family: inherit;
+    font-size: 12px;
+}
+
 .query-modes {
     display: flex;
     gap: 4px;
@@ -1436,11 +1442,11 @@ html, body {
 
 .qb-suggest-detail { margin-left: auto; opacity: 0.6; font-size: 11px; }
 
-/* Delete button on a saved-query row: the row itself applies the query. */
+/* Two per-row buttons, same recipe as the row itself: quiet until hovered. */
+.queries-item-edit,
 .queries-item-del {
     position: absolute;
     top: 6px;
-    right: 6px;
     padding: 1px 5px;
     font-size: 10px;
     line-height: 1.4;
@@ -1452,10 +1458,32 @@ html, body {
     cursor: pointer;
 }
 
+.queries-item-edit { right: 28px; }
+.queries-item-del { right: 6px; }
+
+.queries-item-edit:hover {
+    opacity: 1;
+    border-color: rgba(96, 165, 250, 0.6);
+}
+
 .queries-item-del:hover {
     opacity: 1;
     border-color: rgba(255, 82, 82, 0.6);
     color: #ff5252;
+}
+
+/* Inline rename, mirroring `beginCommunityRename` in the Communities palette. */
+.queries-item-rename {
+    width: 100%;
+    box-sizing: border-box;
+    background: rgba(13, 17, 23, 0.85);
+    border: 1px solid rgba(96, 165, 250, 0.55);
+    border-radius: 5px;
+    color: var(--aura-text);
+    font-family: inherit;
+    font-size: 11.5px;
+    padding: 2px 6px;
+    outline: none;
 }
 
 /* Applied-query chip, in the view bar next to the button that opens it. */

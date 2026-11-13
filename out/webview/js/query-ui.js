@@ -131,10 +131,15 @@
                 name.textContent = q.name;
                 row.appendChild(name);
 
-                var expr = document.createElement('div');
-                expr.className = 'queries-item-expr';
-                expr.textContent = q.expr;
-                row.appendChild(expr);
+                // Legacy rows were saved before the name field existed, so their
+                // name was the expression: printing both showed the same line
+                // twice for nothing.
+                if (q.expr && q.expr !== q.name) {
+                    var expr = document.createElement('div');
+                    expr.className = 'queries-item-expr';
+                    expr.textContent = q.expr;
+                    row.appendChild(expr);
+                }
 
                 var mode = document.createElement('div');
                 mode.className = 'queries-item-mode';
@@ -142,7 +147,18 @@
                 row.appendChild(mode);
 
                 // One row = one query: a single click applies it (the palette is
-                // already open) and the delete button removes it on its own.
+                // already open); ✏️ renames it in place, ✕ removes it.
+                var edit = document.createElement('button');
+                edit.type = 'button';
+                edit.className = 'queries-item-edit';
+                edit.textContent = '✏️';
+                edit.title = 'Rename this saved query';
+                edit.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    beginQueryRename(row, q);
+                });
+                row.appendChild(edit);
+
                 var del = document.createElement('button');
                 del.type = 'button';
                 del.className = 'queries-item-del';
@@ -174,17 +190,69 @@
         try { hooks.postMessage({ type: 'deleteSavedQuery', payload: { id: id } }); } catch (_) { /* noop */ }
         savedQueries = (savedQueries || []).filter(function (q) { return q.id !== id; });
         if (modalSelectedId === id) modalSelectedId = null;
+        if (queryActiveFavId === id) queryActiveFavId = null;
         renderSavedQueriesModal();
+    }
+
+    /** Rename a query on the spot — same flow as the Communities palette. */
+    function beginQueryRename(row, q) {
+        if (!row || !q || row.querySelector('.queries-item-rename')) return;
+        var nameEl = row.querySelector('.queries-item-name');
+        if (!nameEl) return;
+
+        var input = document.createElement('input');
+        input.className = 'queries-item-rename';
+        input.type = 'text';
+        input.maxLength = 60;
+        input.value = q.name;
+        input.placeholder = 'Query name';
+        input.title = 'Enter to save · Escape to cancel';
+        nameEl.replaceWith(input);
+        input.focus();
+        input.select();
+
+        var finished = false;
+        function finish(save) {
+            if (finished) return;
+            finished = true;
+            input.removeEventListener('blur', onBlur);
+            if (!save) { renderSavedQueriesModal(); return; }
+            var label = input.value.trim() || q.name;
+            q.name = label;
+            try {
+                hooks.postMessage({
+                    type: 'updateSavedQuery',
+                    payload: { id: q.id, name: label, expr: q.expr, mode: q.mode }
+                });
+            } catch (_) { /* noop */ }
+            // Applying this query loaded its name into the palette: keep them in sync.
+            if (queryActiveFavId === q.id) {
+                var nameField = $('#qb-name');
+                if (nameField) nameField.value = label;
+            }
+            renderSavedQueriesModal();
+        }
+        function onBlur() { finish(true); }
+        input.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+            else if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+        });
+        input.addEventListener('blur', onBlur);
+        // The row applies a query on click: editing its name must not.
+        input.addEventListener('click', function (e) { e.stopPropagation(); });
     }
 
     function applySavedQuery(q) {
         if (!q) return;
         var input = $('#qb-input');
+        var nameField = $('#qb-name');
         setQueryPaletteOpen(true);
         if (q.mode) setQueryMode(q.mode, true);
         if (input) input.value = q.expr;
+        if (nameField) nameField.value = q.name || '';
         runQueryFromInput(q.expr, true);
         queryActiveFavId = q.id;
+        focusPalette(false);
     }
 
     /** The saved list lives inside the palette — collapsed until asked for. */
@@ -486,9 +554,13 @@
         scheduleQueryRun(newValue);
     }
 
-    function triggerAutocomplete() {
+    function triggerAutocomplete(force) {
         var input = $('#qb-input');
         if (!input) return;
+        // Opening the palette must not bury its own buttons under the field
+        // list: suggestions only come back once there is something to complete
+        // (or when a caller explicitly forces them).
+        if (!force && !input.value.trim()) { hideSuggestions(); return; }
         var caret = input.selectionStart || input.value.length;
         var items = buildSuggestions(input.value, caret);
         showSuggestions(items);
@@ -596,6 +668,82 @@
     function scheduleQueryRun(expr) {
         if (pendingRunTimer) clearTimeout(pendingRunTimer);
         pendingRunTimer = setTimeout(function () { runQueryFromInput(expr, false); }, 180);
+    }
+
+    /**
+     * Focus the field the user is about to need: the name on a fresh palette
+     * (typing a name never summons the field list), the expression when one is
+     * already there.
+     */
+    function focusPalette(preferName) {
+        var nameField = $('#qb-name');
+        var input = $('#qb-input');
+        setTimeout(function () {
+            if (preferName && nameField) { nameField.focus(); nameField.select(); return; }
+            if (input) { input.focus(); input.select(); }
+        }, 30);
+    }
+
+    /** A readable fallback, so an unnamed query never repeats its expression. */
+    function defaultQueryName() {
+        var n = (savedQueries ? savedQueries.length : 0) + 1;
+        var taken = function (label) {
+            return (savedQueries || []).some(function (q) {
+                return String(q.name || '').toLowerCase() === label.toLowerCase();
+            });
+        };
+        while (taken('Query ' + n)) n++;
+        return 'Query ' + n;
+    }
+
+    function saveCurrentQuery() {
+        var input = $('#qb-input');
+        var nameField = $('#qb-name');
+        var expr = (input && input.value || '').trim();
+        if (!expr) return;
+        var compiled;
+        try {
+            compiled = window.AuraQuery.compile(expr);
+        } catch (e) {
+            setQueryError('Query engine error: ' + (e.message || 'unknown'));
+            return;
+        }
+        if (!compiled || !compiled.ok) {
+            setQueryError(compiled.error || 'Invalid expression');
+            return;
+        }
+        var name = (nameField && nameField.value || '').trim() || defaultQueryName();
+        // Same name = same saved query: Save overwrites instead of piling up twins.
+        var clash = null;
+        for (var i = 0; i < (savedQueries || []).length; i++) {
+            if (String(savedQueries[i].name || '').toLowerCase() === name.toLowerCase()) {
+                clash = savedQueries[i];
+                break;
+            }
+        }
+        var id = clash ? clash.id : 'q_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        var entry = {
+            id: id,
+            name: name,
+            expr: expr,
+            mode: queryMode,
+            createdAt: clash ? clash.createdAt : Date.now()
+        };
+        // Optimistic local update — the list shows it immediately
+        savedQueries = clash
+            ? (savedQueries || []).map(function (q) { return q.id === id ? entry : q; })
+            : [entry].concat(savedQueries || []);
+        queryActiveFavId = id;
+        if (nameField) nameField.value = name;
+        renderSavedQueriesModal();
+        showSavedList(); // reveal the list so the save is visible
+        // Persist in DB
+        try {
+            hooks.postMessage({
+                type: clash ? 'updateSavedQuery' : 'addSavedQuery',
+                payload: { id: id, name: name, expr: expr, mode: queryMode }
+            });
+        } catch (_) { /* noop */ }
     }
 
     function runQueryFromInput(expr, pushToHistory) {
@@ -783,7 +931,7 @@
         toggleBtn && toggleBtn.addEventListener('click', function () {
             var opening = !paletteOpen;
             setQueryPaletteOpen(opening);
-            if (opening) setTimeout(function () { input.focus(); input.select(); }, 30);
+            if (opening) focusPalette(!input.value.trim());
         });
         closeBtn && closeBtn.addEventListener('click', function () { setQueryPaletteOpen(false); });
         resetBtn && resetBtn.addEventListener('click', function () {
@@ -796,7 +944,7 @@
         var chipClear = $('#query-chip-clear');
         chipOpen && chipOpen.addEventListener('click', function () {
             setQueryPaletteOpen(true);
-            setTimeout(function () { input.focus(); input.select(); triggerAutocomplete(); }, 30);
+            focusPalette(!input.value.trim());
         });
         chipClear && chipClear.addEventListener('click', function () {
             input.value = '';
@@ -819,7 +967,7 @@
             triggerAutocomplete();
             scheduleQueryRun(input.value);
         });
-        input.addEventListener('focus', triggerAutocomplete);
+        // No autocomplete on focus: it would cover the palette the moment it opens.
         input.addEventListener('blur', function () {
             // small delay so click on suggestion still works
             setTimeout(hideSuggestions, 120);
@@ -870,34 +1018,15 @@
             input.focus();
         });
 
-        saveBtn && saveBtn.addEventListener('click', function () {
-            var expr = (input.value || '').trim();
-            if (!expr) return;
-            var compiled;
-            try {
-                compiled = window.AuraQuery.compile(expr);
-            } catch (e) {
-                setQueryError('Query engine error: ' + (e.message || 'unknown'));
-                return;
-            }
-            if (!compiled || !compiled.ok) {
-                setQueryError(compiled.error || 'Invalid expression');
-                return;
-            }
-            // Auto-generate a name from the first 50 chars of the expression
-            var name = expr.length > 50 ? expr.slice(0, 47) + '...' : expr;
-            var newQ = { id: 'q_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: name, expr: expr, mode: queryMode, createdAt: Date.now() };
-            // Optimistic local update — the list shows the query immediately
-            savedQueries.unshift(newQ);
-            renderSavedQueriesModal();
-            showSavedList(); // reveal the list so the save is visible
-            // Persist in DB
-            try {
-                hooks.postMessage({
-                    type: 'addSavedQuery',
-                    payload: { id: newQ.id, name: name, expr: expr, mode: queryMode }
-                });
-            } catch (_) { /* noop */ }
+        saveBtn && saveBtn.addEventListener('click', saveCurrentQuery);
+
+        // The name is a label, not a query: Enter hands over to the expression.
+        var nameField = $('#qb-name');
+        nameField && nameField.addEventListener('keydown', function (e) {
+            if (e.key !== 'Enter') return;
+            e.preventDefault();
+            input.focus();
+            input.select();
         });
 
         // Saved list: a collapsible section inside the palette.
@@ -926,7 +1055,7 @@
             if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
                 e.preventDefault();
                 setQueryPaletteOpen(true);
-                setTimeout(function () { input.focus(); input.select(); triggerAutocomplete(); }, 50);
+                focusPalette(!input.value.trim());
             }
         });
     }
@@ -959,10 +1088,14 @@
         /** Applied by the host (command palette / editor context menu / Trail). */
         applyFromHost: function (expr, mode) {
             var qbInput = $('#qb-input');
+            var nameField = $('#qb-name');
             setQueryPaletteOpen(true);
             if (mode) setQueryMode(mode, true);
             if (qbInput) qbInput.value = expr || '';
+            // A query coming from outside is not a saved one: no name to reuse.
+            if (nameField) nameField.value = '';
             runQueryFromInput(expr || '', true);
+            focusPalette(false);
         },
         setSavedQueries: function (queries) {
             savedQueries = queries;

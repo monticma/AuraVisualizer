@@ -362,6 +362,20 @@ export class GraphDB {
         this.save();
     }
 
+    /**
+     * Rename or re-save an existing query. A plain UPDATE (not INSERT OR
+     * REPLACE) so `created_at` — the list order — is preserved: renaming a
+     * query must not teleport it to the top.
+     */
+    updateSavedQuery(q: { id: string; name: string; expr: string; mode: string }): void {
+        const db = this.ensureDb();
+        db.run(
+            'UPDATE saved_queries SET name = ?, expr = ?, mode = ? WHERE id = ?',
+            [q.name, q.expr, q.mode || 'highlight', q.id]
+        );
+        this.save();
+    }
+
     deleteSavedQuery(id: string): void {
         const db = this.ensureDb();
         db.run('DELETE FROM saved_queries WHERE id = ?', [id]);

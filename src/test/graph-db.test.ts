@@ -832,3 +832,63 @@ describe('GraphDB — granular updates', () => {
         expect(tool.symbol_cycles).toHaveLength(1);
     });
 });
+describe('GraphDB — saved queries', () => {
+    let db: GraphDB;
+    let tmpDir: string;
+
+    beforeEach(async () => {
+        tmpDir = mkdtempSync(join(tmpdir(), 'aura-queries-'));
+        db = new GraphDB();
+        await db.open(join(tmpDir, 'graph.db'));
+    });
+
+    afterEach(() => {
+        db.close();
+        rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it('round-trips a named query', () => {
+        db.addSavedQuery({ id: 'q1', name: 'Hot files', expr: 'complexity > 20', mode: 'filter' });
+        const list = db.listSavedQueries();
+        expect(list).toHaveLength(1);
+        expect(list[0]).toMatchObject({ id: 'q1', name: 'Hot files', expr: 'complexity > 20', mode: 'filter' });
+        expect(typeof list[0].createdAt).toBe('number');
+    });
+
+    it('renames in place without reordering the list', async () => {
+        db.addSavedQuery({ id: 'q1', name: 'First', expr: 'fanIn > 0', mode: 'highlight' });
+        await new Promise(r => setTimeout(r, 5));
+        db.addSavedQuery({ id: 'q2', name: 'Second', expr: 'fanOut > 0', mode: 'highlight' });
+        const before = db.listSavedQueries();
+        expect(before.map(q => q.id)).toEqual(['q2', 'q1']);
+        const createdAt = before[1].createdAt;
+
+        db.updateSavedQuery({ id: 'q1', name: 'Renamed', expr: 'fanIn > 2', mode: 'select' });
+
+        const after = db.listSavedQueries();
+        // A plain UPDATE, not INSERT OR REPLACE: renaming must not teleport the
+        // row to the top of a list ordered by created_at.
+        expect(after.map(q => q.id)).toEqual(['q2', 'q1']);
+        expect(after[1]).toMatchObject({ name: 'Renamed', expr: 'fanIn > 2', mode: 'select', createdAt });
+    });
+
+    it('ignores an unknown id and deletes what exists', () => {
+        db.addSavedQuery({ id: 'q1', name: 'Only', expr: 'loc > 1', mode: 'highlight' });
+        db.updateSavedQuery({ id: 'nope', name: 'Ghost', expr: 'loc > 2', mode: 'highlight' });
+        expect(db.listSavedQueries()).toHaveLength(1);
+        expect(db.listSavedQueries()[0].name).toBe('Only');
+
+        db.deleteSavedQuery('q1');
+        expect(db.listSavedQueries()).toHaveLength(0);
+    });
+
+    it('survives a reopen (written to disk)', async () => {
+        const path = join(tmpDir, 'graph.db');
+        db.addSavedQuery({ id: 'q1', name: 'Kept', expr: 'dirty == true', mode: 'highlight' });
+        db.close();
+        const again = new GraphDB();
+        await again.open(path);
+        expect(again.listSavedQueries().map(q => q.name)).toEqual(['Kept']);
+        again.close();
+    });
+});
