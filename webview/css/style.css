@@ -5147,6 +5147,16 @@ select option {
     flex-wrap: wrap;
 }
 
+/* Groups inside a view bar (palette openers | the rest). Hard alpha, like the
+   bar's own hairline: `--aura-border` reads as invisible on some themes. */
+.view-bar-sep {
+    flex: 0 0 auto;
+    width: 1px;
+    height: 18px;
+    margin: 0 2px;
+    background: rgba(255, 255, 255, 0.16);
+}
+
 
 /* Bottom-left family (Proposition B of docs/Ideas/Interface.md): the status
    band and the legend are the same kind of object — quiet text floating over

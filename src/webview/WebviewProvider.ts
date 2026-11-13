@@ -1446,17 +1446,19 @@ export class WebviewProvider {
             <div id="graph-bar" class="view-toolbar">
                 <button id="btn-toggle-explorer" class="view-action" title="Files and folders of this repository">☰ Files</button>
                 <div class="view-bar-actions">
-                    <button id="btn-follow-editor" class="view-action" aria-pressed="true" title="Follow editor (on) — camera flies to the active file">👁 Follow</button>
-                    <button id="graph-export" type="button" class="view-action" data-export-tab="graph" title="Export what this view can produce">📤 Export</button>
-                    <!-- Query sits with Map and Warps: three buttons that open a
-                         floating palette, one place to look for them. -->
-                    <button id="qb-toggle" class="view-action" title="Query palette (Ctrl+K)">🔍 Query</button>
+                    <!-- Query · Map · Warps open a floating palette: one group. The
+                         applied-query chip sits on its button's left, so the row
+                         starts with the query when one is active. -->
                     <span id="query-chip" class="query-chip hidden">
                         <button id="query-chip-open" type="button" class="view-action query-chip-main" title="Open the query palette"></button>
                         <button id="query-chip-clear" type="button" class="view-action query-chip-x" title="Clear the query">✕</button>
                     </span>
+                    <button id="qb-toggle" class="view-action" title="Query palette (Ctrl+K)">🔍 Query</button>
                     <button id="btn-minimap" class="view-action" title="Toggle minimap">🗺️ Map</button>
                     <button id="btn-warps-panel" class="view-action" title="Warp points — named camera bookmarks">🌀 Warps</button>
+                    <span class="view-bar-sep" aria-hidden="true"></span>
+                    <button id="btn-follow-editor" class="view-action" aria-pressed="true" title="Follow editor (on) — camera flies to the active file">👁 Follow</button>
+                    <button id="graph-export" type="button" class="view-action" data-export-tab="graph" title="Export what this view can produce">📤 Export</button>
                     <button id="btn-copy-link" class="view-action" title="Copy a vscode:// link that reopens this exact view — tab, filters, camera and query">🔗 Link</button>
                 </div>
             </div>
