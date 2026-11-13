@@ -538,9 +538,12 @@
         return { expecting: 'field', partial: '', tokenStart: text.length };
     }
 
+    var suggestHideTimer = null;
+
     function showSuggestions(items) {
         var box = $('#qb-suggest');
         if (!box) return;
+        if (suggestHideTimer) { clearTimeout(suggestHideTimer); suggestHideTimer = null; }
         suggestItems = items || [];
         suggestActiveIndex = items && items.length ? 0 : -1;
         if (!suggestItems.length) {
@@ -571,6 +574,7 @@
         box.classList.remove('hidden');
         // Placed once visible: the height is only knowable after the rows exist.
         positionSuggestBox(box);
+        setSuggestToggleState(true);
     }
 
     function hideSuggestions() {
@@ -578,6 +582,16 @@
         if (box) box.classList.add('hidden');
         suggestItems = [];
         suggestActiveIndex = -1;
+        setSuggestToggleState(false);
+    }
+
+    /** The ▾ button mirrors the list, whether it was opened by click or typing. */
+    function setSuggestToggleState(open) {
+        var btn = $('#qb-suggest-toggle');
+        if (!btn) return;
+        btn.classList.toggle('open', !!open);
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        btn.title = open ? 'Hide the field list' : 'Show the field list (Ctrl+Space)';
     }
 
     function applySuggestion(index) {
@@ -1020,6 +1034,22 @@
             hideSuggestions();
         });
 
+        // The ▾ next to the expression: the list on demand, since autocomplete no
+        // longer opens by itself. `mousedown` + preventDefault keeps the caret in
+        // the field — a plain click would blur it and the blur timer would
+        // immediately hide what we just opened.
+        var suggestToggle = $('#qb-suggest-toggle');
+        suggestToggle && suggestToggle.addEventListener('mousedown', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            var box = $('#qb-suggest');
+            if (box && !box.classList.contains('hidden')) { hideSuggestions(); return; }
+            triggerAutocomplete(true);
+        });
+        suggestToggle && suggestToggle.addEventListener('click', function (e) {
+            e.preventDefault();
+        });
+
         // Modes — all three apply live: there is no Apply button to miss.
         var modeBtns = document.querySelectorAll('#qb-modes [data-mode]');
         for (var m = 0; m < modeBtns.length; m++) {
@@ -1038,12 +1068,19 @@
         // No autocomplete on focus: it would cover the palette the moment it opens.
         input.addEventListener('blur', function () {
             // small delay so click on suggestion still works
-            setTimeout(hideSuggestions, 120);
+            if (suggestHideTimer) clearTimeout(suggestHideTimer);
+            suggestHideTimer = setTimeout(hideSuggestions, 120);
         });
 
         input.addEventListener('keydown', function (e) {
             var box = $('#qb-suggest');
             var hasSuggest = suggestItems.length > 0 && box && !box.classList.contains('hidden');
+            if (e.key === ' ' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                hideSuggestions();
+                triggerAutocomplete(true);
+                return;
+            }
             if (hasSuggest && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
                 e.preventDefault();
                 if (e.key === 'ArrowDown') suggestActiveIndex = (suggestActiveIndex + 1) % suggestItems.length;

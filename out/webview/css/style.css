@@ -1357,6 +1357,51 @@ html, body {
 .query-input:focus { border-color: var(--aura-accent); }
 .query-input.qb-error-state { border-color: #ff5252; }
 
+/* The expression field carries a ▾ to summon the field list on demand —
+   autocomplete no longer opens by itself, and the vocabulary is 30 fields wide. */
+.query-expr-wrap {
+    position: relative;
+    display: flex;
+}
+
+.query-expr-wrap > .query-input {
+    flex: 1;
+    padding-right: 28px;
+}
+
+.query-suggest-toggle {
+    position: absolute;
+    top: 50%;
+    right: 4px;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border-radius: 4px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--aura-fg);
+    opacity: 0.55;
+    font-size: 10px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.query-suggest-toggle:hover {
+    opacity: 1;
+    background: rgba(96, 165, 250, 0.16);
+    border-color: var(--aura-accent);
+}
+
+/* Point it up while the list is showing, so it reads as a toggle. */
+.query-suggest-toggle.open {
+    opacity: 1;
+    transform: translateY(-50%) rotate(180deg);
+}
+
 /* The saved-query name is a label, not code: proportional instead of monospace. */
 #qb-name {
     font-family: inherit;
