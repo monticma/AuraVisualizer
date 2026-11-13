@@ -358,26 +358,8 @@ html, body {
 }
 #query-bar.collapsed { display: none; }
 .qb-row { display: flex; align-items: center; gap: 8px; }
-.qb-toggle {
-    background: transparent;
-    border: 1px solid var(--aura-border);
-    color: var(--aura-fg);
-    border-radius: 4px;
-    padding: 3px 8px;
-    cursor: pointer;
-    font-size: 13px;
-}
-.qb-toggle:hover { background: var(--aura-border); }
 /* The query toggle lives in the view bar now, and the settings gear next to
    Help: the tab bar holds tabs only. */
-.qb-toggle.active {
-    background: rgba(96,165,250,0.1);
-    border-color: var(--aura-accent);
-}
-#graph-bar .qb-toggle {
-    padding: 4px 8px;
-    font-size: 11px;
-}
 .qb-input {
     flex: 1;
     background: var(--aura-bg);
@@ -558,8 +540,7 @@ html, body {
     margin-right: 4px;
 }
 
-.top-btn.active,
-.city-select.active {
+.top-btn.active {
     opacity: 1;
     /* Same recipe as .filter-btn.active: accent border, tinted background, text
        left alone. The blue text made the top buttons read as links rather than
@@ -3048,6 +3029,90 @@ html, body {
    tabs looked like they had no bar at all. Same for the background: without it
    a 1px line is all that separates the controls from the content.
    ============================================================ */
+/* ── One vocabulary for every bar ─────────────────────────────
+   Three roles, one geometry. Before this there were five button recipes
+   (12/6×12, 11/4×8 in the graph, 11/2×6 rounded 4 in the City, 11/3×9 in the
+   Treemap, a filled badge) and four select recipes, so the same action was a
+   different size in every tab. Density is now a function of the window width,
+   not of the tab. */
+.view-action,
+.view-select {
+    font-size: 12px;
+    min-height: 24px;
+    box-sizing: border-box;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    line-height: 1.2;
+}
+
+.view-action {
+    padding: 4px 10px;
+    background: transparent;
+    /* Hard-coded alpha, not `--aura-border`: that token is nearly invisible in
+       many themes, and on a 24 px control a faint outline leaves a bare glyph. */
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    color: var(--aura-fg);
+    opacity: 0.85;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+}
+
+.view-action:hover {
+    opacity: 1;
+    background: rgba(96, 165, 250, 0.1);
+    border-color: var(--aura-accent);
+}
+
+.view-action.active {
+    opacity: 1;
+    border-color: var(--aura-accent);
+    background: rgba(96, 165, 250, 0.1);
+}
+
+.view-action.paused {
+    opacity: 0.55;
+    border-style: dashed;
+}
+
+.view-action--primary {
+    padding: 4px 10px;
+    background: var(--aura-badge-bg);
+    border: none;
+    color: #fff;
+    opacity: 1;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: filter 0.15s;
+}
+
+.view-action--primary:hover {
+    filter: brightness(1.12);
+}
+
+.view-select {
+    padding: 3px 6px;
+    background: var(--aura-input-bg);
+    border: 1px solid var(--aura-input-border);
+    color: var(--aura-fg);
+    outline: none;
+}
+
+.view-select:focus {
+    border-color: var(--aura-accent);
+}
+
+/* The graph bar carries seven controls; below this width every bar tightens,
+   instead of the graph owning a smaller button than everyone else. */
+@media (max-width: 1100px) {
+    .view-action,
+    .view-select {
+        padding: 3px 8px;
+        font-size: 11px;
+    }
+}
+
 .view-toolbar {
     display: flex;
     align-items: center;
@@ -3115,15 +3180,6 @@ html, body {
     display: flex;
     align-items: center;
     gap: 4px;
-}
-.treemap-controls select {
-    background: var(--aura-input-bg);
-    border: 1px solid var(--aura-input-border);
-    color: var(--aura-fg);
-    border-radius: 4px;
-    padding: 2px 6px;
-    font-size: 11px;
-    cursor: pointer;
 }
 #treemap-container {
     flex: 1;
@@ -3216,15 +3272,6 @@ html, body {
     display: flex;
     align-items: center;
     gap: 4px;
-}
-.dsm-controls select {
-    background: var(--aura-input-bg);
-    border: 1px solid var(--aura-input-border);
-    color: var(--aura-fg);
-    border-radius: 4px;
-    padding: 2px 6px;
-    font-size: 11px;
-    cursor: pointer;
 }
 .dsm-stats {
     font-size: 11px;
@@ -3369,15 +3416,6 @@ html, body {
     align-items: center;
     gap: 4px;
 }
-.chord-controls select {
-    background: var(--aura-input-bg);
-    border: 1px solid var(--aura-input-border);
-    color: var(--aura-fg);
-    border-radius: 4px;
-    padding: 2px 6px;
-    font-size: 11px;
-    cursor: pointer;
-}
 .chord-stats {
     font-size: 11px;
     opacity: 0.5;
@@ -3477,15 +3515,6 @@ html, body {
     display: flex;
     align-items: center;
     gap: 4px;
-}
-.tchart-controls select {
-    background: var(--aura-input-bg);
-    border: 1px solid var(--aura-input-border);
-    color: var(--aura-fg);
-    border-radius: 4px;
-    padding: 2px 6px;
-    font-size: 11px;
-    cursor: pointer;
 }
 .tchart-stats {
     font-size: 11px;
@@ -3654,7 +3683,10 @@ html, body {
 #table-view .table-toolbar input {
     flex: 1;
     max-width: 300px;
-    padding: 6px 10px;
+    /* Same geometry as .view-action / .view-select: 24 px tall, 6 px radius. */
+    padding: 4px 10px;
+    min-height: 24px;
+    box-sizing: border-box;
     background: var(--aura-input-bg);
     border: 1px solid var(--aura-input-border);
     border-radius: 6px;
@@ -3769,16 +3801,6 @@ html, body {
     opacity: 0.75;
     white-space: nowrap;
 }
-.risk-window-select {
-    background: var(--aura-bg);
-    color: var(--aura-fg);
-    border: 1px solid var(--aura-border);
-    border-radius: 6px;
-    padding: 4px 6px;
-    font-size: 11px;
-    cursor: pointer;
-}
-.risk-window-select:focus { border-color: var(--aura-accent); outline: none; }
 .risk-export-btn {
     background: var(--aura-badge-bg);
     border: none;
@@ -5046,10 +5068,6 @@ select option {
     flex-wrap: wrap;
 }
 
-#graph-bar .top-btn {
-    padding: 4px 8px;
-    font-size: 11px;
-}
 
 /* Bottom-left family (Proposition B of docs/Ideas/Interface.md): the status
    band and the legend are the same kind of object — quiet text floating over
@@ -5134,16 +5152,6 @@ select option {
 }
 
 /* Same control as every other tab (`.treemap-controls select`). */
-.city-select {
-    background: var(--aura-input-bg);
-    border: 1px solid var(--aura-input-border);
-    color: var(--aura-fg);
-    border-radius: 4px;
-    padding: 2px 6px;
-    font-size: 11px;
-    cursor: pointer;
-    outline: none;
-}
 
 /* City — inspector panel (right) and hover tooltip.
    Same shell as #detail-panel: 320 px, blurred sidebar, slides in from the
@@ -5335,17 +5343,7 @@ select option {
 .city-crumb-count { opacity: 0.45; margin-left: 4px; font-variant-numeric: tabular-nums; }
 
 /* Treemap → City hand-off */
-.treemap-city-btn {
-    padding: 3px 9px;
-    border-radius: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.16);
-    background: transparent;
-    color: inherit;
-    font-size: 11px;
-    cursor: pointer;
-}
 
-.treemap-city-btn:hover { background: rgba(255, 255, 255, 0.08); }
 
 /* City — mini dependency map (CodeCity-style) */
 .city-rel-svg {

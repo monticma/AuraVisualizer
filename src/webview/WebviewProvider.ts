@@ -1457,14 +1457,14 @@ export class WebviewProvider {
                  OUT of #graph-container: the renderer clears that node's innerHTML
                  when it mounts. -->
             <div id="graph-bar" class="view-toolbar">
-                <button id="btn-toggle-explorer" class="top-btn" title="Files and folders of this repository">☰ Files</button>
-                <button id="qb-toggle" class="qb-toggle" title="Toggle query bar (Ctrl+K)">🔍 Query</button>
+                <button id="btn-toggle-explorer" class="view-action" title="Files and folders of this repository">☰ Files</button>
+                <button id="qb-toggle" class="view-action" title="Toggle query bar (Ctrl+K)">🔍 Query</button>
                 <div class="view-bar-actions">
-                    <button id="btn-follow-editor" class="top-btn" aria-pressed="true" title="Follow editor (on) — camera flies to the active file">👁 Follow</button>
-                    <button id="graph-export" type="button" class="top-btn" data-export-tab="graph" title="Export what this view can produce">📤 Export</button>
-                    <button id="btn-minimap" class="top-btn" title="Toggle minimap">🗺️ Map</button>
-                    <button id="btn-warps-panel" class="top-btn" title="Warp points — named camera bookmarks">🌀 Warps</button>
-                    <button id="btn-copy-link" class="top-btn" title="Copy a vscode:// link that reopens this exact view — tab, filters, camera and query">🔗 Link</button>
+                    <button id="btn-follow-editor" class="view-action" aria-pressed="true" title="Follow editor (on) — camera flies to the active file">👁 Follow</button>
+                    <button id="graph-export" type="button" class="view-action" data-export-tab="graph" title="Export what this view can produce">📤 Export</button>
+                    <button id="btn-minimap" class="view-action" title="Toggle minimap">🗺️ Map</button>
+                    <button id="btn-warps-panel" class="view-action" title="Warp points — named camera bookmarks">🌀 Warps</button>
+                    <button id="btn-copy-link" class="view-action" title="Copy a vscode:// link that reopens this exact view — tab, filters, camera and query">🔗 Link</button>
                 </div>
             </div>
             <!-- Branch review summary (V3-07) — driven by git, over the graph -->
@@ -1679,13 +1679,13 @@ export class WebviewProvider {
     <div id="city-view" class="tab-content" data-tab="city">
         <div id="city-controls" class="view-toolbar">
             <label class="city-field" for="city-granularity" title="What each building stands for: a file, or a single function">Granularity
-                <select id="city-granularity" class="city-select">
+                <select id="city-granularity" class="view-select">
                     <option value="files" selected>files</option>
                     <option value="functions">functions</option>
                 </select>
             </label>
             <label class="city-field" for="city-height" title="What the building height encodes">Height
-                <select id="city-height" class="city-select">
+                <select id="city-height" class="view-select">
                     <option value="cognitive" selected>cognitive</option>
                     <option value="complexity">complexity</option>
                     <option value="linesOfCode">lines</option>
@@ -1696,7 +1696,7 @@ export class WebviewProvider {
                 </select>
             </label>
             <label class="city-field" for="city-footprint" title="What the footprint (area share) encodes">Footprint
-                <select id="city-footprint" class="city-select">
+                <select id="city-footprint" class="view-select">
                     <option value="linesOfCode" selected>lines</option>
                     <option value="size">size</option>
                     <option value="fanIn">fan-in</option>
@@ -1704,7 +1704,7 @@ export class WebviewProvider {
                 </select>
             </label>
             <label class="city-field" for="city-colour" title="What the building colour encodes">Colour
-                <select id="city-colour" class="city-select">
+                <select id="city-colour" class="view-select">
                     <option value="height" selected>height</option>
                     <option value="risk">risk</option>
                     <option value="language">language</option>
@@ -1713,23 +1713,23 @@ export class WebviewProvider {
                 </select>
             </label>
             <label class="city-field" for="city-mapping" title="How the height metric becomes a building height">Mapping
-                <select id="city-mapping" class="city-select">
+                <select id="city-mapping" class="view-select">
                     <option value="quantiles" selected>5 tiers</option>
                     <option value="linear">linear</option>
                     <option value="threshold">threshold</option>
                 </select>
             </label>
             <label class="city-field" for="city-districts" title="What groups files into districts">Districts
-                <select id="city-districts" class="city-select">
+                <select id="city-districts" class="view-select">
                     <option value="group" selected>folders</option>
                     <option value="layer">layers</option>
                     <option value="community">communities</option>
                 </select>
             </label>
             <div class="view-bar-actions">
-                <button id="city-minimap-toggle" type="button" class="city-select" title="Floating map — drag it anywhere">🗺️ Map</button>
-                <button id="city-warps-toggle" type="button" class="city-select" title="Warp points — camera bookmarks for the City">🌀 Warps</button>
-                <button id="city-export" type="button" class="city-select" data-export-tab="city" title="Export what this view can produce">📤 Export</button>
+                <button id="city-minimap-toggle" type="button" class="view-action" title="Floating map — drag it anywhere">🗺️ Map</button>
+                <button id="city-warps-toggle" type="button" class="view-action" title="Warp points — camera bookmarks for the City">🌀 Warps</button>
+                <button id="city-export" type="button" class="view-action" data-export-tab="city" title="Export what this view can produce">📤 Export</button>
             </div>
         </div>
         <!-- Stage: the panel is anchored here, below the toolbar, exactly
@@ -1795,7 +1795,7 @@ export class WebviewProvider {
         <div class="view-toolbar metrics-toolbar">
             <h2>📊 Metrics</h2>
             <div class="metrics-toolbar-actions">
-                <button type="button" class="risk-export-btn" data-export-tab="metrics" title="Export the summary as Markdown">📤 Export</button>
+                <button type="button" class="view-action view-action--primary" data-export-tab="metrics" title="Export the summary as Markdown">📤 Export</button>
             </div>
         </div>
         <div id="metrics-body"></div>
@@ -1808,14 +1808,14 @@ export class WebviewProvider {
             <div class="risk-toolbar-actions">
                 <label class="risk-window-label" for="risk-window" title="How much git history is used for churn and scoring">
                     History window
-                    <select id="risk-window" class="risk-window-select">
+                    <select id="risk-window" class="view-select">
                         <option value="30">30 days</option>
                         <option value="90" selected>90 days</option>
                         <option value="365">365 days</option>
                     </select>
                 </label>
-                <button id="risk-ask-aura" type="button" class="risk-export-btn" title="Ask @aura for the top 3 actions on this Risk dashboard">✨ Ask Aura</button>
-                <button id="risk-export" type="button" class="risk-export-btn" title="Export a Markdown report to .aura/risk-report.md">📤 Export Report</button>
+                <button id="risk-ask-aura" type="button" class="view-action view-action--primary" title="Ask @aura for the top 3 actions on this Risk dashboard">✨ Ask Aura</button>
+                <button id="risk-export" type="button" class="view-action view-action--primary" title="Export a Markdown report to .aura/risk-report.md">📤 Export Report</button>
             </div>
         </div>
         <div id="risk-content">
@@ -1942,10 +1942,10 @@ export class WebviewProvider {
         <div class="view-toolbar arch-toolbar">
             <h2>🏛️ Architecture Rules</h2>
             <div class="arch-toolbar-actions">
-                <button id="arch-edit-rules" type="button" class="risk-export-btn" title="Create or open .aura/arch-rules.json">⚙️ Edit rules</button>
-                <button id="arch-baseline" type="button" class="risk-export-btn" title="Freeze current violations so only new ones alert">📌 Baseline violations</button>
-                <button id="arch-reset-baseline" type="button" class="risk-export-btn" title="Clear the baseline: every violation alerts again">↺ Reset baseline</button>
-                <button id="arch-export" type="button" class="risk-export-btn" title="Export a Markdown report">📤 Export report</button>
+                <button id="arch-edit-rules" type="button" class="view-action view-action--primary" title="Create or open .aura/arch-rules.json">⚙️ Edit rules</button>
+                <button id="arch-baseline" type="button" class="view-action view-action--primary" title="Freeze current violations so only new ones alert">📌 Baseline violations</button>
+                <button id="arch-reset-baseline" type="button" class="view-action view-action--primary" title="Clear the baseline: every violation alerts again">↺ Reset baseline</button>
+                <button id="arch-export" type="button" class="view-action view-action--primary" title="Export a Markdown report">📤 Export report</button>
             </div>
         </div>
         <div id="arch-content"></div>
@@ -1956,21 +1956,21 @@ export class WebviewProvider {
         <div class="view-toolbar treemap-toolbar">
             <div id="treemap-breadcrumb"><span class="treemap-crumb treemap-crumb-root" data-path="">root</span></div>
             <div class="treemap-controls">
-                <label>Size: <select id="treemap-size-metric">
+                <label>Size: <select id="treemap-size-metric" class="view-select">
                     <option value="linesOfCode" selected>LOC</option>
                     <option value="complexity">Complexity</option>
                     <option value="size">File size</option>
                 </select></label>
-                <label>Color: <select id="treemap-color-metric">
+                <label>Color: <select id="treemap-color-metric" class="view-select">
                     <option value="complexity" selected>Complexity</option>
                     <option value="fanIn">Fan-in</option>
                     <option value="fanOut">Fan-out</option>
                     <option value="language">Language</option>
                 </select></label>
-                <button id="treemap-city" type="button" class="treemap-city-btn" title="Open the 2.5D City view">🏙️ See as city</button>
+                <button id="treemap-city" type="button" class="view-action" title="Open the 2.5D City view">🏙️ See as city</button>
             </div>
                 <div class="view-bar-actions">
-                    <button type="button" class="top-btn" data-export-tab="treemap" title="Export the cells as CSV">📤 Export</button>
+                    <button type="button" class="view-action" data-export-tab="treemap" title="Export the cells as CSV">📤 Export</button>
                 </div>
         </div>
         <div id="treemap-container"></div>
@@ -1980,7 +1980,7 @@ export class WebviewProvider {
     <div id="chord-view" class="tab-content" data-tab="chord">
         <div class="view-toolbar chord-toolbar">
             <div class="chord-controls">
-                <label>Group by: <select id="chord-group-by">
+                <label>Group by: <select id="chord-group-by" class="view-select">
                     <option value="directory" selected>Directory</option>
                     <option value="language">Language</option>
                     <option value="layer">Architecture layer</option>
@@ -1989,7 +1989,7 @@ export class WebviewProvider {
                 <span class="chord-stats" id="chord-stats"></span>
             </div>
                 <div class="view-bar-actions">
-                    <button type="button" class="top-btn" data-export-tab="chord" title="Export the diagram as SVG or the flows as CSV">📤 Export</button>
+                    <button type="button" class="view-action" data-export-tab="chord" title="Export the diagram as SVG or the flows as CSV">📤 Export</button>
                 </div>
         </div>
         <div id="chord-container"></div>
@@ -2007,7 +2007,7 @@ export class WebviewProvider {
         </div>
         <div class="view-toolbar tchart-toolbar">
             <div class="tchart-controls">
-                <label>Metric: <select id="tchart-metric">
+                <label>Metric: <select id="tchart-metric" class="view-select">
                     <option value="loc" selected>Lines of Code</option>
                     <option value="files">File Count</option>
                     <option value="complexity">Avg Complexity</option>
@@ -2016,7 +2016,7 @@ export class WebviewProvider {
                 <span class="tchart-stats" id="tchart-stats"></span>
             </div>
                 <div class="view-bar-actions">
-                    <button type="button" class="top-btn" data-export-tab="timeline" title="Export the series as CSV">📤 Export</button>
+                    <button type="button" class="view-action" data-export-tab="timeline" title="Export the series as CSV">📤 Export</button>
                 </div>
         </div>
         <div id="tchart-container"></div>
@@ -2026,13 +2026,13 @@ export class WebviewProvider {
     <div id="dsm-view" class="tab-content" data-tab="dsm">
         <div class="view-toolbar dsm-toolbar">
             <div class="dsm-controls">
-                <label>Group by: <select id="dsm-group-by">
+                <label>Group by: <select id="dsm-group-by" class="view-select">
                     <option value="directory" selected>Directory</option>
                     <option value="language">Language</option>
                     <option value="layer">Architecture layer</option>
                     <option value="community">Community</option>
                 </select></label>
-                <label>Sort: <select id="dsm-sort">
+                <label>Sort: <select id="dsm-sort" class="view-select">
                     <option value="group" selected>Group</option>
                     <option value="name">Name</option>
                     <option value="fanIn">Fan-in</option>
@@ -2041,7 +2041,7 @@ export class WebviewProvider {
                 <span class="dsm-stats" id="dsm-stats"></span>
             </div>
                 <div class="view-bar-actions">
-                    <button type="button" class="top-btn" data-export-tab="dsm" title="Export the dependency list as Markdown">📤 Export</button>
+                    <button type="button" class="view-action" data-export-tab="dsm" title="Export the dependency list as Markdown">📤 Export</button>
                 </div>
         </div>
         <div id="dsm-container"></div>
@@ -2053,23 +2053,23 @@ export class WebviewProvider {
             <div class="coupling-title">🔗 Temporal Co-change</div>
             <div class="coupling-actions">
                 <label class="coupling-label">Window
-                    <select id="coupling-window" class="filter-select">
+                    <select id="coupling-window" class="view-select">
                         <option value="90">90 days</option>
                         <option value="365" selected>365 days</option>
                         <option value="730">2 years</option>
                     </select>
                 </label>
                 <label class="coupling-label">Min score
-                    <select id="coupling-min" class="filter-select">
+                    <select id="coupling-min" class="view-select">
                         <option value="0.2" selected>0.2</option>
                         <option value="0.4">0.4</option>
                         <option value="0.6">0.6</option>
                     </select>
                 </label>
-                <button id="coupling-show-graph" class="risk-export-btn" title="Show the top pairs as virtual links in the 3D graph">Show on graph</button>
+                <button id="coupling-show-graph" class="view-action" title="Show the top pairs as virtual links in the 3D graph">Show on graph</button>
             </div>
             <div class="view-bar-actions">
-                <button type="button" class="top-btn" data-export-tab="coupling" title="Export the pairs as CSV">📤 Export</button>
+                <button type="button" class="view-action" data-export-tab="coupling" title="Export the pairs as CSV">📤 Export</button>
             </div>
         </div>
         <p id="coupling-summary" class="coupling-summary"></p>
@@ -2095,7 +2095,7 @@ export class WebviewProvider {
             <span class="search-icon">⌕</span>
             <input type="text" id="table-search" placeholder="Filter files..." autocomplete="off">
                 <div class="view-bar-actions">
-                    <button type="button" class="top-btn" data-export-tab="table" title="Export every file with its metrics as CSV">📤 Export</button>
+                    <button type="button" class="view-action" data-export-tab="table" title="Export every file with its metrics as CSV">📤 Export</button>
                 </div>
         </div>
         <div class="table-scroll">
