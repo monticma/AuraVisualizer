@@ -42,10 +42,23 @@
     // `selected` is how many nodes this query is holding in the shared
     // multi-selection — 0 once the mode lets go of them.
     var queryState = { active: false, mode: 'highlight', set: querySet, selected: 0 };
+
+    /** How many nodes of the shared multi-selection this query really holds. */
+    function ownedSelectionCount() {
+        if (!querySelectIds.size) return 0;
+        var sel = hooks.getMultiSelectedNodes ? hooks.getMultiSelectedNodes() : null;
+        if (!sel) return 0;
+        var owned = 0;
+        sel.forEach(function (node) { if (node && querySelectIds.has(node.id)) owned++; });
+        return owned;
+    }
+
     function syncQueryState() {
         queryState.active = queryActive;
         queryState.mode = queryMode;
-        queryState.selected = querySelectIds.size;
+        // Derived from the live set, never from our own bookkeeping: that is
+        // what made the bug invisible to the harness.
+        queryState.selected = ownedSelectionCount();
     }
 
     function buildQueryContext() {
@@ -101,7 +114,14 @@
     function releaseQuerySelection() {
         if (!querySelectIds.size) return false;
         var sel = hooks.getMultiSelectedNodes();
-        if (sel) querySelectIds.forEach(function (id) { sel.delete(id); });
+        if (sel) {
+            var owned = new Set(querySelectIds);
+            // The shared set holds node *objects*, not ids: `sel.delete(id)`
+            // matches nothing, which is why the graph stayed dimmed for so long.
+            Array.from(sel).forEach(function (node) {
+                if (node && owned.has(node.id)) sel.delete(node);
+            });
+        }
         querySelectIds.clear();
         if (typeof hooks.refreshMultiSelectedLinks === 'function') hooks.refreshMultiSelectedLinks();
         syncQueryState();
@@ -168,11 +188,9 @@
                     row.appendChild(expr);
                 }
 
-                var mode = document.createElement('div');
-                mode.className = 'queries-item-mode';
-                mode.textContent = q.mode || 'highlight';
-                row.appendChild(mode);
-
+                // No mode line: applying a saved query keeps the current mode, so
+                // advertising a stored one would be a promise the click no longer
+                // keeps.
                 // One row = one query: a single click applies it (the palette is
                 // already open); ✏️ renames it in place, ✕ removes it.
                 var edit = document.createElement('button');
@@ -274,7 +292,10 @@
         var input = $('#qb-input');
         var nameField = $('#qb-name');
         setQueryPaletteOpen(true);
-        if (q.mode) setQueryMode(q.mode, true);
+        // A saved query is an expression, not a mode: applying it keeps whatever
+        // Highlight / Filter / Select the user is in. Replaying the mode stored
+        // the day it was saved (often Select, because that is what was active)
+        // is how every saved query ended up looking like Select.
         if (input) input.value = q.expr;
         if (nameField) nameField.value = q.name || '';
         runQueryFromInput(q.expr, true);

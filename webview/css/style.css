@@ -1287,12 +1287,6 @@ html, body {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.queries-item-mode {
-    font-size: 9.5px;
-    color: rgba(201, 209, 217, 0.5);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
 .qm-btn {
     background: transparent;
     border: 1px solid var(--aura-border);

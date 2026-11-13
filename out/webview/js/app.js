@@ -423,7 +423,9 @@
                 break;
             case 'applyQuery':
                 if (window.AuraQueryBar && message.payload && typeof message.payload.expr === 'string') {
-                    window.AuraQueryBar.applyFromHost(message.payload.expr, message.payload.mode);
+                    // A stored query carries an expression and a name, not a mode
+                    // to force: the command reuses the mode selected in the palette.
+                    window.AuraQueryBar.applyFromHost(message.payload.expr);
                 }
                 break;
             case 'savedQueries':

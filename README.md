@@ -556,7 +556,7 @@ Three navigation gestures are one keystroke away from anywhere in VS Code (`Ctrl
 | Command | What it does |
 |---------|--------------|
 | **Aura: Focus File in Graph…** | Fuzzy picker over the analyzed files (path, language, directory, LOC, fan-in/out, layer, violations) — selection focuses the node and opens its detail panel |
-| **Aura: Apply Saved Query…** | Replay a query saved from the query palette, with its stored mode (filter / highlight / select); most recent first |
+| **Aura: Apply Saved Query…** | Replay a query saved from the query palette, most recent first — it applies in the mode currently selected, never forcing the one it was saved in |
 | **Aura: Add Warp Here** | Opens the warp naming modal on the current camera pose (same flow as 📌 in the Warps panel) |
 | **Aura: Generate Agent Context** | Writes `.aura/HOTSPOTS.md`, `.aura/hotspots.json` and the `aura:begin` block of your agent instruction file (V3-10) |
 
@@ -607,7 +607,7 @@ Filter, highlight, or select files with the built-in **Aura Query Language** —
 
 **Modes:** **Highlight** (dim non-matching files), **Filter** (hide non-matching files), **Select** (multi-select matching files). Switching modes is safe by design: leaving **Select** releases the files it had multi-selected before the next mode paints, so a Filter query never lands on a graph the previous Select left dimmed.
 
-**Saved queries:** press **⭐** to save the current expression (with its mode) and **📚** to reopen the saved list (persisted in `.aura/graph.db`).
+**Saved queries:** press **⭐** to save the current expression under a name and **📚** to reopen the saved list (persisted in `.aura/graph.db`). A saved query is an expression, not a mode: clicking a row never switches Highlight / Filter / Select — the mode you are in stays.
 
 **Remembered:** the palette is part of the view state — it reopens open or closed exactly as you left it, with its expression and mode, and the graph comes back filtered/highlighted the same way.
 
