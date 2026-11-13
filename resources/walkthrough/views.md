@@ -78,4 +78,4 @@ Every view carries an **📤 Export** in its bar, and the menu lists what *that*
 - **Jaccard** = cochanges / (A commits + B commits − cochanges); **support** = share of analysed multi-file commits touching both.
 - Select a 90-day, 365-day or 2-year window and a minimum score; renames are followed, giant commits (>50 files) are ignored.
 - Click a file name to focus it. **Show on graph** adds virtual magenta links; the **🔗 Co-change** toolbar filter toggles them.
-- Use `cochange > 0.6` in the query bar to highlight strongly coupled files.
+- Use `cochange > 0.6` in the query palette to highlight strongly coupled files.

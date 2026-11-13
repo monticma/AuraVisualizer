@@ -5180,7 +5180,7 @@
     /**
      * Everything a shared view link carries (V3-06): the persisted view state,
      * the active tab, the live camera pose (anchored to files, so it survives a
-     * rebuilt layout) and the query bar expression. The host adds the version
+     * rebuilt layout) and the query expression. The host adds the version
      * and the workspace hint before encoding.
      */
     function collectShareState() {

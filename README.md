@@ -295,7 +295,7 @@ Aura reads `git status` and shows what you are working on right now:
 
 - **Dirty rings** — files with uncommitted changes wear a thin amber ring in the 3D graph; the detail panel adds a **Git** line with the exact state (modified / staged / untracked / renamed / conflicted)
 - **✏️ Dirty filter** — toolbar button showing only files with uncommitted changes (nodes *and* links)
-- **Query flag** — `dirty` works in the query bar: `dirty AND complexity > 20`
+- **Query flag** — `dirty` works in the query palette: `dirty AND complexity > 20`
 - **Status bar alert** — when your changes touch high-risk files, the status bar switches to `⚠ N hotspots in your changes` (see Risk Map)
 
 Everything refreshes automatically on save (debounced, no shell involved).
@@ -308,7 +308,7 @@ Annotate any file with a personal, color-coded note — a marker that follows yo
 - **Pulsing indicator** — annotated files wear a note-colored ring + dot in the graph, animated (breathing) so they stand out at any zoom level; the ring nests inside the amber dirty ring when a file is both annotated and modified
 - **📝 Notes toggle** — toolbar button next to ✏️ Dirty: shows / hides all note indicators; the choice is saved with your view state
 - **Stale notes** — when a file changes after its note was written, the note header shows **⚠️ À revoir**, **✓ Mark reviewed** refreshes its timestamp, the **📝 Notes** button shows the exact count and the **⚠️ Stale** filter isolates those files
-- **Query flag** — `hasnote` works in the query bar: `hasnote AND complexity > 20`; use `stalenote` for notes older than their file
+- **Query flag** — `hasnote` works in the query palette: `hasnote AND complexity > 20`; use `stalenote` for notes older than their file
 - **Storage** — notes are stored in `.aura/annotations.json`, local to the workspace (not committed)
 
 ### Circular Dependencies 🔄
@@ -422,7 +422,7 @@ Save named camera bookmarks of the 3D view and fly back to them in one click:
 
 **🔗 Link** (top bar, next to 🌀 Warps) copies a `vscode://monticma-aura.aura-visualizer-3D/open?state=…` link that reopens the **exact same view** on another machine or window of the same repository:
 
-- Carries the **tab**, every **filter** (languages, palettes, toggles, heatmap, edge confidence, co-change, sizes), the **camera pose** — anchored to the files in view, like a warp — and the **query bar expression** with its mode
+- Carries the **tab**, every **filter** (languages, palettes, toggles, heatmap, edge confidence, co-change, sizes), the **camera pose** — anchored to the files in view, like a warp — and the **query expression** with its mode
 - Paste it in a chat, an issue, a PR or a README; opening it launches VS Code, opens the Aura panel and applies the view once the graph is rendered
 - Everything is validated on arrival: versioned payload, 8 KB cap, whitelisted keys, clamped numbers, finite camera coordinates — a corrupted or hand-edited link is refused with a message instead of breaking the panel
 - A link captured in another workspace still applies, with a warning naming the folder it came from
@@ -556,7 +556,7 @@ Three navigation gestures are one keystroke away from anywhere in VS Code (`Ctrl
 | Command | What it does |
 |---------|--------------|
 | **Aura: Focus File in Graph…** | Fuzzy picker over the analyzed files (path, language, directory, LOC, fan-in/out, layer, violations) — selection focuses the node and opens its detail panel |
-| **Aura: Apply Saved Query…** | Replay a query saved from the query bar, with its stored mode (filter / highlight / select); most recent first |
+| **Aura: Apply Saved Query…** | Replay a query saved from the query palette, with its stored mode (filter / highlight / select); most recent first |
 | **Aura: Add Warp Here** | Opens the warp naming modal on the current camera pose (same flow as 📌 in the Warps panel) |
 | **Aura: Generate Agent Context** | Writes `.aura/HOTSPOTS.md`, `.aura/hotspots.json` and the `aura:begin` block of your agent instruction file (V3-10) |
 
@@ -566,8 +566,10 @@ Files are code only (documentation nodes are excluded) and the picker caps at 5 
 
 Filter, highlight, or select files with the built-in **Aura Query Language** — a small boolean DSL evaluated over node metrics.
 
-- Open the query bar with the **🔍 button** (far right of the tab bar) or `Ctrl+K` / `Cmd+K`. It stays hidden until you need it.
-- Type an expression such as `complexity > 20 AND fanIn > 5` — matches are highlighted (or filtered / selected, depending on the mode).
+- Open it with the **🔍 button** (graph bar) or `Ctrl+K` / `Cmd+K`: a **floating palette**, not a bar — it never takes height away from the graph. It opens centred the first time, then reopens exactly where you dropped it (`⟲` recentres, `✕` closes).
+- Type an expression such as `complexity > 20 AND fanIn > 5` — **results apply as you type**, in all three modes (**Highlight** / **Filter** / **Select**): there is no Apply button. The summary line reads `N / M files · P%`.
+- While a query is applied, a **chip in the graph bar** recalls it — `🔍 expression · N files · mode`: click it to reopen the palette, `✕` on the chip to clear.
+- **⭐ Save** stores the expression; **📚 Saved** unfolds the list *inside* the palette — click a row to apply it, `✕` on the row to delete it.
 
 **Available fields:**
 

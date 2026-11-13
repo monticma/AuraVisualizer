@@ -113,7 +113,7 @@ Files outside the workspace or outside the analyzed graph are skipped, and Aura 
 | Command | What it does |
 |---------|--------------|
 | **Aura: Focus File in Graph…** | Fuzzy picker over analyzed files → focuses the node and opens its detail panel |
-| **Aura: Apply Saved Query…** | Replays a query saved from the query bar (filter / highlight / select mode) |
+| **Aura: Apply Saved Query…** | Replays a query saved from the query palette (filter / highlight / select mode) |
 | **Aura: Add Warp Here** | Names a warp on the current camera pose |
 
 ### Status bar

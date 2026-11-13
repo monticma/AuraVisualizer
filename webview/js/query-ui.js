@@ -1,10 +1,14 @@
 /**
- * query-ui.js — Query bar (Aura Query Language), saved-queries modal,
- * autocomplete/suggestions and query history.
+ * query-ui.js — Query palette (Aura Query Language): floating window, live
+ * evaluation, autocomplete/suggestions, saved queries and history.
  *
  * Extracted from app.js (Lot 2d). window.AuraQueryBar + init(hooks). The language
  * itself stays in query.js (global helpers); the query overlay state is exposed
  * through state() for the app.js render accessors (via qsState()).
+ *
+ * The query is a floating palette in the same family as Warps and the maps, not
+ * a bar in the layout grid: opening it never takes height from the graph. It is
+ * centred the first time, then remembers where the user dropped it.
  */
 (function () {
     'use strict';
@@ -25,6 +29,9 @@
     var queryHistoryCursor = -1;
     var queryHistoryDraft = '';
     var QUERY_HISTORY_MAX = 30;
+    var QUERY_MODES = ['highlight', 'filter', 'select'];
+    var MODE_LABELS = { highlight: 'Highlight', filter: 'Filter', select: 'Select' };
+    var PALETTE_POS_KEY = 'aura.query.palette.pos.v1';
 
     // Shared snapshot for the app.js render accessors (stable Set reference).
     var queryState = { active: false, mode: 'highlight', set: querySet };
@@ -100,12 +107,12 @@
         var list = $('#queries-modal-list');
         if (!list) return;
         list.innerHTML = '';
+        updateSavedCount();
         if (!savedQueries || !savedQueries.length) {
             var empty = document.createElement('div');
             empty.className = 'queries-empty';
-            empty.textContent = 'No saved queries yet. Type a query and click ⭐ to save.';
+            empty.textContent = 'No saved queries yet. Type a query and click ⭐ Save.';
             list.appendChild(empty);
-            updateModalButtons();
             return;
         }
         // Reset selection if it points to a missing id
@@ -134,54 +141,66 @@
                 mode.textContent = q.mode || 'highlight';
                 row.appendChild(mode);
 
+                // One row = one query: a single click applies it (the palette is
+                // already open) and the delete button removes it on its own.
+                var del = document.createElement('button');
+                del.type = 'button';
+                del.className = 'queries-item-del';
+                del.textContent = '✕';
+                del.title = 'Delete this saved query';
+                del.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    deleteSavedQuery(q.id);
+                });
+                row.appendChild(del);
+
+                row.title = 'Click to apply — ' + q.expr;
                 row.addEventListener('click', function () {
                     modalSelectedId = q.id;
-                    renderSavedQueriesModal();
-                });
-                row.addEventListener('dblclick', function () {
-                    modalSelectedId = q.id;
                     applySavedQuery(q);
-                    hideQueriesModal();
                 });
                 list.appendChild(row);
             })(savedQueries[i]);
         }
-        updateModalButtons();
     }
 
-    function updateModalButtons() {
-        var selectBtn = $('#queries-modal-select');
-        var delBtn = $('#queries-modal-delete');
-        var hasSel = !!modalSelectedId;
-        if (selectBtn) selectBtn.disabled = !hasSel;
-        if (delBtn) delBtn.disabled = !hasSel;
+    function updateSavedCount() {
+        var slot = $('#qb-saved-count');
+        if (!slot) return;
+        slot.textContent = savedQueries && savedQueries.length ? '(' + savedQueries.length + ')' : '';
+    }
+
+    function deleteSavedQuery(id) {
+        try { hooks.postMessage({ type: 'deleteSavedQuery', payload: { id: id } }); } catch (_) { /* noop */ }
+        savedQueries = (savedQueries || []).filter(function (q) { return q.id !== id; });
+        if (modalSelectedId === id) modalSelectedId = null;
+        renderSavedQueriesModal();
     }
 
     function applySavedQuery(q) {
         if (!q) return;
         var input = $('#qb-input');
-        var modeSel = $('#qb-mode');
-        setQueryBarOpen(true);
+        setQueryPaletteOpen(true);
+        if (q.mode) setQueryMode(q.mode, true);
         if (input) input.value = q.expr;
-        if (modeSel && q.mode) { modeSel.value = q.mode; queryMode = q.mode; syncQueryState(); }
         runQueryFromInput(q.expr, true);
         queryActiveFavId = q.id;
     }
 
-    function showQueriesModal() {
-        var modal = $('#queries-modal');
-        if (!modal) return;
-        modal.classList.remove('hidden');
-        // Refresh from DB every time the modal is opened
+    /** The saved list lives inside the palette — collapsed until asked for. */
+    function showSavedList() {
+        var box = $('#query-saved');
+        if (box) box.classList.remove('hidden');
+        // Refresh from DB every time the list is revealed
         try { hooks.postMessage({ type: 'requestSavedQueries' }); } catch (_) { /* noop */ }
         renderSavedQueriesModal();
-        // Re-render after async DB response arrives
+        // Re-render after the async DB response arrives
         setTimeout(function () { renderSavedQueriesModal(); }, 200);
     }
 
-    function hideQueriesModal() {
-        var modal = $('#queries-modal');
-        if (modal) modal.classList.add('hidden');
+    function hideSavedList() {
+        var box = $('#query-saved');
+        if (box) box.classList.add('hidden');
     }
 
     // ---------- Autocomplete ----------
@@ -434,6 +453,8 @@
             })(suggestItems[i], i);
         }
         box.classList.remove('hidden');
+        // Placed once visible: the height is only knowable after the rows exist.
+        positionSuggestBox(box);
     }
 
     function hideSuggestions() {
@@ -512,7 +533,7 @@
         var el = $('#qb-status');
         if (!el) return;
         el.textContent = text;
-        el.className = 'qb-status' + (kind === 'match' ? ' qb-status-match' : kind === 'error' ? ' qb-status-error' : '');
+        el.className = 'query-summary' + (kind === 'match' ? ' qb-status-match' : kind === 'error' ? ' qb-status-error' : '');
     }
 
     function setQueryError(msg) {
@@ -526,6 +547,49 @@
             if (input) input.classList.remove('qb-error-state');
             if (err) { err.textContent = ''; err.classList.add('hidden'); }
         }
+    }
+
+    function totalNodes() {
+        var data = hooks.getGraphData();
+        return data && data.nodes ? data.nodes.length : 0;
+    }
+
+    /** The live summary line — the home of the future aggregates (COUNT, SUM…). */
+    function matchSummary(matched, total) {
+        if (!total) return 'no file loaded';
+        if (!matched) return 'no match · ' + total + ' files';
+        var pct = Math.round((matched / total) * 100);
+        return matched + ' / ' + total + ' files · ' + pct + '%';
+    }
+
+    /** Chip in the view bar: what is applied, how many files, in which mode. */
+    function updateChip() {
+        var chip = $('#query-chip');
+        var main = $('#query-chip-open');
+        if (!chip) return;
+        if (!queryActive || !queryExpr) { chip.classList.add('hidden'); return; }
+        chip.classList.remove('hidden');
+        if (main) {
+            main.textContent = '🔍 ' + queryExpr + ' · ' + querySet.size +
+                (querySet.size === 1 ? ' file · ' : ' files · ') + (MODE_LABELS[queryMode] || queryMode);
+            main.title = queryExpr + ' — ' + querySet.size + ' / ' + totalNodes() + ' files, ' +
+                (MODE_LABELS[queryMode] || queryMode) + '. Click to edit.';
+        }
+    }
+
+    function setQueryMode(mode, silent) {
+        if (QUERY_MODES.indexOf(mode) < 0) mode = 'highlight';
+        queryMode = mode;
+        syncQueryState();
+        var btns = document.querySelectorAll('#qb-modes [data-mode]');
+        for (var i = 0; i < btns.length; i++) {
+            btns[i].classList.toggle('active', btns[i].getAttribute('data-mode') === mode);
+        }
+        if (!silent && queryActive) {
+            applyQuerySelectMode();
+            refreshGraphAfterQuery();
+        }
+        updateChip();
     }
 
     var pendingRunTimer = null;
@@ -545,6 +609,7 @@
             setQueryError('');
             setQueryStatus('—', '');
             refreshGraphAfterQuery();
+            updateChip();
             return;
         }
         var compiled;
@@ -555,6 +620,7 @@
             syncQueryState();
             setQueryError('Query engine error: ' + (e.message || 'unknown'));
             setQueryStatus('error', 'error');
+            updateChip();
             return;
         }
         if (!compiled.ok) {
@@ -562,6 +628,7 @@
             syncQueryState();
             setQueryError(compiled.error || 'Invalid expression');
             setQueryStatus('error', 'error');
+            updateChip();
             return;
         }
         setQueryError('');
@@ -569,44 +636,183 @@
         queryActive = true;
         evaluateQuery();
         applyQuerySelectMode();
-        var total = (hooks.getGraphData() && hooks.getGraphData().nodes) ? hooks.getGraphData().nodes.length : 0;
-        setQueryStatus(querySet.size + ' / ' + total + ' match', querySet.size > 0 ? 'match' : '');
+        setQueryStatus(matchSummary(querySet.size, totalNodes()), querySet.size > 0 ? 'match' : '');
         refreshGraphAfterQuery();
         if (pushToHistory) pushHistory(queryExpr);
         syncQueryState();
+        updateChip();
         // V3-12 — let the app record the place in the navigation trail.
         if (typeof hooks.onApplied === 'function') hooks.onApplied(queryExpr, queryMode);
     }
 
-    function setQueryBarOpen(open) {
-        var bar = $('#query-bar');
+    // ---------- Palette: position, geometry, autocomplete placement ----------
+
+    function readPalettePos() {
+        try {
+            var raw = window.localStorage.getItem(PALETTE_POS_KEY);
+            if (!raw) return null;
+            var p = JSON.parse(raw);
+            if (p && typeof p.left === 'number' && typeof p.top === 'number') return p;
+        } catch (_) { /* noop */ }
+        return null;
+    }
+
+    function savePalettePos() {
+        var el = $('#query-palette');
+        if (!el) return;
+        try {
+            window.localStorage.setItem(PALETTE_POS_KEY, JSON.stringify({
+                left: Math.round(parseFloat(el.style.left) || 0),
+                top: Math.round(parseFloat(el.style.top) || 0)
+            }));
+        } catch (_) { /* noop */ }
+    }
+
+    /** Clamp to the viewport — a stored position can outlive a window resize. */
+    function placePalette(left, top) {
+        var el = $('#query-palette');
+        if (!el) return;
+        var w = el.offsetWidth || 380;
+        var maxLeft = Math.max(0, window.innerWidth - Math.min(w, window.innerWidth - 8) - 4);
+        var maxTop = Math.max(0, window.innerHeight - 48);
+        el.style.left = Math.round(Math.max(0, Math.min(left, maxLeft))) + 'px';
+        el.style.top = Math.round(Math.max(0, Math.min(top, maxTop))) + 'px';
+        // The list is a sibling overlay: it must follow the input while dragging.
+        var box = $('#qb-suggest');
+        if (box && !box.classList.contains('hidden')) positionSuggestBox(box);
+    }
+
+    function centrePalette() {
+        var el = $('#query-palette');
+        if (!el) return;
+        placePalette(
+            (window.innerWidth - (el.offsetWidth || 380)) / 2,
+            (window.innerHeight - (el.offsetHeight || 240)) / 2
+        );
+    }
+
+    // Opening state is owned here, never read back from the DOM: another path
+    // (host, Trail, Esc) may hide the window and the toggle would desync.
+    var paletteOpen = false;
+
+    var paletteWired = false;
+    function wirePaletteDrag() {
+        var el = $('#query-palette');
+        if (!el || paletteWired) return;
+        var header = el.querySelector('.float-window-header');
+        if (!header) return;
+        paletteWired = true;
+        var dragging = false, ox = 0, oy = 0;
+        header.addEventListener('mousedown', function (e) {
+            var tag = e.target && e.target.tagName;
+            if (tag === 'BUTTON' || tag === 'SELECT' || tag === 'INPUT') return;
+            var rect = el.getBoundingClientRect();
+            dragging = true;
+            ox = e.clientX - rect.left;
+            oy = e.clientY - rect.top;
+            el.style.left = Math.round(rect.left) + 'px';
+            el.style.top = Math.round(rect.top) + 'px';
+            e.preventDefault();
+        });
+        document.addEventListener('mousemove', function (e) {
+            if (!dragging) return;
+            placePalette(e.clientX - ox, e.clientY - oy);
+        });
+        document.addEventListener('mouseup', function () {
+            if (!dragging) return;
+            dragging = false;
+            savePalettePos();
+        });
+    }
+
+    function setQueryPaletteOpen(open) {
+        var el = $('#query-palette');
         var btn = $('#qb-toggle');
-        if (!bar) return;
+        if (!el) return;
+        paletteOpen = !!open;
         if (open) {
-            bar.classList.remove('collapsed');
+            var stored = readPalettePos();
+            el.classList.remove('hidden');
+            wirePaletteDrag();
+            // Measured while visible: `hidden` is display:none, so the size is 0
+            // before this point and centring would land in the top-left corner.
+            if (stored) placePalette(stored.left, stored.top);
+            else centrePalette();
         } else {
-            bar.classList.add('collapsed');
+            el.classList.add('hidden');
             hideSuggestions();
+            hideSavedList();
         }
         if (btn) btn.classList.toggle('active', open);
     }
 
+    /**
+     * The palette is `overflow: hidden` (float-window shell), so the suggestion
+     * list cannot be an absolutely positioned child — it would be clipped. It is
+     * `position: fixed` and placed from the input's viewport rectangle instead.
+     */
+    function positionSuggestBox(box) {
+        var input = $('#qb-input');
+        if (!input || !box) return;
+        var rect = input.getBoundingClientRect();
+        var spaceBelow = window.innerHeight - rect.bottom - 8;
+        var spaceAbove = rect.top - 8;
+        var wanted = Math.min(box.scrollHeight || 220, 260);
+        var above = spaceBelow < Math.min(wanted, 140) && spaceAbove > spaceBelow;
+        var height = Math.max(60, Math.min(wanted, above ? spaceAbove : spaceBelow));
+        box.style.left = Math.round(rect.left) + 'px';
+        box.style.width = Math.round(rect.width) + 'px';
+        box.style.maxHeight = Math.round(height) + 'px';
+        box.style.top = Math.round(above ? rect.top - 4 - height : rect.bottom + 4) + 'px';
+    }
+
     function setupQueryBar() {
-        var bar = $('#query-bar');
+        var palette = $('#query-palette');
         var toggleBtn = $('#qb-toggle');
         var input = $('#qb-input');
-        var modeSel = $('#qb-mode');
         var clearBtn = $('#qb-clear');
         var saveBtn = $('#qb-save');
-        var openListBtn = $('#qb-open-list');
-        if (!bar || !input) return;
+        var savedBtn = $('#qb-open-list');
+        var closeBtn = $('#query-palette-close');
+        var resetBtn = $('#query-palette-reset');
+        if (!palette || !input) return;
+
+        // Paint the segmented mode control from the real state.
+        setQueryMode(queryMode, true);
 
         toggleBtn && toggleBtn.addEventListener('click', function () {
-            setQueryBarOpen(bar.classList.contains('collapsed'));
-            if (!bar.classList.contains('collapsed')) {
-                setTimeout(function () { input.focus(); }, 50);
-            }
+            var opening = !paletteOpen;
+            setQueryPaletteOpen(opening);
+            if (opening) setTimeout(function () { input.focus(); input.select(); }, 30);
         });
+        closeBtn && closeBtn.addEventListener('click', function () { setQueryPaletteOpen(false); });
+        resetBtn && resetBtn.addEventListener('click', function () {
+            try { window.localStorage.removeItem(PALETTE_POS_KEY); } catch (_) { /* noop */ }
+            centrePalette();
+        });
+
+        // Chip in the view bar — visible only while a query is applied.
+        var chipOpen = $('#query-chip-open');
+        var chipClear = $('#query-chip-clear');
+        chipOpen && chipOpen.addEventListener('click', function () {
+            setQueryPaletteOpen(true);
+            setTimeout(function () { input.focus(); input.select(); triggerAutocomplete(); }, 30);
+        });
+        chipClear && chipClear.addEventListener('click', function () {
+            input.value = '';
+            runQueryFromInput('');
+            hideSuggestions();
+        });
+
+        // Modes — all three apply live: there is no Apply button to miss.
+        var modeBtns = document.querySelectorAll('#qb-modes [data-mode]');
+        for (var m = 0; m < modeBtns.length; m++) {
+            (function (btn) {
+                btn.addEventListener('click', function () {
+                    setQueryMode(btn.getAttribute('data-mode'));
+                });
+            })(modeBtns[m]);
+        }
 
         input.addEventListener('input', function () {
             queryHistoryCursor = -1;
@@ -657,25 +863,19 @@
             }
         });
 
-        modeSel && modeSel.addEventListener('change', function () {
-            queryMode = modeSel.value;
-            if (queryActive) {
-                applyQuerySelectMode();
-                refreshGraphAfterQuery();
-            }
-        });
-
         clearBtn && clearBtn.addEventListener('click', function () {
             input.value = '';
             runQueryFromInput('');
             hideSuggestions();
+            input.focus();
         });
 
         saveBtn && saveBtn.addEventListener('click', function () {
             var expr = (input.value || '').trim();
             if (!expr) return;
+            var compiled;
             try {
-                var compiled = window.AuraQuery.compile(expr);
+                compiled = window.AuraQuery.compile(expr);
             } catch (e) {
                 setQueryError('Query engine error: ' + (e.message || 'unknown'));
                 return;
@@ -687,9 +887,10 @@
             // Auto-generate a name from the first 50 chars of the expression
             var name = expr.length > 50 ? expr.slice(0, 47) + '...' : expr;
             var newQ = { id: 'q_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: name, expr: expr, mode: queryMode, createdAt: Date.now() };
-            // Optimistic local update — the modal shows the query immediately
+            // Optimistic local update — the list shows the query immediately
             savedQueries.unshift(newQ);
-            if (typeof renderSavedQueriesModal === 'function') renderSavedQueriesModal();
+            renderSavedQueriesModal();
+            showSavedList(); // reveal the list so the save is visible
             // Persist in DB
             try {
                 hooks.postMessage({
@@ -699,70 +900,32 @@
             } catch (_) { /* noop */ }
         });
 
-        openListBtn && openListBtn.addEventListener('click', function () {
-            showQueriesModal();
+        // Saved list: a collapsible section inside the palette.
+        savedBtn && savedBtn.addEventListener('click', function () {
+            var box = $('#query-saved');
+            var opening = !box || box.classList.contains('hidden');
+            if (opening) showSavedList(); else hideSavedList();
+            savedBtn.classList.toggle('active', opening);
         });
 
-        // Saved-queries modal wiring
-        var modal = $('#queries-modal');
-        var modalClose = $('#queries-modal-close');
-        var modalSelect = $('#queries-modal-select');
-        var modalDelete = $('#queries-modal-delete');
-        modalClose && modalClose.addEventListener('click', hideQueriesModal);
-        modalSelect && modalSelect.addEventListener('click', function () {
-            if (!modalSelectedId) return;
-            var q = savedQueries.find(function (x) { return x.id === modalSelectedId; });
-            if (q) { applySavedQuery(q); hideQueriesModal(); }
-        });
-        modalDelete && modalDelete.addEventListener('click', function () {
-            if (!modalSelectedId) return;
-            try {
-                hooks.postMessage({
-                    type: 'deleteSavedQuery',
-                    payload: { id: modalSelectedId }
-                });
-            } catch (_) { /* noop */ }
-            modalSelectedId = null;
+        // Escape closes the palette when the input is not the one handling it.
+        document.addEventListener('keydown', function (e) {
+            if (e.key !== 'Escape') return;
+            if (e.target === input) return;
+            if (paletteOpen) setQueryPaletteOpen(false);
         });
 
-        // Modal drag
-        if (modal) {
-            var header = modal.querySelector('.queries-modal-header');
-            if (header) {
-                var dragging = false, ox = 0, oy = 0;
-                header.addEventListener('mousedown', function (e) {
-                    if (e.target.tagName === 'BUTTON') return;
-                    dragging = true;
-                    var rect = modal.getBoundingClientRect();
-                    ox = e.clientX - rect.left;
-                    oy = e.clientY - rect.top;
-                    modal.style.left = rect.left + 'px';
-                    modal.style.top = rect.top + 'px';
-                    modal.style.transform = 'none';
-                    e.preventDefault();
-                });
-                document.addEventListener('mousemove', function (e) {
-                    if (!dragging) return;
-                    var x = Math.max(0, Math.min(e.clientX - ox, window.innerWidth - 60));
-                    var y = Math.max(0, Math.min(e.clientY - oy, window.innerHeight - 40));
-                    modal.style.left = x + 'px';
-                    modal.style.top = y + 'px';
-                });
-                document.addEventListener('mouseup', function () { dragging = false; });
-            }
-            // Esc closes modal when open
-            document.addEventListener('keydown', function (e) {
-                if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
-                    hideQueriesModal();
-                }
-            });
-        }
+        // Re-anchor the suggestions when the viewport changes underneath them.
+        window.addEventListener('resize', function () {
+            var box = $('#qb-suggest');
+            if (box && !box.classList.contains('hidden')) positionSuggestBox(box);
+        });
 
-        // Ctrl+K / Cmd+K to focus the bar
+        // Ctrl+K / Cmd+K — open the palette and put the caret in the expression.
         document.addEventListener('keydown', function (e) {
             if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
                 e.preventDefault();
-                setQueryBarOpen(true);
+                setQueryPaletteOpen(true);
                 setTimeout(function () { input.focus(); input.select(); triggerAutocomplete(); }, 50);
             }
         });
@@ -776,35 +939,34 @@
         setup: setupQueryBar,
         state: function () { return queryState; },
         getExpression: function () { return queryExpr; },
+        /** Open/close the palette from outside (Trail, commands, tests). */
+        setOpen: setQueryPaletteOpen,
+        isOpen: function () { return paletteOpen; },
         /** Re-run the active query after the dataset changed (graph data). */
         onGraphData: function () {
-            if (!queryActive || !queryFn) return;
+            if (!queryActive || !queryFn) { updateChip(); return; }
             evaluateQuery();
             applyQuerySelectMode();
-            var data = hooks.getGraphData();
-            var totalQ = data && data.nodes ? data.nodes.length : 0;
-            setQueryStatus(querySet.size + ' / ' + totalQ + ' match', querySet.size > 0 ? 'match' : '');
+            setQueryStatus(matchSummary(querySet.size, totalNodes()), querySet.size > 0 ? 'match' : '');
+            updateChip();
         },
         /** Annotations/working-tree changed: re-evaluate and refresh visuals. */
         refreshAfterDataChange: function () {
             if (queryActive) evaluateQuery();
             refreshGraphAfterQuery();
+            updateChip();
         },
-        /** Applied by the host (command palette / editor context menu). */
+        /** Applied by the host (command palette / editor context menu / Trail). */
         applyFromHost: function (expr, mode) {
             var qbInput = $('#qb-input');
-            var qbMode = $('#qb-mode');
-            setQueryBarOpen(true);
-            if (qbInput) qbInput.value = expr;
-            if (qbMode && mode) {
-                qbMode.value = mode;
-                queryMode = mode;
-            }
-            runQueryFromInput(expr, true);
+            setQueryPaletteOpen(true);
+            if (mode) setQueryMode(mode, true);
+            if (qbInput) qbInput.value = expr || '';
+            runQueryFromInput(expr || '', true);
         },
         setSavedQueries: function (queries) {
             savedQueries = queries;
-            if (typeof renderSavedQueriesModal === 'function') renderSavedQueriesModal();
+            renderSavedQueriesModal();
         }
     };
 })();

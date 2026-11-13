@@ -1427,30 +1427,6 @@ export class WebviewProvider {
             <button class="tab-btn" data-tab="coupling">🔗 Co-change</button>
         </nav>
 
-        <!-- Query Bar (collapsible) -->
-        <section id="query-bar" class="collapsed" aria-label="Query filter">
-            <div class="qb-row qb-main">
-                <div class="qb-input-wrap">
-                    <input type="text" id="qb-input" class="qb-input"
-                        placeholder='complexity > 20 AND fanIn > 5'
-                        spellcheck="false" autocomplete="off" />
-                    <div id="qb-suggest" class="qb-suggest hidden"></div>
-                </div>
-                <select id="qb-mode" class="qb-mode" title="How matches are applied">
-                    <option value="highlight" selected>Highlight</option>
-                    <option value="filter">Filter</option>
-                    <option value="select">Select</option>
-                </select>
-                <span id="qb-status" class="qb-status">—</span>
-                <button id="qb-clear" class="qb-btn" title="Clear query (Esc)">✕</button>
-                <button id="qb-save" class="qb-btn" title="Save current query as favorite">⭐</button>
-                <button id="qb-open-list" class="qb-btn" title="Open saved queries">📚</button>
-            </div>
-            <div class="qb-row qb-error-row">
-                <span id="qb-error" class="qb-error hidden"></span>
-            </div>
-        </section>
-
         <!-- Middle Row: Explorer + Graph + Detail -->
         <div id="middle-row" class="tab-content active" data-tab="graph">
             <!-- The graph's own bar, same shell as every other tab. It must stay
@@ -1458,7 +1434,11 @@ export class WebviewProvider {
                  when it mounts. -->
             <div id="graph-bar" class="view-toolbar">
                 <button id="btn-toggle-explorer" class="view-action" title="Files and folders of this repository">☰ Files</button>
-                <button id="qb-toggle" class="view-action" title="Toggle query bar (Ctrl+K)">🔍 Query</button>
+                <button id="qb-toggle" class="view-action" title="Query palette (Ctrl+K)">🔍 Query</button>
+                <span id="query-chip" class="query-chip hidden">
+                    <button id="query-chip-open" type="button" class="view-action query-chip-main" title="Open the query palette"></button>
+                    <button id="query-chip-clear" type="button" class="view-action query-chip-x" title="Clear the query">✕</button>
+                </span>
                 <div class="view-bar-actions">
                     <button id="btn-follow-editor" class="view-action" aria-pressed="true" title="Follow editor (on) — camera flies to the active file">👁 Follow</button>
                     <button id="graph-export" type="button" class="view-action" data-export-tab="graph" title="Export what this view can produce">📤 Export</button>
@@ -2348,18 +2328,42 @@ export class WebviewProvider {
         </div>
     </div>
 
-    <!-- Saved Queries Modal (overlay) -->
-    <div id="queries-modal" class="hidden">
-        <div class="queries-modal-header">
-            <span>⭐ Saved Queries</span>
-            <div class="queries-modal-actions">
-                <button id="queries-modal-close" title="Close">✕</button>
+    <!-- Query autocomplete — deliberately OUTSIDE the palette: .float-window
+         carries backdrop-filter, which makes it the containing block of every
+         position:fixed child, so an inside list would be clipped by its
+         overflow:hidden. JS places it from the input's viewport rectangle. -->
+    <div id="qb-suggest" class="qb-suggest hidden"></div>
+
+    <!-- Query palette (overlay) — same floating family as Warps and the maps -->
+    <div id="query-palette" class="float-window hidden">
+        <div class="float-window-header">
+            <span class="float-window-title">🔍 Query</span>
+            <div class="float-window-actions">
+                <button id="query-palette-reset" class="float-window-btn" title="Back to the centre">⟲</button>
+                <button id="query-palette-close" class="float-window-btn" title="Close (Esc)">✕</button>
             </div>
         </div>
-        <div id="queries-modal-list"></div>
-        <div class="queries-modal-footer">
-            <button id="queries-modal-select" class="qm-btn qm-primary" title="Apply selected query">Select</button>
-            <button id="queries-modal-delete" class="qm-btn qm-danger" title="Delete selected query">Delete</button>
+        <div class="query-palette-body">
+            <div class="qb-input-wrap">
+                <input type="text" id="qb-input" class="query-input"
+                    placeholder='complexity > 20 AND fanIn > 5'
+                    spellcheck="false" autocomplete="off" />
+            </div>
+            <div id="qb-error" class="query-error hidden"></div>
+            <div id="qb-modes" class="query-modes" role="group" aria-label="How matches are applied">
+                <button type="button" class="view-action active" data-mode="highlight" title="Dim what does not match — applied as you type">Highlight</button>
+                <button type="button" class="view-action" data-mode="filter" title="Hide what does not match">Filter</button>
+                <button type="button" class="view-action" data-mode="select" title="Multi-select what matches">Select</button>
+            </div>
+            <div id="qb-status" class="query-summary">—</div>
+            <div class="query-actions">
+                <button id="qb-clear" type="button" class="view-action" title="Clear the query (Esc)">✕ Clear</button>
+                <button id="qb-save" type="button" class="view-action" title="Save this query">⭐ Save</button>
+                <button id="qb-open-list" type="button" class="view-action" title="Saved queries">📚 Saved <span id="qb-saved-count"></span></button>
+            </div>
+            <div id="query-saved" class="query-saved hidden">
+                <div id="queries-modal-list"></div>
+            </div>
         </div>
     </div>
 
@@ -2699,7 +2703,8 @@ export class WebviewProvider {
                 <h3>👁 Follow Editor</h3>
                 <p>When you switch editor tabs, the camera flies to the matching file and selects it exactly like a click — same glow, explorer selection and detail panel, at a fixed 120-unit close-up. This keeps the node readable even from a far overview and avoids creeping closer when alternating files. The <strong>👁</strong> toolbar button toggles it; any manual orbit, pan or zoom pauses following so the camera never fights you — click 👁 again to resume. The choice is saved in the view state and as the <code>auraVisualizer.followEditor</code> setting.</p>
                 <h3>🔍 Query Filter</h3>
-                <p>Open the query bar with the <strong>🔍 button</strong> (far right of the tab bar) or <kbd>Ctrl+K</kbd> / <kbd>Cmd+K</kbd> — it stays hidden until you need it. Type a boolean expression over node metrics, e.g. <code>complexity &gt; 20 AND fanIn &gt; 5</code>.</p>
+                <p>The <strong>🔍 Query</strong> button (graph bar) or <kbd>Ctrl+K</kbd> / <kbd>Cmd+K</kbd> opens a <strong>floating palette</strong> — it never takes height away from the graph, it opens centred the first time and reopens where you left it. Type a boolean expression over node metrics, e.g. <code>complexity &gt; 20 AND fanIn &gt; 5</code>: results apply <em>as you type</em>, in every mode, with no Apply button. The summary line reads <code>N / M files · P%</code>.</p>
+                <p><strong>Modes</strong> — <em>Highlight</em> dims what does not match, <em>Filter</em> hides it, <em>Select</em> multi-selects it; each one is live. While a query is applied a chip in the graph bar recalls it (<code>🔍 expression · N files · mode</code>): click to reopen the palette, <code>✕</code> to clear. <strong>⭐ Save</strong> stores the expression and <strong>📚 Saved</strong> unfolds the list inside the palette — click a row to apply, <code>✕</code> on the row to delete.</p>
                 <p><strong>Fields:</strong> <code>complexity</code>, <code>cognitive</code>, <code>loc</code>, <code>fanin</code> / <code>fanout</code>, <code>size</code>, <code>mtime</code> / <code>lastmodified</code>, <code>symbols</code>, <code>deadexports</code>, <code>cochange</code>, <code>language</code>, <code>name</code>, <code>path</code>, <code>group</code>, <code>extension</code>, <code>community</code>, and flags <code>isorphan</code> / <code>isdead</code> / <code>incycle</code> / <code>ispinned</code> / <code>dirty</code> / <code>hasnote</code> / <code>stalenote</code>.</p>
                 <p><strong>Operators:</strong> <code>==</code>, <code>!=</code>, <code>&gt;</code>, <code>&lt;</code>, <code>&gt;=</code>, <code>&lt;=</code>, <code>~</code> (regex), <code>!~</code>, <code>in [ ... ]</code>, plus <code>AND</code> / <code>OR</code> / <code>NOT</code>.</p>
                 <p><strong>Modes:</strong> <strong>Highlight</strong> (dim non-matching), <strong>Filter</strong> (hide non-matching), <strong>Select</strong> (multi-select). Press <strong>⭐</strong> to save a query and <strong>📚</strong> to reopen saved ones.</p>
