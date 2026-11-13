@@ -603,9 +603,14 @@
                 getCommunityNames: function () { return communityNames; },
                 getCycleNodeIds: function () { return cycleNodeIds; },
                 getMultiSelectedNodes: function () { return multiSelectedNodes; },
+                getMultiSelectedLinks: function () { return multiSelectedLinks; },
+                refreshMultiSelectedLinks: function () { updateMultiSelectedLinks(); },
                 getPinnedNodes: function () { return pinnedNodes; },
                 getCochangeScore: getCochangeScore,
                 onApplied: pushBreadcrumbQuery,
+                // The palette is a floating window: its open state and its query
+                // are part of the view, like the warps panel or the minimap.
+                onStateChanged: function () { saveViewState(); },
                 postMessage: function (msg) { vscode.postMessage(msg); }
             });
             AuraQueryBar.setup();
@@ -5140,6 +5145,19 @@
             // The panel belongs to both scenes; each keeps its own intent.
             showWarps: (warpsOpen[warpsScope()] = warpsPanelVisibleIntent()),
             showWarpsCity: warpsOpen.city,
+            // Same contract for the query: the window comes back as it was, with
+            // the expression and mode it was showing.
+            showQuery: !!(window.AuraQueryBar && AuraQueryBar.isOpen && AuraQueryBar.isOpen()),
+            query: (function () {
+                if (!window.AuraQueryBar || !AuraQueryBar.state) return null;
+                var qs = AuraQueryBar.state();
+                if (!qs || !qs.active) return null;
+                return {
+                    expr: AuraQueryBar.getExpression(),
+                    mode: qs.mode,
+                    name: AuraQueryBar.getName ? AuraQueryBar.getName() : ''
+                };
+            })(),
             // Floating panels — keep user-dragged positions across sessions.
             // The warps slot written is the one of the scene on screen; the
             // other keeps what it had, so moving the window in the City never
@@ -5430,6 +5448,16 @@
 
         // Restored coupling options may differ from the boot defaults.
         if (graphData && window.AuraCochange) refreshCochange();
+
+        // Query last: it needs the graph the state above has just rebuilt.
+        if (window.AuraQueryBar) {
+            try {
+                if (state.query && state.query.expr) {
+                    AuraQueryBar.restore(state.query.expr, state.query.mode, state.query.name);
+                }
+                if (state.showQuery) AuraQueryBar.setOpen(true);
+            } catch (e) { console.error('[aura] query restore failed:', e); }
+        }
     }
 
     function setupFilters() {

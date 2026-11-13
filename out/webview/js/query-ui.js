@@ -33,11 +33,19 @@
     var MODE_LABELS = { highlight: 'Highlight', filter: 'Filter', select: 'Select' };
     var PALETTE_POS_KEY = 'aura.query.palette.pos.v1';
 
+    // Nodes the Select-mode query put into the shared multi-selection. Only
+    // these are removed when the mode leaves Select: a Shift+click the user
+    // added must survive.
+    var querySelectIds = new Set();
+
     // Shared snapshot for the app.js render accessors (stable Set reference).
-    var queryState = { active: false, mode: 'highlight', set: querySet };
+    // `selected` is how many nodes this query is holding in the shared
+    // multi-selection — 0 once the mode lets go of them.
+    var queryState = { active: false, mode: 'highlight', set: querySet, selected: 0 };
     function syncQueryState() {
         queryState.active = queryActive;
         queryState.mode = queryMode;
+        queryState.selected = querySelectIds.size;
     }
 
     function buildQueryContext() {
@@ -89,16 +97,35 @@
         if (hooks.refreshCommunityPaletteCounts) hooks.refreshCommunityPaletteCounts();
     }
 
+    /** Undo what Select mode did to the shared multi-selection. */
+    function releaseQuerySelection() {
+        if (!querySelectIds.size) return false;
+        var sel = hooks.getMultiSelectedNodes();
+        if (sel) querySelectIds.forEach(function (id) { sel.delete(id); });
+        querySelectIds.clear();
+        if (typeof hooks.refreshMultiSelectedLinks === 'function') hooks.refreshMultiSelectedLinks();
+        syncQueryState();
+        return true;
+    }
+
     function applyQuerySelectMode() {
+        // Always start clean: `nodeColor` dims the whole graph as soon as the
+        // multi-selection is not empty, so a leftover from Select mode made every
+        // later query look like Select was still on (only a click reset it).
+        releaseQuerySelection();
         if (queryMode !== 'select') return;
         // Replace multi-selection with the matched set
         hooks.getMultiSelectedNodes().clear();
         if (!hooks.getGraphData()) return;
         for (var i = 0; i < hooks.getGraphData().nodes.length; i++) {
-            if (querySet.has(hooks.getGraphData().nodes[i].id)) {
-                hooks.getMultiSelectedNodes().add(hooks.getGraphData().nodes[i]);
+            var node = hooks.getGraphData().nodes[i];
+            if (querySet.has(node.id)) {
+                hooks.getMultiSelectedNodes().add(node);
+                querySelectIds.add(node.id);
             }
         }
+        if (typeof hooks.refreshMultiSelectedLinks === 'function') hooks.refreshMultiSelectedLinks();
+        syncQueryState();
     }
 
     // ---------- Saved queries (DB-backed, modal UI) ----------
@@ -626,6 +653,21 @@
         return data && data.nodes ? data.nodes.length : 0;
     }
 
+    var stateSaveTimer = null;
+    /**
+     * Ask the app to persist the view state (the query travels with it now).
+     * Debounced: typing re-runs the query every 180 ms and must not post a
+     * message each time.
+     */
+    function notifyStateChanged() {
+        if (typeof hooks.onStateChanged !== 'function') return;
+        if (stateSaveTimer) clearTimeout(stateSaveTimer);
+        stateSaveTimer = setTimeout(function () {
+            stateSaveTimer = null;
+            try { hooks.onStateChanged(); } catch (_) { /* noop */ }
+        }, 400);
+    }
+
     /** The live summary line — the home of the future aggregates (COUNT, SUM…). */
     function matchSummary(matched, total) {
         if (!total) return 'no file loaded';
@@ -662,6 +704,7 @@
             refreshGraphAfterQuery();
         }
         updateChip();
+        notifyStateChanged();
     }
 
     var pendingRunTimer = null;
@@ -746,18 +789,20 @@
         } catch (_) { /* noop */ }
     }
 
-    function runQueryFromInput(expr, pushToHistory) {
+    function runQueryFromInput(expr, pushToHistory, silent) {
         queryExpr = (expr || '').trim();
         queryActiveFavId = null;
         if (!queryExpr) {
             queryActive = false;
             queryFn = null;
             querySet.clear();
+            releaseQuerySelection();
             syncQueryState(); // clearing must re-enable every node visually
             setQueryError('');
             setQueryStatus('—', '');
             refreshGraphAfterQuery();
             updateChip();
+            notifyStateChanged();
             return;
         }
         var compiled;
@@ -789,8 +834,9 @@
         if (pushToHistory) pushHistory(queryExpr);
         syncQueryState();
         updateChip();
+        notifyStateChanged();
         // V3-12 — let the app record the place in the navigation trail.
-        if (typeof hooks.onApplied === 'function') hooks.onApplied(queryExpr, queryMode);
+        if (!silent && typeof hooks.onApplied === 'function') hooks.onApplied(queryExpr, queryMode);
     }
 
     // ---------- Palette: position, geometry, autocomplete placement ----------
@@ -892,6 +938,7 @@
             hideSavedList();
         }
         if (btn) btn.classList.toggle('active', open);
+        notifyStateChanged();
     }
 
     /**
@@ -1071,6 +1118,23 @@
         /** Open/close the palette from outside (Trail, commands, tests). */
         setOpen: setQueryPaletteOpen,
         isOpen: function () { return paletteOpen; },
+        /** The name field — persisted with the view, used when saving. */
+        getName: function () {
+            var el = $('#qb-name');
+            return el ? el.value.trim() : '';
+        },
+        /**
+         * Bring back a persisted query: no palette opening, no history entry and
+         * no breadcrumb — the view state already is the place.
+         */
+        restore: function (expr, mode, name) {
+            var qbInput = $('#qb-input');
+            var nameField = $('#qb-name');
+            if (mode) setQueryMode(mode, true);
+            if (qbInput) qbInput.value = expr || '';
+            if (nameField) nameField.value = name || '';
+            runQueryFromInput(expr || '', false, true);
+        },
         /** Re-run the active query after the dataset changed (graph data). */
         onGraphData: function () {
             if (!queryActive || !queryFn) { updateChip(); return; }

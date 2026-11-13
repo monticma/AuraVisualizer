@@ -605,9 +605,11 @@ Filter, highlight, or select files with the built-in **Aura Query Language** —
 - `isarchviolator` — every file that imports a forbidden layer
 - `path ~ /src\/.*/`
 
-**Modes:** **Highlight** (dim non-matching files), **Filter** (hide non-matching files), **Select** (multi-select matching files).
+**Modes:** **Highlight** (dim non-matching files), **Filter** (hide non-matching files), **Select** (multi-select matching files). Switching modes is safe by design: leaving **Select** releases the files it had multi-selected before the next mode paints, so a Filter query never lands on a graph the previous Select left dimmed.
 
-**Saved queries:** press **⭐** to save the current expression and **📚** to reopen the saved list (persisted in `.aura/graph.db`).
+**Saved queries:** press **⭐** to save the current expression (with its mode) and **📚** to reopen the saved list (persisted in `.aura/graph.db`).
+
+**Remembered:** the palette is part of the view state — it reopens open or closed exactly as you left it, with its expression and mode, and the graph comes back filtered/highlighted the same way.
 
 ### File Explorer Panel
 
