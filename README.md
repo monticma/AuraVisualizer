@@ -610,7 +610,7 @@ Filter, highlight, or select files with the built-in **Aura Query Language** —
 
 **Saved queries:** press **⭐** to save the current expression under a name and **📚** to reopen the saved list (persisted in `.aura/graph.db`). A saved query is an expression, not a mode: clicking a row never switches Highlight / Filter / Select — the mode you are in stays.
 
-**Remembered:** the palette is part of the view state — it reopens open or closed exactly as you left it, with its expression and mode, and the graph comes back filtered/highlighted the same way.
+**Remembered:** the palette is part of the view state — it reopens open or closed exactly as you left it, with its expression and mode, and the graph comes back filtered/highlighted the same way. It belongs to the 3D tab: switching to another view hides it (the intent is kept), and coming back brings it up again.
 
 ### File Explorer Panel
 

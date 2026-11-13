@@ -1176,6 +1176,8 @@
         /** Open/close the palette from outside (Trail, commands, tests). */
         setOpen: setQueryPaletteOpen,
         isOpen: function () { return paletteOpen; },
+        /** Close just the field list — the palette can outlive it (tab switch). */
+        hideSuggestions: hideSuggestions,
         /** The name field — persisted with the view, used when saving. */
         getName: function () {
             var el = $('#qb-name');

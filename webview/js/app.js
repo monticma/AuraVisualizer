@@ -6701,7 +6701,7 @@
         var timeBar = $('#timeline-bar');
         // Graph-only overlays. The warps panel is handled separately: it belongs
         // to both 3D scenes, with its own open flag and position per scene.
-        var overlays = ['#heatmap-legend', '#community-palette', '#tooltip'];
+        var overlays = ['#heatmap-legend', '#community-palette', '#query-palette', '#tooltip'];
 
         // The PNG capture grabs the WebGL canvas, which is display:none on every
         // other tab — a hidden button is better than a blank picture.
@@ -6736,6 +6736,10 @@
                 var el = $(overlays[i]);
                 if (el) el.classList.add('hidden');
             }
+            // The query autocomplete is a *sibling* overlay (the palette's
+            // backdrop-filter would clip it), so hiding the palette alone would
+            // leave the field list floating over the next tab.
+            if (window.AuraQueryBar && AuraQueryBar.hideSuggestions) AuraQueryBar.hideSuggestions();
         } else {
             if (filterBar) filterBar.style.display = '';
             if (timeBar && timeBar._wasVisible) {
