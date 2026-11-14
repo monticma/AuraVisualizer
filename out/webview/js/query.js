@@ -218,8 +218,45 @@
                 // Comparison or bare identifier (boolean field)
                 if (peek().type === TOK.OP) {
                     var op = peek().value; i++;
-                    var rhs = parseValue();
-                    return { kind: 'cmp', field: name.toLowerCase(), op: op, rhs: rhs, pos: t.pos };
+                    // `fanIn > fanOut`: a bare identifier naming a field on the
+                    // right means field-to-field. Anything else is a literal
+                    // (a quoted string is always a literal).
+                    var ref = null;
+                    var vt = peek();
+                    if (vt.type === TOK.IDENT && vt.value !== 'TRUE' && vt.value !== 'FALSE' &&
+                        vt.value !== 'NOT' && resolveField(vt.value)) {
+                        ref = vt.value.toLowerCase();
+                        i++;
+                    }
+                    return { kind: 'cmp', field: name.toLowerCase(), op: op,
+                             rhs: ref ? null : parseValue(), rhsField: ref, pos: t.pos };
+                }
+                // Word operators — readable for the string ones, which had no
+                // operator of their own short of a regex.
+                if (peek().type === TOK.IDENT) {
+                    var opWord = String(peek().value).toLowerCase();
+                    if (opWord === 'contains' || opWord === 'startswith' || opWord === 'endswith') {
+                        i++;
+                        return { kind: 'cmp', field: name.toLowerCase(), op: opWord,
+                                 rhs: parseValue(), rhsField: null, pos: t.pos };
+                    }
+                    if (opWord === 'between') {
+                        i++;
+                        var lo = parseValue();
+                        if (!(peek().type === TOK.IDENT && peek().value === 'AND')) {
+                            throw qerr('"between" expects "and" between its bounds', peek().pos);
+                        }
+                        i++;
+                        var hi = parseValue();
+                        return { kind: 'between', field: name.toLowerCase(), lo: lo, hi: hi, pos: t.pos };
+                    }
+                    var nextTok = tokens[i + 1];
+                    if (opWord === 'not' && nextTok && nextTok.type === TOK.IDENT && nextTok.value === 'IN') {
+                        i += 2;
+                        var negList = parseValue();
+                        if (!Array.isArray(negList)) throw qerr('"not in" expects a list "[...]"', t.pos);
+                        return { kind: 'cmp', field: name.toLowerCase(), op: 'notin', rhs: negList, pos: t.pos };
+                    }
                 }
                 if (peek().type === TOK.IDENT && peek().value === 'IN') {
                     i++;
@@ -295,24 +332,37 @@
                 var info = resolveField(ast.field);
                 if (!info) return false;
                 var lhs = node[info.prop];
-                var rhs = ast.rhs;
-                if (ast.op === 'in') {
-                    if (!Array.isArray(rhs)) return false;
+                // Field-to-field (`fanIn > fanOut`) resolves the right side on
+                // the same node; everything else carries its literal.
+                var rhsVal = ast.rhs;
+                if (ast.rhsField) {
+                    var rightInfo = resolveField(ast.rhsField);
+                    rhsVal = rightInfo ? node[rightInfo.prop] : undefined;
+                }
+                if (ast.op === 'in' || ast.op === 'notin') {
+                    if (!Array.isArray(rhsVal)) return false;
                     var lhsCmp = (typeof lhs === 'string') ? lhs.toLowerCase() : lhs;
-                    for (var k = 0; k < rhs.length; k++) {
-                        var rv = (typeof rhs[k] === 'string') ? rhs[k].toLowerCase() : rhs[k];
-                        if (lhsCmp === rv) return true;
+                    for (var k = 0; k < rhsVal.length; k++) {
+                        var rv = (typeof rhsVal[k] === 'string') ? rhsVal[k].toLowerCase() : rhsVal[k];
+                        if (lhsCmp === rv) return ast.op === 'in';
                     }
-                    return false;
+                    return ast.op === 'notin';
+                }
+                if (ast.op === 'contains' || ast.op === 'startswith' || ast.op === 'endswith') {
+                    var hay = String(lhs == null ? '' : lhs).toLowerCase();
+                    var needle = String(rhsVal == null ? '' : rhsVal).toLowerCase();
+                    if (ast.op === 'contains') return hay.indexOf(needle) !== -1;
+                    if (ast.op === 'startswith') return hay.indexOf(needle) === 0;
+                    return needle === '' || hay.slice(-needle.length) === needle;
                 }
                 if (ast.op === '~' || ast.op === '!~') {
-                    var re = (rhs instanceof RegExp) ? rhs : new RegExp(String(rhs));
+                    var re = (rhsVal instanceof RegExp) ? rhsVal : new RegExp(String(rhsVal));
                     var match = re.test(String(lhs == null ? '' : lhs));
                     return ast.op === '~' ? match : !match;
                 }
                 if (info.type === 'string') {
                     var a = String(lhs == null ? '' : lhs).toLowerCase();
-                    var b = String(rhs == null ? '' : rhs).toLowerCase();
+                    var b = String(rhsVal == null ? '' : rhsVal).toLowerCase();
                     switch (ast.op) {
                         case '==': return a === b;
                         case '!=': return a !== b;
@@ -325,7 +375,7 @@
                 }
                 // numeric / boolean compared as number
                 var ln = (lhs === true) ? 1 : (lhs === false ? 0 : Number(lhs));
-                var rn = (rhs === true) ? 1 : (rhs === false ? 0 : Number(rhs));
+                var rn = (rhsVal === true) ? 1 : (rhsVal === false ? 0 : Number(rhsVal));
                 if (isNaN(ln) || isNaN(rn)) return false;
                 switch (ast.op) {
                     case '==': return ln === rn;
@@ -336,6 +386,16 @@
                     case '<=': return ln <= rn;
                 }
                 return false;
+            }
+            case 'between': {
+                var bf = resolveField(ast.field);
+                if (!bf) return false;
+                var raw = node[bf.prop];
+                var bv = (raw === true) ? 1 : (raw === false ? 0 : Number(raw));
+                var loN = Number(ast.lo), hiN = Number(ast.hi);
+                if (isNaN(bv) || isNaN(loN) || isNaN(hiN)) return false;
+                // Tolerate reversed bounds: `between 40 and 10` is still a range.
+                return bv >= Math.min(loN, hiN) && bv <= Math.max(loN, hiN);
             }
         }
         return false;
@@ -387,6 +447,7 @@
         boolFields: Object.keys(BOOL_FIELDS),
         numberFields: Object.keys(NUMBER_FIELDS),
         stringFields: Object.keys(STRING_FIELDS),
-        operators: ['==', '!=', '>=', '<=', '>', '<', '~', '!~', 'in']
+        operators: ['==', '!=', '>=', '<=', '>', '<', '~', '!~', 'in', 'not in',
+                    'contains', 'startswith', 'endswith', 'between']
     };
 })();

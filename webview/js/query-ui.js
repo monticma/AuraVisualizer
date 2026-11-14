@@ -87,15 +87,30 @@
         };
     }
 
+    // Fixed aggregates over the matched set, filled in the same pass as the match
+    // (a second walk over every node just to sum three numbers is waste).
+    var queryAgg = { loc: 0, complexity: 0, complexityCount: 0, maxFanIn: 0 };
+
     function evaluateQuery() {
         querySet.clear();
+        queryAgg.loc = 0;
+        queryAgg.complexity = 0;
+        queryAgg.complexityCount = 0;
+        queryAgg.maxFanIn = 0;
         if (!queryFn || !hooks.getGraphData() || !hooks.getGraphData().nodes) return;
         var ctx = buildQueryContext();
         for (var i = 0; i < hooks.getGraphData().nodes.length; i++) {
             var node = hooks.getGraphData().nodes[i];
             window.AuraQuery.prepareNode(node, ctx);
             try {
-                if (queryFn(node)) querySet.add(node.id);
+                if (!queryFn(node)) continue;
+                querySet.add(node.id);
+                queryAgg.loc += node.linesOfCode || 0;
+                if (typeof node.complexity === 'number' && isFinite(node.complexity)) {
+                    queryAgg.complexity += node.complexity;
+                    queryAgg.complexityCount++;
+                }
+                if ((node.fanIn || 0) > queryAgg.maxFanIn) queryAgg.maxFanIn = node.fanIn || 0;
             } catch (e) { /* skip */ }
         }
     }
@@ -704,7 +719,20 @@
         }, 400);
     }
 
-    /** The live summary line — the home of the future aggregates (COUNT, SUM…). */
+    /** `Σ loc · ⌀ complexity · max fanIn` over the matches. Empty when none. */
+    function setQueryAggregates(matched) {
+        var el = $('#qb-agg');
+        if (!el) return;
+        if (!matched) { el.textContent = ''; return; }
+        var avg = queryAgg.complexityCount
+            ? (queryAgg.complexity / queryAgg.complexityCount).toFixed(1)
+            : '—';
+        el.textContent = 'Σ loc ' + queryAgg.loc.toLocaleString() +
+            ' · ⌀ complexity ' + avg +
+            ' · max fanIn ' + queryAgg.maxFanIn.toLocaleString();
+    }
+
+    /** The live summary line — count, share, then the aggregates of the set. */
     function matchSummary(matched, total) {
         if (!total) return 'no file loaded';
         if (!matched) return 'no match · ' + total + ' files';
@@ -836,6 +864,7 @@
             syncQueryState(); // clearing must re-enable every node visually
             setQueryError('');
             setQueryStatus('—', '');
+            setQueryAggregates(0);
             refreshGraphAfterQuery();
             updateChip();
             notifyStateChanged();
@@ -846,17 +875,25 @@
             compiled = window.AuraQuery.compile(queryExpr);
         } catch (e) {
             queryActive = false;
+            // An invalid expression is not a query: leaving the previous match set
+            // behind made `state()` lie about what is applied.
+            querySet.clear();
+            releaseQuerySelection();
             syncQueryState();
             setQueryError('Query engine error: ' + (e.message || 'unknown'));
             setQueryStatus('error', 'error');
+            setQueryAggregates(0);
             updateChip();
             return;
         }
         if (!compiled.ok) {
             queryActive = false;
+            querySet.clear();
+            releaseQuerySelection();
             syncQueryState();
             setQueryError(compiled.error || 'Invalid expression');
             setQueryStatus('error', 'error');
+            setQueryAggregates(0);
             updateChip();
             return;
         }
@@ -866,6 +903,7 @@
         evaluateQuery();
         applyQuerySelectMode();
         setQueryStatus(matchSummary(querySet.size, totalNodes()), querySet.size > 0 ? 'match' : '');
+        setQueryAggregates(querySet.size);
         refreshGraphAfterQuery();
         if (pushToHistory) pushHistory(queryExpr);
         syncQueryState();
@@ -1202,6 +1240,7 @@
             evaluateQuery();
             applyQuerySelectMode();
             setQueryStatus(matchSummary(querySet.size, totalNodes()), querySet.size > 0 ? 'match' : '');
+            setQueryAggregates(querySet.size);
             updateChip();
         },
         /** Annotations/working-tree changed: re-evaluate and refresh visuals. */

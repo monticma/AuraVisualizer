@@ -1007,6 +1007,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
                 <button type="button" class="view-action" data-mode="select" title="Multi-select what matches">Select</button>
             </div>
             <div id="qb-status" class="query-summary">\u2014</div>
+            <div id="qb-agg" class="query-aggregates"></div>
             <div class="query-actions">
                 <button id="qb-clear" type="button" class="view-action" title="Clear the query (Esc)">\u2715 Clear</button>
                 <button id="qb-save" type="button" class="view-action" title="Save this query">\u2B50 Save</button>

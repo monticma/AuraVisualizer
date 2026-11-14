@@ -2379,6 +2379,7 @@ export class WebviewProvider {
                 <button type="button" class="view-action" data-mode="select" title="Multi-select what matches">Select</button>
             </div>
             <div id="qb-status" class="query-summary">—</div>
+            <div id="qb-agg" class="query-aggregates"></div>
             <div class="query-actions">
                 <button id="qb-clear" type="button" class="view-action" title="Clear the query (Esc)">✕ Clear</button>
                 <button id="qb-save" type="button" class="view-action" title="Save this query">⭐ Save</button>

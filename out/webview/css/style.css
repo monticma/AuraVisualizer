@@ -1429,6 +1429,17 @@ html, body {
 .query-summary.qb-status-match { opacity: 1; color: #4caf50; }
 .query-summary.qb-status-error { opacity: 1; color: #ff5252; }
 
+/* Fixed aggregates under the match count: what the matched set *contains*.
+   Quiet by design — the count stays the headline. */
+.query-aggregates {
+    font-size: 10.5px;
+    opacity: 0.62;
+    font-variant-numeric: tabular-nums;
+    margin-top: -4px;
+}
+
+.query-aggregates:empty { display: none; }
+
 .query-actions {
     display: flex;
     gap: 6px;
