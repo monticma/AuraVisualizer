@@ -6789,42 +6789,6 @@
             }
         }
 
-        // The query palette belongs to the tabs that list files — the 3D graph and
-        // the table — and nowhere else. Its open state is the module's intent, so
-        // it survives a detour through another tab and comes back on return.
-        (function () {
-            // The autocomplete is a *sibling* overlay (the palette's
-            // backdrop-filter would clip it as a child): never let it survive a
-            // tab change.
-            if (window.AuraQueryBar && AuraQueryBar.hideSuggestions) AuraQueryBar.hideSuggestions();
-            var qp = $('#query-palette');
-            if (!qp || !window.AuraQueryBar) return;
-            var allowed = (tabName === 'graph' || tabName === 'table');
-            if (allowed) {
-                if (AuraQueryBar.isOpen()) qp.classList.remove('hidden');
-            } else {
-                qp.classList.add('hidden');
-            }
-        })();
-
-        // The query palette belongs to the tabs that list files — the 3D graph and
-        // the table — and nowhere else. Its open state is the module's intent, so
-        // it survives a detour through another tab and comes back on return.
-        (function () {
-            // The autocomplete is a *sibling* overlay (the palette's
-            // backdrop-filter would clip it as a child): never let it survive a
-            // tab change.
-            if (window.AuraQueryBar && AuraQueryBar.hideSuggestions) AuraQueryBar.hideSuggestions();
-            var qp = $('#query-palette');
-            if (!qp || !window.AuraQueryBar) return;
-            var allowed = (tabName === 'graph' || tabName === 'table');
-            if (allowed) {
-                if (AuraQueryBar.isOpen()) qp.classList.remove('hidden');
-            } else {
-                qp.classList.add('hidden');
-            }
-        })();
-
         // Warps panel: save the intent of the scene we are leaving, then restore
         // the one of the scene we are entering. Both scene-scoped, and the panel
         // is hidden for every other tab.
