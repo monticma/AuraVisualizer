@@ -953,6 +953,35 @@
         return kept;
     }
 
+    /**
+     * The query set as a stable string. Typing re-runs the query every 180 ms, but
+     * most of those runs keep the same match set — rebuilding thousands of
+     * buildings for them is what made the city feel laggy.
+     */
+    function querySignature() {
+        try {
+            var qb = window.AuraQueryBar;
+            if (!qb || !qb.state) return '';
+            var qs = qb.state();
+            if (!qs || !qs.active) return '';
+            var ids = [];
+            qs.set.forEach(function (id) { ids.push(id); });
+            ids.sort();
+            return ids.length + ':' + ids.join('|');
+        } catch (_) { return ''; }
+    }
+
+    var planFrame = 0;
+    /** Coalesce rebuilds into one frame, so the palette repaints first. */
+    function schedulePlan() {
+        if (planFrame) return;
+        var raf = window.requestAnimationFrame || function (fn) { return setTimeout(fn, 16); };
+        planFrame = raf(function () {
+            planFrame = 0;
+            applyPlan();
+        });
+    }
+
     function scopeDepth() {
         return state.scope ? state.scope.split('/').length : 0;
     }
@@ -983,7 +1012,7 @@
             }
             nodes.push(clone);
         }
-        if (nodes.length === 0) { state.plan = null; renderCrumbs(); return; }
+        if (nodes.length === 0) { emptyCity(); return; }
 
         // `height = risk` or `colour = risk`: the score belongs to the file and
         // comes from the same percentiles the Risk tab uses, so "riskiest" means
@@ -993,7 +1022,7 @@
         // One building per function turns 762 files into ~5 000 buildings; the
         // file becomes the district.
         nodes = granularNodes(nodes);
-        if (nodes.length === 0) { state.plan = null; renderCrumbs(); return; }
+        if (nodes.length === 0) { emptyCity(); return; }
 
         // How big the city is on the ground: the plan is normalized, this is the
         // only place the building count becomes a size (√n, see city-core).
@@ -1059,11 +1088,46 @@
         state.meshById = {};
         graph.graphData({ nodes: nodes, links: [] });
         graph.nodeThreeObject(buildingFor);
+        // The shadow map was armed *before* the boxes existed: ask for one more
+        // pass of the map now that they are in the scene. Touching nothing else —
+        // `applyShadows` owns the settle timer and the cast budget.
+        var shadowRenderer = null;
+        try { shadowRenderer = graph.renderer && graph.renderer(); } catch (_) { shadowRenderer = null; }
+        if (shadowRenderer && shadowRenderer.shadowMap && shadowRenderer.shadowMap.enabled) {
+            shadowRenderer.shadowMap.autoUpdate = true;
+            shadowRenderer.shadowMap.needsUpdate = true;
+        }
         resize();
         frameCity();
         updateHud();
         updateLegend();
         renderCrumbs();
+    }
+
+    /**
+     * Nothing to show — no file matches the query, or the scope is empty. The
+     * previous city must go: leaving it on screen is why a filter looked like it
+     * had been ignored, shadows included.
+     */
+    function emptyCity() {
+        state.plan = null;
+        state.querySig = querySignature();
+        state.byId = {};
+        state.nodeById = {};
+        state.meshById = {};
+        disposeDecor();
+        dropGround();
+        try { if (state.graph) state.graph.graphData({ nodes: [], links: [] }); } catch (_) { /* noop */ }
+        var live = null;
+        try { live = state.graph && state.graph.renderer(); } catch (_) { live = null; }
+        if (live && live.shadowMap) {
+            live.shadowMap.autoUpdate = true;
+            live.shadowMap.needsUpdate = true;
+        }
+        renderSide();
+        renderCrumbs();
+        updateHud();
+        updateLegend();
     }
 
     /**
@@ -2007,8 +2071,18 @@
         /** Other views' entry point: switch tab, then select this file. */
         showFile: showFile,
         clear: clearSelection,
-        /** Rebuild the plan — the query changed while the City is on screen. */
-        refresh: function () { if (isActive()) applyPlan(); },
+        /**
+         * The query changed, on any tab. Invalidate the plan so the next visit
+         * rebuilds it — a stale plan kept showing the previous filter — and only
+         * reschedule the meshes when the match set really moved.
+         */
+        refresh: function () {
+            var sig = querySignature();
+            if (sig === state.querySig) return;
+            state.querySig = sig;
+            state.plan = null;
+            if (isActive()) schedulePlan();
+        },
         scope: function () { return state.scope; },
         setScope: setScope,
         colourOf: function (id) {

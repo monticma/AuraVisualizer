@@ -895,6 +895,10 @@
     }
 
     function runQueryFromInput(expr, pushToHistory, silent) {
+        // A run supersedes any debounced one queued by typing: without this, a
+        // pending run could re-apply the expression right after ✕ Clear (or after
+        // a restore) because its timer still held the old text.
+        if (pendingRunTimer) { clearTimeout(pendingRunTimer); pendingRunTimer = null; }
         queryExpr = (expr || '').trim();
         queryActiveFavId = null;
         if (!queryExpr) {
@@ -1054,8 +1058,10 @@
             else centrePalette();
         } else {
             el.classList.add('hidden');
+            // The field list is an overlay of its own and must never survive; the
+            // saved list is *inside* the palette and keeps its state, so a detour
+            // through a tab without a 🔍 button gives it back as you left it.
             hideSuggestions();
-            hideSavedList();
         }
         syncQueryButtonState();
         notifyStateChanged();

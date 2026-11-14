@@ -614,7 +614,10 @@
                 // Every file-based view lists what the query matches: re-render the
                 // one on screen instead of waiting for the next tab switch.
                 onQueryChanged: function () {
-                    if (activeTab === 'city' && window.AuraCityView && AuraCityView.refresh) {
+                    // The City holds a plan and a set of meshes: it must invalidate
+                    // even when another tab is on screen, or coming back shows the
+                    // previous filter (and its shadows).
+                    if (window.AuraCityView && AuraCityView.refresh) {
                         try { AuraCityView.refresh(); }
                         catch (e) { console.error('[aura] city refresh failed:', e); }
                     }
