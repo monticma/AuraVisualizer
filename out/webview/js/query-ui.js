@@ -711,11 +711,6 @@
      * message each time.
      */
     /** The result set changed: the table (when on screen) must follow. */
-    function notifyQueryChanged() {
-        if (typeof hooks.onQueryChanged !== 'function') return;
-        try { hooks.onQueryChanged(); } catch (_) { /* noop */ }
-    }
-
     function notifyStateChanged() {
         if (typeof hooks.onStateChanged !== 'function') return;
         if (stateSaveTimer) clearTimeout(stateSaveTimer);
@@ -761,33 +756,44 @@
         var btns = document.querySelectorAll('.query-open');
         for (var i = 0; i < btns.length; i++) {
             var btn = btns[i];
-            btn.classList.toggle('active', !!queryActive);
             btn.textContent = queryActive ? '🔍 Query · ' + querySet.size : '🔍 Query';
             btn.title = queryActive
                 ? 'Query applied — this view lists its ' + querySet.size + ' file(s). Click to edit (Ctrl+K).'
                 : 'Query palette (Ctrl+K) — every file-based view lists what the query matches';
         }
+        syncQueryButtonState();
+    }
+
+    /**
+     * Ring = the palette is on screen, exactly like `#qb-toggle`. A query being
+     * applied is said by the count in the label, not by a permanent ring.
+     */
+    function syncQueryButtonState() {
+        var btns = document.querySelectorAll('.query-open');
+        for (var i = 0; i < btns.length; i++) btns[i].classList.toggle('active', paletteOpen);
+        var toggle = $('#qb-toggle');
+        if (toggle) toggle.classList.toggle('active', paletteOpen);
     }
 
     /** Chip in the view bar: what is applied, how many files, in which mode. */
     function updateChip() {
         var chip = $('#query-chip');
         var main = $('#query-chip-open');
+        // The buttons are repainted whether a query is applied or not: their ring
+        // follows the palette, their label follows the count.
+        updateQueryButtons();
         if (!chip) return;
         if (!queryActive || !queryExpr) {
             chip.classList.add('hidden');
-            notifyQueryChanged();
             return;
         }
         chip.classList.remove('hidden');
-        updateQueryButtons();
         if (main) {
             main.textContent = '🔍 ' + queryExpr + ' · ' + querySet.size +
                 (querySet.size === 1 ? ' file · ' : ' files · ') + (MODE_LABELS[queryMode] || queryMode);
             main.title = queryExpr + ' — ' + querySet.size + ' / ' + totalNodes() + ' files, ' +
                 (MODE_LABELS[queryMode] || queryMode) + '. Click to edit.';
         }
-        notifyQueryChanged();
     }
 
     function setQueryMode(mode, silent) {
@@ -1034,7 +1040,6 @@
 
     function setQueryPaletteOpen(open) {
         var el = $('#query-palette');
-        var btn = $('#qb-toggle');
         if (!el) return;
         // Ctrl+K is global; the palette only exists on the views that list files.
         if (open && typeof hooks.isPaletteAllowed === 'function' && !hooks.isPaletteAllowed()) return;
@@ -1052,7 +1057,7 @@
             hideSuggestions();
             hideSavedList();
         }
-        if (btn) btn.classList.toggle('active', open);
+        syncQueryButtonState();
         notifyStateChanged();
     }
 
@@ -1119,6 +1124,9 @@
             var btn = e.target && e.target.closest ? e.target.closest('.query-open') : null;
             if (!btn) return;
             e.preventDefault();
+            // Self-heal: trust what is on screen, not a flag that may have drifted.
+            var box = $('#query-palette');
+            paletteOpen = !!(box && !box.classList.contains('hidden'));
             var opening = !paletteOpen;
             setQueryPaletteOpen(opening);
             if (opening) focusPalette(!input.value.trim());

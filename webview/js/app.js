@@ -628,10 +628,6 @@
                 // are part of the view, like the warps panel or the minimap.
                 onStateChanged: function () { saveViewState(); },
                 isPaletteAllowed: function () { return queryTabAllowsPalette(activeTab); },
-                // The Table renders the same set: rebuild it when the query moves.
-                onQueryChanged: function () {
-                    if (activeTab === 'table' && window.AuraViews) AuraViews.renderTable();
-                },
                 postMessage: function (msg) { vscode.postMessage(msg); }
             });
             AuraQueryBar.setup();
