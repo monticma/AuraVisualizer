@@ -1244,23 +1244,6 @@
         isOpen: function () { return paletteOpen; },
         /** Close just the field list — the palette can outlive it (tab switch). */
         hideSuggestions: hideSuggestions,
-        /** The name field — persisted with the view, used when saving. */
-        getName: function () {
-            var el = $('#qb-name');
-            return el ? el.value.trim() : '';
-        },
-        /**
-         * Bring back a persisted query: no palette opening, no history entry and
-         * no breadcrumb — the view state already is the place.
-         */
-        restore: function (expr, mode, name) {
-            var qbInput = $('#qb-input');
-            var nameField = $('#qb-name');
-            if (mode) setQueryMode(mode, true);
-            if (qbInput) qbInput.value = expr || '';
-            if (nameField) nameField.value = name || '';
-            runQueryFromInput(expr || '', false, true);
-        },
         /** Re-run the active query after the dataset changed (graph data). */
         onGraphData: function () {
             if (!queryActive || !queryFn) { updateChip(); return; }

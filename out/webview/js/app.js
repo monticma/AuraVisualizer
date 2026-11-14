@@ -5160,19 +5160,10 @@
             // The panel belongs to both scenes; each keeps its own intent.
             showWarps: (warpsOpen[warpsScope()] = warpsPanelVisibleIntent()),
             showWarpsCity: warpsOpen.city,
-            // Same contract for the query: the window comes back as it was, with
-            // the expression and mode it was showing.
+            // The palette *window* is remembered, the query is not: replaying an
+            // expression saved days ago on a fresh dataset silently blanked the
+            // table (and anything else that filters on it).
             showQuery: !!((window.AuraQueryBar && AuraQueryBar.isOpen && AuraQueryBar.isOpen()) || queryPaletteIntent),
-            query: (function () {
-                if (!window.AuraQueryBar || !AuraQueryBar.state) return null;
-                var qs = AuraQueryBar.state();
-                if (!qs || !qs.active) return null;
-                return {
-                    expr: AuraQueryBar.getExpression(),
-                    mode: qs.mode,
-                    name: AuraQueryBar.getName ? AuraQueryBar.getName() : ''
-                };
-            })(),
             // Floating panels — keep user-dragged positions across sessions.
             // The warps slot written is the one of the scene on screen; the
             // other keeps what it had, so moving the window in the City never
@@ -5467,14 +5458,12 @@
         // Query last: it needs the graph the state above has just rebuilt.
         if (window.AuraQueryBar) {
             try {
-                if (state.query && state.query.expr) {
-                    AuraQueryBar.restore(state.query.expr, state.query.mode, state.query.name);
-                }
+                // The window only — never a replayed expression.
                 if (state.showQuery) {
                     if (queryTabAllowsPalette(activeTab)) AuraQueryBar.setOpen(true);
                     else queryPaletteIntent = true;
                 }
-            } catch (e) { console.error('[aura] query restore failed:', e); }
+            } catch (e) { console.error('[aura] query palette restore failed:', e); }
         }
     }
 
@@ -6668,7 +6657,7 @@
 
         // Tab views (views.js) — inject live-state getters, then wire the controls
         if (window.AuraViews) {
-            AuraViews.init({
+            var viewsHooks = {
                 getGraphData: function () { return graphData; },
                 getTimelineCommits: timelineCommitsList,
                 getTimelineDeltas: function () { return (window.AuraTimeline && window.AuraTimeline.getDeltas()) || {}; },
@@ -6685,20 +6674,35 @@
                 focusNode: focusNodeFromView,
                 findNode: findNode,
                 postMessage: function (msg) { vscode.postMessage(msg); }
-            });
-            AuraViews.setupTableInteractions();
-            AuraViews.setupCoupling();
-            AuraViews.setupTreemap();
-            AuraViews.setupDSM();
-            AuraViews.setupChord();
-            AuraViews.setupTimelineChart();
+            };
+            // A view module that fails to initialise must not abort the rest of the
+            // app boot: the graph and the other tabs still work.
+            try {
+                AuraViews.init(viewsHooks);
+                AuraViews.setupTableInteractions();
+                AuraViews.setupCoupling();
+                AuraViews.setupTreemap();
+                AuraViews.setupDSM();
+                AuraViews.setupChord();
+                AuraViews.setupTimelineChart();
+            } catch (e) {
+                console.error('[aura] views setup failed:', e);
+            }
         }
     }
 
-    /** The query palette belongs to the views that list files. */
+    /** The palette is at home on the views that list files. */
     function queryTabAllowsPalette(tab) {
         return tab === 'graph' || tab === 'table';
     }
+
+    /**
+     * Open intent, kept across a detour through a tab where the palette is not
+     * allowed. It must be *declared*: this module is `'use strict'`, so the
+     * assignments below would throw a ReferenceError and abort `switchTab`
+     * before any view had rendered.
+     */
+    var queryPaletteIntent = false;
 
     function switchTab(tabName) {
         if (tabName === activeTab) return;
@@ -6789,6 +6793,24 @@
             }
         })();
 
+        // The query palette belongs to the tabs that list files — the 3D graph and
+        // the table — and nowhere else. Its open state is the module's intent, so
+        // it survives a detour through another tab and comes back on return.
+        (function () {
+            // The autocomplete is a *sibling* overlay (the palette's
+            // backdrop-filter would clip it as a child): never let it survive a
+            // tab change.
+            if (window.AuraQueryBar && AuraQueryBar.hideSuggestions) AuraQueryBar.hideSuggestions();
+            var qp = $('#query-palette');
+            if (!qp || !window.AuraQueryBar) return;
+            var allowed = (tabName === 'graph' || tabName === 'table');
+            if (allowed) {
+                if (AuraQueryBar.isOpen()) qp.classList.remove('hidden');
+            } else {
+                qp.classList.add('hidden');
+            }
+        })();
+
         // Warps panel: save the intent of the scene we are leaving, then restore
         // the one of the scene we are entering. Both scene-scoped, and the panel
         // is hidden for every other tab.
@@ -6852,18 +6874,24 @@
             if (window.AuraFlight && window.AuraFlight.isActive()) window.AuraFlight.stop();
         }
 
-        // Render tab content (the view renderers live in views.js)
-        if (window.AuraViews) {
-            if (tabName === 'metrics') AuraViews.renderMetrics();
-            if (tabName === 'coupling') AuraViews.renderCoupling();
-            if (tabName === 'treemap') AuraViews.renderTreemap();
-            if (tabName === 'dsm') AuraViews.renderDSM();
-            if (tabName === 'chord') AuraViews.renderChord();
-            if (tabName === 'timeline') AuraViews.renderTimelineChart();
-            if (tabName === 'table') AuraViews.renderTable();
+        // Render tab content. Every renderer is guarded: one that throws used to
+        // leave an empty panel with nothing in the log — a blank view you cannot
+        // act on. Now it keeps the rest of the switch working and says so.
+        var RENDERERS = {
+            metrics: 'renderMetrics', coupling: 'renderCoupling', treemap: 'renderTreemap',
+            dsm: 'renderDSM', chord: 'renderChord', timeline: 'renderTimelineChart',
+            table: 'renderTable'
+        };
+        if (window.AuraViews && RENDERERS[tabName] && typeof AuraViews[RENDERERS[tabName]] === 'function') {
+            try { AuraViews[RENDERERS[tabName]](); }
+            catch (e) { console.error('[aura] ' + RENDERERS[tabName] + ' failed:', e); }
         }
-        if (tabName === 'risk' && window.AuraRiskMap) AuraRiskMap.renderRiskDashboard();
-        if (tabName === 'arch' && window.AuraArchPanel) AuraArchPanel.render();
+        if (tabName === 'risk' && window.AuraRiskMap) {
+            try { AuraRiskMap.renderRiskDashboard(); } catch (e) { console.error('[aura] risk render failed:', e); }
+        }
+        if (tabName === 'arch' && window.AuraArchPanel) {
+            try { AuraArchPanel.render(); } catch (e) { console.error('[aura] arch render failed:', e); }
+        }
 
         // Keep the host in sync: the PNG command needs to know whether the 3D
         // tab is the one on screen before it opens its dialogs.
