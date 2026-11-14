@@ -586,11 +586,12 @@ Filter, highlight, or select files with the built-in **Aura Query Language** —
 | `symbols` / `symbolscount` | Number of extracted symbols |
 | `deadexports` | Number of unused (dead) exports |
 | `cochange` | Strongest temporal-coupling Jaccard score (0–1) |
+| `churn` | Commit count touching the file in the Risk window (Settings → Risk & analysis) |
 | `language`, `name`, `path`, `group`, `extension` | String metadata |
 | `community` | Detected community name |
 | `layer` | Architecture layer from `.aura/arch-rules.json` |
 | `archviolations` | Number of new (non-baselined) violations where the file is the source |
-| `isorphan`, `isdead`, `incycle`, `ispinned`, `dirty`, `hasnote`, `isarchviolator` | Boolean flags (`dirty` = uncommitted git changes, `hasnote` = annotated file, `isarchviolator` = file imports a forbidden layer) |
+| `isorphan`, `isdead`, `incycle`, `ispinned`, `dirty`, `hasnote`, `stalenote`, `isarchviolator` | Boolean flags (`dirty` = uncommitted git changes, `hasnote` = annotated file, `isarchviolator` = file imports a forbidden layer) |
 
 **Operators:** `==`, `!=`, `>`, `<`, `>=`, `<=`, `~` (regex), `!~`, `in [ ... ]`, plus `AND` / `OR` / `NOT` and parentheses.
 

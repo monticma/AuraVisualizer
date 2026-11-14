@@ -76,6 +76,12 @@
         node._hasNote = !!note;
         node._staleNote = !!(note && window.AuraNotes && window.AuraNotes.isStale(note, node.lastModified));
         node._cochange = ctx.cochangeScore ? (ctx.cochangeScore(node.id) || 0) : 0;
+        // `churn` comes from the git timeline, not from the node: without this the
+        // field was advertised in the autocomplete and compared against undefined,
+        // so `churn > 5` could never match.
+        node.churn = ctx.churnScore
+            ? (ctx.churnScore(node.id) || (node.path ? ctx.churnScore(node.path) : 0) || 0)
+            : (node.churn || 0);
         return node;
     }
 

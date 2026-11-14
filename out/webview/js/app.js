@@ -609,6 +609,7 @@
                 refreshMultiSelectedLinks: function () { updateMultiSelectedLinks(); },
                 getPinnedNodes: function () { return pinnedNodes; },
                 getCochangeScore: getCochangeScore,
+                getChurn: getChurn,
                 onApplied: pushBreadcrumbQuery,
                 // The palette is a floating window: its open state and its query
                 // are part of the view, like the warps panel or the minimap.

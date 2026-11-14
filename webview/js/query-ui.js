@@ -82,6 +82,7 @@
             pinnedNodes: typeof hooks.getPinnedNodes() !== 'undefined' ? hooks.getPinnedNodes() : new Set(),
             dirtySet: new Set(Object.keys(hooks.getWorkingTree())),
             cochangeScore: hooks.getCochangeScore || function() { return 0; },
+            churnScore: hooks.getChurn || function() { return 0; },
             notes: hooks.getAnnotations()
         };
     }
