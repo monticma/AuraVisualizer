@@ -611,11 +611,17 @@
                 getCochangeScore: getCochangeScore,
                 getChurn: getChurn,
                 onApplied: pushBreadcrumbQuery,
-                // The table *is* the query's result set: keep it in step while it
-                // is the view on screen (the query re-runs as the user types).
+                // Every file-based view lists what the query matches: re-render the
+                // one on screen instead of waiting for the next tab switch.
                 onQueryChanged: function () {
-                    if (activeTab === 'table' && window.AuraViews && AuraViews.renderTable) {
-                        AuraViews.renderTable();
+                    if (activeTab === 'city' && window.AuraCityView && AuraCityView.refresh) {
+                        try { AuraCityView.refresh(); }
+                        catch (e) { console.error('[aura] city refresh failed:', e); }
+                    }
+                    var fn = VIEW_RENDERERS[activeTab];
+                    if (window.AuraViews && fn && typeof AuraViews[fn] === 'function') {
+                        try { AuraViews[fn](); }
+                        catch (e) { console.error('[aura] ' + fn + ' failed:', e); }
                     }
                 },
                 // The palette is a floating window: its open state and its query
@@ -6691,9 +6697,21 @@
         }
     }
 
-    /** The palette is at home on the views that list files. */
+    /** Tab → renderer, for the views that list files (used on switch and on query). */
+    var VIEW_RENDERERS = {
+        metrics: 'renderMetrics', coupling: 'renderCoupling', treemap: 'renderTreemap',
+        dsm: 'renderDSM', chord: 'renderChord', timeline: 'renderTimelineChart',
+        table: 'renderTable'
+    };
+
+    /**
+     * The palette is at home on the views that list files — i.e. every tab whose
+     * bar carries a 🔍 button, plus the graph. Derived from the DOM rather than a
+     * list, so a view that gains (or loses) its button follows automatically.
+     */
     function queryTabAllowsPalette(tab) {
-        return tab === 'graph' || tab === 'table';
+        if (tab === 'graph') return true;
+        return !!document.querySelector('.query-open[data-query-tab="' + tab + '"]');
     }
 
     /**
@@ -6884,14 +6902,9 @@
         // Render tab content. Every renderer is guarded: one that throws used to
         // leave an empty panel with nothing in the log — a blank view you cannot
         // act on. Now it keeps the rest of the switch working and says so.
-        var RENDERERS = {
-            metrics: 'renderMetrics', coupling: 'renderCoupling', treemap: 'renderTreemap',
-            dsm: 'renderDSM', chord: 'renderChord', timeline: 'renderTimelineChart',
-            table: 'renderTable'
-        };
-        if (window.AuraViews && RENDERERS[tabName] && typeof AuraViews[RENDERERS[tabName]] === 'function') {
-            try { AuraViews[RENDERERS[tabName]](); }
-            catch (e) { console.error('[aura] ' + RENDERERS[tabName] + ' failed:', e); }
+        if (window.AuraViews && VIEW_RENDERERS[tabName] && typeof AuraViews[VIEW_RENDERERS[tabName]] === 'function') {
+            try { AuraViews[VIEW_RENDERERS[tabName]](); }
+            catch (e) { console.error('[aura] ' + VIEW_RENDERERS[tabName] + ' failed:', e); }
         }
         if (tabName === 'risk' && window.AuraRiskMap) {
             try { AuraRiskMap.renderRiskDashboard(); } catch (e) { console.error('[aura] risk render failed:', e); }

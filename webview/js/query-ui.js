@@ -756,6 +756,19 @@
         try { hooks.onQueryChanged(); } catch (_) { /* noop */ }
     }
 
+    /** Every 🔍 button of every bar mirrors the one query of the session. */
+    function updateQueryButtons() {
+        var btns = document.querySelectorAll('.query-open');
+        for (var i = 0; i < btns.length; i++) {
+            var btn = btns[i];
+            btn.classList.toggle('active', !!queryActive);
+            btn.textContent = queryActive ? '🔍 Query · ' + querySet.size : '🔍 Query';
+            btn.title = queryActive
+                ? 'Query applied — this view lists its ' + querySet.size + ' file(s). Click to edit (Ctrl+K).'
+                : 'Query palette (Ctrl+K) — every file-based view lists what the query matches';
+        }
+    }
+
     /** Chip in the view bar: what is applied, how many files, in which mode. */
     function updateChip() {
         var chip = $('#query-chip');
@@ -767,6 +780,7 @@
             return;
         }
         chip.classList.remove('hidden');
+        updateQueryButtons();
         if (main) {
             main.textContent = '🔍 ' + queryExpr + ' · ' + querySet.size +
                 (querySet.size === 1 ? ' file · ' : ' files · ') + (MODE_LABELS[queryMode] || queryMode);
@@ -1098,6 +1112,16 @@
             input.value = '';
             runQueryFromInput('');
             hideSuggestions();
+        });
+
+        // Any 🔍 button, in any bar, opens the same palette.
+        document.addEventListener('click', function (e) {
+            var btn = e.target && e.target.closest ? e.target.closest('.query-open') : null;
+            if (!btn) return;
+            e.preventDefault();
+            var opening = !paletteOpen;
+            setQueryPaletteOpen(opening);
+            if (opening) focusPalette(!input.value.trim());
         });
 
         // The ▾ next to the expression: the list on demand, since autocomplete no

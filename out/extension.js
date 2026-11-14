@@ -350,6 +350,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
                 </select>
             </label>
             <div class="view-bar-actions">
+                <button type="button" class="view-action query-open" data-query-tab="city" title="Query palette (Ctrl+K) \u2014 this view lists what the query matches">\u{1F50D} Query</button>
                 <button id="city-minimap-toggle" type="button" class="view-action" title="Floating map \u2014 drag it anywhere">\u{1F5FA}\uFE0F Map</button>
                 <button id="city-warps-toggle" type="button" class="view-action" title="Warp points \u2014 camera bookmarks for the City">\u{1F300} Warps</button>
                 <button id="city-export" type="button" class="view-action" data-export-tab="city" title="Export what this view can produce">\u{1F4E4} Export</button>
@@ -418,6 +419,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
         <div class="view-toolbar metrics-toolbar">
             <h2>\u{1F4CA} Metrics</h2>
             <div class="metrics-toolbar-actions">
+                    <button type="button" class="view-action query-open" data-query-tab="metrics" title="Query palette (Ctrl+K) \u2014 this view lists what the query matches">\u{1F50D} Query</button>
                 <button type="button" class="view-action" data-export-tab="metrics" title="Export the summary as Markdown">\u{1F4E4} Export</button>
             </div>
         </div>
@@ -593,6 +595,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
                 <button id="treemap-city" type="button" class="view-action" title="Open the 2.5D City view">\u{1F3D9}\uFE0F See as city</button>
             </div>
                 <div class="view-bar-actions">
+                    <button type="button" class="view-action query-open" data-query-tab="treemap" title="Query palette (Ctrl+K) \u2014 this view lists what the query matches">\u{1F50D} Query</button>
                     <button type="button" class="view-action" data-export-tab="treemap" title="Export the cells as CSV">\u{1F4E4} Export</button>
                 </div>
         </div>
@@ -612,6 +615,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
                 <span class="chord-stats" id="chord-stats"></span>
             </div>
                 <div class="view-bar-actions">
+                    <button type="button" class="view-action query-open" data-query-tab="chord" title="Query palette (Ctrl+K) \u2014 this view lists what the query matches">\u{1F50D} Query</button>
                     <button type="button" class="view-action" data-export-tab="chord" title="Export the diagram as SVG or the flows as CSV">\u{1F4E4} Export</button>
                 </div>
         </div>
@@ -664,6 +668,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
                 <span class="dsm-stats" id="dsm-stats"></span>
             </div>
                 <div class="view-bar-actions">
+                    <button type="button" class="view-action query-open" data-query-tab="dsm" title="Query palette (Ctrl+K) \u2014 this view lists what the query matches">\u{1F50D} Query</button>
                     <button type="button" class="view-action" data-export-tab="dsm" title="Export the dependency list as Markdown">\u{1F4E4} Export</button>
                 </div>
         </div>
@@ -692,6 +697,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
                 <button id="coupling-show-graph" class="view-action" title="Show the top pairs as virtual links in the 3D graph">Show on graph</button>
             </div>
             <div class="view-bar-actions">
+                    <button type="button" class="view-action query-open" data-query-tab="coupling" title="Query palette (Ctrl+K) \u2014 this view lists what the query matches">\u{1F50D} Query</button>
                 <button type="button" class="view-action" data-export-tab="coupling" title="Export the pairs as CSV">\u{1F4E4} Export</button>
             </div>
         </div>
@@ -718,7 +724,7 @@ ${JSON.stringify(s,null,2)}`);let a=r[o]();return new Language(INTERNAL,a)})}}cl
             <span class="search-icon">\u2315</span>
             <input type="text" id="table-search" placeholder="Filter files..." autocomplete="off">
                 <div class="view-bar-actions">
-                    <button type="button" id="table-query" class="view-action" title="Query palette (Ctrl+K) \u2014 the table lists what the query matches">\u{1F50D} Query</button>
+                    <button type="button" id="table-query" class="view-action query-open" data-query-tab="table" title="Query palette (Ctrl+K) \u2014 this view lists what the query matches">\u{1F50D} Query</button>
                     <button type="button" class="view-action" data-export-tab="table" title="Export the rows on screen as CSV">\u{1F4E4} Export</button>
                 </div>
         </div>

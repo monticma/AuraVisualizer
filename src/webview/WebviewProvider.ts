@@ -1722,6 +1722,7 @@ export class WebviewProvider {
                 </select>
             </label>
             <div class="view-bar-actions">
+                <button type="button" class="view-action query-open" data-query-tab="city" title="Query palette (Ctrl+K) — this view lists what the query matches">🔍 Query</button>
                 <button id="city-minimap-toggle" type="button" class="view-action" title="Floating map — drag it anywhere">🗺️ Map</button>
                 <button id="city-warps-toggle" type="button" class="view-action" title="Warp points — camera bookmarks for the City">🌀 Warps</button>
                 <button id="city-export" type="button" class="view-action" data-export-tab="city" title="Export what this view can produce">📤 Export</button>
@@ -1790,6 +1791,7 @@ export class WebviewProvider {
         <div class="view-toolbar metrics-toolbar">
             <h2>📊 Metrics</h2>
             <div class="metrics-toolbar-actions">
+                    <button type="button" class="view-action query-open" data-query-tab="metrics" title="Query palette (Ctrl+K) — this view lists what the query matches">🔍 Query</button>
                 <button type="button" class="view-action" data-export-tab="metrics" title="Export the summary as Markdown">📤 Export</button>
             </div>
         </div>
@@ -1965,6 +1967,7 @@ export class WebviewProvider {
                 <button id="treemap-city" type="button" class="view-action" title="Open the 2.5D City view">🏙️ See as city</button>
             </div>
                 <div class="view-bar-actions">
+                    <button type="button" class="view-action query-open" data-query-tab="treemap" title="Query palette (Ctrl+K) — this view lists what the query matches">🔍 Query</button>
                     <button type="button" class="view-action" data-export-tab="treemap" title="Export the cells as CSV">📤 Export</button>
                 </div>
         </div>
@@ -1984,6 +1987,7 @@ export class WebviewProvider {
                 <span class="chord-stats" id="chord-stats"></span>
             </div>
                 <div class="view-bar-actions">
+                    <button type="button" class="view-action query-open" data-query-tab="chord" title="Query palette (Ctrl+K) — this view lists what the query matches">🔍 Query</button>
                     <button type="button" class="view-action" data-export-tab="chord" title="Export the diagram as SVG or the flows as CSV">📤 Export</button>
                 </div>
         </div>
@@ -2036,6 +2040,7 @@ export class WebviewProvider {
                 <span class="dsm-stats" id="dsm-stats"></span>
             </div>
                 <div class="view-bar-actions">
+                    <button type="button" class="view-action query-open" data-query-tab="dsm" title="Query palette (Ctrl+K) — this view lists what the query matches">🔍 Query</button>
                     <button type="button" class="view-action" data-export-tab="dsm" title="Export the dependency list as Markdown">📤 Export</button>
                 </div>
         </div>
@@ -2064,6 +2069,7 @@ export class WebviewProvider {
                 <button id="coupling-show-graph" class="view-action" title="Show the top pairs as virtual links in the 3D graph">Show on graph</button>
             </div>
             <div class="view-bar-actions">
+                    <button type="button" class="view-action query-open" data-query-tab="coupling" title="Query palette (Ctrl+K) — this view lists what the query matches">🔍 Query</button>
                 <button type="button" class="view-action" data-export-tab="coupling" title="Export the pairs as CSV">📤 Export</button>
             </div>
         </div>
@@ -2090,7 +2096,7 @@ export class WebviewProvider {
             <span class="search-icon">⌕</span>
             <input type="text" id="table-search" placeholder="Filter files..." autocomplete="off">
                 <div class="view-bar-actions">
-                    <button type="button" id="table-query" class="view-action" title="Query palette (Ctrl+K) — the table lists what the query matches">🔍 Query</button>
+                    <button type="button" id="table-query" class="view-action query-open" data-query-tab="table" title="Query palette (Ctrl+K) — this view lists what the query matches">🔍 Query</button>
                     <button type="button" class="view-action" data-export-tab="table" title="Export the rows on screen as CSV">📤 Export</button>
                 </div>
         </div>

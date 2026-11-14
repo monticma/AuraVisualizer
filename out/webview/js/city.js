@@ -932,12 +932,23 @@
 
     function nodesInScope() {
         var all = (state.data && state.data.nodes) || [];
-        if (!state.scope) return all;
-        var prefix = state.scope + '/';
+        // The session's query narrows the city like every other file-based view:
+        // a building is a file, so the same set applies.
+        var qset = null;
+        try {
+            if (window.AuraQueryBar && window.AuraQueryBar.state) {
+                var qs = window.AuraQueryBar.state();
+                if (qs && qs.active) qset = qs.set;
+            }
+        } catch (_) { qset = null; }
+        if (!state.scope && !qset) return all;
+        var prefix = state.scope ? state.scope + '/' : '';
         var kept = [];
         for (var i = 0; i < all.length; i++) {
             var key = keyOfNode(all[i]);
-            if (key === state.scope || key.indexOf(prefix) === 0) kept.push(all[i]);
+            if (state.scope && key !== state.scope && key.indexOf(prefix) !== 0) continue;
+            if (qset && !qset.has(all[i].id) && !qset.has(key)) continue;
+            kept.push(all[i]);
         }
         return kept;
     }
@@ -1996,6 +2007,8 @@
         /** Other views' entry point: switch tab, then select this file. */
         showFile: showFile,
         clear: clearSelection,
+        /** Rebuild the plan — the query changed while the City is on screen. */
+        refresh: function () { if (isActive()) applyPlan(); },
         scope: function () { return state.scope; },
         setScope: setScope,
         colourOf: function (id) {

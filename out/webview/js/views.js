@@ -83,6 +83,11 @@
         if (minSelect) minSelect.value = String(cochangeOptions.minScore != null ? cochangeOptions.minScore : 0.2);
 
         var pairs = cochangeResult && cochangeResult.pairs ? cochangeResult.pairs.slice() : [];
+        var qset = activeQuerySet();
+        if (qset) {
+            // A pair survives only when *both* ends are in the query.
+            pairs = pairs.filter(function (p) { return qset.has(p.a) && qset.has(p.b); });
+        }
         pairs.sort(compareCoupling);
         updateCouplingSortIndicators();
         if (summary) {
@@ -171,7 +176,7 @@
         var container = $('#metrics-body') || $('#metrics-view');
         if (!container || !graphData) return;
 
-        var nodes = graphData.nodes || [];
+        var nodes = queriedNodes();
         var links = graphData.links || [];
 
         // Aggregate stats
@@ -568,7 +573,7 @@
     }
 
     function renderTreemapInner(container) {
-        var nodes = graphData.nodes || [];
+        var nodes = queriedNodes();
         if (nodes.length === 0) {
             container.innerHTML = '<div style="padding:24px;opacity:0.5">No data to display</div>';
             return;
@@ -828,7 +833,7 @@
         var container = $('#chord-container');
         if (!container || !graphData) return;
 
-        var nodes = graphData.nodes || [];
+        var nodes = queriedNodes();
         var links = graphData.links || [];
         if (nodes.length === 0) {
             container.innerHTML = '<div style="padding:24px;opacity:0.5">No data to display</div>';
@@ -1576,7 +1581,7 @@
     function exportTreemapCsv() {
         if (!graphData) return;
         var rows = [];
-        var nodes = graphData.nodes || [];
+        var nodes = queriedNodes();
         for (var i = 0; i < nodes.length; i++) {
             var n = nodes[i];
             rows.push([n.id, n.language || '', n.linesOfCode || 0, n.complexity || 0,
@@ -1710,7 +1715,7 @@
     /** Metrics is a dashboard, so the export is the summary it draws. */
     function exportMetricsMarkdown() {
         if (!graphData) return;
-        var nodes = graphData.nodes || [];
+        var nodes = queriedNodes();
         var links = graphData.links || [];
         var byLang = {};
         var totalLoc = 0;
@@ -1895,7 +1900,7 @@
         var container = $('#dsm-container');
         if (!container || !graphData) return;
 
-        var nodes = graphData.nodes || [];
+        var nodes = queriedNodes();
         var links = graphData.links || [];
         if (nodes.length === 0) {
             container.innerHTML = '<div style="padding:24px;opacity:0.5">No data to display</div>';
@@ -2088,6 +2093,19 @@
         return flash();
     }
 
+    /**
+     * The nodes this session's query keeps, or all of them when none is applied.
+     * Every file-level renderer (and its export) reads its rows here, so a query
+     * narrows the view no matter which mode the graph is painting.
+     */
+    function queriedNodes() {
+        var nodes = (graphData && graphData.nodes) || [];
+        var qset = activeQuerySet();
+        if (!qset) return nodes;
+        return nodes.filter(function (n) { return qset.has(n.id); });
+    }
+
+
     /** The query currently applied, if any (`AuraQueryBar` owns it). */
     function activeQuerySet() {
         try {
@@ -2153,19 +2171,6 @@
         if (!tbody || !graphData) return;
 
         var filtered = tableRows();
-
-        // The bar mirrors the filter that is on: a query shows how much it keeps.
-        var qBtn = $('#table-query');
-        if (qBtn) {
-            var qset = activeQuerySet();
-            qBtn.classList.toggle('active', !!qset);
-            qBtn.textContent = qset
-                ? '🔍 Query · ' + filtered.length
-                : '🔍 Query';
-            qBtn.title = qset
-                ? 'Query applied — this table lists its ' + filtered.length + ' file(s). Click to edit (Ctrl+K).'
-                : 'Query palette (Ctrl+K) — the table lists what the query matches';
-        }
 
         // Update sort indicator
         var ths = document.querySelectorAll('.aura-table th');
@@ -2290,23 +2295,6 @@
             tableSearchInput.addEventListener('input', function() {
                 tableFilter = this.value;
                 renderTable();
-            });
-        }
-
-        // The palette is available on this tab too: the table *is* the query's
-        // result set, with sortable columns and an export.
-        var queryBtn = $('#table-query');
-        if (queryBtn) {
-            queryBtn.addEventListener('click', function () {
-                if (!window.AuraQueryBar) return;
-                var opening = !AuraQueryBar.isOpen();
-                AuraQueryBar.setOpen(opening);
-                if (opening) {
-                    setTimeout(function () {
-                        var field = document.querySelector('#qb-input');
-                        if (field) { field.focus(); field.select(); }
-                    }, 40);
-                }
             });
         }
     }
