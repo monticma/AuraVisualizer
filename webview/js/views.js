@@ -1676,7 +1676,8 @@
 
     function exportTableCsv() {
         if (!graphData) return;
-        var nodes = graphData.nodes || [];
+        // Same rows as the view: a query and the text box narrow the export too.
+        var nodes = tableRows();
         var rows = [];
         for (var i = 0; i < nodes.length; i++) {
             var n = nodes[i];
@@ -1758,7 +1759,7 @@
             { label: '📄 CSV', hint: 'the series, one row per commit', run: exportTimelineCsv },
         ]);
         register('table', [
-            { label: '📄 CSV', hint: 'every file with its metrics', run: exportTableCsv },
+            { label: '📄 CSV', hint: 'the rows on screen, with their metrics', run: exportTableCsv },
         ]);
         register('coupling', [
             { label: '📄 CSV', hint: 'the pairs, with Jaccard and support', run: exportCouplingCsv },
@@ -2087,25 +2088,37 @@
         return flash();
     }
 
-    function renderTable() {
-        syncCtx();
-        var tbody = $('#table-body');
-        if (!tbody || !graphData) return;
+    /** The query currently applied, if any (`AuraQueryBar` owns it). */
+    function activeQuerySet() {
+        try {
+            if (!window.AuraQueryBar || !window.AuraQueryBar.state) return null;
+            var qs = window.AuraQueryBar.state();
+            return (qs && qs.active) ? qs.set : null;
+        } catch (_) { return null; }
+    }
 
-        var nodes = graphData.nodes || [];
-
-        // Filter
-        var filtered = nodes;
+    /**
+     * The rows this view shows — the single source of truth for the table *and*
+     * its CSV export, so "filter, then export" cannot disagree with "export".
+     * A query narrows first (it is the user's explicit selection), then the text
+     * box searches inside what is left.
+     */
+    function tableRows() {
+        if (!graphData) return [];
+        var filtered = graphData.nodes || [];
+        var qset = activeQuerySet();
+        if (qset) {
+            filtered = filtered.filter(function (n) { return qset.has(n.id); });
+        }
         if (tableFilter) {
             var lf = tableFilter.toLowerCase();
-            filtered = nodes.filter(function(n) {
+            filtered = filtered.filter(function(n) {
                 return n.id.toLowerCase().indexOf(lf) !== -1 ||
                        (n.language || '').toLowerCase().indexOf(lf) !== -1 ||
                        (n.group || '').toLowerCase().indexOf(lf) !== -1;
             });
         }
-
-        // Sort
+        filtered = filtered.slice();
         filtered.sort(function(a, b) {
             var va, vb;
             switch (tableSortCol) {
@@ -2130,6 +2143,29 @@
             if (va > vb) return tableSortAsc ? 1 : -1;
             return 0;
         });
+
+        return filtered;
+    }
+
+    function renderTable() {
+        syncCtx();
+        var tbody = $('#table-body');
+        if (!tbody || !graphData) return;
+
+        var filtered = tableRows();
+
+        // The bar mirrors the filter that is on: a query shows how much it keeps.
+        var qBtn = $('#table-query');
+        if (qBtn) {
+            var qset = activeQuerySet();
+            qBtn.classList.toggle('active', !!qset);
+            qBtn.textContent = qset
+                ? '🔍 Query · ' + filtered.length
+                : '🔍 Query';
+            qBtn.title = qset
+                ? 'Query applied — this table lists its ' + filtered.length + ' file(s). Click to edit (Ctrl+K).'
+                : 'Query palette (Ctrl+K) — the table lists what the query matches';
+        }
 
         // Update sort indicator
         var ths = document.querySelectorAll('.aura-table th');
@@ -2256,6 +2292,23 @@
                 renderTable();
             });
         }
+
+        // The palette is available on this tab too: the table *is* the query's
+        // result set, with sortable columns and an export.
+        var queryBtn = $('#table-query');
+        if (queryBtn) {
+            queryBtn.addEventListener('click', function () {
+                if (!window.AuraQueryBar) return;
+                var opening = !AuraQueryBar.isOpen();
+                AuraQueryBar.setOpen(opening);
+                if (opening) {
+                    setTimeout(function () {
+                        var field = document.querySelector('#qb-input');
+                        if (field) { field.focus(); field.select(); }
+                    }, 40);
+                }
+            });
+        }
     }
 
     // ============================================================
@@ -2297,6 +2350,7 @@
         renderTimelineChart: renderTimelineChart,
         renderDSM: renderDSM,
         renderTable: renderTable,
+        exportTableCsv: exportTableCsv,
         revealTableFile: revealTableFile,
         revealTreemapFile: revealTreemapFile,
         // Control wiring — called once by setupTabs()

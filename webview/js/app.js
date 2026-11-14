@@ -611,9 +611,21 @@
                 getCochangeScore: getCochangeScore,
                 getChurn: getChurn,
                 onApplied: pushBreadcrumbQuery,
+                // The table *is* the query's result set: keep it in step while it
+                // is the view on screen (the query re-runs as the user types).
+                onQueryChanged: function () {
+                    if (activeTab === 'table' && window.AuraViews && AuraViews.renderTable) {
+                        AuraViews.renderTable();
+                    }
+                },
                 // The palette is a floating window: its open state and its query
                 // are part of the view, like the warps panel or the minimap.
                 onStateChanged: function () { saveViewState(); },
+                isPaletteAllowed: function () { return queryTabAllowsPalette(activeTab); },
+                // The Table renders the same set: rebuild it when the query moves.
+                onQueryChanged: function () {
+                    if (activeTab === 'table' && window.AuraViews) AuraViews.renderTable();
+                },
                 postMessage: function (msg) { vscode.postMessage(msg); }
             });
             AuraQueryBar.setup();
@@ -5150,7 +5162,7 @@
             showWarpsCity: warpsOpen.city,
             // Same contract for the query: the window comes back as it was, with
             // the expression and mode it was showing.
-            showQuery: !!(window.AuraQueryBar && AuraQueryBar.isOpen && AuraQueryBar.isOpen()),
+            showQuery: !!((window.AuraQueryBar && AuraQueryBar.isOpen && AuraQueryBar.isOpen()) || queryPaletteIntent),
             query: (function () {
                 if (!window.AuraQueryBar || !AuraQueryBar.state) return null;
                 var qs = AuraQueryBar.state();
@@ -5458,7 +5470,10 @@
                 if (state.query && state.query.expr) {
                     AuraQueryBar.restore(state.query.expr, state.query.mode, state.query.name);
                 }
-                if (state.showQuery) AuraQueryBar.setOpen(true);
+                if (state.showQuery) {
+                    if (queryTabAllowsPalette(activeTab)) AuraQueryBar.setOpen(true);
+                    else queryPaletteIntent = true;
+                }
             } catch (e) { console.error('[aura] query restore failed:', e); }
         }
     }
@@ -6680,6 +6695,11 @@
         }
     }
 
+    /** The query palette belongs to the views that list files. */
+    function queryTabAllowsPalette(tab) {
+        return tab === 'graph' || tab === 'table';
+    }
+
     function switchTab(tabName) {
         if (tabName === activeTab) return;
         var prevTab = activeTab;
@@ -6702,7 +6722,7 @@
         var timeBar = $('#timeline-bar');
         // Graph-only overlays. The warps panel is handled separately: it belongs
         // to both 3D scenes, with its own open flag and position per scene.
-        var overlays = ['#heatmap-legend', '#community-palette', '#query-palette', '#tooltip'];
+        var overlays = ['#heatmap-legend', '#community-palette', '#tooltip'];
 
         // The PNG capture grabs the WebGL canvas, which is display:none on every
         // other tab — a hidden button is better than a blank picture.
@@ -6737,10 +6757,7 @@
                 var el = $(overlays[i]);
                 if (el) el.classList.add('hidden');
             }
-            // The query autocomplete is a *sibling* overlay (the palette's
-            // backdrop-filter would clip it), so hiding the palette alone would
-            // leave the field list floating over the next tab.
-            if (window.AuraQueryBar && AuraQueryBar.hideSuggestions) AuraQueryBar.hideSuggestions();
+
         } else {
             if (filterBar) filterBar.style.display = '';
             if (timeBar && timeBar._wasVisible) {
@@ -6753,6 +6770,24 @@
                 }
             }
         }
+
+        // The query palette belongs to the tabs that list files — the 3D graph and
+        // the table — and nowhere else. Its open state is the module's intent, so
+        // it survives a detour through another tab and comes back on return.
+        (function () {
+            // The autocomplete is a *sibling* overlay (the palette's
+            // backdrop-filter would clip it as a child): never let it survive a
+            // tab change.
+            if (window.AuraQueryBar && AuraQueryBar.hideSuggestions) AuraQueryBar.hideSuggestions();
+            var qp = $('#query-palette');
+            if (!qp || !window.AuraQueryBar) return;
+            var allowed = (tabName === 'graph' || tabName === 'table');
+            if (allowed) {
+                if (AuraQueryBar.isOpen()) qp.classList.remove('hidden');
+            } else {
+                qp.classList.add('hidden');
+            }
+        })();
 
         // Warps panel: save the intent of the scene we are leaving, then restore
         // the one of the scene we are entering. Both scene-scoped, and the panel
@@ -6771,6 +6806,24 @@
                 else resetPalettePosition(wp);
             }
             applyMinimapVisibility();
+        })();
+
+        // Query palette: at home on the two views that list files — the graph
+        // and the table (which *is* the query's result set, sortable and
+        // exportable). Anywhere else it is hidden, and the intent is kept so a
+        // detour through another tab brings it back.
+        (function () {
+            if (!window.AuraQueryBar) return;
+            if (queryTabAllowsPalette(tabName)) {
+                if (queryPaletteIntent) {
+                    AuraQueryBar.setOpen(true);
+                    queryPaletteIntent = false;
+                }
+            } else {
+                queryPaletteIntent = !!(AuraQueryBar.isOpen && AuraQueryBar.isOpen());
+                if (queryPaletteIntent) AuraQueryBar.setOpen(false);
+                if (AuraQueryBar.hideSuggestions) AuraQueryBar.hideSuggestions();
+            }
         })();
 
         // The warp list belongs to the scene on screen.

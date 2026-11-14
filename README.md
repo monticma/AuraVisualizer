@@ -593,7 +593,11 @@ Filter, highlight, or select files with the built-in **Aura Query Language** —
 | `archviolations` | Number of new (non-baselined) violations where the file is the source |
 | `isorphan`, `isdead`, `incycle`, `ispinned`, `dirty`, `hasnote`, `stalenote`, `isarchviolator` | Boolean flags (`dirty` = uncommitted git changes, `hasnote` = annotated file, `isarchviolator` = file imports a forbidden layer) |
 
-**Operators:** `==`, `!=`, `>`, `<`, `>=`, `<=`, `~` (regex), `!~`, `in [ ... ]`, plus `AND` / `OR` / `NOT` and parentheses.
+**Operators:** `==`, `!=`, `>`, `<`, `>=`, `<=`, `~` (regex), `!~`, `in [ ... ]`, `not in [ ... ]`, `contains`, `startswith`, `endswith`, `between … and …`, plus `AND` / `OR` / `NOT` and parentheses.
+
+**Comparing fields:** a bare identifier that names a field compares two metrics of the same file — `fanIn > fanOut`, `complexity >= cognitive`. Anything else stays a literal, so `language == typescript` is unchanged; quote it (`language == "fanIn"`) to force a literal. The string operators take a word or a quoted string: `path contains "src/"`, `name startswith test_`, `path endswith .css`.
+
+**Aggregates:** under the match count the palette sums what the matched set contains — `Σ loc`, `⌀ complexity`, `max fanIn`.
 
 **Examples:**
 
@@ -611,7 +615,9 @@ Filter, highlight, or select files with the built-in **Aura Query Language** —
 
 **Saved queries:** press **⭐** to save the current expression under a name and **📚** to reopen the saved list (persisted in `.aura/graph.db`). A saved query is an expression, not a mode: clicking a row never switches Highlight / Filter / Select — the mode you are in stays.
 
-**Remembered:** the palette is part of the view state — it reopens open or closed exactly as you left it, with its expression and mode, and the graph comes back filtered/highlighted the same way. It belongs to the 3D tab: switching to another view hides it (the intent is kept), and coming back brings it up again.
+**Remembered:** the palette is part of the view state — it reopens open or closed exactly as you left it, with its expression and mode, and the graph comes back filtered/highlighted the same way. It belongs to the tabs that list files — the **3D graph** and the **Table** — and nowhere else: switching to any other view hides it (the intent is kept) and coming back brings it up again.
+
+**One expression, two views:** the Table tab carries the same **🔍 Query** button. Apply `complexity between 20 and 40` and the table lists exactly those rows, sortable by any column, and `📤 Export` writes the rows on screen — the export can no longer disagree with the view. The mode (Highlight / Filter / Select) only changes how the *graph* shows the matches; a table always lists them.
 
 ### File Explorer Panel
 
@@ -703,7 +709,7 @@ Switch between **11 visualization tabs** for different perspectives on your code
 | **🎵 Chord** | Chord diagram showing dependency flows between groups (directories, languages, architecture layers, or communities). Ribbon thickness reflects flow volume. Hover to highlight a group and its connections. |
 | **📊 Metrics** | Dashboard with bar charts: LOC, complexity, fan-in, fan-out by language and top files. |
 | **📈 Timeline** | Line chart showing metric evolution over git history (LOC, file count, avg complexity, total complexity). Requires Time Travel scan. |
-| **📋 Table** | Sortable, filterable spreadsheet of all files with LOC, complexity, cognitive max, fan-in/out, symbols, layer, and folder. |
+| **📋 Table** | Sortable, filterable spreadsheet of all files with LOC, complexity, cognitive max, fan-in/out, symbols, layer, and folder. With a query applied it lists exactly its matches — sort them, then export *those* rows as CSV. |
 | **🛡️ Risk** | Codebase risk dashboard — health score, risk distribution, churn × complexity matrix, bus factor, and an exportable report |
 | **🏛️ Architecture** | Layer rules — violations by rule, Ca/Ce/instability per layer, aggregated cycles, unlayered files, baseline and Markdown export |
 | **🔗 Co-change** | Temporal co-change — files that change together in git commits without a direct dependency (Jaccard score, support, virtual links) |

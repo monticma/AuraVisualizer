@@ -710,6 +710,12 @@
      * Debounced: typing re-runs the query every 180 ms and must not post a
      * message each time.
      */
+    /** The result set changed: the table (when on screen) must follow. */
+    function notifyQueryChanged() {
+        if (typeof hooks.onQueryChanged !== 'function') return;
+        try { hooks.onQueryChanged(); } catch (_) { /* noop */ }
+    }
+
     function notifyStateChanged() {
         if (typeof hooks.onStateChanged !== 'function') return;
         if (stateSaveTimer) clearTimeout(stateSaveTimer);
@@ -740,12 +746,26 @@
         return matched + ' / ' + total + ' files · ' + pct + '%';
     }
 
+    /**
+     * The view changed what the query keeps: other surfaces rendering the same
+     * set (the Table) have to rebuild. `updateChip` is the one function called on
+     * every query/mode/data change, so the signal rides along with it.
+     */
+    function notifyQueryChanged() {
+        if (typeof hooks.onQueryChanged !== 'function') return;
+        try { hooks.onQueryChanged(); } catch (_) { /* noop */ }
+    }
+
     /** Chip in the view bar: what is applied, how many files, in which mode. */
     function updateChip() {
         var chip = $('#query-chip');
         var main = $('#query-chip-open');
         if (!chip) return;
-        if (!queryActive || !queryExpr) { chip.classList.add('hidden'); return; }
+        if (!queryActive || !queryExpr) {
+            chip.classList.add('hidden');
+            notifyQueryChanged();
+            return;
+        }
         chip.classList.remove('hidden');
         if (main) {
             main.textContent = '🔍 ' + queryExpr + ' · ' + querySet.size +
@@ -753,6 +773,7 @@
             main.title = queryExpr + ' — ' + querySet.size + ' / ' + totalNodes() + ' files, ' +
                 (MODE_LABELS[queryMode] || queryMode) + '. Click to edit.';
         }
+        notifyQueryChanged();
     }
 
     function setQueryMode(mode, silent) {
@@ -867,6 +888,7 @@
             setQueryAggregates(0);
             refreshGraphAfterQuery();
             updateChip();
+            notifyQueryChanged();
             notifyStateChanged();
             return;
         }
@@ -884,6 +906,7 @@
             setQueryStatus('error', 'error');
             setQueryAggregates(0);
             updateChip();
+            notifyQueryChanged();
             return;
         }
         if (!compiled.ok) {
@@ -895,6 +918,7 @@
             setQueryStatus('error', 'error');
             setQueryAggregates(0);
             updateChip();
+            notifyQueryChanged();
             return;
         }
         setQueryError('');
@@ -908,6 +932,7 @@
         if (pushToHistory) pushHistory(queryExpr);
         syncQueryState();
         updateChip();
+        notifyQueryChanged();
         notifyStateChanged();
         // V3-12 — let the app record the place in the navigation trail.
         if (!silent && typeof hooks.onApplied === 'function') hooks.onApplied(queryExpr, queryMode);
@@ -997,6 +1022,8 @@
         var el = $('#query-palette');
         var btn = $('#qb-toggle');
         if (!el) return;
+        // Ctrl+K is global; the palette only exists on the views that list files.
+        if (open && typeof hooks.isPaletteAllowed === 'function' && !hooks.isPaletteAllowed()) return;
         paletteOpen = !!open;
         if (open) {
             var stored = readPalettePos();
