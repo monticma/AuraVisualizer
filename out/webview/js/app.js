@@ -6836,16 +6836,23 @@
         // detour through another tab brings it back.
         (function () {
             if (!window.AuraQueryBar) return;
-            if (queryTabAllowsPalette(tabName)) {
+            var allowed = queryTabAllowsPalette(tabName);
+            if (allowed) {
                 if (queryPaletteIntent) {
                     AuraQueryBar.setOpen(true);
                     queryPaletteIntent = false;
                 }
-            } else {
-                queryPaletteIntent = !!(AuraQueryBar.isOpen && AuraQueryBar.isOpen());
-                if (queryPaletteIntent) AuraQueryBar.setOpen(false);
-                if (AuraQueryBar.hideSuggestions) AuraQueryBar.hideSuggestions();
+                return;
             }
+            // Capture the intent **only when leaving a tab that owns the palette**.
+            // Recomputing it on every hop read `isOpen()` on an already-hidden
+            // palette, so a second detour (Graph → Metrics → Treemap → Graph)
+            // forgot it had ever been open.
+            if (queryTabAllowsPalette(prevTab)) {
+                queryPaletteIntent = !!(AuraQueryBar.isOpen && AuraQueryBar.isOpen());
+            }
+            if (AuraQueryBar.isOpen && AuraQueryBar.isOpen()) AuraQueryBar.setOpen(false);
+            if (AuraQueryBar.hideSuggestions) AuraQueryBar.hideSuggestions();
         })();
 
         // The warp list belongs to the scene on screen.
