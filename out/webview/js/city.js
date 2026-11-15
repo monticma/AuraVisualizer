@@ -816,6 +816,62 @@
     }
 
     /**
+     * Which building is under the pointer, if any — the file id it stands for.
+     *
+     * Same walk as `districtUnder`, on the boxes only: a right-click has to mean
+     * the building you aimed at, never the plate it sits on.
+     */
+    function buildingUnder(event) {
+        var T = window.THREE;
+        if (!T || !state.graph) return '';
+        var canvas = rendererCanvas();
+        var camera = null;
+        try { camera = state.graph.camera(); } catch (_) { camera = null; }
+        if (!canvas || !camera || !canvas.getBoundingClientRect) return '';
+        var rect = canvas.getBoundingClientRect();
+        if (!rect.width || !rect.height) return '';
+        var pointer = new T.Vector2(
+            ((event.clientX - rect.left) / rect.width) * 2 - 1,
+            -((event.clientY - rect.top) / rect.height) * 2 + 1
+        );
+        var targets = [];
+        for (var id in state.meshById) {
+            if (Object.prototype.hasOwnProperty.call(state.meshById, id)) targets.push(state.meshById[id]);
+        }
+        if (!targets.length) return '';
+        var raycaster = new T.Raycaster();
+        raycaster.setFromCamera(pointer, camera);
+        var hits = raycaster.intersectObjects(targets, false);
+        if (!hits.length) return '';
+        var building = hits[0].object && hits[0].object.userData
+            ? hits[0].object.userData.cityBuilding
+            : '';
+        return building || '';
+    }
+
+    /**
+     * Right-click a building: select it, then offer the three ways out at the
+     * cursor — the editor, the 3D graph and the Treemap (not the City: you are
+     * already in it). Same menu, same entries as every other file list.
+     *
+     * Returns true when a menu actually opened, so the canvas handler knows
+     * whether to swallow the native context menu.
+     */
+    function contextMenuFor(id, x, y) {
+        if (!id) return false;
+        // No event argument: a right-click selects without feeding the
+        // double-click memo, so it can never be mistaken for a click.
+        selectBuilding(state.nodeById[id] || { id: id });
+        if (!window.AuraOpenIn || typeof window.AuraOpenIn.openAt !== 'function') return false;
+        var entries = window.AuraOpenIn.fileEntries(id, {
+            openSource: function (fileId) { openFileInEditor(fileId); },
+            selectIn: function (tab, fileId) { window.AuraViews.open(tab, fileId); },
+            destinations: ['graph', 'treemap'],
+        });
+        return window.AuraOpenIn.openAt(x, y, entries, 'file-context-menu');
+    }
+
+    /**
      * Click a district plate to enter it. The library only reports node and
      * background clicks, so the plate needs its own pointer handling — and it
      * has to tell a click from an orbit: 4 px of travel is a drag, not a
@@ -839,6 +895,14 @@
             if (Date.now() - start.at > 600) return;
             var key = districtUnder(event);
             if (key) setScope(key);
+        });
+        // Right-click a building → Source / 3D Graph / Treemap. Empty ground
+        // keeps the native menu: there is nothing to act on.
+        canvas.addEventListener('contextmenu', function (event) {
+            var id = buildingUnder(event);
+            if (!id) return;
+            if (event.preventDefault) event.preventDefault();
+            contextMenuFor(id, event.clientX, event.clientY);
         });
     }
 
@@ -1559,15 +1623,24 @@
     }
 
     /** Open the selected file in the editor (the host owns the message channel). */
-    function openSelectedFile(line) {
-        if (!state.selected) return;
+    /**
+     * Open one building's file in the editor (the host owns the message
+     * channel). Shared by the double-click gesture and the right-click menu.
+     */
+    function openFileInEditor(id, line) {
+        if (!id) return;
         if (!window.AuraHost || typeof window.AuraHost.post !== 'function') return;
-        var node = state.nodeById[state.selected] || {};
+        var node = state.nodeById[id] || {};
         var fallback = OPTIONS.granularity === 'functions' && node.line ? node.line : 0;
         window.AuraHost.post({
             type: 'openFile',
-            payload: { path: filePathOf(state.selected), line: line || fallback },
+            payload: { path: filePathOf(id), line: line || fallback },
         });
+    }
+
+    function openSelectedFile(line) {
+        if (!state.selected) return;
+        openFileInEditor(state.selected, line);
     }
 
     /** Export the city canvas as a PNG through the host's save dialog. */
@@ -1980,15 +2053,17 @@
         if (shadowsBox) {
             shadowsBox.addEventListener('change', function () { setShadows(shadowsBox.checked); });
         }
-        // What the City can hand to another view: the selected file.
+        // What the City can hand to another view: the selected file. The two
+        // entries are sliced from the same declaration the right-click menu
+        // uses (`AuraOpenIn.fileEntries`), minus its "Open source".
         if (window.AuraOpenIn && typeof window.AuraOpenIn.register === 'function') {
             window.AuraOpenIn.register('city', function () {
                 var id = state.selected ? filePathOf(state.selected) : '';
                 if (!id) return [];
-                return [
-                    { label: '✦ 3D Graph', hint: 'focus this file in the graph', run: function () { window.AuraViews.open('graph', id); } },
-                    { label: '🗺️ Treemap', hint: 'reveal it in its folder', run: function () { window.AuraViews.open('treemap', id); } },
-                ];
+                return window.AuraOpenIn.fileEntries(id, {
+                    selectIn: function (tab, fileId) { window.AuraViews.open(tab, fileId); },
+                    destinations: ['graph', 'treemap'],
+                }).slice(1);
             });
         }
 
@@ -2066,6 +2141,15 @@
             selectBuilding({ id: id }, {});
             return state.selected === id;
         },
+        /**
+         * Right-click a building. The harness cannot raycast a real canvas, so
+         * the pick is bypassed and the rest of the path is the product's.
+         */
+        contextMenu: function (id, x, y) {
+            return contextMenuFor(id, x || 0, y || 0);
+        },
+        /** The building the City currently has selected ('' when none). */
+        selected: function () { return state.selected || ''; },
         reveal: reveal,
         revealSymbol: revealSymbol,
         /** Other views' entry point: switch tab, then select this file. */

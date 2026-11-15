@@ -11,7 +11,7 @@ Click any tab in the **tab bar** below the toolbar. The 3D graph pauses when you
 | Tab | What it shows |
 |-----|--------------|
 | **✦ 3D Graph** | The interactive 3D force-directed dependency graph (default view) |
-| **🏙️ City** | The same graph as a 2.5D city: a building per file, height = the metric you pick, footprint = its size, districts = its folder. Click to read, double-click to open, click a plate to drill in |
+| **🏙️ City** | The same graph as a 2.5D city: a building per file, height = the metric you pick, footprint = its size, districts = its folder. Click to read, double-click to open, right-click for the Source / 3D Graph / Treemap menu, click a plate to drill in |
 | **🗺️ Treemap** | Files as nested rectangles, sized by LOC or complexity, colored by a metric. Click a directory to zoom in, use the breadcrumb to zoom out |
 | **🗑️ Matrix** | Dependency Structure Matrix (DSM) — an N×N grid where each colored cell is a dependency. Red cells with ↺ = circular dependency |
 | **🎵 Chord** | Chord diagram — ribbons show dependency flows between groups. Thicker ribbon = more dependencies |
@@ -28,6 +28,7 @@ Treemap, Matrix, Metrics (the top-file bars), Table, Risk and Co-change share on
 
 - **Left click selects** the file. The row lights up and the graph keeps the selection, so the tab is yours to read, sort and compare — nothing opens.
 - **Right click opens a menu**: **📄 Open source** (the editor), **✦ 3D Graph** (switches tab and selects the node), **🏙️ City** (switches tab and selects the building). <kbd>Esc</kbd> or a click elsewhere closes it.
+- In the **City**, right-click a **building** for the same menu — with **🗺️ Treemap** instead of City, since you are already there. Empty ground keeps the native menu.
 
 There is no double-click gesture any more: one click selects, the menu acts.
 

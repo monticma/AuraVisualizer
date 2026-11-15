@@ -75,6 +75,26 @@ describe('file context menu — entries', () => {
         expect(typeof openIn.openAt).toBe('function');
     });
 
+    it('can swap the second destination — the City asks for the Treemap', () => {
+        const jumps: Array<[string, string]> = [];
+        const entries = openIn.fileEntries('src/b.ts', {
+            selectIn: (tab: string, id: string) => jumps.push([tab, id]),
+            destinations: ['graph', 'treemap'],
+        });
+        expect(labels(entries)).toEqual(['📄 Open source', '✦ 3D Graph', '🗺️ Treemap']);
+        entries[1].run();
+        entries[2].run();
+        expect(jumps).toEqual([
+            ['graph', 'src/b.ts'],
+            ['treemap', 'src/b.ts'],
+        ]);
+    });
+
+    it('ignores a destination it does not know', () => {
+        const entries = openIn.fileEntries('src/b.ts', { destinations: ['graph', 'nowhere'] });
+        expect(labels(entries)).toEqual(['📄 Open source', '✦ 3D Graph']);
+    });
+
     it('refuses to open an empty menu', () => {
         expect(openIn.openAt(10, 10, [])).toBe(false);
         expect(openIn.isOpen()).toBe(false);
@@ -98,6 +118,15 @@ describe('file context menu — one path for every list view', () => {
         const src = read('risk.js');
         expect(src).toContain('AuraViews.fileMenu');
         expect(src).not.toContain('Open source');
+    });
+
+    it('city.js takes both menus from the same declaration', () => {
+        const src = read('city.js');
+        // The right-click menu and the toolbar's Open-in both come from it.
+        expect(src).toContain('window.AuraOpenIn.fileEntries');
+        expect(src).toContain("destinations: ['graph', 'treemap']");
+        expect(src).not.toContain("'✦ 3D Graph'");
+        expect(src).not.toContain("'🗺️ Treemap'");
     });
 
     it('no list view opens the editor from a plain click any more', () => {

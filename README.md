@@ -716,7 +716,7 @@ Switch between **11 visualization tabs** for different perspectives on your code
 
 All tabs share the same live data and update when the graph is refreshed.
 
-**Every list of files behaves the same way.** In **Treemap**, **Matrix**, **Metrics** (top-file bars), **Table**, **Risk** and **Co-change**, a **left click selects** the file — the row lights up and the graph remembers it — and a **right click opens a menu** with the three ways out: **📄 Open source** (the editor), **✦ 3D Graph** (switches tab and selects the node) and **🏙️ City** (switches tab and selects its building). Nothing opens on a plain click, so a list can be read, sorted and compared without leaving the view; <kbd>Esc</kbd> or a click elsewhere closes the menu.
+**Every list of files behaves the same way.** In **Treemap**, **Matrix**, **Metrics** (top-file bars), **Table**, **Risk** and **Co-change**, a **left click selects** the file — the row lights up and the graph remembers it — and a **right click opens a menu** with the three ways out: **📄 Open source** (the editor), **✦ 3D Graph** (switches tab and selects the node) and **🏙️ City** (switches tab and selects its building). Nothing opens on a plain click, so a list can be read, sorted and compared without leaving the view; <kbd>Esc</kbd> or a click elsewhere closes the menu. The **🏙️ City** applies the same rule to its buildings: **right-click one** for the same menu, with **🗺️ Treemap** as the third entry (the City is where you already are).
 
 ---
 

@@ -193,34 +193,51 @@
     }
 
     /**
-     * The three destinations every view that lists files offers on right-click.
-     * Kept here, and pure, so the six views cannot drift apart: opening the
-     * editor is the only entry that leaves the webview, the other two switch tab
-     * and select the file there.
+     * Where a file can be shown besides the view you are looking at. Declared
+     * once: the file right-click menu and the City's "Open in…" both read it.
+     */
+    var FILE_DESTINATIONS = {
+        graph: { label: '✦ 3D Graph', hint: 'switch tab and select its node' },
+        city: { label: '🏙️ City', hint: 'switch tab and select its building' },
+        treemap: { label: '🗺️ Treemap', hint: 'reveal it in its folder' },
+    };
+
+    /**
+     * The entries every view that lists files offers on right-click: open the
+     * editor, then "show me this file there". Kept here, and pure, so the six
+     * views cannot drift apart: opening the editor is the only entry that
+     * leaves the webview, the others switch tab and select the file there.
      *
      * @param {string} id file id
      * @param {{openSource?: (id: string) => void,
-     *          selectIn?: (tab: string, id: string) => void}} handlers
+     *          selectIn?: (tab: string, id: string) => void,
+     *          destinations?: string[]}} [handlers]
+     *   `destinations` replaces the "show it there" entries — the City asks for
+     *   `['graph', 'treemap']`, because the City is where you already are.
      */
     function fileEntries(id, handlers) {
         var h = handlers || {};
-        return [
+        var destinations = h.destinations || ['graph', 'city'];
+        var entries = [
             {
                 label: '📄 Open source',
                 hint: 'open the file in the editor',
                 run: function () { if (h.openSource) h.openSource(id); },
             },
-            {
-                label: '✦ 3D Graph',
-                hint: 'switch tab and select its node',
-                run: function () { if (h.selectIn) h.selectIn('graph', id); },
-            },
-            {
-                label: '🏙️ City',
-                hint: 'switch tab and select its building',
-                run: function () { if (h.selectIn) h.selectIn('city', id); },
-            },
         ];
+        for (var i = 0; i < destinations.length; i++) {
+            var target = destinations[i];
+            var known = FILE_DESTINATIONS[target];
+            if (!known) continue;
+            entries.push({
+                label: known.label,
+                hint: known.hint,
+                run: (function (tab) {
+                    return function () { if (h.selectIn) h.selectIn(tab, id); };
+                })(target),
+            });
+        }
+        return entries;
     }
 
     window.AuraOpenIn = {
