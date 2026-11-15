@@ -273,9 +273,7 @@
                     '<span>R² ' + trend.r2.toFixed(2) + '</span>' +
                     '<span>' + trend.samples + ' changes</span>' +
                 '</div>';
-            (function(id) {
-                row.addEventListener('click', function() { focusRiskFile(id); });
-            })(trend.file);
+            row.setAttribute('data-file-id', trend.file);
             list.appendChild(row);
         }
     }
@@ -308,9 +306,8 @@
                     '<span>confidence ' + cycle.confidence.toFixed(1) + '</span>' +
                     (cycle.ambiguous ? '<span class="risk-cycle-ambiguous">ambiguous</span>' : '') +
                 '</div>';
-            (function(fileId) {
-                row.addEventListener('click', function() { focusRiskFile(fileId); });
-            })(cycle.nodes && cycle.nodes[0] ? cycle.nodes[0].file : '');
+            var cycleFile = cycle.nodes && cycle.nodes[0] ? cycle.nodes[0].file : '';
+            if (cycleFile) row.setAttribute('data-file-id', cycleFile);
             list.appendChild(row);
         }
     }
@@ -335,6 +332,7 @@
             row.className = 'risk-file-row';
             row.setAttribute('data-bucket', bucket);
             row.dataset.id = n.id;
+            row.setAttribute('data-file-id', n.id);
             if (fullText) row.setAttribute('title', fullText);
             row.innerHTML =
                 '<span class="risk-file-score">' + Math.round(it.score) + '</span>' +
@@ -345,9 +343,6 @@
                 '</span>' +
                 '<span class="risk-file-loc">' + (n.linesOfCode || 0) + ' LOC</span>' +
                 '<span class="risk-file-open">➤</span>';
-            (function(id) {
-                row.addEventListener('click', function() { focusRiskFile(id); });
-            })(n.id);
             el.appendChild(row);
         }
     }
@@ -571,9 +566,7 @@
                 '</span>' +
                 '<span class="risk-file-loc">' + (n.linesOfCode || 0) + ' LOC</span>' +
                 '<span class="risk-file-open">➤</span>';
-            (function(id) {
-                row.addEventListener('click', function() { focusRiskFile(id); });
-            })(n.id);
+            row.setAttribute('data-file-id', n.id);
             container.appendChild(row);
         }
     }
@@ -718,12 +711,12 @@
             circle.setAttribute('stroke-opacity', '0.6');
             circle.setAttribute('stroke-width', '0.7');
             circle.style.cursor = 'pointer';
-            (function(id, name, pcx, pch) {
-                circle.addEventListener('click', function() { focusRiskFile(id); });
+            circle.setAttribute('data-file-id', pt.node.id);
+            (function(name, pcx, pch) {
                 var title = document.createElementNS(ns, 'title');
                 title.textContent = name + ' — complexity ' + pcx + ', churn ' + pch;
                 circle.appendChild(title);
-            })(pt.node.id, pt.node.name, pt.cx, pt.ch);
+            })(pt.node.name, pt.cx, pt.ch);
             svg.appendChild(circle);
         }
 
@@ -777,9 +770,7 @@
                 '</span>' +
                 '<span class="risk-file-loc">' + (n.linesOfCode || 0) + ' LOC</span>' +
                 '<span class="risk-file-open">➤</span>';
-            (function(id) {
-                row.addEventListener('click', function() { focusRiskFile(id); });
-            })(n.id);
+            row.setAttribute('data-file-id', n.id);
             container.appendChild(row);
         }
     }
@@ -857,6 +848,38 @@
                 hooks.postMessage({ type: 'updateSetting', payload: { key: 'riskWindow', value: v } });
             });
         }
+        // One interaction model for the whole dashboard: a left click selects a
+        // file, a right click offers Source / 3D Graph / City. A plain click no
+        // longer leaves the tab — these lists are for reading first.
+        // Delegated on #risk-view: every list is rebuilt on each render, the
+        // container is not, and this runs once at boot.
+        var riskView = document.getElementById('risk-view');
+        if (riskView) {
+            var fileRowOf = function (event) {
+                return event.target && event.target.closest
+                    ? event.target.closest('[data-file-id]')
+                    : null;
+            };
+            riskView.addEventListener('click', function (event) {
+                var row = fileRowOf(event);
+                if (!row) return;
+                if (window.AuraViews && window.AuraViews.selectFile) {
+                    window.AuraViews.selectFile(row, row.getAttribute('data-file-id'), riskView);
+                }
+            });
+            riskView.addEventListener('contextmenu', function (event) {
+                var row = fileRowOf(event);
+                if (!row) return;
+                var id = row.getAttribute('data-file-id');
+                if (window.AuraViews && window.AuraViews.selectFile) {
+                    window.AuraViews.selectFile(row, id, riskView);
+                }
+                if (window.AuraViews && window.AuraViews.fileMenu) {
+                    window.AuraViews.fileMenu(event, id);
+                }
+            });
+        }
+
         var kinds = ['high', 'medium', 'low', 'rising', 'bus', 'symbol-cycles', 'complexity-trends'];
         for (var i = 0; i < kinds.length; i++) {
             (function(kind) {

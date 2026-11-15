@@ -22,6 +22,15 @@ Click any tab in the **tab bar** below the toolbar. The 3D graph pauses when you
 | **🏛️ Architecture** | Layer rules — violations grouped by rule, Ca/Ce/instability per layer, aggregated layer cycles, unlayered files, baseline and Markdown export |
 | **🔗 Co-change** | Temporal co-change — files changing together without a direct dependency. Rows show co-changes, Jaccard, support; **Show on graph** adds virtual links |
 
+### File lists
+
+Treemap, Matrix, Metrics (the top-file bars), Table, Risk and Co-change share one interaction model:
+
+- **Left click selects** the file. The row lights up and the graph keeps the selection, so the tab is yours to read, sort and compare — nothing opens.
+- **Right click opens a menu**: **📄 Open source** (the editor), **✦ 3D Graph** (switches tab and selects the node), **🏙️ City** (switches tab and selects the building). <kbd>Esc</kbd> or a click elsewhere closes it.
+
+There is no double-click gesture any more: one click selects, the menu acts.
+
 ### Exports
 
 Every view carries an **📤 Export** in its bar, and the menu lists what *that* view can say: CSV of the cells (Treemap, Table), Markdown of the dependency list (Matrix), SVG of the diagram and CSV of the flows (Chord), CSV of the series (Timeline), CSV of the pairs (Co-change), Markdown of the summary (Metrics). The 3D Graph exports a PNG and an AI context, the City a PNG or a postcard. Risk and Architecture keep their one-click Markdown report. Each export offers **Save…** or **Copy to clipboard**.
@@ -30,6 +39,7 @@ Every view carries an **📤 Export** in its bar, and the menu lists what *that*
 - Use the **Size** dropdown to choose what determines rectangle size (LOC, complexity, fan-in, fan-out)
 - Use the **Color** dropdown to choose the color metric
 - Click any directory to zoom into it; the breadcrumb trail at the top lets you navigate back
+- Click a file cell to select it; right-click it for the Source / 3D Graph / City menu
 
 ### Matrix (DSM) tips
 - **Group by**: Directory, Language, Architecture layer, or Community — separator lines mark group boundaries
@@ -37,7 +47,7 @@ Every view carries an **📤 Export** in its bar, and the menu lists what *that*
 - Hover a cell to see source → target details. Hover a header to see file metrics.
 - Red cells with ↺ indicate **circular dependencies**
 - In **Architecture layer** mode, a forbidden dependency is a solid red cell with ✖, and a baselined one is amber
-- Click a dependency cell to open the source file
+- Click a dependency cell to select the row's file; right-click it (or a row/column header) for the Source / 3D Graph / City menu
 
 ### Chord Diagram tips
 - **Group by**: Directory, Language, Architecture layer, or Community

@@ -42,14 +42,12 @@
         if (event.key === 'Escape') close();
     }
 
-    function open(btn, tab) {
-        // The same button closes what it opened.
-        if (anchor === btn) { close(); return; }
-        close();
-        var entries = entriesFor(tab);
-        if (entries.length === 0) return;
-
-        anchor = btn;
+    /**
+     * Build the popover DOM for `entries` and assign it to `menu`. Every caller
+     * (Export, Open in…, right-click) renders the same list, so they share this
+     * one body — three copies of the markup was already two too many.
+     */
+    function buildMenu(entries) {
         menu = document.createElement('div');
         menu.className = 'view-export-menu';
         menu.setAttribute('role', 'menu');
@@ -73,19 +71,61 @@
             close();
             if (entry && typeof entry.run === 'function') entry.run();
         });
+        return menu;
+    }
 
-        // Under the button, right-aligned to it: these live at the right edge of
-        // their bar, and the window is the only stable frame of reference.
-        var rect = btn.getBoundingClientRect();
-        menu.style.top = Math.round(rect.bottom + 6) + 'px';
-        menu.style.right = Math.round(Math.max(8, window.innerWidth - rect.right)) + 'px';
+    /** Mount the menu and arm the dismissal listeners (one tick later). */
+    function mountMenu() {
         document.body.appendChild(menu);
-
         // Defer the listeners: the click that opened the menu is still bubbling.
         setTimeout(function () {
             document.addEventListener('mousedown', onDocMouseDown, true);
             document.addEventListener('keydown', onKeyDown, true);
         }, 0);
+    }
+
+    function open(btn, tab) {
+        // The same button closes what it opened.
+        if (anchor === btn) { close(); return; }
+        close();
+        var entries = entriesFor(tab);
+        if (entries.length === 0) return;
+
+        anchor = btn;
+        var el = buildMenu(entries);
+
+        // Under the button, right-aligned to it: these live at the right edge of
+        // their bar, and the window is the only stable frame of reference.
+        var rect = btn.getBoundingClientRect();
+        el.style.top = Math.round(rect.bottom + 6) + 'px';
+        el.style.right = Math.round(Math.max(8, window.innerWidth - rect.right)) + 'px';
+        mountMenu();
+    }
+
+    /**
+     * Open the same popover at the cursor. That is what a right-click on a file
+     * needs: there is no button to hang from, and the pointer is the anchor.
+     * Flips above the cursor and clamps to the window when it would overflow.
+     */
+    function openAt(x, y, entries, className) {
+        if (!entries || entries.length === 0) return false;
+        close();
+        var el = buildMenu(entries);
+        if (className) el.classList.add(className);
+        // Measure off-screen so the clamping uses the real size, not a guess.
+        el.style.visibility = 'hidden';
+        document.body.appendChild(el);
+        var width = el.offsetWidth || 230;
+        var height = el.offsetHeight || 0;
+        var left = Math.max(8, Math.min(x, window.innerWidth - width - 8));
+        var top = (y + height > window.innerHeight - 8) ? y - height : y;
+        top = Math.max(8, Math.min(top, Math.max(8, window.innerHeight - height - 8)));
+        el.style.left = Math.round(left) + 'px';
+        el.style.top = Math.round(top) + 'px';
+        el.style.visibility = '';
+        anchor = null;
+        mountMenu();
+        return true;
     }
 
     /**
@@ -145,37 +185,42 @@
         close();
         // Reuse the export renderer with an explicit list.
         anchor = btn;
-        menu = document.createElement('div');
-        menu.className = 'view-export-menu';
-        menu.setAttribute('role', 'menu');
-        var html = '';
-        for (var i = 0; i < entries.length; i++) {
-            html += '<button type="button" class="view-export-item" role="menuitem"'
-                + ' data-export-entry="' + i + '">'
-                + '<span class="view-export-label">' + entries[i].label + '</span>'
-                + (entries[i].hint
-                    ? '<span class="view-export-hint">' + entries[i].hint + '</span>'
-                    : '')
-                + '</button>';
-        }
-        menu.innerHTML = html;
-        menu.addEventListener('click', function (event) {
-            var item = event.target && event.target.closest
-                ? event.target.closest('[data-export-entry]')
-                : null;
-            if (!item) return;
-            var entry = entries[Number(item.getAttribute('data-export-entry'))];
-            close();
-            if (entry && typeof entry.run === 'function') entry.run();
-        });
+        var el = buildMenu(entries);
         var rect = btn.getBoundingClientRect();
-        menu.style.top = Math.round(rect.bottom + 6) + 'px';
-        menu.style.right = Math.round(Math.max(8, window.innerWidth - rect.right)) + 'px';
-        document.body.appendChild(menu);
-        setTimeout(function () {
-            document.addEventListener('mousedown', onDocMouseDown, true);
-            document.addEventListener('keydown', onKeyDown, true);
-        }, 0);
+        el.style.top = Math.round(rect.bottom + 6) + 'px';
+        el.style.right = Math.round(Math.max(8, window.innerWidth - rect.right)) + 'px';
+        mountMenu();
+    }
+
+    /**
+     * The three destinations every view that lists files offers on right-click.
+     * Kept here, and pure, so the six views cannot drift apart: opening the
+     * editor is the only entry that leaves the webview, the other two switch tab
+     * and select the file there.
+     *
+     * @param {string} id file id
+     * @param {{openSource?: (id: string) => void,
+     *          selectIn?: (tab: string, id: string) => void}} handlers
+     */
+    function fileEntries(id, handlers) {
+        var h = handlers || {};
+        return [
+            {
+                label: '📄 Open source',
+                hint: 'open the file in the editor',
+                run: function () { if (h.openSource) h.openSource(id); },
+            },
+            {
+                label: '✦ 3D Graph',
+                hint: 'switch tab and select its node',
+                run: function () { if (h.selectIn) h.selectIn('graph', id); },
+            },
+            {
+                label: '🏙️ City',
+                hint: 'switch tab and select its building',
+                run: function () { if (h.selectIn) h.selectIn('city', id); },
+            },
+        ];
     }
 
     window.AuraOpenIn = {
@@ -183,6 +228,8 @@
         register: registerOpenIn,
         entriesFor: openInEntries,
         open: openInMenu,
+        openAt: openAt,
+        fileEntries: fileEntries,
         close: close,
         isOpen: function () { return !!menu; },
     };

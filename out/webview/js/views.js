@@ -45,6 +45,46 @@
     }
 
     // ============================================================
+    // File interactions — one model for every view that lists files
+    // ============================================================
+    // A left click selects; a right click opens the three destinations. Opening
+    // the editor on a plain click made these lists impossible to browse: every
+    // attempt to read a row threw you out of the view and into the editor.
+    // Treemap, Matrix, Metrics, Table, Risk and Co-change all go through here.
+
+    /** Drop the selection marks inside one view container. */
+    function clearViewSelection(scope) {
+        if (!scope || !scope.querySelectorAll) return;
+        var marked = scope.querySelectorAll('.view-selected');
+        for (var i = 0; i < marked.length; i++) marked[i].classList.remove('view-selected');
+    }
+
+    /** Select a file in the current view and hand it to the app (panel + graph). */
+    function selectFileInView(el, id, scope) {
+        if (!id) return false;
+        clearViewSelection(scope);
+        if (el && el.classList) el.classList.add('view-selected');
+        var node = hooks.findNode ? hooks.findNode(id) : null;
+        if (node && hooks.setSelectedNode) hooks.setSelectedNode(node);
+        return true;
+    }
+
+    /** Right click on a file: the shared three-entry menu, at the cursor. */
+    function openFileMenu(event, id) {
+        if (!event || !id) return false;
+        if (event.preventDefault) event.preventDefault();
+        if (event.stopPropagation) event.stopPropagation();
+        if (!window.AuraOpenIn || typeof window.AuraOpenIn.openAt !== 'function') return false;
+        var entries = window.AuraOpenIn.fileEntries(id, {
+            openSource: function (fileId) {
+                hooks.postMessage({ type: 'openFile', payload: { path: fileId } });
+            },
+            selectIn: openIn,
+        });
+        return window.AuraOpenIn.openAt(event.clientX, event.clientY, entries, 'file-context-menu');
+    }
+
+    // ============================================================
     // Temporal Coupling View
     // ============================================================
     function compareCoupling(left, right) {
@@ -159,9 +199,21 @@
             });
         }
         if (body) {
+            // Click selects the file of the pair (it used to jump to the graph,
+            // which made the table impossible to read past the first row).
             body.addEventListener('click', function(e) {
                 var target = e.target && e.target.closest ? e.target.closest('.coupling-file') : null;
-                if (target && hooks.focusNode) hooks.focusNode(target.dataset.nodeId);
+                if (!target) return;
+                var row = target.closest('tr');
+                clearViewSelection(body);
+                if (row) row.classList.add('view-selected');
+                target.classList.add('view-selected');
+                var node = hooks.findNode ? hooks.findNode(target.dataset.nodeId) : null;
+                if (node && hooks.setSelectedNode) hooks.setSelectedNode(node);
+            });
+            body.addEventListener('contextmenu', function(e) {
+                var target = e.target && e.target.closest ? e.target.closest('.coupling-file') : null;
+                if (target) openFileMenu(e, target.dataset.nodeId);
             });
         }
     }
@@ -271,6 +323,20 @@
         html += '</div>';
 
         container.innerHTML = html;
+
+        // The top-file bars are file rows like any other: click selects, right
+        // click offers Source / 3D Graph / City. Re-assigned on every render
+        // (idempotent) — never addEventListener on a container that outlives it.
+        container.onclick = function(e) {
+            var row = e.target.closest ? e.target.closest('.metrics-bar-row[data-node-id]') : null;
+            if (row) selectFileInView(row, row.dataset.nodeId, container);
+        };
+        container.oncontextmenu = function(e) {
+            var row = e.target.closest ? e.target.closest('.metrics-bar-row[data-node-id]') : null;
+            if (!row) return;
+            selectFileInView(row, row.dataset.nodeId, container);
+            openFileMenu(e, row.dataset.nodeId);
+        };
     }
 
     function metricCard(title, value, sub) {
@@ -312,7 +378,7 @@
             var v = n[metric] || 0;
             var pct = maxVal > 0 ? (v / maxVal * 100) : 0;
             var color = LANGUAGE_COLORS[n.language] || 'var(--aura-accent)';
-            html += '<div class="metrics-bar-row">' +
+            html += '<div class="metrics-bar-row" data-node-id="' + escapeHtml(n.id) + '">' +
                 '<span class="metrics-bar-label" title="' + escapeHtml(n.id) + '">' + escapeHtml(shortName(n.id)) + '</span>' +
                 '<div class="metrics-bar-track"><div class="metrics-bar-fill" style="width:' + pct + '%;background:' + color + '"></div></div>' +
                 '<span class="metrics-bar-value">' + v.toLocaleString() + '</span>' +
@@ -718,8 +784,8 @@
             var dirCell = e.target.closest('.treemap-dir');
             var fileCell = e.target.closest('.treemap-file');
             if (fileCell) {
-                var nodeId = fileCell.dataset.nodeId;
-                hooks.postMessage({ type: 'openFile', payload: { path: nodeId } });
+                // Select only — the editor is on the right-click menu now.
+                selectFileInView(fileCell, fileCell.dataset.nodeId, container);
             } else if (dirCell && !dirCell.parentElement.closest('.treemap-dir')) {
                 // Only zoom on top-level dir clicks (not nested)
                 var dirPath = dirCell.dataset.dirPath;
@@ -729,6 +795,12 @@
                     renderTreemap();
                 }
             }
+        };
+        container.oncontextmenu = function(e) {
+            var fileCell = e.target.closest('.treemap-file');
+            if (!fileCell) return;
+            selectFileInView(fileCell, fileCell.dataset.nodeId, container);
+            openFileMenu(e, fileCell.dataset.nodeId);
         };
     }
 
@@ -1886,13 +1958,37 @@
             for (var i = 0; i < prevCols.length; i++) prevCols[i].classList.remove('dsm-highlight-col');
         });
 
-        // Click on dep cell → open source file
+        // Click selects the file behind the cell (a dep cell and a row header
+        // mean the row's file, a column header its own); the editor moved to the
+        // right-click menu, so panning across the matrix no longer leaves Aura.
         container.addEventListener('click', function(e) {
-            var cell = e.target.closest('.dsm-cell-dep');
-            if (!cell) return;
-            var node = dsmSorted[parseInt(cell.dataset.row, 10)];
-            if (node) hooks.postMessage({ type: 'openFile', payload: { path: node.id } });
+            var target = e.target.closest('.dsm-cell-dep, .dsm-row-hdr, .dsm-col-hdr');
+            if (!target) return;
+            var node = dsmNodeFromEvent(e);
+            if (!node) return;
+            selectFileInView(target, node.id, container);
+            // A dependency cell belongs to its whole row: light the header too.
+            if (target.classList.contains('dsm-cell-dep')) {
+                var header = target.parentElement ? target.parentElement.querySelector('th') : null;
+                if (header) header.classList.add('view-selected');
+            }
         });
+
+        container.addEventListener('contextmenu', function(e) {
+            var node = dsmNodeFromEvent(e);
+            if (!node) return;
+            openFileMenu(e, node.id);
+        });
+    }
+
+    /** The file a Matrix click/right-click is about: dep cell and row header → the row. */
+    function dsmNodeFromEvent(e) {
+        var target = e.target && e.target.closest ? e.target.closest('.dsm-cell-dep, .dsm-row-hdr, .dsm-col-hdr') : null;
+        if (!target) return null;
+        var index = target.classList.contains('dsm-cell-dep')
+            ? parseInt(target.dataset.row, 10)
+            : parseInt(target.dataset.idx, 10);
+        return dsmSorted[index] || null;
     }
 
     function renderDSM() {
@@ -2217,22 +2313,19 @@
         }
         tbody.innerHTML = html;
 
-        // Click handler — select node & open in editor on dblclick
+        // Click handler — selects the row. Nothing opens: the editor, the 3D
+        // graph and the City are behind the right-click menu (see
+        // setupTableInteractions), so a click can be used to read the table.
         var rows = tbody.querySelectorAll('tr');
         for (var i = 0; i < rows.length; i++) {
             rows[i].addEventListener('click', (function(row) {
                 return function() {
                     var allRows = tbody.querySelectorAll('tr');
-                    for (var j = 0; j < allRows.length; j++) allRows[j].classList.remove('selected');
-                    row.classList.add('selected');
+                    for (var j = 0; j < allRows.length; j++) allRows[j].classList.remove('selected', 'view-selected');
+                    row.classList.add('selected', 'view-selected');
                     // Pre-select so switching to graph tab highlights this node
                     var node = hooks.findNode(row.dataset.id);
                     if (node) { hooks.setSelectedNode(node); selectedNode = node; }
-                };
-            })(rows[i]));
-            rows[i].addEventListener('dblclick', (function(row) {
-                return function() {
-                    hooks.postMessage({ type: 'openFile', payload: { path: row.dataset.id } });
                 };
             })(rows[i]));
         }
@@ -2264,8 +2357,8 @@
         if (!row) return false;
 
         var rows = tbody.querySelectorAll('tr');
-        for (var j = 0; j < rows.length; j++) rows[j].classList.remove('selected');
-        row.classList.add('selected', 'table-hit');
+        for (var j = 0; j < rows.length; j++) rows[j].classList.remove('selected', 'view-selected');
+        row.classList.add('selected', 'view-selected', 'table-hit');
         var node = hooks.findNode(id);
         if (node) { hooks.setSelectedNode(node); selectedNode = node; }
         if (row.scrollIntoView) row.scrollIntoView({ block: 'center' });
@@ -2295,6 +2388,23 @@
             tableSearchInput.addEventListener('input', function() {
                 tableFilter = this.value;
                 renderTable();
+            });
+        }
+
+        // Right-click a row → Source / 3D Graph / City. Delegated on the tbody:
+        // the rows are rebuilt by every render, the tbody is not, and this runs
+        // once at boot (a listener added inside renderTable would stack up).
+        var tbody = $('#table-body');
+        if (tbody) {
+            tbody.addEventListener('contextmenu', function(e) {
+                var row = e.target && e.target.closest ? e.target.closest('tr[data-id]') : null;
+                if (!row) return;
+                var allRows = tbody.querySelectorAll('tr');
+                for (var j = 0; j < allRows.length; j++) allRows[j].classList.remove('selected', 'view-selected');
+                row.classList.add('selected', 'view-selected');
+                var node = hooks.findNode(row.dataset.id);
+                if (node) { hooks.setSelectedNode(node); selectedNode = node; }
+                openFileMenu(e, row.dataset.id);
             });
         }
     }
@@ -2330,6 +2440,9 @@
     window.AuraViews = {
         init: init,
         open: openIn,
+        /** Right-click menu for one file — Risk uses it from its own module. */
+        fileMenu: openFileMenu,
+        selectFile: selectFileInView,
         // Tab renderers — called by switchTab()
         renderMetrics: renderMetrics,
         renderCoupling: renderCoupling,
