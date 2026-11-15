@@ -17,7 +17,19 @@
 
 ---
 
-## What's New in 1.6.0
+## What's New in 1.6.1
+
+- **🔍 A query language, and one palette for every view.** Ask the codebase a question in one line and every view answers it.
+  - **Say it once.** `complexity > 20 and language == "typescript"`, `fanIn between 3 and 10`, `path contains "src/"`, `lastModified < 30d`, `note != ""`, field-to-field comparisons (`fanIn > fanOut`), `in` / `not in` / `startswith` / `endswith` / `contains` over **30+ fields**, with a **▾ field list** (`Ctrl`+`Space`) that names each field and its type.
+  - **Three modes, one expression.** **Highlight** dims what does not match, **Filter** hides it (links included), **Select** hands the match set to the graph and releases it on Clear — the links really come back.
+  - **It narrows every view.** The match set is the working set of the **Treemap**, the **City**, the **Matrix**, the **Chord**, **Metrics**, the **Table** and **Co-change**, so one expression means the same thing everywhere; each of those bars carries a **🔍 Query** button.
+  - **Saved queries are expressions, not modes** — each with a name you can rename inline — and the **aggregates** under the count (`Σ loc · ⌀ complexity · max fanIn`) tell you what is in there before you switch tab.
+  - **The palette is a floating window** with a remembered position: it stays open across tabs, survives a reload, and no longer floats on top of the other windows.
+- **🖱️ Right-click a file, anywhere.** In **Treemap**, **Matrix**, **Metrics**, **Table**, **Risk**, **Co-change** and on a **City building**, a **left click selects** — the row lights up, the graph remembers it — and a **right click opens the same three-entry menu at the cursor**: **📄 Open source**, **✦ 3D Graph**, **🏙️ City** (**🗺️ Treemap** from the City, where you already are). Nothing opens on a plain click any more, so a list can be read, sorted and compared without leaving the tab; `Esc` or a click elsewhere closes the menu.
+- **💠 Centrality you can actually see.** The halo alone sat in the camera plane at the same radius as the amber dirty ring and the note ring — three circular glows that washed each other out. The **top 10% PageRank files** now also wear a **tilted dashed orbit** drawn outside those rings and a **moon** circling it: motion is a cue no other indicator uses. Moons are phase-shifted per file so neighbours don't blink in lockstep, dropped above 240 haloed files (the ring stays), and frozen under `prefers-reduced-motion`.
+- **🧱 Menus above tooltips.** The hover tooltips of Treemap and Matrix were drawn at the cursor, over the popover. The layer order is now explicit (graph tooltip 300 · float windows 200–280 · hover tooltips 1000 · menus 1200 · modals 2000) and a menu open anywhere hides every hover tooltip until it closes.
+
+### Previously in 1.6.0
 
 - **🏙️ Code City — a new tab, and the same graph read as a city.** Every file becomes a **building**: its height is the metric you choose (cognitive complexity by default, or cyclomatic, lines, fan-in, fan-out, PageRank or **risk**), its footprint is its size, its district is its folder. Height, footprint, colour, mapping (quantiles / linear / thresholds) and districts (folder, layer, community) are all in the City's own bar. It lives in **its own tab with its own scene and camera** — orbiting the city never touches the 3D graph.
   - **A readable city, not a wireframe.** The **hot band** — 5 % of the buildings, never fewer than 3 nor more than 20 — takes the red end of the ramp and a **#1…#N badge**; everything else is muted, so the eye goes where it matters. Documentation, data, config and assets are drawn as **grey glass** and never ranked. Streets stay a readable gutter at every zoom, and the district names hang off the **edge of the plan on leader lines**, occluded by the buildings in front of them.
@@ -759,7 +771,7 @@ You can also open the visualizer from the **Aura** icon in the Activity Bar or v
 
 | Key | Action |
 |-----|--------|
-| `Ctrl+K` | Open the query filter bar |
+| `Ctrl+K` | Open the query palette (the match set narrows every view) |
 | `F` | Fit to view / recenter |
 | `L` | Toggle node labels |
 | `G` | Toggle directory groups |

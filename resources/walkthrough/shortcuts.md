@@ -4,7 +4,7 @@ Quick access to every feature without leaving the keyboard.
 
 | Key | Action |
 |-----|--------|
-| `Ctrl+K` | Open the query filter bar |
+| `Ctrl+K` | Open the query palette (the match set narrows every view) |
 | `F` | Fit to view / recenter camera |
 | `L` | Toggle node labels |
 | `G` | Toggle directory groups |
@@ -22,15 +22,25 @@ Quick access to every feature without leaving the keyboard.
 | `←` `→` | Timeline: previous / next commit |
 | `Escape` | Reset everything — clear all selections, heatmaps, and timeline |
 
+### Mouse
+
+| Gesture | Where | Effect |
+|---------|-------|--------|
+| **Left click** | Treemap, Matrix, Metrics, Table, Risk, Co-change | Selects the file. Nothing opens |
+| **Left click** | City building | Selects it and its relation colours |
+| **Double click** | City building | Opens the file in the editor |
+| **Right click** | A file in the six list views, or a City building | **📄 Open source** · **✦ 3D Graph** · **🏙️ City** (**🗺️ Treemap** from the City). `Esc` or a click elsewhere closes it |
+| **Click** | Treemap directory / City district plate | Zooms into it |
+
 ### Toolbar buttons
 
 | Button | Effect |
 |--------|--------|
-| **🔍 Query** | Toggle the query filter bar (also `Ctrl+K`) — filter / highlight / select files by metric |
+| **🔍 Query** | Open the query palette (also `Ctrl+K`) — highlight / filter / select files by expression, in every view |
 | **👁 Follow** | Fly the camera to the active editor file; manual camera movement pauses it |
 | **📤 Export** | Guided AI context export — Markdown/JSON, sections and token budget |
 | **🗺️ Map** | Toggle the minimap — real-time overview that rotates with the camera |
-| **💠 Centrality** | Toggle soft halos around the top 10% structural PageRank files |
+| **💠 Centrality** | Mark the top 10% structural PageRank files — violet halo, tilted dashed orbit and an orbiting moon |
 | **✏️ Dirty** | Show only files with uncommitted changes (git working tree) |
 | **📝 Notes** | Show/hide the note indicators — annotated files wear a pulsing note-colored ring + dot |
 | **🔗 Co-change** | Show virtual temporal-coupling links for the strongest co-change pairs |
