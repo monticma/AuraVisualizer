@@ -30,8 +30,21 @@
         if (menu && menu.parentNode) menu.parentNode.removeChild(menu);
         menu = null;
         anchor = null;
+        // Hover tooltips come back with the next pointer move.
+        setMenuLayer(false);
         document.removeEventListener('mousedown', onDocMouseDown, true);
         document.removeEventListener('keydown', onKeyDown, true);
+    }
+
+    /**
+     * While a menu is open it owns the pointer: a hover tooltip drawn at the
+     * cursor would sit on top of the entries (Treemap and Matrix did exactly
+     * that). The body class is what the stylesheet hides them with.
+     */
+    function setMenuLayer(on) {
+        var body = document.body;
+        if (!body || !body.classList) return;
+        body.classList.toggle('aura-menu-open', !!on);
     }
 
     function onDocMouseDown(event) {
@@ -77,6 +90,7 @@
     /** Mount the menu and arm the dismissal listeners (one tick later). */
     function mountMenu() {
         document.body.appendChild(menu);
+        setMenuLayer(true);
         // Defer the listeners: the click that opened the menu is still bubbling.
         setTimeout(function () {
             document.addEventListener('mousedown', onDocMouseDown, true);

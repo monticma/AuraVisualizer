@@ -5645,7 +5645,11 @@ select option {
    ============================================================ */
 .view-export-menu {
     position: fixed;
-    z-index: 900;
+    /* Layer order, bottom to top: graph tooltip 300 · float windows 200…280 ·
+       hover tooltips 1000 · menus 1200 · modals 2000. The menu has to sit
+       above the tooltips: Treemap and Matrix drew theirs at the cursor, on
+       top of the menu, and the entries became unreadable. */
+    z-index: 1200;
     min-width: 230px;
     padding: 4px;
     border-radius: 8px;
@@ -5688,6 +5692,18 @@ select option {
 /* Right-click menu on a file — same popover, opened at the cursor. */
 .view-export-menu.file-context-menu {
     min-width: 240px;
+}
+
+/* While a menu is open it owns the pointer, so no hover tooltip may float
+   beside it. export-menu.js puts `aura-menu-open` on the body for the whole
+   lifetime of the popover; the tooltips come back with the next move. */
+body.aura-menu-open .treemap-tooltip,
+body.aura-menu-open .dsm-tooltip,
+body.aura-menu-open .chord-tooltip,
+body.aura-menu-open .tchart-tooltip,
+body.aura-menu-open #tooltip,
+body.aura-menu-open .scene-tooltip {
+    display: none !important;
 }
 
 /* ============================================================
