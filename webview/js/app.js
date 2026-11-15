@@ -59,6 +59,9 @@
     var showCentralityHalos = false; // show halos around the top PageRank files
     var centralityHaloIds = new Set();
     var centralityHaloThreshold = 0;
+    // Above this many haloed files the orbiting moons cost more (one animated
+    // mesh each) than they tell: the build degrades to the static dashed ring.
+    var CENTRALITY_ORBIT_MOON_MAX = 240;
     var showStaleNotesOnly = false; // filter: only files whose note predates the file
     var staleNoteIds = new Set();
     var workingTree = {};      // workspace-relative path → git state (modified / untracked / …)
@@ -1865,6 +1868,17 @@
         for (var r = 0; r < count; r++) centralityHaloIds.add(ranked[r].id);
     }
 
+    /**
+     * Deterministic 0..2π offset per node, so the moons of neighbouring central
+     * files don't orbit in lockstep (which reads as one blinking pulse).
+     */
+    function orbitPhaseOf(id) {
+        var text = String(id || '');
+        var hash = 0;
+        for (var i = 0; i < text.length; i++) hash = (hash * 31 + text.charCodeAt(i)) | 0;
+        return (Math.abs(hash) % 1000) / 1000 * Math.PI * 2;
+    }
+
     function normalizeMetric(value, metric) {
         var range = metricRanges[metric];
         if (!range || range.max === range.min) return 0;
@@ -2666,16 +2680,28 @@
                 var group = new T.Group();
                 var baseScale = Math.cbrt(getNodeSize(node) || 1) * 8;
 
-                // Centrality halo — billboard glow sized from the real node
-                // radius (cbrt(nodeVal) × nodeRelSize, nodeRelSize = 1).
+                // Centrality — billboard glow sized from the real node radius
+                // (cbrt(nodeVal) × nodeRelSize, nodeRelSize = 1), plus a tilted
+                // dashed orbit with a moon circling it. The glow alone sat in
+                // the same plane and at the same radius as the dirty/note rings
+                // and disappeared behind them; the orbit is drawn outside them
+                // and out of the billboard plane, and its motion is a cue no
+                // other indicator in the graph uses.
                 if (isCentral && dimFactor > 0.02) {
+                    var centralityRadius = Math.cbrt(getNodeSize(node) || 1);
                     var centralityHalo = getCentralityHaloSprite();
                     if (centralityHalo) {
-                        var centralityRadius = Math.cbrt(getNodeSize(node) || 1);
                         centralityHalo.scale.set(centralityRadius * 5, centralityRadius * 5, 1);
                         centralityHalo.material.opacity = Math.min(1, dimFactor);
                         group.add(centralityHalo);
                     }
+                    var centralityOrbit = getCentralityOrbitSprite(centralityRadius, dimFactor, {
+                        // Past a few hundred haloed files the moons cost more
+                        // than they say: the dashed ring still reads.
+                        moon: centralityHaloIds.size <= CENTRALITY_ORBIT_MOON_MAX,
+                        phase: orbitPhaseOf(node.id)
+                    });
+                    if (centralityOrbit) group.add(centralityOrbit);
                 }
 
                 // Git dirty ring — amber circle around files with uncommitted changes
@@ -4931,6 +4957,9 @@
     }
     function getCentralityHaloSprite() {
         return window.AuraSprites ? AuraSprites.centralityHalo() : null;
+    }
+    function getCentralityOrbitSprite(nodeRadius, opacityFactor, options) {
+        return window.AuraSprites ? AuraSprites.centralityOrbit(nodeRadius, opacityFactor, options) : null;
     }
     function attachNotePulse(sprite, baseScale, opacityFactor) {
         if (window.AuraSprites) AuraSprites.attachPulse(sprite, baseScale, opacityFactor);

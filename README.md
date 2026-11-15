@@ -119,10 +119,10 @@ Every edge carries a confidence score: **1.0** exact/relative/alias, **0.9** ext
 Aura computes a **PageRank** centrality over the structural **code** graph (`source → target` = "depends on"; damping `0.85`, 40 iterations, normalized scores): a file is central when the files that depend on it are themselves central, not just numerous. Documentation and `doc-reference` links are excluded from this graph and from fan-in.
 
 - **Detail panel** — the **Centrality** metric shows the PageRank score (`0.0042`, hover for context)
-- **💠 Centrality** toolbar button — shows a soft violet halo around the **top 10%** most central code files; off by default and persisted in the view state
+- **💠 Centrality** toolbar button — marks the **top 10%** most central code files with a soft violet halo, a **tilted dashed orbit** and a **moon** circling it; off by default and persisted in the view state
 - **Risk score** — optional `auraVisualizer.riskCentrality` setting replaces the fan-in percentile with the PageRank centrality percentile (same `0.20` weight); disabled by default so existing scores are unchanged
 - **MCP / `resolve_context`** — ranking uses PageRank when available, falling back to fan-in for older databases
-- Halos are deliberately subtle: dirty rings, note rings, selection glow and labels keep their existing visual priority
+- The halo is deliberately subtle, but the orbit is not: a glow alone sat in the camera plane, at the same radius as the amber dirty ring and the note ring (all three peak at ≈2.4× the node radius), so they washed each other out. The dashed orbit is drawn at ≈3.4× the radius and tilted out of that plane, and the moon adds a motion cue nothing else in the graph uses. Moons are phase-shifted per file, dropped above **240** haloed files (the ring stays), and frozen under `prefers-reduced-motion`
 
 ### Interactive Exploration
 

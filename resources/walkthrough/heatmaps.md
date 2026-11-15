@@ -30,4 +30,4 @@ A floating **palette** uses readable cards showing the full hub path, the code f
 
 ### Centrality halos 💠
 
-The separate **💠 Centrality** toolbar button shows a soft violet halo around the top 10% PageRank files. It is off by default and saved with the view state; documentation is outside the structural centrality graph.
+The separate **💠 Centrality** toolbar button marks the top 10% PageRank files with a soft violet halo, a **tilted dashed orbit** drawn outside the dirty and note rings, and a **moon** circling that orbit. The halo alone shared the camera plane and the radius of the amber dirty ring and the note ring, so the three competed; the orbit separates itself on both counts and the moon's motion is a cue no other indicator uses. Moons are phase-shifted per file, dropped above 240 haloed files, and frozen under `prefers-reduced-motion`. The button is off by default and saved with the view state; documentation is outside the structural centrality graph.

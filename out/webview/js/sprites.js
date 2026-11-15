@@ -1,6 +1,7 @@
 /**
  * sprites.js — THREE.js sprite factories for the 3D graph: file labels,
- * cluster pills, amber dirty rings, note dots/rings and their breathing pulse.
+ * cluster pills, amber dirty rings, note dots/rings and their breathing pulse,
+ * plus the centrality orbit (tilted dashed ring + orbiting moon).
  *
  * Extracted from app.js (Lot 2e). window.AuraSprites + init(hooks). Each cache
  * keeps ONE drawn sprite per key and every call returns a clone with its own
@@ -167,6 +168,134 @@
         var sprite = new T.Sprite(material);
         centralityHaloSprite = sprite;
         return cloneSpriteWithMaterial(sprite);
+    }
+
+    // ============================================================
+    // Centrality orbit — tilted dashed ring + orbiting moon
+    // ============================================================
+    // The halo above is a billboard glow: it lives in the camera plane, at the
+    // same radius as the dirty ring and the note ring (both peak at ≈2.4 × node
+    // radius), so three concentric circular glows wash each other out. The orbit
+    // is the opposite bet — a real 3D ring tilted out of the billboard plane,
+    // drawn OUTSIDE the rings (3.4 × radius), with a moon whose motion nothing
+    // else in the graph has. Motion is orthogonal to every other static cue.
+    var ORBIT_RADIUS_MULTIPLE = 3.4; // × node radius — dirty/note rings sit at ≈2.4
+    var ORBIT_TILT = 0.32;           // radians (~18°) — an ellipse you see turning
+    var ORBIT_SEGMENTS = 128;
+    var ORBIT_DASH = 0.055;          // unit-orbit space: 1 = the orbit radius
+    var ORBIT_GAP = 0.045;
+    var ORBIT_PERIOD_MS = 4200;      // one full revolution
+    var ORBIT_MOON_RADIUS = 0.155;   // × orbit radius → ≈0.53 × node radius
+    var ORBIT_RING_OPACITY = 0.8;
+
+    // Shared by every haloed node and never disposed: the geometry depends on
+    // nothing but the constants above, so one circle and one sphere serve a
+    // whole session (nodeThreeObject is evaluated on every rebuild).
+    var orbitRingGeometry = null;
+    var orbitMoonGeometry = null;
+
+    /** Unit circle tilted out of the XZ plane — the plane the moon travels in. */
+    function getOrbitRingGeometry() {
+        if (orbitRingGeometry) return orbitRingGeometry;
+        var T = window.THREE;
+        var positions = new Float32Array(ORBIT_SEGMENTS * 3);
+        var sinTilt = Math.sin(ORBIT_TILT);
+        var cosTilt = Math.cos(ORBIT_TILT);
+        for (var i = 0; i < ORBIT_SEGMENTS; i++) {
+            var a = i / ORBIT_SEGMENTS * Math.PI * 2;
+            positions[i * 3] = Math.cos(a);
+            positions[i * 3 + 1] = Math.sin(a) * sinTilt;
+            positions[i * 3 + 2] = Math.sin(a) * cosTilt;
+        }
+        var geometry = new T.BufferGeometry();
+        geometry.setAttribute('position', new T.Float32BufferAttribute(positions, 3));
+        orbitRingGeometry = geometry;
+        return orbitRingGeometry;
+    }
+
+    function getOrbitMoonGeometry() {
+        if (!orbitMoonGeometry) orbitMoonGeometry = new window.THREE.SphereGeometry(ORBIT_MOON_RADIUS, 10, 8);
+        return orbitMoonGeometry;
+    }
+
+    /** Respect the OS "reduce motion" preference: the moon is drawn, not animated. */
+    function orbitMotionAllowed() {
+        try {
+            if (typeof window.matchMedia === 'function') {
+                return !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            }
+        } catch (e) { /* jsdom, older webviews */ }
+        return true;
+    }
+
+    /**
+     * Tilted dashed orbit ring, plus a moon circling it (unless disabled).
+     *
+     * @param {number} nodeRadius   cbrt(nodeVal) — the radius of the drawn sphere.
+     * @param {number} opacityFactor Dim factor (query highlight, pin, cycles…).
+     * @param {{moon?: boolean, phase?: number, animate?: boolean}} [opts]
+     *   moon:false keeps the static ring alone (used on huge graphs);
+     *   phase (radians) desynchronises neighbouring moons;
+     *   animate:false freezes the moon on its orbit.
+     * @returns {THREE.Group|null}
+     */
+    function getCentralityOrbit(nodeRadius, opacityFactor, opts) {
+        var T = window.THREE;
+        if (!T || !(nodeRadius > 0)) return null;
+
+        var options = opts || {};
+        var dim = (typeof opacityFactor === 'number') ? opacityFactor : 1;
+
+        var group = new T.Group();
+        group.scale.setScalar(nodeRadius * ORBIT_RADIUS_MULTIPLE);
+
+        var ring = new T.LineLoop(getOrbitRingGeometry(), new T.LineDashedMaterial({
+            color: 0xa78bfa,
+            dashSize: ORBIT_DASH,
+            gapSize: ORBIT_GAP,
+            transparent: true,
+            opacity: ORBIT_RING_OPACITY * dim,
+            depthWrite: false
+        }));
+        // computeLineDistances() writes the attribute on the geometry, and the
+        // geometry is shared: doing it once per session is enough.
+        if (!ring.geometry.getAttribute('lineDistance')) ring.computeLineDistances();
+        group.add(ring);
+
+        if (options.moon === false) return group;
+
+        var moon = new T.Mesh(getOrbitMoonGeometry(), new T.MeshBasicMaterial({
+            color: 0xe9d5ff,
+            transparent: true,
+            opacity: Math.min(1, dim),
+            depthWrite: false
+        }));
+        // It travels a full orbit while camera-facing: its bounding sphere,
+        // computed once from the geometry, would cull it on half the circle.
+        moon.frustumCulled = false;
+
+        var phase = (typeof options.phase === 'number') ? options.phase : 0;
+        var place = function (mesh, ms) {
+            var t = ms / ORBIT_PERIOD_MS * Math.PI * 2 + phase;
+            var c = Math.cos(t);
+            var s = Math.sin(t);
+            mesh.position.set(c, s * Math.sin(ORBIT_TILT), s * Math.cos(ORBIT_TILT));
+        };
+
+        if (options.animate === false || !orbitMotionAllowed()) {
+            place(moon, 0);
+        } else {
+            // Same trick as the note pulse: the animation lives and dies with
+            // the mesh — no global ticker, nothing to cancel on rebuild.
+            moon.onBeforeRender = function () {
+                place(this, performance.now());
+                // matrixWorld was computed before rendering — refresh it.
+                this.updateMatrixWorld(true);
+            };
+        }
+
+        group.add(moon);
+        return group;
     }
 
     // ============================================================
@@ -436,6 +565,15 @@
         clusterLabel: getClusterLabelSprite,
         dirtyRing: getDirtyRingSprite,
         centralityHalo: getCentralityHaloSprite,
+        centralityOrbit: getCentralityOrbit,
+        ORBIT: {
+            RADIUS: ORBIT_RADIUS_MULTIPLE,
+            TILT: ORBIT_TILT,
+            PERIOD_MS: ORBIT_PERIOD_MS,
+            MOON_RADIUS: ORBIT_MOON_RADIUS,
+            RING_OPACITY: ORBIT_RING_OPACITY,
+            motionAllowed: orbitMotionAllowed
+        },
         noteDot: getNoteDotSprite,
         noteRing: getNoteRingSprite,
         attachPulse: attachNotePulse,
@@ -455,6 +593,8 @@
             centralityHaloSprite = null;
             noteDotSprites = {};
             noteRingSprites = {};
+            // The orbit ring/moon geometries are constant and shared by live
+            // meshes: they are deliberately NOT rebuilt here.
         }
     };
 })();
