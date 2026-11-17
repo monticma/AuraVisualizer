@@ -24,8 +24,8 @@ export interface AuraViewHandlers {
     getRepo: () => AuraRepoView | null;
     /** Open a workspace-relative file in the editor. */
     openFile: (relativePath: string) => void;
-    /** Focus the active file in the Aura panel. */
-    focusInAura: () => void;
+    /** `◫ View in` — land the Aura panel on that tab, on this file. */
+    showIn: (tab: 'graph' | 'city' | 'treemap', fileId: string) => void;
     /** Blast radius of the active file. */
     blastRadius: (relativePath: string) => void;
     /** Run an analysis — offered from the empty state. */
@@ -64,12 +64,12 @@ export class AuraViewProvider implements vscode.WebviewViewProvider {
         view.webview.options = { enableScripts: true };
         view.webview.html = renderHtml();
 
-        view.webview.onDidReceiveMessage((message: { type?: string; id?: string }) => {
+        view.webview.onDidReceiveMessage((message: { type?: string; id?: string; tab?: string }) => {
             if (!message || typeof message.type !== 'string') return;
             if (message.type === 'open' && typeof message.id === 'string') {
                 this.handlers.openFile(message.id);
-            } else if (message.type === 'focus') {
-                this.handlers.focusInAura();
+            } else if (message.type === 'view' && (message.tab === 'graph' || message.tab === 'city' || message.tab === 'treemap')) {
+                this.handlers.showIn(message.tab, this.activeId);
             } else if (message.type === 'blast' && this.activeId) {
                 this.handlers.blastRadius(this.activeId);
             } else if (message.type === 'analyze') {
@@ -185,6 +185,12 @@ function renderHtml(): string {
     .metric { display: flex; flex-direction: column; }
     .metric b { font-size: 12px; font-weight: 600; }
     .metric span { font-size: 10px; opacity: 0.55; }
+    /* One rule between the identity, the risk and the connections. */
+    .section {
+        border-top: 1px solid rgba(255,255,255,0.09);
+        margin-top: 9px;
+        padding-top: 7px;
+    }
     .risk-head { display: flex; align-items: center; gap: 7px; }
     .score { font-size: 17px; font-weight: 600; line-height: 1; }
     .bar {
@@ -222,7 +228,29 @@ function renderHtml(): string {
     .legend { display: flex; gap: 10px; font-size: 10px; opacity: 0.7; margin-top: 2px; }
     .legend .out { color: #4fc3f7; }
     .legend .in { color: #e0b53a; }
-    .actions { display: flex; gap: 6px; margin-top: 10px; }
+    .actions { display: flex; gap: 6px; margin-top: 11px; }
+    .menu-wrap { position: relative; }
+    .view-menu {
+        display: none;
+        position: absolute;
+        bottom: calc(100% + 4px);
+        left: 0;
+        min-width: 132px;
+        padding: 3px 0;
+        border-radius: 4px;
+        border: 1px solid rgba(255,255,255,0.14);
+        background: var(--vscode-menu-background, #252526);
+        box-shadow: 0 4px 14px rgba(0,0,0,0.45);
+        z-index: 20;
+    }
+    .view-menu.open { display: block; }
+    .view-menu div {
+        padding: 3px 10px;
+        font-size: 11px;
+        cursor: pointer;
+        white-space: nowrap;
+    }
+    .view-menu div:hover { background: var(--vscode-menu-selectionBackground, rgba(96,165,250,0.28)); }
     button {
         font: inherit;
         font-size: 11px;
@@ -287,7 +315,7 @@ function renderHtml(): string {
 
     function riskBlock(risk) {
         if (!risk) return '';
-        var html = '<div class="label">Risk<b>' + esc(risk.windowDays) + ' days</b></div>'
+        var html = '<div class="section"><div class="label">Risk<b>' + esc(risk.windowDays) + ' days</b></div>'
             + '<div data-bucket="' + esc(risk.bucket) + '">'
             + '<div class="risk-head"><span class="score">' + esc(risk.score) + '</span>'
             + '<span class="bar"><i style="width:' + Math.max(2, Math.min(100, risk.score)) + '%"></i></span>'
@@ -316,8 +344,8 @@ function renderHtml(): string {
                 + (card.docs === 1 ? '' : 's') + '</div>'
             : '';
         if (!out.length && !inbound.length) {
-            return '<div class="label">' + esc(head) + '</div>'
-                + '<div class="empty">no dependency</div>' + docs;
+            return '<div class="section"><div class="label">' + esc(head) + '</div>'
+                + '<div class="empty">no dependency</div>' + docs + '</div>';
         }
 
         var rows = Math.max(1, out.length, inbound.length);
@@ -361,9 +389,9 @@ function renderHtml(): string {
             + esc(card.file.name) + '</text>'
             + '</svg>';
 
-        return '<div class="label">' + esc(head) + '</div><div class="conn">' + svg + '</div>'
+        return '<div class="section"><div class="label">' + esc(head) + '</div><div class="conn">' + svg + '</div>'
             + '<div class="legend"><span class="out">● depends on</span>'
-            + '<span class="in">● used by</span></div>' + docs;
+            + '<span class="in">● used by</span></div>' + docs + '</div>';
     }
 
     function renderCard(card) {
@@ -377,7 +405,6 @@ function renderHtml(): string {
             + metric(num(file.lines), 'LOC')
             + metric(file.complexity, 'complexity')
             + metric(file.cognitive || '—', 'cognitive')
-            + metric(file.fanIn + ' / ' + file.fanOut, 'in / out')
             + '</div>';
 
         if (card.flags.length) {
@@ -392,7 +419,13 @@ function renderHtml(): string {
         html += riskBlock(card.risk);
         html += connections(card);
         html += '<div class="actions">'
-            + '<button data-act="focus" title="Focus this file in the Aura panel">⌖ Focus in Aura</button>'
+            + '<div class="menu-wrap">'
+            + '<button data-act="view" aria-haspopup="true" title="Open this file in the Aura panel">◫ View in ▾</button>'
+            + '<div class="view-menu" id="view-menu">'
+            + '<div data-view="graph">✦ 3D Graph</div>'
+            + '<div data-view="city">🏙️ City</div>'
+            + '<div data-view="treemap">🗺️ Treemap</div>'
+            + '</div></div>'
             + '<button data-act="blast" title="Every file impacted if this one changes">💥 Blast</button>'
             + '</div>';
         return html;
@@ -436,19 +469,52 @@ function renderHtml(): string {
             + '<div class="actions"><button class="primary" data-act="analyze">Analyze workspace</button></div>';
     }
 
+    function closeViewMenu() {
+        var menu = document.getElementById('view-menu');
+        if (menu) menu.classList.remove('open');
+    }
+
+    function toggleViewMenu() {
+        var menu = document.getElementById('view-menu');
+        if (menu) menu.classList.toggle('open');
+    }
+
     root.addEventListener('click', function (event) {
-        var target = event.target;
-        while (target && target !== root && !target.hasAttribute('data-open') && !target.hasAttribute('data-act')) {
-            target = target.parentNode;
+        var el = event.target;
+        var open = null;
+        var act = null;
+        var view = null;
+        while (el && el !== root && el.getAttribute) {
+            if (view === null) view = el.getAttribute('data-view');
+            if (open === null) open = el.getAttribute('data-open');
+            if (act === null) act = el.getAttribute('data-act');
+            el = el.parentNode;
         }
-        if (!target || target === root) return;
-        var open = target.getAttribute('data-open');
+        if (view) {
+            closeViewMenu();
+            vscode.postMessage({ type: 'view', tab: view });
+            return;
+        }
         if (open) {
+            closeViewMenu();
             vscode.postMessage({ type: 'open', id: open });
             return;
         }
-        var act = target.getAttribute('data-act');
-        if (act) vscode.postMessage({ type: act });
+        if (act === 'view') {
+            toggleViewMenu();
+            return;
+        }
+        if (act) {
+            closeViewMenu();
+            vscode.postMessage({ type: act });
+            return;
+        }
+        // A click anywhere else closes the menu, exactly like the panel's.
+        closeViewMenu();
+    });
+
+    window.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') closeViewMenu();
     });
 
     window.addEventListener('message', function (event) {

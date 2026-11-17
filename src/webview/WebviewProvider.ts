@@ -87,6 +87,8 @@ export class WebviewProvider {
     private pendingReview: BranchReviewPayload | undefined;
     /** Symbol search jump (V3-09) waiting for the next `graphRendered`. */
     private pendingSymbolFocus: { fileId: string; symbolName: string } | undefined;
+    /** `◫ View in` from the sidebar card, waiting for the graph to render. */
+    private pendingShowInTab: { tab: 'graph' | 'city' | 'treemap'; nodeId: string } | undefined;
     /** Pending answer to `requestViewLink` (palette "copy link" round-trip). */
     private viewLinkResolver: ((state: Record<string, unknown> | undefined) => void) | undefined;
     private webviewReady = false;
@@ -886,6 +888,10 @@ export class WebviewProvider {
             this.panel.webview.postMessage({ type: 'focusSymbolInGraph', payload: this.pendingSymbolFocus });
             this.pendingSymbolFocus = undefined;
         }
+        if (this.pendingShowInTab) {
+            this.panel.webview.postMessage({ type: 'showInTab', payload: this.pendingShowInTab });
+            this.pendingShowInTab = undefined;
+        }
         this.flushPendingFlow();
     }
 
@@ -981,6 +987,19 @@ export class WebviewProvider {
             this.panel?.webview.postMessage({ type: 'focusNode', payload: { nodeId, reveal } });
         } else {
             this.pendingNodeFocus = { nodeId, reveal };
+        }
+    }
+
+    /**
+     * Switch the panel to one of the file tabs and select a file there. The
+     * sidebar card's `◫ View in` uses it, so a file can be sent to the 3D
+     * graph, the City or the Treemap without touching the panel first.
+     */
+    public showInTab(tab: 'graph' | 'city' | 'treemap', nodeId: string): void {
+        if (this.webviewReady && this.graphReady) {
+            this.panel?.webview.postMessage({ type: 'showInTab', payload: { tab, nodeId } });
+        } else {
+            this.pendingShowInTab = { tab, nodeId };
         }
     }
 
@@ -2673,7 +2692,7 @@ export class WebviewProvider {
 
                 <h2 class="help-block">What's new</h2>
                 <h3>1.6.2</h3>
-                <p><strong>🧭 Aura, in the Explorer.</strong> A new <strong>Aura</strong> section sits under the file tree and reads the file you are editing: one card with its metrics, its <strong>risk score and the written reasons</strong> behind it, the <strong>complexity sparkline</strong>, its flags — <strong>cycle</strong>, <strong>dead exports</strong>, <strong>architecture violations</strong>, <strong>uncommitted</strong>, <strong>parse error</strong> — and the <strong>connection map</strong> the City inspector draws: dependencies on the right in blue, dependents on the left in amber. Switching editor tabs rebuilds the card, so there is nothing to select and nothing to point at one by one; clicking any name, the file's own or a neighbour's, opens it in the editor, <strong>⌖ Focus in Aura</strong> lands the panel on that file and <strong>💥 Blast</strong> shows what would break. With no analyzed file open it falls back to a <strong>repository summary</strong> — files, links, the riskiest files and how many are in cycles, dead, in violation or uncommitted. Everything comes from caches the host already keeps (graph, risk snapshot, <code>.aura/history</code> deltas), so it works with the Aura panel closed.</p>
+                <p><strong>🧭 Aura, in the Explorer.</strong> A new <strong>Aura</strong> section sits under the file tree and reads the file you are editing: one card with its metrics, its <strong>risk score and the written reasons</strong> behind it, the <strong>complexity sparkline</strong>, its flags — <strong>cycle</strong>, <strong>dead exports</strong>, <strong>architecture violations</strong>, <strong>uncommitted</strong>, <strong>parse error</strong> — and the <strong>connection map</strong> the City inspector draws: dependencies on the right in blue, dependents on the left in amber. Switching editor tabs rebuilds the card, so there is nothing to select and nothing to point at one by one; clicking any name, the file's own or a neighbour's, opens it in the editor, <strong>◫ View in</strong> sends it to the <strong>3D graph</strong>, the <strong>City</strong> or the <strong>Treemap</strong> — the same menu as the detail panels — and <strong>💥 Blast</strong> shows what would break. With no analyzed file open it falls back to a <strong>repository summary</strong> — files, links, the riskiest files and how many are in cycles, dead, in violation or uncommitted. Everything comes from caches the host already keeps (graph, risk snapshot, <code>.aura/history</code> deltas), so it works with the Aura panel closed.</p>
                 <h3>1.6.1</h3>
                 <p><strong>🔍 A query language, and one palette for every view.</strong> One line asks the codebase a question — <code>complexity &gt; 20 and language == "typescript"</code>, <code>fanIn between 3 and 10</code>, <code>path contains "src/"</code>, <code>lastModified &lt; 30d</code>, field-to-field comparisons, <code>in</code>/<code>not in</code>/<code>startswith</code>/<code>endswith</code> — over <strong>30+ fields</strong>, with a <strong>▾ field list</strong> (<kbd>Ctrl</kbd>+<kbd>Space</kbd>). Three modes share the expression: <strong>Highlight</strong> dims, <strong>Filter</strong> hides (links included), <strong>Select</strong> hands the match set to the graph and releases it on Clear. The match set narrows the <strong>Treemap</strong>, the <strong>City</strong>, the <strong>Matrix</strong>, the <strong>Chord</strong>, <strong>Metrics</strong>, the <strong>Table</strong> and <strong>Co-change</strong>, each of which carries a <strong>🔍 Query</strong> button; saved queries keep a name you can rename inline, the aggregates under the count (<code>Σ loc · ⌀ complexity · max fanIn</code>) say what is in the set, and the palette is a floating window that keeps its position, stays open across tabs and survives a reload.</p>
                 <p><strong>🖱️ Right-click a file, anywhere.</strong> In the six list views and on a <strong>City building</strong>, a <strong>left click selects</strong> and a <strong>right click opens the same three entries at the cursor</strong>: <strong>📄 Open source</strong>, <strong>✦ 3D Graph</strong> and <strong>🏙️ City</strong> — <strong>🗺️ Treemap</strong> from the City, where you already are. A plain click never opens anything, so a list is for reading; <kbd>Esc</kbd> or a click elsewhere closes the menu, and while it is open no hover tooltip floats over it.</p>
@@ -2749,7 +2768,7 @@ export class WebviewProvider {
                 <h3>🧭 Aura in the Explorer</h3>
                 <p>The <strong>Explorer</strong> carries an <strong>Aura</strong> section under the file tree: a card on the file you are editing, built from the 3D detail panel's metrics and the City inspector's risk block. It needs no tab and no panel — the numbers come from caches the host already keeps.</p>
                 <p><strong>What the card says:</strong> the file name and folder (click to open it), <code>LOC · complexity · cognitive · fan-in / fan-out</code>, then only the flags that are true — <code>✏ modified</code>, <code>⚠ parse error</code>, <code>⟳ N cycles</code>, <code>☠ N dead exports</code>, <code>🏛 N violations</code>. Under them the <strong>risk score</strong> with its bucket, the <strong>written reasons</strong> and the <code>commits · rewritten · fixes · authors</code> line, plus the <strong>complexity sparkline</strong> (<code>↗ worse</code> / <code>↘ better</code>) when the history has been scanned.</p>
-                <p><strong>Connections</strong> is the City inspector's map: the file in the middle, its <strong>dependencies on the right in blue</strong>, its <strong>dependents on the left in amber</strong> — one dot per file, the path and the edge type on hover, and a click <strong>opens that file</strong>. Documentation references are counted apart: a page that mentions a file is not a dependency. <strong>⌖ Focus in Aura</strong> and <strong>💥 Blast</strong> close the card.</p>
+                <p><strong>Connections</strong> is the City inspector's map: the file in the middle, its <strong>dependencies on the right in blue</strong>, its <strong>dependents on the left in amber</strong> — one dot per file, the path and the edge type on hover, and a click <strong>opens that file</strong>. Documentation references are counted apart: a page that mentions a file is not a dependency. <strong>◫ View in</strong> sends the file to the <strong>3D Graph</strong>, the <strong>City</strong> or the <strong>Treemap</strong>, and <strong>💥 Blast</strong> closes the card.</p>
                 <p>Switch editor tabs and the card follows; open nothing analyzed and it becomes a <strong>repository summary</strong> — files, links, the riskiest three with their scores, and how many files are in cycles, dead, in violation or uncommitted.</p>
                 <h3>🗺️ Minimap</h3>
                 <p>Toggle with the <strong>🗺️ Map</strong> button. Shows a top-down overview of all nodes. The white rectangle indicates the camera viewport. Click on the minimap to navigate. Drag the header to reposition.</p>

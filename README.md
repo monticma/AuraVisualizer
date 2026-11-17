@@ -21,7 +21,7 @@
 
 - **🧭 Aura, in the Explorer.** A new **Aura** section sits under the file tree and reads the file you are editing: one card with its metrics, its **risk score and the written reasons** behind it, the **complexity sparkline**, its flags (cycle, dead exports, architecture violations, uncommitted, parse error) and the **connection map** the City inspector draws — dependencies on the right in blue, dependents on the left in amber.
   - **It knows where you are.** Switching editor tabs rebuilds the card. There is nothing to select, and nothing to point at one by one.
-  - **Read it, then act.** **⌖ Focus in Aura** opens the panel on that file, **💥 Blast** shows what would break, and clicking any name — the file's own or a neighbour's — opens it in the editor.
+  - **Read it, then act.** **◫ View in** sends the file to the **3D graph**, the **City** or the **Treemap** — the same menu as the detail panels — **💥 Blast** shows what would break, and clicking any name, the file's own or a neighbour's, opens it in the editor.
   - **No file open? It falls back to the repository:** files and links, the riskiest files with their scores, how many are in cycles, dead, in violation or uncommitted.
   - **Free of charge.** Everything on the card comes from caches the host already keeps — the graph, the risk snapshot, the `.aura/history` deltas — so it works with the Aura panel closed and costs one message per editor switch.
 
@@ -414,7 +414,7 @@ The **Explorer** carries an **Aura** section right under the file tree. It is a 
 | **Flags** | `✏ modified` `⚠ parse error` `⟳ N cycles` `☠ N dead exports` `🏛 N violations` — only when something is true |
 | **Risk** | the score the Risk tab ranks by, its bucket, the **written reasons**, the `commits · rewritten · fixes · authors` line and the **complexity sparkline** (`↗ worse` / `↘ better`) when `.aura/history` has been scanned |
 | **Connections** | the City inspector's relation map: dependencies on the right in **blue**, dependents on the left in **amber**, documentation references counted apart. Every dot carries its path and its edge type in the tooltip, and **opens the file** on click |
-| **Actions** | **⌖ Focus in Aura** (the panel lands on that file), **💥 Blast** (everything impacted if it changes) |
+| **Actions** | **◫ View in** — 3D Graph, City or Treemap: the panel opens on that file, on that tab — and **💥 Blast** (everything impacted if it changes) |
 
 - **It follows the editor** — switch tabs and the card changes. No selection to make, nothing to hover one by one.
 - **With no analyzed file open** it becomes a repository summary: files and links, the riskiest files with their scores, and how many files are in cycles, dead, in violation or uncommitted.

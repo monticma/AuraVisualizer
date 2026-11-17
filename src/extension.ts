@@ -385,8 +385,8 @@ export function activate(context: vscode.ExtensionContext): void {
         openFile: relativePath => {
             void vscode.commands.executeCommand('auraVisualizer.openFileFromTree', relativePath);
         },
-        focusInAura: () => {
-            void vscode.commands.executeCommand('auraVisualizer.focusFile');
+        showIn: (tab, fileId) => {
+            void showFileInAura(context, tab, fileId);
         },
         blastRadius: relativePath => {
             const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -445,7 +445,7 @@ export function activate(context: vscode.ExtensionContext): void {
     context.subscriptions.push(
         vscode.commands.registerCommand('auraVisualizer.open', () => openVisualizer(context)),
         vscode.commands.registerCommand('auraVisualizer.refresh', () => refreshAnalysis(context, true)),
-        vscode.commands.registerCommand('auraVisualizer.focusFile', () => focusCurrentFile()),
+        vscode.commands.registerCommand('auraVisualizer.focusFile', () => void focusCurrentFile(context)),
         vscode.commands.registerCommand('auraVisualizer.copyViewLink', async (state?: unknown) => {
             // Toolbar button: the webview already sent its live state. Palette:
             // ask the open panel for it so the link is never stale.
@@ -2102,17 +2102,41 @@ async function startHistoryScan(
     });
 }
 
-function focusCurrentFile(): void {
+/**
+ * Focus the active editor file in the panel. Unlike the first version this
+ * *opens* the panel when it is closed — half the ways in are now outside it
+ * (the Explorer card, the Command Palette), so bailing on `!isVisible` made the
+ * command look broken.
+ */
+async function focusCurrentFile(context: vscode.ExtensionContext): Promise<void> {
     const editor = vscode.window.activeTextEditor;
-    if (!editor || !webviewProvider?.isVisible) return;
+    if (!editor || editor.document.uri.scheme !== 'file') return;
 
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (!workspaceFolder) return;
 
-    const relativePath = path.relative(workspaceFolder.uri.fsPath, editor.document.uri.fsPath);
-    if (!relativePath.startsWith('..')) {
-        webviewProvider.focusNode(relativePath, true);
-    }
+    const relativePath = path.relative(workspaceFolder.uri.fsPath, editor.document.uri.fsPath)
+        .split(path.sep).join('/');
+    if (!relativePath || relativePath === '..' || relativePath.startsWith('../') || path.isAbsolute(relativePath)) return;
+
+    await openVisualizer(context);
+    webviewProvider?.focusNode(relativePath, true);
+}
+
+/**
+ * `◫ View in` from the Explorer card: open the panel and land on the tab the
+ * user picked, with that file selected there. The per-tab reveal is the one the
+ * cross-view menus already use (`AuraViews.open`), so the Treemap scrolls and
+ * the City selects exactly like a click in the panel.
+ */
+async function showFileInAura(
+    context: vscode.ExtensionContext,
+    tab: 'graph' | 'city' | 'treemap',
+    fileId: string,
+): Promise<void> {
+    if (!fileId) return;
+    await openVisualizer(context);
+    webviewProvider?.showInTab(tab, fileId);
 }
 
 /** Short, log-safe description of what a menu handed the command (support aid). */

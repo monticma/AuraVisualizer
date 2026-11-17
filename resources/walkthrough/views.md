@@ -40,7 +40,7 @@ The **Explorer** carries an **Aura** section under the file tree. It reads the f
 - **Flags**, only when true: `✏ modified`, `⚠ parse error`, `⟳ N cycles`, `☠ N dead exports`, `🏛 N violations`.
 - **Risk** — the score, its bucket, the **written reasons**, and the **complexity sparkline** (`↗ worse` / `↘ better`) once `.aura/history` has been scanned.
 - **Connections** — the City inspector's relation map: **dependencies on the right in blue**, **dependents on the left in amber**, documentation references counted apart. Every dot shows its path and edge type on hover and **opens the file** on click.
-- **Actions** — **⌖ Focus in Aura** and **💥 Blast**.
+- **Actions** — **◫ View in** (3D Graph, City or Treemap — the panel opens on that file, on that tab) and **💥 Blast**.
 
 It follows the editor: switching tabs rebuilds the card. With no analyzed file open it falls back to a repository summary — files, links, the riskiest files, and how many are in cycles, dead, in violation or uncommitted. It is fed by caches the host already keeps, so it works with the Aura panel closed.
 

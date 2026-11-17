@@ -245,6 +245,16 @@
                     }
                 }
                 break;
+            case 'showInTab':
+                // `◫ View in` from the Explorer card: land on the tab the user
+                // picked and select the file there. The per-tab reveal already
+                // exists for the cross-view menus, so reuse it instead of
+                // flying a camera the target tab does not even show.
+                if (message.payload && message.payload.nodeId && window.AuraViews
+                    && typeof window.AuraViews.open === 'function') {
+                    window.AuraViews.open(message.payload.tab || 'graph', message.payload.nodeId);
+                }
+                break;
             case 'followEditor':
                 if (message.payload && message.payload.nodeId) {
                     followNodeById(message.payload.nodeId);
