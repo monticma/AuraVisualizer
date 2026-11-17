@@ -141,6 +141,60 @@ describe('buildAuraCard', () => {
         expect(card.out[0].type).toBe('global-use');
     });
 
+    it('keeps the graph order, so the card and the City list the same sequence', () => {
+        const linked = graph(
+            [node('src/a.ts'), node('src/b.ts'), node('src/c.ts')],
+            [
+                link('src/c.ts', 'src/a.ts', { confidence: 0.6 }),
+                link('src/b.ts', 'src/a.ts', { confidence: 1 }),
+            ],
+        );
+        const card = buildAuraCard({ fileId: 'src/a.ts', data: linked })!;
+        // Not sorted by confidence or by name: the order is the link order.
+        expect(card.in.map(relation => relation.id)).toEqual(['src/c.ts', 'src/b.ts']);
+    });
+
+    it('prefixes two neighbours that share a base name', () => {
+        // This repository keeps its build output beside its sources, so
+        // `webview/js/city.js` and `out/webview/js/city.js` are two nodes and the
+        // map used to print `city.js` twice.
+        const linked = graph(
+            [node('src/a.ts'), node('webview/js/city.js'), node('out/webview/js/city.js')],
+            [
+                link('webview/js/city.js', 'src/a.ts'),
+                link('out/webview/js/city.js', 'src/a.ts'),
+            ],
+        );
+        const card = buildAuraCard({ fileId: 'src/a.ts', data: linked })!;
+        expect(card.in.map(relation => relation.label)).toEqual(['webview/city.js', 'out/city.js']);
+        // The name itself is untouched: the tooltip still shows the full path.
+        expect(card.in[0].name).toBe('city.js');
+    });
+
+    it('deepens the prefix until the labels differ', () => {
+        const linked = graph(
+            [node('src/a.ts'), node('src/x/app.js'), node('src/y/app.js')],
+            [link('src/x/app.js', 'src/a.ts'), link('src/y/app.js', 'src/a.ts')],
+        );
+        const card = buildAuraCard({ fileId: 'src/a.ts', data: linked })!;
+        // `src/app.js` twice would not be enough: keep going to the folder.
+        expect(card.in.map(relation => relation.label)).toEqual(['src/x/app.js', 'src/y/app.js']);
+    });
+
+    it('leaves unique names alone and does not cross the two columns', () => {
+        const linked = graph(
+            [node('src/a.ts'), node('src/x/city.js'), node('webview/js/app.js')],
+            [
+                link('src/a.ts', 'src/x/city.js'),
+                link('src/x/city.js', 'webview/js/app.js'),
+            ],
+        );
+        const card = buildAuraCard({ fileId: 'src/x/city.js', data: linked })!;
+        // One dependency and one dependent, each unique in its own column.
+        expect(card.out[0].label).toBe('app.js');
+        expect(card.in[0].label).toBe('a.ts');
+    });
+
     it('caps the map but keeps the real totals', () => {
         const nodes = [node('src/a.ts')];
         const links: GraphLink[] = [];

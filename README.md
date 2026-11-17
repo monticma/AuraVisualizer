@@ -413,7 +413,7 @@ The **Explorer** carries an **Aura** section right under the file tree. It is a 
 | **Identity** | file name, folder, `LOC · complexity · cognitive · fan-in / fan-out` — click the name to open the file |
 | **Flags** | `✏ modified` `⚠ parse error` `⟳ N cycles` `☠ N dead exports` `🏛 N violations` — only when something is true |
 | **Risk** | the score the Risk tab ranks by, its bucket, the **written reasons**, the `commits · rewritten · fixes · authors` line and the **complexity sparkline** (`↗ worse` / `↘ better`) when `.aura/history` has been scanned |
-| **Connections** | the City inspector's relation map: dependencies on the right in **blue**, dependents on the left in **amber**, documentation references counted apart. Every dot carries its path and its edge type in the tooltip, and **opens the file** on click |
+| **Connections** | the City inspector's relation map: dependencies on the right in **blue**, dependents on the left in **amber**, documentation references counted apart. Every dot carries its path and its edge type in the tooltip, and **opens the file** on click. Two neighbours that share a file name are prefixed with the folder that tells them apart (`out/city.js` vs `webview/city.js`) |
 | **Actions** | **◫ View in** — 3D Graph, City or Treemap: the panel opens on that file, on that tab — and **💥 Blast** (everything impacted if it changes) |
 
 - **It follows the editor** — switch tabs and the card changes. No selection to make, nothing to hover one by one.

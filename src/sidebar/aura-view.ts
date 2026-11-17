@@ -395,6 +395,14 @@ function renderHtml(): string {
             var max = Math.max(3, Math.floor(room / (LABEL_FONT * CHARS_PER_EM)));
             var text = String(name || '');
             if (text.length <= max) return text;
+            // A disambiguating prefix is a directory, not part of the identity:
+            // shorten the prefix and keep the file name whole (webv…/city.js).
+            var slash = text.indexOf('/');
+            if (slash > 0) {
+                var tail = text.slice(slash);
+                var prefixRoom = max - tail.length - 1;
+                if (prefixRoom >= 2) return text.slice(0, prefixRoom) + '…' + tail;
+            }
             // Middle-truncate: the extension survives, and so does the start of
             // the name — history-w…r.ts still reads as history-worker.ts, where
             // history-worke… loses the one part that identifies the kind. A
@@ -427,7 +435,7 @@ function renderHtml(): string {
                     + '<title>' + esc(tip) + '</title>'
                     + '<circle cx="' + x + '" cy="' + y + '" r="3.4" fill="' + colour + '"/>'
                     + '<text x="' + textX + '" y="' + (y + 3.2) + '" text-anchor="' + anchor + '">'
-                    + esc(fit(item.name, room)) + '</text></g>';
+                    + esc(fit(item.label || item.name, room)) + '</text></g>';
             }
             if (total > list.length) {
                 var moreY = startY + (list.length - 1) * step;

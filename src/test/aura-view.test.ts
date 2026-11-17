@@ -146,6 +146,23 @@ describe('the Aura card webview script', () => {
         expect(html).not.toContain('>graph-builders.ts<');
     });
 
+    it('shortens a disambiguating prefix instead of the file name', () => {
+        const view = load();
+        view.send({
+            type: 'state',
+            repo: null,
+            card: {
+                ...CARD,
+                in: [{ id: 'webview/js/city.js', name: 'city.js', label: 'webview/city.js', type: 'import', confidence: 1 }],
+                inTotal: 1,
+            },
+        });
+        const html = view.root().innerHTML;
+        // The folder is what is ambiguous, not the file: clip the folder.
+        expect(html).toContain('webv…/city.js');
+        expect(html).toContain('<title>webview/js/city.js · import</title>');
+    });
+
     it('orders the legend like the drawing: dependents left, dependencies right', () => {
         const view = load();
         view.send({ type: 'state', card: CARD, repo: null });

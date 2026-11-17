@@ -17,8 +17,10 @@ import type { RiskFileEntry } from '../risk/risk-service';
 /** One satellite of the relation map. */
 export interface AuraRelation {
     id: string;
-    /** Last path segment — what the map writes next to the dot. */
+    /** Last path segment — the fallback label. */
     name: string;
+    /** What the map prints: `name`, or a disambiguated prefix when it collides. */
+    label: string;
     /** `import` | `call` | `script` | `global-use` | … — shown on hover. */
     type: string;
     /** Below 1 when the target matched by extension, suffix or basename. */
@@ -128,8 +130,9 @@ function plural(count: number, one: string, many: string): string {
 }
 
 /**
- * Deduplicate by id, keep the strongest confidence: a file that imports another
- * twice (a value and a type, say) is one satellite, not two.
+ * Deduplicate by id, keep the strongest confidence, and **keep the graph order**:
+ * the City inspector lists the same links in the same sequence, and two surfaces
+ * that show the same file must not rank its neighbours differently.
  */
 function relationsFor(
     links: readonly { source: string; target: string; type: string; confidence?: number }[],
@@ -152,15 +155,51 @@ function relationsFor(
         const bucket = isOut ? out : inbound;
         const confidence = typeof link.confidence === 'number' ? link.confidence : 1;
         const previous = bucket.get(other);
-        if (!previous || confidence > previous.confidence) {
-            bucket.set(other, { id: other, name: baseName(other), type: link.type, confidence });
+        if (!previous) {
+            const name = baseName(other);
+            bucket.set(other, { id: other, name, label: name, type: link.type, confidence });
+        } else if (confidence > previous.confidence) {
+            // Same satellite reached by two edges: keep its position, keep the
+            // strongest one's type and confidence.
+            previous.type = link.type;
+            previous.confidence = confidence;
         }
     }
 
-    const sort = (map: Map<string, AuraRelation>): AuraRelation[] =>
-        [...map.values()].sort((a, b) => (b.confidence - a.confidence) || a.name.localeCompare(b.name));
+    const outList = [...out.values()];
+    const inList = [...inbound.values()];
+    disambiguate(outList);
+    disambiguate(inList);
+    return { out: outList, in: inList, docs };
+}
 
-    return { out: sort(out), in: sort(inbound), docs };
+/**
+ * This repository keeps its build output beside its sources — `webview/js/city.js`
+ * and `out/webview/js/city.js` are two nodes — so two satellites can share a base
+ * name and the map used to print `city.js` twice. Colliding names get the
+ * shortest leading path segment that tells them apart (`out/city.js` versus
+ * `webview/city.js`); the full path stays in the tooltip.
+ */
+function disambiguate(relations: AuraRelation[]): void {
+    const groups = new Map<string, AuraRelation[]>();
+    for (const relation of relations) {
+        const group = groups.get(relation.name);
+        if (group) group.push(relation);
+        else groups.set(relation.name, [relation]);
+    }
+
+    for (const [base, group] of groups) {
+        if (group.length < 2) continue;
+        const segments = group.map(relation => relation.id.split('/'));
+        const depthLimit = Math.min(...segments.map(parts => parts.length - 1));
+        for (let depth = 1; depth <= depthLimit; depth++) {
+            const labels = segments.map(parts => parts.slice(0, depth).join('/') + '/' + base);
+            if (new Set(labels).size === labels.length) {
+                group.forEach((relation, index) => { relation.label = labels[index]; });
+                break;
+            }
+        }
+    }
 }
 
 function flagsFor(
