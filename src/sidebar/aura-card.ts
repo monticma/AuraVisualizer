@@ -56,8 +56,19 @@ export interface AuraRiskView {
     reasons: string[];
     /** `14 commits · 38 % rewritten · 4 authors` */
     stats: string;
-    /** Polyline points for a `84 × 20` sparkline, or `null` without history. */
+    /**
+     * Polyline points for an 84 × 20 sparkline, already padded by
+     * {@link AURA_SPARK_PAD} on every side — the same geometry the Risk tab and
+     * the City inspector draw, so the two surfaces cannot disagree on the shape.
+     */
     spark: string | null;
+    /** Stroke colour: the shared trend ramp, not an arbitrary accent. */
+    sparkColor: string | null;
+    /** `▲ +12.4/30d` · `▼ -3.0/30d` · `— stable` · `—`. */
+    badge: string | null;
+    badgeTone: 'degrading' | 'improving' | 'flat' | 'unknown' | null;
+    /** Slope, delta, R² and sample count, worded like the panel's tooltip. */
+    trendTitle: string | null;
     /** `up` | `down` | `flat` | `unknown`. */
     direction: string;
     windowDays: number;
@@ -114,6 +125,12 @@ export const AURA_MAX_RELATIONS = 8;
 /** The sparkline's drawing surface, in user units. */
 export const AURA_SPARK_WIDTH = 84;
 export const AURA_SPARK_HEIGHT = 20;
+/** Breathing room around the polyline, as in the panel's `sparklineHTML`. */
+export const AURA_SPARK_PAD = 2;
+/** The trend ramp shared with the Risk tab, the Table and the City. */
+export const SPARK_DEGRADING = '#f85149';
+export const SPARK_IMPROVING = '#3fb950';
+export const SPARK_FLAT = '#8b949e';
 
 function baseName(id: string): string {
     const parts = String(id || '').split('/');
@@ -231,6 +248,62 @@ function flagsFor(
     return flags;
 }
 
+function signed(value: number, digits: number): string {
+    const rounded = Number(value).toFixed(digits);
+    return value >= 0 ? '+' + rounded : rounded;
+}
+
+/**
+ * The trend block, worded and coloured exactly like `trend-ui.js` — the Risk
+ * tab, the Table and the City inspector all draw this same sparkline, and a
+ * second, differently-coloured one in the sidebar was the report.
+ */
+function trendView(trend: FileTrend | undefined): Pick<
+    AuraRiskView,
+    'spark' | 'sparkColor' | 'badge' | 'badgeTone' | 'trendTitle' | 'direction'
+> {
+    if (!trend) {
+        return {
+            spark: null, sparkColor: null, badge: null, badgeTone: null,
+            trendTitle: null, direction: 'unknown',
+        };
+    }
+    const colour = trend.degrading ? SPARK_DEGRADING : trend.improving ? SPARK_IMPROVING : SPARK_FLAT;
+    if (trend.samples < 2) {
+        return {
+            spark: null, sparkColor: colour, badge: '—', badgeTone: 'unknown',
+            trendTitle: 'Complexity trend: not enough history', direction: 'unknown',
+        };
+    }
+
+    // Same geometry as `sparklineHTML`: the polyline is inset by the pad so the
+    // peak never touches the frame, then the whole run is shifted into place.
+    const inner = sparklinePoints(
+        trend.points,
+        AURA_SPARK_WIDTH - AURA_SPARK_PAD * 2,
+        AURA_SPARK_HEIGHT - AURA_SPARK_PAD * 2,
+    );
+    const spark = inner.replace(
+        /(\d+(?:\.\d+)?),(\d+(?:\.\d+)?)/g,
+        (_match, x: string, y: string) => `${Number(x) + AURA_SPARK_PAD},${Number(y) + AURA_SPARK_PAD}`,
+    );
+
+    return {
+        spark: trend.points.length > 1 ? spark : null,
+        sparkColor: colour,
+        badge: trend.direction === 'flat'
+            ? '— stable'
+            : `${trend.direction === 'up' ? '▲' : '▼'} ${signed(trend.slopePer30Days, 1)}/30d`,
+        badgeTone: trend.degrading ? 'degrading' : trend.improving ? 'improving' : 'flat',
+        trendTitle: 'Complexity ' + signed(trend.slopePer30Days, 1) + ' per 30 days'
+            + ' · Δ ' + signed(trend.delta, 0)
+            + ' · R² ' + trend.r2.toFixed(2)
+            + ' · ' + trend.samples + ' changes'
+            + (trend.degrading ? ' · degrading' : trend.improving ? ' · improving' : ''),
+        direction: trend.direction,
+    };
+}
+
 function riskFor(entry: RiskFileEntry, trend: FileTrend | undefined, windowDays: number): AuraRiskView {
     const stats: string[] = [];
     if (entry.churn) stats.push(plural(entry.churn, 'commit', 'commits'));
@@ -244,10 +317,7 @@ function riskFor(entry: RiskFileEntry, trend: FileTrend | undefined, windowDays:
         topLabel: entry.topLabel,
         reasons: (entry.reasons || []).map(reason => String(reason.text || '')).filter(Boolean).slice(0, 4),
         stats: stats.join(' · '),
-        spark: trend && trend.points.length > 1
-            ? sparklinePoints(trend.points, AURA_SPARK_WIDTH, AURA_SPARK_HEIGHT)
-            : null,
-        direction: trend ? trend.direction : 'unknown',
+        ...trendView(trend),
         windowDays,
     };
 }

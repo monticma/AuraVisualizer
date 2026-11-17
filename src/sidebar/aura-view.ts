@@ -231,10 +231,19 @@ function renderHtml(): string {
     [data-bucket="medium"] .bar i { background: #e0b53a; }
     [data-bucket="medium"] .score { color: #e5c07b; }
     .top { font-size: 10px; opacity: 0.6; white-space: nowrap; }
-    .trend { display: flex; align-items: center; gap: 5px; margin-top: 5px; }
-    .trend svg { width: 84px; height: 20px; display: block; }
-    .trend .dir-up { color: #f09a9a; }
-    .trend .dir-down { color: #7ec699; }
+    .trend { display: flex; align-items: center; gap: 6px; margin-top: 5px; }
+    .trend svg { width: 84px; height: 20px; display: block; flex: none; }
+    /* Same ramp and pills as .trend-badge in the panel stylesheet. */
+    .tbadge {
+        font-size: 10px;
+        padding: 0 5px;
+        border-radius: 8px;
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+    }
+    .tone-degrading { color: #ff8a80; background: rgba(248, 81, 73, 0.14); border: 1px solid rgba(248, 81, 73, 0.3); }
+    .tone-improving { color: #7ee787; background: rgba(63, 185, 80, 0.12); border: 1px solid rgba(63, 185, 80, 0.28); }
+    .tone-flat, .tone-unknown { color: #9aa7b4; background: rgba(139, 148, 158, 0.14); border: 1px solid rgba(139, 148, 158, 0.3); }
     ul.reasons {
         margin: 5px 0 0;
         padding-left: 14px;
@@ -330,12 +339,12 @@ function renderHtml(): string {
 
     function trendBlock(risk) {
         if (!risk || !risk.spark) return '';
-        var glyph = risk.direction === 'up' ? '↗ worse' : risk.direction === 'down' ? '↘ better' : '→ flat';
-        var cls = risk.direction === 'up' ? 'dir-up' : risk.direction === 'down' ? 'dir-down' : 'muted';
-        return '<div class="trend" title="Complexity over the scanned history">'
-            + '<svg viewBox="0 0 84 20" preserveAspectRatio="none" aria-hidden="true">'
-            + '<polyline fill="none" stroke="#8ab4f8" stroke-width="1.4" points="' + esc(risk.spark) + '"/></svg>'
-            + '<span class="' + cls + '">' + glyph + '</span></div>';
+        var tone = 'tone-' + (risk.badgeTone || 'unknown');
+        return '<div class="trend" title="' + esc(risk.trendTitle || 'Complexity trend') + '">'
+            + '<svg viewBox="0 0 84 20" width="84" height="20" aria-hidden="true">'
+            + '<polyline fill="none" stroke="' + esc(risk.sparkColor || '#8b949e') + '" stroke-width="1.5"'
+            + ' stroke-linejoin="round" stroke-linecap="round" points="' + esc(risk.spark) + '"/></svg>'
+            + '<span class="tbadge ' + tone + '">' + esc(risk.badge || '') + '</span></div>';
     }
 
     function riskBlock(risk) {

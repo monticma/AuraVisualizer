@@ -1495,6 +1495,7 @@
         var cy = H / 2;
         var COL_R = 196;
         var COL_L = 84;
+        var labels = relationLabels(outIds.concat(inIds));
         var svg = '<svg class="city-rel-svg" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet">';
 
         function column(ids, x, colour, side) {
@@ -1515,7 +1516,7 @@
                     + ' data-city-goto="' + escapeHtml(id) + '"/>'
                     + '<text x="' + textX + '" y="' + (y + 3.2) + '" text-anchor="' + anchor + '"'
                     + ' data-city-open="' + escapeHtml(id) + '">'
-                    + escapeHtml(shortName(id)) + '</text></g>';
+                    + escapeHtml(labels[id] || shortName(id)) + '</text></g>';
             }
             if (overflow) {
                 var moreY = startY + (slots - 1) * step;
@@ -1541,6 +1542,46 @@
         var name = String(id || '').split('/').pop();
         var limit = max || 13;
         return name.length > limit ? name.slice(0, limit - 1) + '…' : name;
+    }
+
+    /**
+     * This repository keeps its build output beside its sources, so
+     * `webview/js/city.js` and `out/webview/js/city.js` are two nodes with one
+     * base name — the map printed `city.js` twice. Colliding names get the
+     * shortest leading path segment that tells them apart (`webview/city.js`
+     * vs `out/city.js`); the tooltip keeps the full path. The Explorer card
+     * applies the same rule, so the two panels read identically.
+     */
+    function relationLabels(ids) {
+        var labels = {};
+        var groups = {};
+        for (var i = 0; i < ids.length; i++) {
+            var base = String(ids[i]).split('/').pop();
+            if (!groups[base]) groups[base] = [];
+            groups[base].push(ids[i]);
+        }
+        for (var base in groups) {
+            var group = groups[base];
+            if (group.length < 2) continue;
+            var depthLimit = Math.min.apply(null, group.map(function (id) {
+                return id.split('/').length - 1;
+            }));
+            for (var depth = 1; depth <= depthLimit; depth++) {
+                var attempt = group.map(function (id) {
+                    return id.split('/').slice(0, depth).join('/') + '/' + base;
+                });
+                var seen = {};
+                var clash = false;
+                for (var a = 0; a < attempt.length; a++) {
+                    if (seen[attempt[a]]) clash = true;
+                    seen[attempt[a]] = true;
+                }
+                if (clash) continue;
+                for (var b = 0; b < group.length; b++) labels[group[b]] = attempt[b];
+                break;
+            }
+        }
+        return labels;
     }
 
     /** Legend: what the height, the red band and the grey glass mean. */

@@ -16,7 +16,7 @@ import { analyzeCodebase, scanSingleFile, scanFileSignatures, buildGraph, prePar
 import { isGitRepo, getGitRoot, getGitHead, getWorkingTreeFiles, type GitFileState } from './analyzer/git-history';
 import { computeFingerprint, fingerprintFromMeta, fingerprintMetaEntries, hashAnalysisConfig, planAnalysis, type AnalysisFingerprint } from './analyzer/fingerprint';
 import type { CommitIndex, CommitDelta } from './analyzer/types';
-import { DEFAULT_FIX_KEYWORDS, normalizeRiskWindow } from './risk/risk-core';
+import { DEFAULT_FIX_KEYWORDS, buildRenameResolver, normalizeRiskWindow } from './risk/risk-core';
 import { buildRiskSnapshot, topRiskHotspots, type RiskSnapshot, type RiskFileEntry } from './risk/risk-service';
 import {
     AGENT_CONTEXT_JSON,
@@ -1671,7 +1671,19 @@ function auraTrendFor(fileId: string): FileTrend | undefined {
     if (!auraTrends) {
         const deltas: TrendDeltas = {};
         for (const delta of cachedDeltas) deltas[delta.hash] = delta as unknown as TrendDeltas[string];
-        auraTrends = buildFileTrends(commitIndex?.commits ?? [], deltas);
+        const commits = commitIndex?.commits ?? [];
+        const configured = vscode.workspace
+            .getConfiguration('auraVisualizer')
+            .get<number>('complexityTrendThreshold', 0.5);
+        // The exact options `trend-ui.js` passes: a different maxPoints or a
+        // missing rename resolver fits another regression and draws a sparkline
+        // that disagrees with the Risk tab and the City inspector.
+        auraTrends = buildFileTrends(commits, deltas, {
+            threshold: Number.isFinite(configured) ? configured : 0.5,
+            minR2: 0.3,
+            maxPoints: 80,
+            resolvePath: buildRenameResolver(commits),
+        });
     }
     return auraTrends[fileId];
 }

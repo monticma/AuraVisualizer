@@ -3,6 +3,8 @@ import {
     buildAuraCard,
     buildAuraRepo,
     AURA_MAX_RELATIONS,
+    SPARK_DEGRADING,
+    SPARK_FLAT,
     type AuraCard,
 } from '../sidebar/aura-card';
 import type { GraphData, GraphLink, GraphNode } from '../analyzer/types';
@@ -265,10 +267,42 @@ describe('buildAuraCard', () => {
         })!;
         expect(card.risk!.direction).toBe('up');
         expect(card.risk!.spark).toBeTruthy();
-        // Three points, first at x=0, last at x=84 (the shared sparkline width).
+        // Three points, inset by 2 units on both sides like the panel's
+        // `sparklineHTML` — the shape must match the Risk tab and the City.
         expect(card.risk!.spark!.split(' ')).toHaveLength(3);
-        expect(card.risk!.spark!.startsWith('0.0,')).toBe(true);
-        expect(card.risk!.spark!.includes('84.0,')).toBe(true);
+        // String-for-string what `trend-ui.js` emits: the run is shifted by the
+        // pad and printed as plain numbers, so `2,` rather than `2.0,`.
+        expect(card.risk!.spark!.startsWith('2,')).toBe(true);
+        expect(card.risk!.spark!.includes('82,')).toBe(true);
+        // Degrading: the shared red ramp, the ▲ badge and the panel's tooltip.
+        expect(card.risk!.sparkColor).toBe(SPARK_DEGRADING);
+        expect(card.risk!.badge).toBe('▲ +12.0/30d');
+        expect(card.risk!.badgeTone).toBe('degrading');
+        expect(card.risk!.trendTitle).toContain('Complexity +12.0 per 30 days');
+        expect(card.risk!.trendTitle).toContain('R² 0.90');
+        expect(card.risk!.trendTitle).toContain('3 changes');
+    });
+
+    it('uses the shared trend ramp and wording for a flat or short history', () => {
+        const flat = buildAuraCard({
+            fileId: 'src/a.ts',
+            data,
+            risk: new Map([['src/a.ts', riskEntry('src/a.ts')]]),
+            trend: trend('flat'),
+        })!;
+        expect(flat.risk!.sparkColor).toBe(SPARK_FLAT);
+        expect(flat.risk!.badge).toBe('— stable');
+        expect(flat.risk!.badgeTone).toBe('flat');
+
+        const short = buildAuraCard({
+            fileId: 'src/a.ts',
+            data,
+            risk: new Map([['src/a.ts', riskEntry('src/a.ts')]]),
+            trend: { ...trend('up'), samples: 1, points: [{ hash: 'a', date: 1, complexity: 3, lines: 3, symbols: 0 }] },
+        })!;
+        expect(short.risk!.spark).toBeNull();
+        expect(short.risk!.badge).toBe('—');
+        expect(short.risk!.badgeTone).toBe('unknown');
     });
 
     it('keeps at most four reasons', () => {
