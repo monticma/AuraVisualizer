@@ -37,6 +37,8 @@ export class AuraViewProvider implements vscode.WebviewViewProvider {
 
     private view: vscode.WebviewView | undefined;
     private activeId = '';
+    /** Listeners of the current resolve — VS Code may resolve the view again. */
+    private listeners: vscode.Disposable[] = [];
 
     constructor(private readonly handlers: AuraViewHandlers) {}
 
@@ -60,12 +62,27 @@ export class AuraViewProvider implements vscode.WebviewViewProvider {
     }
 
     resolveWebviewView(view: vscode.WebviewView): void {
+        // A re-resolved view must not stack a second set of listeners: a click
+        // would then open the same file twice.
+        for (const listener of this.listeners) listener.dispose();
+        this.listeners = [];
+
         this.view = view;
         view.webview.options = { enableScripts: true };
         view.webview.html = renderHtml();
 
-        view.webview.onDidReceiveMessage((message: { type?: string; id?: string; tab?: string }) => {
+        const onMessage = view.webview.onDidReceiveMessage((message: { type?: string; id?: string; tab?: string }) => {
             if (!message || typeof message.type !== 'string') return;
+            if (message.type === 'ready') {
+                // Handshake from the script: only now is there a listener to
+                // receive the state. Without it, collapsing and re-expanding
+                // the section left the fresh webview on "Loading…" — the
+                // `postState()` that used to follow `html =` was sent before
+                // the scripts existed, and `setActiveFile()` stays silent when
+                // the file did not change.
+                this.postState();
+                return;
+            }
             if (message.type === 'open' && typeof message.id === 'string') {
                 this.handlers.openFile(message.id);
             } else if (message.type === 'view' && (message.tab === 'graph' || message.tab === 'city' || message.tab === 'treemap')) {
@@ -77,11 +94,19 @@ export class AuraViewProvider implements vscode.WebviewViewProvider {
             }
         });
 
-        view.onDidDispose(() => {
-            this.view = undefined;
+        // Not every VS Code version re-resolves the provider when a hidden
+        // section comes back; when the content survived, a visibility change is
+        // the only signal we get.
+        const onVisibility = view.onDidChangeVisibility(() => {
+            if (view.visible) this.postState();
         });
 
-        // The section may be revealed long after the last analysis.
+        const onDispose = view.onDidDispose(() => {
+            this.view = undefined;
+        });
+        this.listeners.push(onMessage, onVisibility, onDispose);
+
+        // Harmless when it is lost: the `ready` message above is the guarantee.
         this.postState();
     }
 
@@ -521,6 +546,11 @@ function renderHtml(): string {
         var message = event.data || {};
         if (message.type === 'state') render(message);
     });
+
+    // Ask for the state now that the listener exists. The host answers with the
+    // current card, so a rebuilt webview (the section was collapsed) never sits
+    // on "Loading…".
+    vscode.postMessage({ type: 'ready' });
 })();
 </script>
 </body>
