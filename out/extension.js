@@ -1824,17 +1824,48 @@ Fan-in: ${t.node.fanIn} / Fan-out: ${t.node.fanOut}`)}},pi=class{_onDidChangeTre
         }
 
         var rows = Math.max(1, out.length, inbound.length);
+        // The SVG clips anything outside its viewBox, and the sidebar is ~230 px
+        // wide: a label anchored outside a column used to lose its beginning
+        // (left) or its end (right) with no sign that it had been cut. The
+        // columns sit closer to the centre, each label gets a measured budget
+        // and anything longer ends on an ellipsis; the tooltip keeps the path.
         var W = 260;
         var H = Math.max(52, 30 + (rows - 1) * 20);
+        var LABEL_FONT = 9.5;      // must match the .conn text rule in the CSS
+        var CHARS_PER_EM = 0.6;    // conservative: proportional UI font
+        var LABEL_PAD = 3;         // keep the ellipse clear of the border
+        var LABEL_GAP = 6;
+        var DOT_RIGHT = 176;
+        var DOT_LEFT = 84;
         var cx = W / 2;
         var cy = H / 2;
         var svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet" role="img">';
+
+        function fit(name, room) {
+            var max = Math.max(3, Math.floor(room / (LABEL_FONT * CHARS_PER_EM)));
+            var text = String(name || '');
+            if (text.length <= max) return text;
+            // Middle-truncate: the extension survives, and so does the start of
+            // the name \u2014 history-w\u2026r.ts still reads as history-worker.ts, where
+            // history-worke\u2026 loses the one part that identifies the kind. A
+            // double extension counts as the extension: pars\u2026.test.ts says more
+            // than parsers.t\u2026.ts.
+            var parts = text.split('.');
+            var ext = parts.length > 2
+                ? '.' + parts.slice(-2).join('.')
+                : (parts.length > 1 ? '.' + parts[parts.length - 1] : '');
+            if (ext.length && ext.length + 3 <= max) {
+                return text.slice(0, max - ext.length - 1) + '\u2026' + ext;
+            }
+            return text.slice(0, max - 1) + '\u2026';
+        }
 
         function column(list, x, colour, side, total) {
             var step = list.length > 1 ? Math.min(20, (H - 22) / (list.length - 1)) : 0;
             var startY = cy - (step * (list.length - 1)) / 2;
             var anchor = side === 'right' ? 'start' : 'end';
-            var textX = side === 'right' ? x + 8 : x - 8;
+            var textX = side === 'right' ? x + LABEL_GAP : x - LABEL_GAP;
+            var room = (side === 'right' ? W - textX : textX) - LABEL_PAD;
             for (var i = 0; i < list.length; i++) {
                 var item = list[i];
                 var y = startY + i * step;
@@ -1846,7 +1877,7 @@ Fan-in: ${t.node.fanIn} / Fan-out: ${t.node.fanOut}`)}},pi=class{_onDidChangeTre
                     + '<title>' + esc(tip) + '</title>'
                     + '<circle cx="' + x + '" cy="' + y + '" r="3.4" fill="' + colour + '"/>'
                     + '<text x="' + textX + '" y="' + (y + 3.2) + '" text-anchor="' + anchor + '">'
-                    + esc(item.name) + '</text></g>';
+                    + esc(fit(item.name, room)) + '</text></g>';
             }
             if (total > list.length) {
                 var moreY = startY + (list.length - 1) * step;
@@ -1855,13 +1886,13 @@ Fan-in: ${t.node.fanIn} / Fan-out: ${t.node.fanOut}`)}},pi=class{_onDidChangeTre
             }
         }
 
-        column(out, 196, '#4fc3f7', 'right', card.outTotal);
-        column(inbound, 64, '#e0b53a', 'left', card.inTotal);
+        column(out, DOT_RIGHT, '#4fc3f7', 'right', card.outTotal);
+        column(inbound, DOT_LEFT, '#e0b53a', 'left', card.inTotal);
 
         svg += '<g class="self" data-open="' + esc(card.file.id) + '"><title>' + esc(card.file.id) + '</title>'
             + '<circle cx="' + cx + '" cy="' + cy + '" r="5" fill="#ffffff"/></g>'
             + '<text x="' + cx + '" y="' + (cy + 17) + '" text-anchor="middle" class="muted">'
-            + esc(card.file.name) + '</text>'
+            + esc(fit(card.file.name, W - 24)) + '</text>'
             + '</svg>';
 
         return '<div class="section"><div class="label">' + esc(head) + '</div><div class="conn">' + svg + '</div>'

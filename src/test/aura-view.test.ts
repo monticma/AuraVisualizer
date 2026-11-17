@@ -129,4 +129,54 @@ describe('the Aura card webview script', () => {
         view.send({ type: 'state', card: null, repo: null });
         expect(view.root().innerHTML).toContain('Analyze workspace');
     });
+
+    it('truncates a long neighbour name in the middle and keeps the path in the tooltip', () => {
+        const view = load();
+        view.send({
+            type: 'state',
+            repo: null,
+            card: {
+                ...CARD,
+                out: [{ id: 'src/graph-builders.ts', name: 'graph-builders.ts', type: 'import', confidence: 1 }],
+            },
+        });
+        const html = view.root().innerHTML;
+        expect(html).toContain('graph-bui….ts');
+        expect(html).toContain('<title>src/graph-builders.ts · import</title>');
+        expect(html).not.toContain('>graph-builders.ts<');
+    });
+
+    it('keeps every label inside the SVG viewBox', () => {
+        // The SVG clips outside its viewBox: a label anchored outside a column
+        // used to lose its start (left) or its end (right) with no ellipsis, so
+        // nothing warned that it had been cut.
+        const view = load();
+        view.send({
+            type: 'state',
+            repo: null,
+            card: {
+                ...CARD,
+                in: [
+                    { id: 'src/graph-builders.ts', name: 'graph-builders.ts', type: 'import', confidence: 1 },
+                    { id: 'src/history-worker.ts', name: 'history-worker.ts', type: 'call', confidence: 0.6 },
+                    { id: 'src/parsers.test.ts', name: 'parsers.test.ts', type: 'import', confidence: 1 },
+                ],
+                out: [{ id: 'src/base-parser.ts', name: 'base-parser.ts', type: 'import', confidence: 1 }],
+                inTotal: 3,
+                outTotal: 1,
+            },
+        });
+        const width = 260;
+        const runs = [...view.root().innerHTML.matchAll(/<text ([^>]*)>([^<]*)<\/text>/g)];
+        expect(runs.length).toBeGreaterThan(0);
+        for (const [, attributes, text] of runs) {
+            const x = Number(/x="([\d.-]+)"/.exec(attributes)?.[1]);
+            const anchor = /text-anchor="(\w+)"/.exec(attributes)?.[1] || 'start';
+            // Pessimistic advance: the view budgets with 0.6 em as well.
+            const runWidth = text.length * 0.6 * 9.5;
+            const left = anchor === 'end' ? x - runWidth : anchor === 'middle' ? x - runWidth / 2 : x;
+            expect(left).toBeGreaterThanOrEqual(0);
+            expect(left + runWidth).toBeLessThanOrEqual(width);
+        }
+    });
 });
