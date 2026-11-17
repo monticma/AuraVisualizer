@@ -9,6 +9,7 @@ import { existsSync, readFileSync, readdirSync } from 'fs';
 import { Worker } from 'worker_threads';
 import { WebviewProvider } from './webview/WebviewProvider';
 import { AuraTreeProvider } from './AuraTreeProvider';
+import { MinimapViewProvider } from './minimap/minimap-view';
 import { analyzeCodebase, scanSingleFile, scanFileSignatures, buildGraph, preParseFiles, rebuildSingleFile, buildIncrementalContext, restoreIncrementalContext, type GraphData, type GraphNode, type GraphLink, type FileInfo, type IncrementalContext, type ParseFailure } from './analyzer/index';
 import { isGitRepo, getGitRoot, getGitHead, getWorkingTreeFiles, type GitFileState } from './analyzer/git-history';
 import { computeFingerprint, fingerprintFromMeta, fingerprintMetaEntries, hashAnalysisConfig, planAnalysis, type AnalysisFingerprint } from './analyzer/fingerprint';
@@ -106,6 +107,7 @@ let gitRepoRoot: string | undefined;
 let statusBarItem: vscode.StatusBarItem | undefined;
 let refreshTimeout: ReturnType<typeof setTimeout> | undefined;
 let treeProvider: AuraTreeProvider | undefined;
+let minimapProvider: MinimapViewProvider | undefined;
 let isAnalyzing = false;
 let graphDb: GraphDB | undefined;
 let incrementalCtx: IncrementalContext | undefined;
@@ -357,6 +359,27 @@ export function activate(context: vscode.ExtensionContext): void {
     });
     context.subscriptions.push(treeView);
 
+    // Explorer minimap — a section under the file tree (`contributes.views.explorer`).
+    // The plan is computed on the host from the same `city-core` the City tab
+    // bundles, so it needs neither the Aura panel nor a 3D engine.
+    minimapProvider = new MinimapViewProvider({
+        getNodes: () => cachedGraphData?.nodes,
+        openFile: relativePath => {
+            void vscode.commands.executeCommand('auraVisualizer.openFileFromTree', relativePath);
+        },
+        runAnalysis: () => {
+            void vscode.commands.executeCommand('auraVisualizer.refresh');
+        },
+    });
+    context.subscriptions.push(
+        vscode.window.registerWebviewViewProvider(MinimapViewProvider.viewId, minimapProvider, {
+            webviewOptions: { retainContextWhenHidden: false },
+        }),
+        // The tree refreshes exactly when the graph changed: reuse that signal so
+        // the two sidebar surfaces can never disagree.
+        treeProvider.onDidChangeTreeData(() => minimapProvider?.refresh()),
+    );
+
     // Status bar — shows file & link count. The three Aura items carry a stable
     // id/name so users can hide an individual one from the status bar context
     // menu, and so other extensions can recognise them.
@@ -547,13 +570,22 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.window.onDidChangeActiveTextEditor(editor => {
             updateRiskStatusBar();
             updateArchStatusBar();
-            if (!editor || !webviewProvider?.isVisible) return;
-            if (editor.document.uri.scheme !== 'file') return;
+            if (!editor || editor.document.uri.scheme !== 'file') {
+                minimapProvider?.setActiveFile('');
+                return;
+            }
             const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
             if (!workspaceFolder) return;
             const relativePath = path.relative(workspaceFolder.uri.fsPath, editor.document.uri.fsPath)
                 .split(path.sep).join('/');
-            if (!relativePath || relativePath === '..' || relativePath.startsWith('../') || path.isAbsolute(relativePath)) return;
+            const insideWorkspace = Boolean(relativePath) &&
+                relativePath !== '..' &&
+                !relativePath.startsWith('../') &&
+                !path.isAbsolute(relativePath);
+            // The minimap outlines the edited file whether or not the panel is open.
+            minimapProvider?.setActiveFile(insideWorkspace ? relativePath : '');
+            if (!webviewProvider?.isVisible) return;
+            if (!insideWorkspace) return;
             // Files outside the analyzed graph cannot be followed.
             if (cachedGraphData &&
                 !cachedGraphData.nodes.some(node => node.id.replace(/\\/g, '/') === relativePath)) return;
@@ -2501,6 +2533,7 @@ function setupFileWatcher(context: vscode.ExtensionContext): void {
                     refreshAnalysis(context);
                 } else {
                     cachedGraphData = undefined;
+                    minimapProvider?.clear();
                 }
                 return;
             }

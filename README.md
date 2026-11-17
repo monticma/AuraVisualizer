@@ -17,17 +17,15 @@
 
 ---
 
-## What's New in 1.6.1
+## What's New in 1.6.2
 
-- **🔍 A query language, and one palette for every view.** Ask the codebase a question in one line and every view answers it.
-  - **Say it once.** `complexity > 20 and language == "typescript"`, `fanIn between 3 and 10`, `path contains "src/"`, `lastModified < 30d`, `note != ""`, field-to-field comparisons (`fanIn > fanOut`), `in` / `not in` / `startswith` / `endswith` / `contains` over **30+ fields**, with a **▾ field list** (`Ctrl`+`Space`) that names each field and its type.
-  - **Three modes, one expression.** **Highlight** dims what does not match, **Filter** hides it (links included), **Select** hands the match set to the graph and releases it on Clear — the links really come back.
-  - **It narrows every view.** The match set is the working set of the **Treemap**, the **City**, the **Matrix**, the **Chord**, **Metrics**, the **Table** and **Co-change**, so one expression means the same thing everywhere; each of those bars carries a **🔍 Query** button.
-  - **Saved queries are expressions, not modes** — each with a name you can rename inline — and the **aggregates** under the count (`Σ loc · ⌀ complexity · max fanIn`) tell you what is in there before you switch tab.
-  - **The palette is a floating window** with a remembered position: it stays open across tabs, survives a reload, and no longer floats on top of the other windows.
-- **🖱️ Right-click a file, anywhere.** In **Treemap**, **Matrix**, **Metrics**, **Table**, **Risk**, **Co-change** and on a **City building**, a **left click selects** — the row lights up, the graph remembers it — and a **right click opens the same three-entry menu at the cursor**: **📄 Open source**, **✦ 3D Graph**, **🏙️ City** (**🗺️ Treemap** from the City, where you already are). Nothing opens on a plain click any more, so a list can be read, sorted and compared without leaving the tab; `Esc` or a click elsewhere closes the menu.
-- **💠 Centrality you can actually see.** The halo alone sat in the camera plane at the same radius as the amber dirty ring and the note ring — three circular glows that washed each other out. The **top 10% PageRank files** now also wear a **tilted dashed orbit** drawn outside those rings and a **moon** circling it: motion is a cue no other indicator uses. Moons are phase-shifted per file so neighbours don't blink in lockstep, dropped above 240 haloed files (the ring stays), and frozen under `prefers-reduced-motion`.
-- **🧱 Menus above tooltips.** The hover tooltips of Treemap and Matrix were drawn at the cursor, over the popover. The layer order is now explicit (graph tooltip 300 · float windows 200–280 · hover tooltips 1000 · menus 1200 · modals 2000) and a menu open anywhere hides every hover tooltip until it closes.
+- **🧭 The city, in the sidebar.** A new **Aura Minimap** section sits under the file tree of the **Explorer** — collapsed, expanded, resized or closed like any other section, and it needs neither the Aura panel nor a tab to be open.
+  - **A plan, not a second renderer.** The host computes the same `layoutCity()` the City tab uses (complexity for height, lines of code for footprint, folders for districts) and sends plain rectangles; the sidebar draws them in 2D. There is no camera to mirror and no WebGL context to lose.
+  - **Click a building** to open the file — the same command the file tree uses, so it honours your editor settings; **hover** reads the full path, and the file you are editing is outlined in **white**.
+  - **What you see at a glance:** districts as blocks, the height ramp as the fill, and documentation, data, config and assets muted — the same "ranked / not ranked" distinction the City makes.
+  - **Never stale** — it refreshes on the same signal as the codebase tree — and **cheap**: past **4 000** buildings it keeps the largest footprints and says so in the caption instead of drawing a grey mush.
+
+_Previously in 1.6.1: a query language and one floating palette for every view, right-click a file in any list or on a City building, the tilted centrality orbit and its moon, and menus drawn above the hover tooltips._
 
 _Previously in 1.6.0: Code City — the same graph read as a city, in its own tab with its own scene, hot band, relation-coloured selection, district drill-down, function granularity and a postcard export — Risk score v2 (rework volume, recency, authors, fix ratio), one toolbar shell and one control vocabulary in every bar, organised Settings and a searchable two-pane Help, and one Export menu per view next to a single ◫ View in._
 
@@ -405,6 +403,19 @@ Toggle with the **🗺️ Map** button in the toolbar. A floating minimap displa
 - **Drag** inside the minimap — pan the camera in the 3D view
 - **Drag the header** — reposition the minimap panel
 - **Close** with the ✕ button or toggle the toolbar button
+
+### Aura Minimap in the Explorer 🧭
+
+The **Explorer** carries an **Aura Minimap** section, right under the file tree — collapse it when you want the tree's height back, expand it when you want to see the shape of the repository while you work:
+
+- **Always there.** It lives in the Explorer container, not in the Aura panel: no tab to open, no analysis tab to switch to, and it keeps working with the panel closed
+- **A plan of the same city.** Heights are complexity, footprints are lines of code, districts are folders — the City tab's own defaults — computed on the host and drawn in 2D, so there is no camera to mirror and no WebGL context to lose
+- **Click a building** to open the file (the same "open from the tree" command, `preview` tab included); **hover** reads the full path in the caption; the file you are editing is outlined in **white**
+- **Ranked / not ranked** at a glance: documentation, data, config and assets are muted, exactly like the City's grey glass
+- **Never stale** — it refreshes on the same signal as the codebase tree, and clears when the graph is dropped
+- **Capped at 4 000 buildings** (largest footprints win) so a huge repository still draws instantly; the caption then reads `N files · top 4 000 drawn`
+
+> The 🗺️ **Map** button inside the panel is a different tool: it follows the camera of the 3D graph or of the City. The **Aura Minimap** is the repo's floor plan, available before you open anything.
 
 ### Warp Points 🌀
 

@@ -32,6 +32,17 @@ Treemap, Matrix, Metrics (the top-file bars), Table, Risk and Co-change share on
 
 There is no double-click gesture any more: one click selects, the menu acts.
 
+### Aura Minimap in the Explorer
+
+The **Explorer** carries an **Aura Minimap** section under the file tree — collapse it when you need the tree's height back, expand it when you want the shape of the repository in view:
+
+- It lives in the sidebar, so it is available **before you open anything**, and it needs neither the Aura panel nor a tab.
+- What it draws is a **plan**, computed on the host from the same layout the City tab uses: heights = complexity, footprints = lines of code, districts = folders. Documentation, data, config and assets are muted.
+- **Click** a building to open the file, **hover** to read its path; the file you are editing is outlined in **white**.
+- Past **4 000** buildings it keeps the largest footprints and the caption says `top 4 000 drawn`.
+
+The 🗺️ **Map** button inside the panel is a different tool — it follows the 3D or City camera. The sidebar minimap is the repository's floor plan.
+
 ### Exports
 
 Every view carries an **📤 Export** in its bar, and the menu lists what *that* view can say: CSV of the cells (Treemap, Table), Markdown of the dependency list (Matrix), SVG of the diagram and CSV of the flows (Chord), CSV of the series (Timeline), CSV of the pairs (Co-change), Markdown of the summary (Metrics). The 3D Graph exports a PNG and an AI context, the City a PNG or a postcard. Risk and Architecture keep their one-click Markdown report. Each export offers **Save…** or **Copy to clipboard**.
