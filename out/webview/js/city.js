@@ -1510,9 +1510,11 @@
                 var id = shown[i];
                 svg += '<line class="city-rel-link" x1="' + cx + '" y1="' + cy + '" x2="' + x + '" y2="' + y
                     + '" stroke="' + colour + '"/>';
-                svg += '<g class="city-rel" data-city-goto="' + escapeHtml(id) + '"><title>' + escapeHtml(id) + '</title>'
-                    + '<circle cx="' + x + '" cy="' + y + '" r="4" fill="' + colour + '"/>'
-                    + '<text x="' + textX + '" y="' + (y + 3.2) + '" text-anchor="' + anchor + '">'
+                svg += '<g class="city-rel"><title>' + escapeHtml(id) + '</title>'
+                    + '<circle cx="' + x + '" cy="' + y + '" r="4" fill="' + colour + '"'
+                    + ' data-city-goto="' + escapeHtml(id) + '"/>'
+                    + '<text x="' + textX + '" y="' + (y + 3.2) + '" text-anchor="' + anchor + '"'
+                    + ' data-city-open="' + escapeHtml(id) + '">'
                     + escapeHtml(shortName(id)) + '</text></g>';
             }
             if (overflow) {
@@ -1531,8 +1533,8 @@
         svg += '</svg>';
 
         return '<div class="city-side-section">' + label + svg
-            + '<div class="city-rel-legend"><span class="rel-out">● depends on</span>'
-            + '<span class="rel-in">● used by</span></div>' + docNote + '</div>';
+            + '<div class="city-rel-legend"><span class="rel-in">● used by</span>'
+            + '<span class="rel-out">● depends on</span></div>' + docNote + '</div>';
     }
 
     function shortName(id, max) {
@@ -1843,10 +1845,18 @@
         if (!side) return;
         side.addEventListener('click', function (event) {
             var target = event.target;
-            while (target && target !== side && !target.getAttribute('data-city-goto') && !target.getAttribute('data-city-action')) {
+            while (target && target !== side && !target.getAttribute('data-city-goto')
+                && !target.getAttribute('data-city-open') && !target.getAttribute('data-city-action')) {
                 target = target.parentNode;
             }
             if (!target || target === side || !target.getAttribute) return;
+            // A name in the relation map is a link to that file, exactly like
+            // the Explorer card; the dot next to it still moves the camera.
+            var open = target.getAttribute('data-city-open');
+            if (open) {
+                openFileInEditor(open);
+                return;
+            }
             var goto = target.getAttribute('data-city-goto');
             if (goto) {
                 if (state.byId[goto]) selectBuilding({ id: goto });

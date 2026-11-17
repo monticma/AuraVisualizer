@@ -146,6 +146,15 @@ describe('the Aura card webview script', () => {
         expect(html).not.toContain('>graph-builders.ts<');
     });
 
+    it('orders the legend like the drawing: dependents left, dependencies right', () => {
+        const view = load();
+        view.send({ type: 'state', card: CARD, repo: null });
+        const html = view.root().innerHTML;
+        // Dependents (amber) are drawn on the left, so "used by" must come first.
+        expect(html.indexOf('● used by')).toBeGreaterThan(-1);
+        expect(html.indexOf('● used by')).toBeLessThan(html.indexOf('● depends on'));
+    });
+
     it('keeps every label inside the SVG viewBox', () => {
         // The SVG clips outside its viewBox: a label anchored outside a column
         // used to lose its start (left) or its end (right) with no ellipsis, so

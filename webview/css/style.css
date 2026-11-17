@@ -5471,6 +5471,18 @@ select option {
     pointer-events: none;
 }
 
+/* The name is a link to that file (same gesture as the Explorer card); the dot
+   keeps the old behaviour and moves the camera to that building. */
+.city-rel text[data-city-open] {
+    pointer-events: auto;
+    cursor: pointer;
+}
+
+.city-rel text[data-city-open]:hover {
+    fill: #ffffff;
+    text-decoration: underline;
+}
+
 .city-rel:hover text { fill: #ffffff; }
 
 .city-rel-self {

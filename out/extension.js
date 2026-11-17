@@ -1896,8 +1896,10 @@ Fan-in: ${t.node.fanIn} / Fan-out: ${t.node.fanOut}`)}},pi=class{_onDidChangeTre
             + '</svg>';
 
         return '<div class="section"><div class="label">' + esc(head) + '</div><div class="conn">' + svg + '</div>'
-            + '<div class="legend"><span class="out">\u25CF depends on</span>'
-            + '<span class="in">\u25CF used by</span></div>' + docs + '</div>';
+            // Legend order follows the drawing: dependents sit on the left, so
+            // "used by" comes first; "depends on" (blue) sits on the right.
+            + '<div class="legend"><span class="in">\u25CF used by</span>'
+            + '<span class="out">\u25CF depends on</span></div>' + docs + '</div>';
     }
 
     function renderCard(card) {
