@@ -9,7 +9,9 @@ import { existsSync, readFileSync, readdirSync } from 'fs';
 import { Worker } from 'worker_threads';
 import { WebviewProvider } from './webview/WebviewProvider';
 import { AuraTreeProvider } from './AuraTreeProvider';
-import { MinimapViewProvider } from './minimap/minimap-view';
+import { AuraViewProvider } from './sidebar/aura-view';
+import { buildAuraCard, buildAuraRepo } from './sidebar/aura-card';
+import { buildFileTrends, type FileTrend, type TrendDeltas } from './analysis/trend';
 import { analyzeCodebase, scanSingleFile, scanFileSignatures, buildGraph, preParseFiles, rebuildSingleFile, buildIncrementalContext, restoreIncrementalContext, type GraphData, type GraphNode, type GraphLink, type FileInfo, type IncrementalContext, type ParseFailure } from './analyzer/index';
 import { isGitRepo, getGitRoot, getGitHead, getWorkingTreeFiles, type GitFileState } from './analyzer/git-history';
 import { computeFingerprint, fingerprintFromMeta, fingerprintMetaEntries, hashAnalysisConfig, planAnalysis, type AnalysisFingerprint } from './analyzer/fingerprint';
@@ -107,7 +109,9 @@ let gitRepoRoot: string | undefined;
 let statusBarItem: vscode.StatusBarItem | undefined;
 let refreshTimeout: ReturnType<typeof setTimeout> | undefined;
 let treeProvider: AuraTreeProvider | undefined;
-let minimapProvider: MinimapViewProvider | undefined;
+let auraProvider: AuraViewProvider | undefined;
+/** Per-file complexity trends, rebuilt when the graph or the history changes. */
+let auraTrends: Record<string, FileTrend> | undefined;
 let isAnalyzing = false;
 let graphDb: GraphDB | undefined;
 let incrementalCtx: IncrementalContext | undefined;
@@ -359,25 +363,48 @@ export function activate(context: vscode.ExtensionContext): void {
     });
     context.subscriptions.push(treeView);
 
-    // Explorer minimap — a section under the file tree (`contributes.views.explorer`).
-    // The plan is computed on the host from the same `city-core` the City tab
-    // bundles, so it needs neither the Aura panel nor a 3D engine.
-    minimapProvider = new MinimapViewProvider({
-        getNodes: () => cachedGraphData?.nodes,
+    // Explorer section — the card of the active file (`contributes.views.explorer`).
+    // Metrics, risk (score, reasons, sparkline) and the relation map all come
+    // from caches the host already keeps, so the card works with the Aura panel
+    // closed and costs one message per editor switch.
+    auraProvider = new AuraViewProvider({
+        getGraph: () => cachedGraphData ?? undefined,
+        getCard: fileId => (cachedGraphData ? buildAuraCard({
+            fileId,
+            data: cachedGraphData,
+            risk: ensureRiskSnapshot()?.byId,
+            trend: auraTrendFor(fileId),
+            dirty: workingTreeFiles,
+            parseFailures: parseFailureIndex,
+        }) : null),
+        getRepo: () => (cachedGraphData ? buildAuraRepo({
+            data: cachedGraphData,
+            risk: ensureRiskSnapshot()?.byId,
+            dirty: workingTreeFiles,
+        }) : null),
         openFile: relativePath => {
             void vscode.commands.executeCommand('auraVisualizer.openFileFromTree', relativePath);
+        },
+        focusInAura: () => {
+            void vscode.commands.executeCommand('auraVisualizer.focusFile');
+        },
+        blastRadius: relativePath => {
+            const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+            if (!workspaceFolder) return;
+            const uri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, relativePath));
+            void vscode.commands.executeCommand('auraVisualizer.blastRadius', uri);
         },
         runAnalysis: () => {
             void vscode.commands.executeCommand('auraVisualizer.refresh');
         },
     });
     context.subscriptions.push(
-        vscode.window.registerWebviewViewProvider(MinimapViewProvider.viewId, minimapProvider, {
+        vscode.window.registerWebviewViewProvider(AuraViewProvider.viewId, auraProvider, {
             webviewOptions: { retainContextWhenHidden: false },
         }),
         // The tree refreshes exactly when the graph changed: reuse that signal so
         // the two sidebar surfaces can never disagree.
-        treeProvider.onDidChangeTreeData(() => minimapProvider?.refresh()),
+        treeProvider.onDidChangeTreeData(() => auraProvider?.refresh()),
     );
 
     // Status bar — shows file & link count. The three Aura items carry a stable
@@ -571,7 +598,7 @@ export function activate(context: vscode.ExtensionContext): void {
             updateRiskStatusBar();
             updateArchStatusBar();
             if (!editor || editor.document.uri.scheme !== 'file') {
-                minimapProvider?.setActiveFile('');
+                auraProvider?.setActiveFile('');
                 return;
             }
             const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
@@ -582,8 +609,8 @@ export function activate(context: vscode.ExtensionContext): void {
                 relativePath !== '..' &&
                 !relativePath.startsWith('../') &&
                 !path.isAbsolute(relativePath);
-            // The minimap outlines the edited file whether or not the panel is open.
-            minimapProvider?.setActiveFile(insideWorkspace ? relativePath : '');
+            // The sidebar card follows the editor whether or not the panel is open.
+            auraProvider?.setActiveFile(insideWorkspace ? relativePath : '');
             if (!webviewProvider?.isVisible) return;
             if (!insideWorkspace) return;
             // Files outside the analyzed graph cannot be followed.
@@ -1629,7 +1656,24 @@ async function writeAgentContext(options: { interactive: boolean }): Promise<voi
 
 function invalidateRisk(): void {
     riskSnapshotDirty = true;
+    auraTrends = undefined;
     updateRiskStatusBar();
+}
+
+/**
+ * Complexity trends for every file, built once per invalidation from the history
+ * deltas already cached on disk (`.aura/history`). `DeltaNodeState` is a
+ * superset of `TrendFileState` — the extra symbol shape is simply not read by
+ * the regression — so the cast copies nothing on a repository with thousands of
+ * deltas.
+ */
+function auraTrendFor(fileId: string): FileTrend | undefined {
+    if (!auraTrends) {
+        const deltas: TrendDeltas = {};
+        for (const delta of cachedDeltas) deltas[delta.hash] = delta as unknown as TrendDeltas[string];
+        auraTrends = buildFileTrends(commitIndex?.commits ?? [], deltas);
+    }
+    return auraTrends[fileId];
 }
 
 /**
@@ -2533,7 +2577,7 @@ function setupFileWatcher(context: vscode.ExtensionContext): void {
                     refreshAnalysis(context);
                 } else {
                     cachedGraphData = undefined;
-                    minimapProvider?.clear();
+                    auraProvider?.clear();
                 }
                 return;
             }

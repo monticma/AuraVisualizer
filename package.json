@@ -464,8 +464,8 @@
       "explorer": [
         {
           "type": "webview",
-          "id": "auraVisualizer.minimapView",
-          "name": "Aura Minimap"
+          "id": "auraVisualizer.auraView",
+          "name": "Aura"
         }
       ]
     },

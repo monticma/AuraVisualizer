@@ -32,16 +32,17 @@ Treemap, Matrix, Metrics (the top-file bars), Table, Risk and Co-change share on
 
 There is no double-click gesture any more: one click selects, the menu acts.
 
-### Aura Minimap in the Explorer
+### Aura in the Explorer
 
-The **Explorer** carries an **Aura Minimap** section under the file tree — collapse it when you need the tree's height back, expand it when you want the shape of the repository in view:
+The **Explorer** carries an **Aura** section under the file tree. It reads the file you are editing and puts the 3D detail panel's metrics next to the City inspector's risk block:
 
-- It lives in the sidebar, so it is available **before you open anything**, and it needs neither the Aura panel nor a tab.
-- What it draws is a **plan**, computed on the host from the same layout the City tab uses: heights = complexity, footprints = lines of code, districts = folders. Documentation, data, config and assets are muted.
-- **Click** a building to open the file, **hover** to read its path; the file you are editing is outlined in **white**.
-- Past **4 000** buildings it keeps the largest footprints and the caption says `top 4 000 drawn`.
+- **Identity and metrics** — file name, folder, `LOC · complexity · cognitive · fan-in / fan-out`. Click the name to open the file.
+- **Flags**, only when true: `✏ modified`, `⚠ parse error`, `⟳ N cycles`, `☠ N dead exports`, `🏛 N violations`.
+- **Risk** — the score, its bucket, the **written reasons**, and the **complexity sparkline** (`↗ worse` / `↘ better`) once `.aura/history` has been scanned.
+- **Connections** — the City inspector's relation map: **dependencies on the right in blue**, **dependents on the left in amber**, documentation references counted apart. Every dot shows its path and edge type on hover and **opens the file** on click.
+- **Actions** — **⌖ Focus in Aura** and **💥 Blast**.
 
-The 🗺️ **Map** button inside the panel is a different tool — it follows the 3D or City camera. The sidebar minimap is the repository's floor plan.
+It follows the editor: switching tabs rebuilds the card. With no analyzed file open it falls back to a repository summary — files, links, the riskiest files, and how many are in cycles, dead, in violation or uncommitted. It is fed by caches the host already keeps, so it works with the Aura panel closed.
 
 ### Exports
 

@@ -19,11 +19,11 @@
 
 ## What's New in 1.6.2
 
-- **🧭 The city, in the sidebar.** A new **Aura Minimap** section sits under the file tree of the **Explorer** — collapsed, expanded, resized or closed like any other section, and it needs neither the Aura panel nor a tab to be open.
-  - **A plan, not a second renderer.** The host computes the same `layoutCity()` the City tab uses (complexity for height, lines of code for footprint, folders for districts) and sends plain rectangles; the sidebar draws them in 2D. There is no camera to mirror and no WebGL context to lose.
-  - **Click a building** to open the file — the same command the file tree uses, so it honours your editor settings; **hover** reads the full path, and the file you are editing is outlined in **white**.
-  - **What you see at a glance:** districts as blocks, the height ramp as the fill, and documentation, data, config and assets muted — the same "ranked / not ranked" distinction the City makes.
-  - **Never stale** — it refreshes on the same signal as the codebase tree — and **cheap**: past **4 000** buildings it keeps the largest footprints and says so in the caption instead of drawing a grey mush.
+- **🧭 Aura, in the Explorer.** A new **Aura** section sits under the file tree and reads the file you are editing: one card with its metrics, its **risk score and the written reasons** behind it, the **complexity sparkline**, its flags (cycle, dead exports, architecture violations, uncommitted, parse error) and the **connection map** the City inspector draws — dependencies on the right in blue, dependents on the left in amber.
+  - **It knows where you are.** Switching editor tabs rebuilds the card. There is nothing to select, and nothing to point at one by one.
+  - **Read it, then act.** **⌖ Focus in Aura** opens the panel on that file, **💥 Blast** shows what would break, and clicking any name — the file's own or a neighbour's — opens it in the editor.
+  - **No file open? It falls back to the repository:** files and links, the riskiest files with their scores, how many are in cycles, dead, in violation or uncommitted.
+  - **Free of charge.** Everything on the card comes from caches the host already keeps — the graph, the risk snapshot, the `.aura/history` deltas — so it works with the Aura panel closed and costs one message per editor switch.
 
 _Previously in 1.6.1: a query language and one floating palette for every view, right-click a file in any list or on a City building, the tilted centrality orbit and its moon, and menus drawn above the hover tooltips._
 
@@ -404,18 +404,23 @@ Toggle with the **🗺️ Map** button in the toolbar. A floating minimap displa
 - **Drag the header** — reposition the minimap panel
 - **Close** with the ✕ button or toggle the toolbar button
 
-### Aura Minimap in the Explorer 🧭
+### Aura in the Explorer 🧭
 
-The **Explorer** carries an **Aura Minimap** section, right under the file tree — collapse it when you want the tree's height back, expand it when you want to see the shape of the repository while you work:
+The **Explorer** carries an **Aura** section right under the file tree. It is a read-out of the file you are editing — the 3D detail panel's metrics and the City inspector's risk block, in one card you never have to open a tab for:
 
-- **Always there.** It lives in the Explorer container, not in the Aura panel: no tab to open, no analysis tab to switch to, and it keeps working with the panel closed
-- **A plan of the same city.** Heights are complexity, footprints are lines of code, districts are folders — the City tab's own defaults — computed on the host and drawn in 2D, so there is no camera to mirror and no WebGL context to lose
-- **Click a building** to open the file (the same "open from the tree" command, `preview` tab included); **hover** reads the full path in the caption; the file you are editing is outlined in **white**
-- **Ranked / not ranked** at a glance: documentation, data, config and assets are muted, exactly like the City's grey glass
-- **Never stale** — it refreshes on the same signal as the codebase tree, and clears when the graph is dropped
-- **Capped at 4 000 buildings** (largest footprints win) so a huge repository still draws instantly; the caption then reads `N files · top 4 000 drawn`
+| Block | What it says |
+|---|---|
+| **Identity** | file name, folder, `LOC · complexity · cognitive · fan-in / fan-out` — click the name to open the file |
+| **Flags** | `✏ modified` `⚠ parse error` `⟳ N cycles` `☠ N dead exports` `🏛 N violations` — only when something is true |
+| **Risk** | the score the Risk tab ranks by, its bucket, the **written reasons**, the `commits · rewritten · fixes · authors` line and the **complexity sparkline** (`↗ worse` / `↘ better`) when `.aura/history` has been scanned |
+| **Connections** | the City inspector's relation map: dependencies on the right in **blue**, dependents on the left in **amber**, documentation references counted apart. Every dot carries its path and its edge type in the tooltip, and **opens the file** on click |
+| **Actions** | **⌖ Focus in Aura** (the panel lands on that file), **💥 Blast** (everything impacted if it changes) |
 
-> The 🗺️ **Map** button inside the panel is a different tool: it follows the camera of the 3D graph or of the City. The **Aura Minimap** is the repo's floor plan, available before you open anything.
+- **It follows the editor** — switch tabs and the card changes. No selection to make, nothing to hover one by one.
+- **With no analyzed file open** it becomes a repository summary: files and links, the riskiest files with their scores, and how many files are in cycles, dead, in violation or uncommitted.
+- **Nothing is recomputed for it**: the graph, the risk snapshot and the `.aura/history` deltas are already in memory, so the card works with the Aura panel closed.
+
+> The 🗺️ **Map** button inside the panel is a different tool: it follows the camera of the 3D graph or of the City. The **Connections** map is about one file's neighbourhood, not about the whole repository.
 
 ### Warp Points 🌀
 
