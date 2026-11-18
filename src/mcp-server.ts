@@ -28,6 +28,7 @@ import { GraphDB } from './graph-db';
 import { runAuraToolAsync } from './ai/tools';
 import { withAnchor } from './ai/anchors';
 import { buildRiskSnapshot, type RiskServiceCommit } from './risk/risk-service';
+import { resolutionMarkdown, type ResolutionReport } from './analysis/resolution';
 import {
     ARCH_BASELINE_FILE,
     ARCH_RULES_FILE,
@@ -244,6 +245,16 @@ const TOOLS = [
         inputSchema: { type: 'object' as const, properties: {} },
     },
     {
+        name: 'get_resolution',
+        description: 'Resolution report: what the analysis read, parsed, resolved, guessed and could not resolve — with a code per reason (bare-specifier = an external dependency outside the repository, missing-file, outside-root, no-tsconfig, unparsed-file, ambiguous) — plus the blind spots it cannot see at all. Call it before trusting an empty answer from find_dependents / find_cycles, or when asked how reliable this graph is. format="markdown" returns the same report ready to paste into a pull request.',
+        inputSchema: {
+            type: 'object' as const,
+            properties: {
+                format: { type: 'string', enum: ['json', 'markdown'], description: 'json (default) or markdown' },
+            },
+        },
+    },
+    {
         name: 'explain_file',
         description: 'One-call file briefing: language, size, complexity, fan-in/out, page rank, risk score with reasons, cycles, dead or unused symbols, incoming/outgoing call sites, dependencies/dependents, heritage, co-change partners and the architectural community. Use it instead of chaining several find_* calls when you need to understand a single file.',
         inputSchema: {
@@ -317,7 +328,68 @@ const AURA_TOOL_BY_MCP: Record<string, string> = {
     list_repositories: 'aura_list_repositories',
 };
 
+/**
+ * The report persists as `meta.resolution` — one row, so reading it costs a
+ * single query instead of a full graph export (which would be absurd on every
+ * tool call).
+ */
+function readResolutionReport(db: GraphDB): ResolutionReport | undefined {
+    const raw = db.getMeta('resolution');
+    if (!raw) return undefined;
+    try {
+        const parsed = JSON.parse(raw) as ResolutionReport;
+        return parsed && typeof parsed === 'object' ? parsed : undefined;
+    } catch {
+        return undefined;
+    }
+}
+
+/**
+ * The compact stamp every tool answer carries: six numbers, no samples. An agent
+ * that gets "no dependents" must be able to see whether the graph was able to
+ * say so.
+ */
+function coverageStamp(db: GraphDB): Record<string, unknown> | undefined {
+    const report = readResolutionReport(db);
+    if (!report) return undefined; // written by an older Aura: "not measured", not "zero"
+    const stamp: Record<string, unknown> = {
+        files: report.scan?.scanned ?? 0,
+        parsed_failed: report.parsed?.failed ?? 0,
+        edges: report.totals?.resolved ?? 0,
+        guessed: report.totals?.guessed ?? 0,
+        unresolved: report.totals?.unresolved ?? 0,
+        bare_specifiers: report.codes?.find(code => code.code === 'bare-specifier')?.count ?? 0,
+        analyzed_at: db.getMeta('analyzedAt') || undefined,
+    };
+    const warnings: string[] = [];
+    if (stamp.parsed_failed) {
+        warnings.push(`${stamp.parsed_failed} file${stamp.parsed_failed === 1 ? '' : 's'} failed to parse`);
+    }
+    if (stamp.unresolved) {
+        warnings.push(`${stamp.unresolved} relation${stamp.unresolved === 1 ? '' : 's'} unresolved`
+            + (stamp.bare_specifiers ? ` (${stamp.bare_specifiers} bare specifier${stamp.bare_specifiers === 1 ? '' : 's'}, outside the repository)` : ''));
+    }
+    if (warnings.length) {
+        stamp.warning = warnings.join(' and ') + ': an empty result is not a proof of absence.';
+    }
+    return stamp;
+}
+
+/**
+ * Every structured answer carries the coverage stamp: six counts and, when
+ * something is off, one sentence saying what an empty result does *not* prove.
+ * `get_resolution` is exempt — the report **is** the coverage.
+ */
 async function handleTool(db: GraphDB, name: string, args: Record<string, unknown>): Promise<unknown> {
+    const result = await handleToolInner(db, name, args);
+    if (name === 'get_resolution') return result;
+    if (!result || typeof result !== 'object' || Array.isArray(result)) return result;
+    const stamp = coverageStamp(db);
+    if (!stamp) return result;
+    return { ...(result as Record<string, unknown>), coverage: stamp };
+}
+
+async function handleToolInner(db: GraphDB, name: string, args: Record<string, unknown>): Promise<unknown> {
     if (name === 'get_architecture_violations') {
         const root = resolve(dirname(DB_PATH!), '..');
         const rulesPath = join(root, ARCH_RULES_FILE);
@@ -368,6 +440,20 @@ async function handleTool(db: GraphDB, name: string, args: Record<string, unknow
             violations_total: list.length,
             truncated: list.length > limit,
         };
+    }
+
+    if (name === 'get_resolution') {
+        const report = readResolutionReport(db);
+        if (!report) {
+            return {
+                measured: false,
+                hint: 'This database was written before Aura measured resolution. Re-run "Aura: Visualize Codebase" to produce the report.',
+            };
+        }
+        if (args.format === 'markdown') {
+            return { measured: true, format: 'markdown', markdown: resolutionMarkdown(report) };
+        }
+        return { measured: true, ...report };
     }
 
     const auraName = AURA_TOOL_BY_MCP[name];

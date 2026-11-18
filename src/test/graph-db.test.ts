@@ -5,6 +5,7 @@ import { initTreeSitter } from '../analyzer/tree-sitter-loader';
 import { runAuraTool } from '../ai/tools';
 import { makeFileInfo } from './helpers';
 import type { GraphData, GraphNode, GraphLink } from '../analyzer/types';
+import { emptyScanCounters, sumResolution } from '../analysis/resolution';
 import { join } from 'path';
 import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
@@ -890,5 +891,80 @@ describe('GraphDB — saved queries', () => {
         await again.open(path);
         expect(again.listSavedQueries().map(q => q.name)).toEqual(['Kept']);
         again.close();
+    });
+});
+
+describe('GraphDB — resolution report', () => {
+    let db: GraphDB;
+    let tmpDir: string;
+
+    beforeEach(async () => {
+        tmpDir = mkdtempSync(join(tmpdir(), 'aura-res-'));
+        db = new GraphDB();
+        await db.open(join(tmpDir, 'graph.db'));
+    });
+
+    afterEach(() => {
+        db.close();
+        rmSync(tmpDir, { recursive: true, force: true });
+    });
+
+    it('stores per-file counters and swaps exactly one row', async () => {
+        const graph = await makeTestGraph();
+        const report = sumResolution({
+            entries: [
+                { attempts: { import: 2 }, resolved: { import: 1 }, methods: { exact: 1 }, codes: { 'bare-specifier': 1 }, samples: [] },
+            ],
+            scan: { ...emptyScanCounters(), scanned: 4, skippedDirs: ['node_modules'], skippedDirHits: 1 },
+            parsedTotal: 4,
+            parsedFailed: 0,
+        });
+        graph.meta.resolution = report;
+        db.importGraphData(graph, {
+            'main.c': { attempts: { include: 1 }, resolved: { include: 1 }, methods: { relative: 1 }, codes: {}, samples: [] },
+            'utils.c': { attempts: { include: 1 }, resolved: {}, methods: {}, codes: { 'missing-file': 1 }, samples: [] },
+        });
+
+        expect(Object.keys(db.getFileResolution()).sort()).toEqual(['main.c', 'utils.c']);
+
+        // One file re-analysed: only its row moves.
+        db.setFileResolution('utils.c', {
+            attempts: { include: 2 }, resolved: { include: 2 }, methods: { relative: 2 }, codes: {}, samples: [],
+        });
+        const rows = db.getFileResolution();
+        expect(rows['utils.c'].resolved.include).toBe(2);
+        expect(rows['utils.c'].codes['missing-file']).toBeUndefined();
+        expect(rows['main.c'].codes).toEqual({});
+
+        db.deleteFileResolution('main.c');
+        expect(Object.keys(db.getFileResolution())).toEqual(['utils.c']);
+    });
+
+    it('round-trips the aggregate and the scan counters through meta', async () => {
+        const graph = await makeTestGraph();
+        const report = sumResolution({
+            entries: [{ attempts: { import: 3 }, resolved: { import: 1 }, methods: { exact: 1 }, codes: { 'bare-specifier': 2 }, samples: [] }],
+            scan: { ...emptyScanCounters(), scanned: 4, skippedDirs: ['out'], skippedDirHits: 2, unsupported: 6 },
+            parsedTotal: 4,
+            parsedFailed: 1,
+        });
+        graph.meta.resolution = report;
+        graph.meta.scan = report.scan;
+        db.importGraphData(graph, {});
+
+        const loaded = db.exportGraphData();
+        expect(loaded!.meta.resolution!.totals.unresolved).toBe(2);
+        expect(loaded!.meta.resolution!.codes[0].code).toBe('bare-specifier');
+        expect(loaded!.meta.scan!.skippedDirs).toEqual(['out']);
+        expect(loaded!.meta.scan!.unsupported).toBe(6);
+    });
+
+    it('leaves the report absent on a database that never had one', async () => {
+        const graph = await makeTestGraph();
+        db.importGraphData(graph);
+        const loaded = db.exportGraphData();
+        expect(loaded!.meta.resolution).toBeUndefined();
+        expect(loaded!.meta.scan).toBeUndefined();
+        expect(db.getFileResolution()).toEqual({});
     });
 });
