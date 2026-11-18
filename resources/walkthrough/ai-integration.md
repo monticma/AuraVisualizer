@@ -71,7 +71,7 @@ Three formats, one sentence each:
 
 - **DOT** (Graphviz) — the file you attach to a design review. One `subgraph` per folder, node width from the file size, fill colour from the language, dashed edges for documentation references, and a header comment with the `unflatten -l 3 -c 5` tip that turns a hairball into a drawing.
 - **GraphML** — the file you open in Gephi, yEd or NetworkX. Typed attributes, synthetic node ids with the path in a `<data>`, folders expressed as an attribute (Gephi partitions, NetworkX without code) or as nested graphs.
-- **Mermaid** — the file you paste in a README. `graph LR`, one subgraph per folder, relation types on the edges. It is **capped** (`auraVisualizer.mermaidNodeLimit`, default 300, `0` = no limit) because a renderer that receives a thousand boxes draws nothing; when the cap bites, the file keeps the most depended-on files and ends with the number it left out.
+- **Mermaid** — the file you paste in a README. It is saved as a **fenced Markdown document** (````mermaid`), because a `.md` file holding bare Mermaid source is previewed as a single endless line: Markdown joins consecutive lines into one paragraph. It is **capped on both axes** — `auraVisualizer.mermaidNodeLimit` (default 300) and `auraVisualizer.mermaidEdgeLimit` (default 500, which is Mermaid's own ceiling: above that a renderer draws nothing), `0` lifting a cap. Nodes go by fan-in, relations by importance (inheritance and calls before `<script>`/`global-use`), and the header plus a trailing `%%` line say what was left out.
 
 **Which graph?** `Aura: Export Graph (DOT / GraphML / Mermaid)` from the palette exports the **whole** graph; the 📤 Export menu of the graph view exports **what you see** — the active filters included.
 

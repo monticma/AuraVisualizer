@@ -44,6 +44,7 @@ const SETTING_NORMALIZERS: Record<string, (v: unknown) => unknown> = {
     breadcrumbs: (v) => v === true,
     focusDistance: (v) => clampNumber(v, 40, 400, 120),
     mermaidNodeLimit: (v) => Math.round(clampNumber(v, 0, 5000, 300)),
+    mermaidEdgeLimit: (v) => Math.round(clampNumber(v, 0, 20000, 500)),
     graphClusters: (v) => (v === 'full' ? 'full' : 'first-level'),
     graphmlGroups: (v) => (v === 'nested' ? 'nested' : 'attribute'),
 };
@@ -1227,6 +1228,7 @@ export class WebviewProvider {
                     autoRefresh: config.get<boolean>('autoRefresh', true),
                     followEditor: config.get<boolean>('followEditor', true),
                     mermaidNodeLimit: Math.round(clampNumber(config.get<number>('mermaidNodeLimit', 300), 0, 5000, 300)),
+                    mermaidEdgeLimit: Math.round(clampNumber(config.get<number>('mermaidEdgeLimit', 500), 0, 20000, 500)),
                     graphClusters: config.get<string>('graphClusters', 'first-level') === 'full' ? 'full' : 'first-level',
                     graphmlGroups: config.get<string>('graphmlGroups', 'attribute') === 'nested' ? 'nested' : 'attribute',
                 }
@@ -2623,6 +2625,10 @@ export class WebviewProvider {
                         <input id="set-mermaidNodeLimit" data-setting="mermaidNodeLimit" type="number" min="0" max="5000" step="10" />
                     </div>
                     <div class="settings-row">
+                        <label for="set-mermaidEdgeLimit">Mermaid relation limit<span class="settings-hint">0 = no limit. Mermaid refuses more than 500 edges.</span></label>
+                        <input id="set-mermaidEdgeLimit" data-setting="mermaidEdgeLimit" type="number" min="0" max="20000" step="50" />
+                    </div>
+                    <div class="settings-row">
                         <label for="set-graphClusters">Folder clusters<span class="settings-hint">Subgraphs in DOT and Mermaid</span></label>
                         <select id="set-graphClusters" data-setting="graphClusters">
                             <option value="first-level">Top-level folders</option>
@@ -2968,7 +2974,7 @@ export class WebviewProvider {
                 <p><strong>Scope follows the entry point:</strong> the palette exports the <strong>whole graph</strong>; the view's menu exports <strong>what you see</strong>, active filters included — the filters on screen are the question, so the file answers it.</p>
                 <p><strong>DOT</strong> (Graphviz) is the file you attach to a review: one <code>subgraph</code> per folder, node <strong>width from the file size</strong> in five bands, fill colour from the language, dashed edges for <code>doc-reference</code> and dotted ones for guessed relations. Its header comment carries the tip that matters — <code>unflatten -l 3 -c 5 aura-graph.dot | dot -Tsvg</code> — because a thin graph otherwise draws as a hairball.</p>
                 <p><strong>GraphML</strong> is the file Gephi, yEd and NetworkX open: typed <code>&lt;key&gt;</code>s (<code>string</code>/<code>int</code>/<code>double</code>), synthetic ids <code>n0…</code> with the path in a <code>&lt;data&gt;</code>, and folders either as a <strong>group attribute</strong> (Gephi partitions, NetworkX without code) or as <strong>nested <code>&lt;graph&gt;</code></strong> elements.</p>
-                <p><strong>Mermaid</strong> is the block you paste in a README: <code>graph LR</code>, one <code>subgraph</code> per folder, relation types on the edges — and a <strong>cap</strong>, because a renderer handed a thousand boxes draws nothing. <code>auraVisualizer.mermaidNodeLimit</code> (default 300, <strong>0 = no limit</strong>) keeps the most depended-on files and ends the file with the number it left out. All three settings — the cap, <code>auraVisualizer.graphClusters</code> (<code>first-level</code> / <code>full</code>) and <code>auraVisualizer.graphmlGroups</code> (<code>attribute</code> / <code>nested</code>) — are editable in <strong>⚙️ Settings → 📤 Graph export</strong>.</p>
+                <p><strong>Mermaid</strong> is the block you paste in a README — and the file it saves <strong>is</strong> a fenced Markdown document, because bare Mermaid source in a <code>.md</code> file is previewed as one endless line (Markdown joins consecutive lines into a paragraph). <code>graph LR</code>, one <code>subgraph</code> per folder, relation types on the edges, and <strong>two caps</strong>: <code>auraVisualizer.mermaidNodeLimit</code> (default 300) and <code>auraVisualizer.mermaidEdgeLimit</code> (default 500 — Mermaid itself refuses more than 500 edges, so a bigger file renders as nothing), <strong>0 = no limit</strong> for both. Files are kept by fan-in, relations by importance (inheritance and calls first, <code>&lt;script&gt;</code>/<code>global-use</code> last), and the header says what was left out. All four settings — the two caps, <code>auraVisualizer.graphClusters</code> (<code>first-level</code> / <code>full</code>) and <code>auraVisualizer.graphmlGroups</code> (<code>attribute</code> / <code>nested</code>) — are editable in <strong>⚙️ Settings → 📤 Graph export</strong>.</p>
                 <p>Every export is <strong>deterministic</strong>: nodes sorted by path, edges by (source, target, type), clusters by name. Two exports of the same graph are byte-identical, so a diff stays readable and nothing spurious moves in your repository.</p>
                 <h3>�🔗 Edge Colors</h3>
                 <table class="help-table">

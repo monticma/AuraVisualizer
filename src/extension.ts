@@ -744,6 +744,7 @@ function readGraphFormatOptions(): GraphFormatOptions {
     const groups = config.get<string>('graphmlGroups');
     return {
         mermaidNodeLimit: Math.max(0, config.get<number>('mermaidNodeLimit') ?? DEFAULT_GRAPH_FORMAT_OPTIONS.mermaidNodeLimit),
+        mermaidEdgeLimit: Math.max(0, config.get<number>('mermaidEdgeLimit') ?? DEFAULT_GRAPH_FORMAT_OPTIONS.mermaidEdgeLimit),
         clusters: clusters === 'full' ? 'full' : 'first-level',
         graphmlGroups: groups === 'nested' ? 'nested' : 'attribute',
     };

@@ -28,7 +28,7 @@
 - **📤 The graph, outside Aura.** **DOT**, **GraphML** and **Mermaid** exports — from the palette for the whole graph, from the view's 📤 menu for **what you are looking at**.
   - **DOT** for Graphviz: one `subgraph` per folder, node **width from the file size**, fill from the language, dashed `doc-reference` edges, and the `unflatten` tip in a header comment.
   - **GraphML** for Gephi / yEd / NetworkX: typed `<key>`s, synthetic ids with the path in a `<data>`, folders as an **attribute** or as **nested `<graph>`** (a setting).
-  - **Mermaid** for a README: `graph LR` with subgraphs and typed edges, **capped by `auraVisualizer.mermaidNodeLimit`** (default 300, `0` = no limit) — it keeps the most depended-on files and says how many it left out.
+  - **Mermaid** for a README: the file **is** a fenced Markdown document (`graph LR`, subgraphs, typed edges) — no fence and a Markdown preview joins every line into one endless paragraph. **Two caps**: nodes (`mermaidNodeLimit`, default 300) and relations (`mermaidEdgeLimit`, default 500, Mermaid's own ceiling), both `0` = no limit; it keeps the most depended-on files and the most structural relations, and says what it left out.
   - **Byte-deterministic**: same graph in, same text out, so a diff stays readable and a golden test can hold it.
 
 _Previously in 1.6.2: the **Aura** section in the Explorer — a card on the active file with its metrics, risk score and reasons, complexity sparkline, flags and the City's connection map, plus ◫ View in for the 3D graph, the City and the Treemap._
@@ -399,10 +399,10 @@ Aura reads its own graph better than anyone else does, but a report, a design re
 |---|---|---|
 | **DOT** | Graphviz — the one you paste in a pull request | one `subgraph` per folder, node **width from the file size** (5 bands), fill colour from the language, dashed edges for `doc-reference`, dotted ones for guessed relations; a header comment holds the `unflatten` tip |
 | **GraphML** | Gephi, yEd, NetworkX | typed `<key>`s (`string`/`int`/`double`), synthetic ids `n0…` with the path in a `<data>`, folder grouping as an **attribute** (Gephi partitions, NetworkX without code) or as **nested `<graph>`** |
-| **Mermaid** | a ```` ```mermaid ```` block in a README | `graph LR`, one `subgraph` per folder, relation types on the edges, and **a cap** — a renderer that gets a thousand boxes draws nothing |
+| **Mermaid** | a ```` ```mermaid ```` block in a README | the file **is** a fenced Markdown document — `graph LR`, one `subgraph` per folder, relation types on the edges, and **two caps**: nodes *and* relations |
 
 - **Scope follows the entry point.** The palette exports the **whole graph**; the view's 📤 menu exports **what you are looking at** — filters and hidden folders included, because the filters on screen are the question.
-- **The Mermaid cap is a setting**: `auraVisualizer.mermaidNodeLimit` (default **300**, `0` = no limit). When it bites, the file ends with `%% 249 more files omitted (mermaidNodeLimit = 300); use DOT or GraphML for the full graph` — and it keeps the **most depended-on files** first, not an arbitrary slice.
+- **The Mermaid caps are settings**: `auraVisualizer.mermaidNodeLimit` (default **300**, `0` = no limit) and `auraVisualizer.mermaidEdgeLimit` (default **500**, `0` = no limit). Nodes are kept by fan-in, relations by importance (inheritance and calls first, `<script>`/`global-use` last). When a cap bites, the header says what was left out — and Mermaid itself refuses more than 500 edges, so the default matches its own limit instead of producing a file that renders as nothing.
 - **Clustering is a setting too**: `auraVisualizer.graphClusters` = `first-level` (one cluster per top-level folder) or `full` (nested folders included); `auraVisualizer.graphmlGroups` = `attribute` or `nested`. All three are editable from **⚙️ Settings → 📤 Graph export**.
 - **Deterministic**: nodes sorted by path, edges by `(source, target, type)`, clusters by name — two exports of the same graph are byte-identical, so a golden test can hold them and a diff stays readable.
 

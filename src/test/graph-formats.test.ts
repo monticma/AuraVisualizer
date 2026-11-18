@@ -7,6 +7,7 @@ import {
     toDot,
     toGraphMl,
     toMermaid,
+    toMermaidDocument,
 } from '../export/graph-formats';
 
 /** Five files, two folders, one doc-reference, one guessed (global-use) edge. */
@@ -173,6 +174,37 @@ describe('toMermaid', () => {
         expect(mermaid).not.toContain('omitted');
     });
 
+    // Mermaid refuses a diagram above 500 edges (maxEdges), so a real graph
+    // renders nothing at all unless the export caps them too.
+    it('caps the relations and says so', () => {
+        const mermaid = toMermaid(GRAPH, { ...DEFAULT_GRAPH_FORMAT_OPTIONS, mermaidEdgeLimit: 2 });
+        const arrows = mermaid.split('\n').filter(line => line.includes('-->') || line.includes('-.->'));
+        expect(arrows).toHaveLength(2);
+        expect(mermaid).toContain('2 of 4 relations omitted (mermaidEdgeLimit = 2');
+    });
+
+    it('keeps inheritance and calls before the script boilerplate', () => {
+        const mermaid = toMermaid({
+            nodes: [{ id: 'a.ts' }, { id: 'b.ts' }, { id: 'c.ts' }, { id: 'd.ts' }],
+            links: [
+                { source: 'a.ts', target: 'b.ts', type: 'global-use' },
+                { source: 'a.ts', target: 'c.ts', type: 'script' },
+                { source: 'a.ts', target: 'd.ts', type: 'heritage' },
+                { source: 'b.ts', target: 'c.ts', type: 'import' },
+            ],
+        }, { ...DEFAULT_GRAPH_FORMAT_OPTIONS, mermaidEdgeLimit: 2 });
+        expect(mermaid).toContain('heritage');
+        expect(mermaid).toContain('import');
+        expect(mermaid).not.toContain('global-use');
+        expect(mermaid).not.toContain('|script|');
+    });
+
+    it('treats an edge limit of 0 as no cap', () => {
+        const mermaid = toMermaid(GRAPH, { ...DEFAULT_GRAPH_FORMAT_OPTIONS, mermaidEdgeLimit: 0 });
+        expect(mermaid.split('\n').filter(line => line.includes('-->') || line.includes('-.->'))).toHaveLength(4);
+        expect(mermaid).not.toContain('relations omitted');
+    });
+
     it('omits edges whose endpoints were capped away', () => {
         const mermaid = toMermaid({
             nodes: [{ id: 'a.ts', fanIn: 5 }, { id: 'b.ts', fanIn: 1 }],
@@ -184,6 +216,33 @@ describe('toMermaid', () => {
     it('escapes a quote in a label', () => {
         const mermaid = toMermaid({ nodes: [{ id: 'a.ts', name: 'say "hi".ts' }], links: [] });
         expect(mermaid).toContain('["say #quot;hi#quot;.ts"]');
+    });
+});
+
+describe('toMermaidDocument', () => {
+    // Without a fence a Markdown preview joins every line into one paragraph:
+    // the diagram was displayed as an endless single line.
+    it('wraps the diagram in a mermaid fence', () => {
+        const doc = toMermaidDocument(GRAPH);
+        expect(doc).toContain('```mermaid\ngraph LR\n%% fixture — 5 of 5 files\n');
+        expect(doc.trimEnd().endsWith('```')).toBe(true);
+    });
+
+    it('names the scope in an HTML comment, invisible in the preview', () => {
+        expect(toMermaidDocument(GRAPH)).toContain('<!-- Aura Visualizer — 5 files.');
+    });
+
+    it('says when the cap bit', () => {
+        const doc = toMermaidDocument(GRAPH, { ...DEFAULT_GRAPH_FORMAT_OPTIONS, mermaidNodeLimit: 2 });
+        expect(doc).toContain('2 of 5 files (capped)');
+        expect(doc).toContain('3 more files omitted');
+    });
+
+    it('is what the mermaid export writes to disk', () => {
+        const result = buildGraphFormat('mermaid', GRAPH);
+        expect(result.extension).toBe('md');
+        expect(result.text).toContain('```mermaid');
+        expect(result.text).toContain('graph LR');
     });
 });
 

@@ -682,6 +682,13 @@
           "maximum": 5000,
           "description": "Maximum number of files in a Mermaid export. 0 = no limit (Mermaid stops rendering past a few hundred boxes)."
         },
+        "auraVisualizer.mermaidEdgeLimit": {
+          "type": "number",
+          "default": 500,
+          "minimum": 0,
+          "maximum": 20000,
+          "description": "Maximum number of relations in a Mermaid export. 0 = no limit. Mermaid itself refuses more than 500 edges unless the viewer raises maxEdges."
+        },
         "auraVisualizer.graphClusters": {
           "type": "string",
           "enum": [
