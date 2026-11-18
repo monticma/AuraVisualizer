@@ -74,3 +74,21 @@ An assistant that opens a repository it has never seen does not know which files
 - a short block between `<!-- aura:begin -->` and `<!-- aura:end -->` in the first instruction file that exists — `AGENTS.md`, `.github/copilot-instructions.md`, then `CLAUDE.md`.
 
 The block lists the top 10 hotspots with their reasons plus the repository health line (cycles, dead exports, architecture violations). Regenerating replaces only what is between the markers, so the prose around it is never touched, and only paths and metrics are written — never source code. If no instruction file exists the command offers to create `AGENTS.md`; the automatic refresh (`auraVisualizer.agentContext`, off by default) only ever updates a file that already exists.
+
+### How much can an agent trust the graph?
+
+Every tool answer now carries a **`coverage`** block — `files`, `parsed_failed`,
+`edges`, `guessed`, `unresolved`, `bare_specifiers`, `analyzed_at` — plus a
+`warning` sentence when something is off:
+
+> *3 files failed to parse and 118 relations are unresolved (41 bare specifiers,
+> outside the repository): an empty result is not a proof of absence.*
+
+The **`get_resolution`** tool returns the full report — what was read, parsed,
+resolved, guessed and refused, with a code per reason (`bare-specifier`,
+`missing-file`, `outside-root`, `no-tsconfig`, `unparsed-file`, `ambiguous`) and
+the blind spots the analysis cannot see at all. `format: "markdown"` returns the
+same content ready to paste into a pull request.
+
+The same numbers sit behind the **⚠ chip** in the graph bar, and
+**Aura: Export Resolution Report** writes the Markdown from the command palette.

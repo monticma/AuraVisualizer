@@ -17,15 +17,16 @@
 
 ---
 
-## What's New in 1.6.2
+## What's New in 1.6.3
 
-- **🧭 Aura, in the Explorer.** A new **Aura** section sits under the file tree and reads the file you are editing: one card with its metrics, its **risk score and the written reasons** behind it, the **complexity sparkline**, its flags (cycle, dead exports, architecture violations, uncommitted, parse error) and the **connection map** the City inspector draws — dependencies on the right in blue, dependents on the left in amber.
-  - **It knows where you are.** Switching editor tabs rebuilds the card. There is nothing to select, and nothing to point at one by one.
-  - **Read it, then act.** **◫ View in** sends the file to the **3D graph**, the **City** or the **Treemap** — the same menu as the detail panels — **💥 Blast** shows what would break, and clicking any name, the file's own or a neighbour's, opens it in the editor.
-  - **No file open? It falls back to the repository:** files and links, the riskiest files with their scores, how many are in cycles, dead, in violation or uncommitted.
-  - **Free of charge.** Everything on the card comes from caches the host already keeps — the graph, the risk snapshot, the `.aura/history` deltas — so it works with the Aura panel closed and costs one message per editor switch.
+- **⚠️ The resolution report — a graph that admits what it hides.** Aura now records, for every file, what it attempted, what it resolved, **how** it resolved it and **why the rest failed** — and says so in one report.
+  - **Six coded reasons**, not one opaque counter: `bare-specifier` (an external dependency, outside the repository), `missing-file`, `outside-root`, `no-tsconfig` (an alias the project does not map), `unparsed-file` and `ambiguous`. A stdlib `#include <stdio.h>` is not a failure and is no longer counted as one.
+  - **Guessed ≠ matched.** `./b` → `b.ts` is the convention, not a guess; only `suffix`, `basename` and `ambiguous` are flagged, with their counts.
+  - **The ⚠ chip in the graph bar** now opens the report: what was read (and skipped, and why), what parsed, what resolved per relation type, what was guessed, what failed with a sample per code, and the **blind spots** the analysis cannot see at all.
+  - **`get_resolution`** exposes the same report to agents, and **every MCP answer** carries a compact `coverage` stamp plus a warning when an empty result is not a proof of absence. `format: "markdown"` returns the report ready for a pull request — as does **Aura: Export Resolution Report**.
+  - **Never stale.** Counters are kept **per file** and swapped on every incremental rebuild, so a save never freezes the report at the last full scan.
 
-_Previously in 1.6.1: a query language and one floating palette for every view, right-click a file in any list or on a City building, the tilted centrality orbit and its moon, and menus drawn above the hover tooltips._
+_Previously in 1.6.2: the **Aura** section in the Explorer — a card on the active file with its metrics, risk score and reasons, complexity sparkline, flags and the City's connection map, plus ◫ View in for the 3D graph, the City and the Treemap._
 
 _Previously in 1.6.0: Code City — the same graph read as a city, in its own tab with its own scene, hot band, relation-coloured selection, district drill-down, function granularity and a postcard export — Risk score v2 (rework volume, recency, authors, fix ratio), one toolbar shell and one control vocabulary in every bar, organised Settings and a searchable two-pane Help, and one Export menu per view next to a single ◫ View in._
 
@@ -365,14 +366,25 @@ Create the rules file from your top-level `src/` folders with **Aura: Create or 
 
 The floating **Communities / Layers** palette shows one card per layer with its globs, member count and new violations. Click a card to hide that layer, or **✨** to ask `@aura` for an explanation: the request carries the authoritative member list, the rule globs, `Ca`/`Ce`/`I`, new vs baselined violations and aggregated cycles, so answers separate code fixes from rule changes. The **Unlayered** bucket can be toggled but has no ask action yet.
 
-### Parse Failures ⚠️
+### Resolution Report ⚠️
 
-A file that Tree-sitter cannot parse cleanly (syntax errors) or that makes a parser throw is **never dropped from the graph**: its node stays, so imports and dependents remain visible, and the failure is recorded with a short reason.
+A graph that does not say what it hides is a lie by omission. Aura records what the analysis could **not** see — and shows it.
 
-- The stats bar shows **⚠ N parse failures** when the analysis reported at least one.
-- Clicking the badge opens a panel with the sampled paths and reasons; clicking a path reveals the node in the 3D view.
-- The report holds the exact failure count plus a deterministic sample (25 entries), is persisted in `.aura/graph.db`, and follows incremental edits (a fixed file leaves the list, a newly broken one joins it).
-- **Export report** writes a Markdown summary (`parse-failures.md`). No analysis aborts on a broken file.
+A file that Tree-sitter cannot parse cleanly (syntax errors) or that makes a parser throw is **never dropped from the graph**: its node stays, its imports and dependents stay visible, and the failure is reported. The same panel now carries the whole picture:
+
+| Section | What it says |
+|---|---|
+| **Read** | files analysed; entries skipped (by directory — `node_modules`, `out`…), files with an extension Aura does not analyse, unreadable files |
+| **Parsed** | `749/762 clean (98 %)` and the failed files with their reason — click a path to reveal the node |
+| **Resolved** | per relation type: `import 2 811 / 2 929 (96 %)`, `call`, `heritage`, `global-use`, `include` |
+| **Guessed** | how many relations were *guessed* rather than matched, by method — `suffix`, `basename`, `ambiguous`. `./b` → `b.ts` is the convention, not a guess |
+| **Not resolved** | a **code per reason**: `bare-specifier` (an external dependency, outside the repository), `missing-file`, `outside-root`, `no-tsconfig`, `unparsed-file`, `ambiguous` — each with a few samples |
+| **What this cannot say** | external dependencies, dynamic calls, macros and generated code, skipped files |
+
+- The **⚠ chip** in the graph bar shows `3 unparsed · 118 unresolved` and opens the report on click. A clean repository shows no chip.
+- **Export report** (`Aura: Export Resolution Report`) writes `resolution-report.md`, ready to paste in a pull request.
+- The counters are kept **per file** in `.aura/graph.db` (`file_resolution`) and swapped on every incremental rebuild, so a save never leaves the report frozen at the last full scan.
+- **Agents get it too**: the MCP tool `get_resolution` returns the whole report (`format: "markdown"` for the document), and **every** tool answer carries a compact `coverage` block with a `warning` when an empty result is not a proof of absence.
 
 ### Orphan Detection
 

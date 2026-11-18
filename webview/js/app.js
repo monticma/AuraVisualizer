@@ -602,7 +602,7 @@
         setupRefresh();
         setupFollowEditor();
         setupExplorer();
-        setupParseFailures();
+        setupResolution();
         setupReviewBar();
         setupBreadcrumbs();
         setupShallowWarning();
@@ -1680,114 +1680,210 @@
         $('#stat-files').textContent = meta.totalFiles + ' files';
         $('#stat-links').textContent = meta.totalLinks + ' links';
 
-        updateParseFailureBadge(meta);
+        updateResolutionBadge(meta);
     }
 
     // ============================================================
-    // Parse failures (V2-17) — badge + detail panel + export
+    // Resolution report — « ce que l'analyse n'a pas vu »
     // ============================================================
-    /** Toggle the "⚠ N parse failures" badge in the stats bar. */
-    function updateParseFailureBadge(meta) {
-        var badge = $('#stat-parse-failures');
-        var separator = $('#stat-parse-separator');
+    // Six rubriques, in the order the report is written: what was read, what
+    // parsed, what resolved, what was guessed, what failed and why, and what
+    // the report cannot see at all. Fed by `meta.resolution`, which the host
+    // recomputes after every graph change (per-file counters, so it is never
+    // frozen at the last full scan).
+
+    function resolutionReport() {
+        return graphData && graphData.meta ? graphData.meta.resolution || null : null;
+    }
+
+    function el(tag, className, text) {
+        var node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined) node.textContent = text;
+        return node;
+    }
+
+    /** The ⚠ chip in the stats bar: one line saying what is incomplete. */
+    function updateResolutionBadge(meta) {
+        var badge = $('#stat-resolution');
+        var separator = $('#stat-resolution-separator');
         if (!badge) return;
-        var report = meta && meta.parseFailures ? meta.parseFailures : null;
-        if (report && report.total > 0) {
-            badge.textContent = '⚠ ' + report.total + ' parse failure' + (report.total === 1 ? '' : 's');
-            badge.classList.remove('hidden');
-            if (separator) separator.classList.remove('hidden');
-        } else {
+
+        var report = meta && meta.resolution ? meta.resolution : null;
+        var failed = meta && meta.parseFailures ? meta.parseFailures.total : 0;
+        var unresolved = report ? report.totals.unresolved : 0;
+        var skipped = report ? (report.scan.unsupported + report.scan.unreadable) : 0;
+        // No noise on a clean repository: the chip is a door to the report, and
+        // a door nobody needs to open stays shut. The command palette still
+        // offers the export when everything resolved.
+        if (!failed && !unresolved && !skipped) {
             badge.classList.add('hidden');
             if (separator) separator.classList.add('hidden');
+            return;
         }
-        // Keep an open panel in sync after a refresh / delta.
-        var modal = $('#parse-failures-modal');
-        if (modal && !modal.classList.contains('hidden')) renderParseFailures();
+
+        var parts = [];
+        if (failed) parts.push(failed + ' unparsed');
+        if (unresolved) parts.push(unresolved + ' unresolved');
+        if (skipped) parts.push(skipped + ' skipped');
+
+        badge.textContent = '⚠ ' + parts.join(' · ');
+        badge.classList.remove('hidden');
+        if (separator) separator.classList.remove('hidden');
+
+        var modal = $('#resolution-modal');
+        if (modal && !modal.classList.contains('hidden')) renderResolution();
     }
 
-    /** Fill the modal with the current sample (paths are focusable). */
-    function renderParseFailures() {
-        var list = $('#parse-failures-list');
-        var modal = $('#parse-failures-modal');
-        var summary = $('#parse-failures-summary');
-        var exportBtn = $('#parse-failures-export');
-        if (!list) return;
+    /** `<details>` block: a one-line summary, the evidence folded underneath. */
+    function section(title, summary, empty) {
+        var details = el('details', 'resolution-section');
+        var head = el('summary', 'resolution-section-head');
+        head.appendChild(el('span', 'resolution-section-title', title));
+        head.appendChild(el('span', 'resolution-section-summary', summary));
+        details.appendChild(head);
+        if (empty) {
+            details.appendChild(el('div', 'resolution-empty', empty));
+        }
+        return details;
+    }
 
-        var report = graphData && graphData.meta ? graphData.meta.parseFailures : null;
-        var total = report && report.total ? report.total : 0;
-        var samples = report && report.samples ? report.samples : [];
+    /** A clickable file path that reveals the node and closes the modal. */
+    function pathRow(path, right, onClick) {
+        var row = el('div', 'resolution-row');
+        var button = el('button', 'resolution-path', path);
+        button.type = 'button';
+        button.title = 'Reveal this file in the graph';
+        button.addEventListener('click', function() {
+            var modal = $('#resolution-modal');
+            if (modal) modal.classList.add('hidden');
+            if (onClick) onClick();
+            else focusNodeById(path, true);
+        });
+        row.appendChild(button);
+        if (right) row.appendChild(el('span', 'resolution-reason', right));
+        return row;
+    }
 
-        list.innerHTML = '';
+    function percent(part, total) {
+        if (!total) return '—';
+        return Math.round((part / total) * 100) + ' %';
+    }
+
+    function renderResolution() {
+        var body = $('#resolution-body');
+        var summary = $('#resolution-summary');
+        var exportBtn = $('#resolution-export');
+        if (!body) return;
+
+        var meta = graphData && graphData.meta ? graphData.meta : {};
+        var report = meta.resolution || null;
+        var failures = meta.parseFailures || null;
+        body.innerHTML = '';
+
+        if (!report) {
+            body.appendChild(section('Coverage', 'not measured', ''));
+            body.lastChild.appendChild(el('div', 'resolution-empty',
+                'This graph was analysed before Aura measured its own coverage. Run the analysis again to get the report.'));
+            if (failures && failures.total) {
+                var legacy = section('Parsed', failures.total + ' file(s) failed', '');
+                for (var s = 0; s < (failures.samples || []).length; s++) {
+                    legacy.appendChild(pathRow(failures.samples[s].path, failures.samples[s].reason));
+                }
+                body.appendChild(legacy);
+            }
+            if (summary) summary.textContent = 'Not measured';
+            if (exportBtn) exportBtn.disabled = true;
+            return;
+        }
+
+        var scan = report.scan || { scanned: 0, skippedDirs: [], skippedDirHits: 0, unsupported: 0, unreadable: 0 };
+        var parsed = report.parsed || { total: 0, failed: 0 };
+        var totals = report.totals || { attempts: 0, resolved: 0, guessed: 0, unresolved: 0 };
+
+        // 1. Read
+        var read = section('Read', scan.scanned + ' files analysed', '');
+        if (scan.skippedDirHits) {
+            read.appendChild(el('div', 'resolution-note',
+                scan.skippedDirHits + ' entries skipped in ' + scan.skippedDirs.length + ' directories: '
+                + scan.skippedDirs.join(', ')));
+        }
+        if (scan.unsupported) read.appendChild(el('div', 'resolution-note', scan.unsupported + ' files with an extension Aura does not analyse'));
+        if (scan.unreadable) read.appendChild(el('div', 'resolution-note', scan.unreadable + ' files could not be read'));
+        body.appendChild(read);
+
+        // 2. Parsed
+        var parsedOk = Math.max(0, parsed.total - parsed.failed);
+        var parsedBlock = section('Parsed', parsedOk + '/' + parsed.total + ' clean (' + percent(parsedOk, parsed.total) + ')', 'No parse failure.');
+        for (var i = 0; i < (failures && failures.samples ? failures.samples.length : 0); i++) {
+            parsedBlock.appendChild(pathRow(failures.samples[i].path, failures.samples[i].reason));
+        }
+        body.appendChild(parsedBlock);
+
+        // 3. Resolved, by type
+        var resolvedBlock = section('Resolved', totals.resolved + '/' + totals.attempts + ' relations', 'No relation was attempted.');
+        var types = report.types || [];
+        for (var t = 0; t < types.length; t++) {
+            var line = el('div', 'resolution-row');
+            line.appendChild(el('span', 'resolution-type', types[t].type));
+            line.appendChild(el('span', 'resolution-counts',
+                types[t].resolved + ' / ' + types[t].attempts + '  (' + percent(types[t].resolved, types[t].attempts) + ')'));
+            resolvedBlock.appendChild(line);
+        }
+        body.appendChild(resolvedBlock);
+
+        // 4. Guessed
+        var guessedBlock = section('Guessed', totals.guessed ? totals.guessed + ' guessed' : 'nothing guessed',
+            'Every resolved relation was matched exactly.');
+        var methods = report.methods || [];
+        for (var m = 0; m < methods.length; m++) {
+            if (!methods[m].guessed) continue;
+            var methodLine = el('div', 'resolution-row');
+            methodLine.appendChild(el('span', 'resolution-type', methods[m].method));
+            methodLine.appendChild(el('span', 'resolution-counts', String(methods[m].count)));
+            guessedBlock.appendChild(methodLine);
+        }
+        body.appendChild(guessedBlock);
+
+        // 5. Not resolved, and why
+        var codes = report.codes || [];
+        var unresolvedBlock = section('Not resolved', totals.unresolved ? totals.unresolved + ' relations' : 'nothing unresolved',
+            'Nothing was left unresolved.');
+        for (var c = 0; c < codes.length; c++) {
+            var header = el('div', 'resolution-code');
+            header.appendChild(el('span', 'resolution-type', codes[c].code));
+            header.appendChild(el('span', 'resolution-counts', String(codes[c].count)));
+            header.appendChild(el('span', 'resolution-label', codes[c].label));
+            unresolvedBlock.appendChild(header);
+            for (var r = 0; r < (codes[c].samples || []).length; r++) {
+                unresolvedBlock.appendChild(pathRow(
+                    codes[c].samples[r].from,
+                    codes[c].samples[r].ref));
+            }
+        }
+        body.appendChild(unresolvedBlock);
+
+        // 6. Blind spots
+        var blind = section('What this cannot say', (report.blindSpots || []).length + ' blind spots', '');
+        for (var b = 0; b < (report.blindSpots || []).length; b++) {
+            blind.appendChild(el('div', 'resolution-note', report.blindSpots[b]));
+        }
+        body.appendChild(blind);
+
         if (summary) {
-            summary.textContent = total === 0
-                ? 'No parse failure.'
-                : total + ' file' + (total === 1 ? '' : 's') + ' · ' +
-                  samples.length + ' sample' + (samples.length === 1 ? '' : 's') + ' shown';
+            summary.textContent = totals.resolved + '/' + totals.attempts + ' resolved'
+                + (totals.guessed ? ' · ' + totals.guessed + ' guessed' : '')
+                + (totals.unresolved ? ' · ' + totals.unresolved + ' unresolved' : '');
         }
-        if (exportBtn) exportBtn.disabled = total === 0;
-
-        for (var i = 0; i < samples.length; i++) {
-            (function(sample) {
-                var row = document.createElement('div');
-                row.className = 'parse-failures-row';
-
-                var pathBtn = document.createElement('button');
-                pathBtn.type = 'button';
-                pathBtn.className = 'parse-failures-path';
-                pathBtn.textContent = sample.path;
-                pathBtn.title = 'Reveal this file in the graph';
-                pathBtn.addEventListener('click', function() {
-                    if (modal) modal.classList.add('hidden');
-                    focusNodeById(sample.path, true);
-                });
-
-                var reason = document.createElement('span');
-                reason.className = 'parse-failures-reason';
-                reason.textContent = sample.reason;
-
-                row.appendChild(pathBtn);
-                row.appendChild(reason);
-                list.appendChild(row);
-            })(samples[i]);
-        }
+        if (exportBtn) exportBtn.disabled = totals.attempts === 0;
     }
 
-    function mdCell(value) {
-        return String(value == null ? '' : value).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ').trim();
-    }
-
-    /** Markdown matching the host generator (export button). */
-    function buildParseFailuresMarkdown(report) {
-        if (!report || !report.total) return '';
-        var project = (graphData && graphData.meta && graphData.meta.projectName) || 'project';
-        var samples = report.samples || [];
-        var lines = [];
-        lines.push('# Parse failures — ' + project);
-        lines.push('');
-        lines.push('Generated ' + new Date().toISOString() + ' by Aura Visualizer.');
-        lines.push('');
-        lines.push(report.total + ' file' + (report.total === 1 ? '' : 's') +
-            ' could not be parsed cleanly. They are kept in the graph so their imports and dependents stay visible; cross-file relations may be incomplete for them.');
-        lines.push('');
-        lines.push('| File | Reason |');
-        lines.push('|------|--------|');
-        for (var i = 0; i < samples.length; i++) {
-            lines.push('| `' + mdCell(samples[i].path) + '` | ' + mdCell(samples[i].reason) + ' |');
-        }
-        if (report.total > samples.length) {
-            lines.push('');
-            lines.push('_Showing ' + samples.length + ' of ' + report.total + ' failures (sample capped)._');
-        }
-        lines.push('');
-        return lines.join('\n');
-    }
-
-    function setupParseFailures() {
-        var badge = $('#stat-parse-failures');
-        var modal = $('#parse-failures-modal');
+    function setupResolution() {
+        var badge = $('#stat-resolution');
+        var modal = $('#resolution-modal');
         if (badge && modal) {
             badge.addEventListener('click', function() {
-                renderParseFailures();
+                renderResolution();
                 modal.classList.remove('hidden');
             });
             badge.addEventListener('keydown', function(e) {
@@ -1797,7 +1893,7 @@
                 }
             });
         }
-        var close = $('#parse-failures-close');
+        var close = $('#resolution-close');
         if (close && modal) {
             close.addEventListener('click', function() { modal.classList.add('hidden'); });
         }
@@ -1806,12 +1902,12 @@
                 if (e.target === modal) modal.classList.add('hidden');
             });
         }
-        var exportBtn = $('#parse-failures-export');
+        var exportBtn = $('#resolution-export');
         if (exportBtn) {
+            // The host owns the formatter (`resolutionMarkdown`), so the export
+            // and the MCP tool cannot drift apart.
             exportBtn.addEventListener('click', function() {
-                var report = graphData && graphData.meta ? graphData.meta.parseFailures : null;
-                var markdown = buildParseFailuresMarkdown(report);
-                if (markdown) vscode.postMessage({ type: 'exportParseFailures', payload: { markdown: markdown } });
+                vscode.postMessage({ type: 'exportResolution' });
             });
         }
     }

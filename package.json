@@ -352,6 +352,11 @@
         "icon": "$(table)"
       },
       {
+        "command": "auraVisualizer.exportResolutionReport",
+        "title": "Aura: Export Resolution Report",
+        "icon": "$(report)"
+      },
+      {
         "command": "auraVisualizer.generateAgentContext",
         "title": "Aura: Generate Agent Context",
         "icon": "$(file-code)"

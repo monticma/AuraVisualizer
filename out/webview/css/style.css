@@ -2686,36 +2686,36 @@ html, body {
 /* ============================================================
    Parse failures (V2-17)
    ============================================================ */
-#stat-parse-failures {
+#stat-resolution {
     cursor: pointer;
     color: #ffb74d;
     font-weight: 600;
 }
 
-#stat-parse-failures:hover {
+#stat-resolution:hover {
     color: #ffd54f;
     text-decoration: underline;
 }
 
-.parse-failures-content {
+.resolution-content {
     width: 720px;
 }
 
-.parse-failures-intro {
+.resolution-intro {
     margin: 0 0 12px;
     color: var(--aura-text-secondary);
     font-size: 12px;
     line-height: 1.5;
 }
 
-.parse-failures-list {
+.resolution-body {
     display: grid;
     gap: 6px;
     max-height: 48vh;
     overflow-y: auto;
 }
 
-.parse-failures-row {
+.resolution-row {
     display: flex;
     align-items: baseline;
     gap: 10px;
@@ -2726,7 +2726,7 @@ html, body {
     min-width: 0;
 }
 
-.parse-failures-path {
+.resolution-path {
     background: none;
     border: none;
     padding: 0;
@@ -2742,11 +2742,11 @@ html, body {
     white-space: nowrap;
 }
 
-.parse-failures-path:hover {
+.resolution-path:hover {
     text-decoration: underline;
 }
 
-.parse-failures-reason {
+.resolution-reason {
     color: var(--aura-text-secondary);
     font-size: 11px;
     flex: 1 1 auto;
@@ -2754,7 +2754,7 @@ html, body {
     overflow-wrap: anywhere;
 }
 
-.parse-failures-actions {
+.resolution-actions {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -2762,10 +2762,104 @@ html, body {
     margin-top: 14px;
 }
 
-.parse-failures-summary {
+.resolution-summary {
     font-size: 11px;
     opacity: 0.75;
 }
+
+/* Six collapsible rubriques: one summary line, the evidence underneath. */
+.resolution-section {
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.02);
+    overflow: hidden;
+}
+
+.resolution-section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 6px 9px;
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+}
+
+.resolution-section-head::-webkit-details-marker { display: none; }
+
+.resolution-section-head::before {
+    content: '▸';
+    font-size: 9px;
+    opacity: 0.55;
+    transition: transform 90ms ease;
+}
+
+.resolution-section[open] > .resolution-section-head::before { transform: rotate(90deg); }
+
+.resolution-section-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    opacity: 0.85;
+}
+
+.resolution-section-summary {
+    font-size: 11px;
+    color: var(--aura-text-secondary);
+    margin-left: auto;
+}
+
+.resolution-section > *:not(summary) {
+    padding: 0 9px 8px;
+}
+
+.resolution-note {
+    font-size: 11px;
+    color: var(--aura-text-secondary);
+    padding-top: 3px;
+    overflow-wrap: anywhere;
+}
+
+.resolution-empty {
+    font-size: 11px;
+    opacity: 0.5;
+    padding-top: 3px;
+}
+
+.resolution-type {
+    font-family: var(--aura-mono, monospace);
+    font-size: 11px;
+    flex: 0 0 auto;
+    min-width: 96px;
+}
+
+.resolution-counts {
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+    flex: 0 0 auto;
+    min-width: 92px;
+    opacity: 0.85;
+}
+
+.resolution-label {
+    font-size: 11px;
+    color: var(--aura-text-secondary);
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.resolution-code {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 6px 0 2px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    margin-top: 4px;
+}
+
+.resolution-code:first-of-type { border-top: none; margin-top: 0; }
 
 /* ============================================================
    Utility
@@ -2779,7 +2873,7 @@ html, body {
 #settings-modal,
 #dead-code-rules-modal,
 #arch-rules-modal,
-#parse-failures-modal {
+#resolution-modal {
     position: fixed;
     top: 0; left: 0;
     width: 100%; height: 100%;
