@@ -25,6 +25,11 @@
   - **The ⚠ chip in the graph bar** now opens the report: what was read (and skipped, and why), what parsed, what resolved per relation type, what was guessed, what failed with a sample per code, and the **blind spots** the analysis cannot see at all.
   - **`get_resolution`** exposes the same report to agents, and **every MCP answer** carries a compact `coverage` stamp plus a warning when an empty result is not a proof of absence. `format: "markdown"` returns the report ready for a pull request — as does **Aura: Export Resolution Report**.
   - **Never stale.** Counters are kept **per file** and swapped on every incremental rebuild, so a save never freezes the report at the last full scan.
+- **📤 The graph, outside Aura.** **DOT**, **GraphML** and **Mermaid** exports — from the palette for the whole graph, from the view's 📤 menu for **what you are looking at**.
+  - **DOT** for Graphviz: one `subgraph` per folder, node **width from the file size**, fill from the language, dashed `doc-reference` edges, and the `unflatten` tip in a header comment.
+  - **GraphML** for Gephi / yEd / NetworkX: typed `<key>`s, synthetic ids with the path in a `<data>`, folders as an **attribute** or as **nested `<graph>`** (a setting).
+  - **Mermaid** for a README: `graph LR` with subgraphs and typed edges, **capped by `auraVisualizer.mermaidNodeLimit`** (default 300, `0` = no limit) — it keeps the most depended-on files and says how many it left out.
+  - **Byte-deterministic**: same graph in, same text out, so a diff stays readable and a golden test can hold it.
 
 _Previously in 1.6.2: the **Aura** section in the Explorer — a card on the active file with its metrics, risk score and reasons, complexity sparkline, flags and the City's connection map, plus ◫ View in for the 3D graph, the City and the Treemap._
 
@@ -385,6 +390,25 @@ A file that Tree-sitter cannot parse cleanly (syntax errors) or that makes a par
 - **Export report** (`Aura: Export Resolution Report`) writes `resolution-report.md`, ready to paste in a pull request.
 - The counters are kept **per file** in `.aura/graph.db` (`file_resolution`) and swapped on every incremental rebuild, so a save never leaves the report frozen at the last full scan.
 - **Agents get it too**: the MCP tool `get_resolution` returns the whole report (`format: "markdown"` for the document), and **every** tool answer carries a compact `coverage` block with a `warning` when an empty result is not a proof of absence.
+
+### The Graph, Outside Aura 📤
+
+Aura reads its own graph better than anyone else does, but a report, a design review or a data tool needs the graph **in its own format**. The **📤 Export** menu of the graph view offers three, and **Aura: Export Graph (DOT / GraphML / Mermaid)** does the same from the palette:
+
+| Format | For | What it carries |
+|---|---|---|
+| **DOT** | Graphviz — the one you paste in a pull request | one `subgraph` per folder, node **width from the file size** (5 bands), fill colour from the language, dashed edges for `doc-reference`, dotted ones for guessed relations; a header comment holds the `unflatten` tip |
+| **GraphML** | Gephi, yEd, NetworkX | typed `<key>`s (`string`/`int`/`double`), synthetic ids `n0…` with the path in a `<data>`, folder grouping as an **attribute** (Gephi partitions, NetworkX without code) or as **nested `<graph>`** |
+| **Mermaid** | a ```` ```mermaid ```` block in a README | `graph LR`, one `subgraph` per folder, relation types on the edges, and **a cap** — a renderer that gets a thousand boxes draws nothing |
+
+- **Scope follows the entry point.** The palette exports the **whole graph**; the view's 📤 menu exports **what you are looking at** — filters and hidden folders included, because the filters on screen are the question.
+- **The Mermaid cap is a setting**: `auraVisualizer.mermaidNodeLimit` (default **300**, `0` = no limit). When it bites, the file ends with `%% 249 more files omitted (mermaidNodeLimit = 300); use DOT or GraphML for the full graph` — and it keeps the **most depended-on files** first, not an arbitrary slice.
+- **Clustering is a setting too**: `auraVisualizer.graphClusters` = `first-level` (one cluster per top-level folder) or `full` (nested folders included); `auraVisualizer.graphmlGroups` = `attribute` or `nested`. All three are editable from **⚙️ Settings → 📤 Graph export**.
+- **Deterministic**: nodes sorted by path, edges by `(source, target, type)`, clusters by name — two exports of the same graph are byte-identical, so a golden test can hold them and a diff stays readable.
+
+```bash
+unflatten -l 3 -c 5 aura-graph.dot | dot -Tsvg > aura-graph.svg
+```
 
 ### Orphan Detection
 

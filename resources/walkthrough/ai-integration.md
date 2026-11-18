@@ -65,6 +65,18 @@ Use the **📤 Export** button (or command *Aura: Export Graph for AI*) to build
 
 For a raw graph, use the MCP `generate_documentation` tool or `get_architecture` / `get_hotspots` instead.
 
+### Export the graph itself: DOT, GraphML, Mermaid
+
+Three formats, one sentence each:
+
+- **DOT** (Graphviz) — the file you attach to a design review. One `subgraph` per folder, node width from the file size, fill colour from the language, dashed edges for documentation references, and a header comment with the `unflatten -l 3 -c 5` tip that turns a hairball into a drawing.
+- **GraphML** — the file you open in Gephi, yEd or NetworkX. Typed attributes, synthetic node ids with the path in a `<data>`, folders expressed as an attribute (Gephi partitions, NetworkX without code) or as nested graphs.
+- **Mermaid** — the file you paste in a README. `graph LR`, one subgraph per folder, relation types on the edges. It is **capped** (`auraVisualizer.mermaidNodeLimit`, default 300, `0` = no limit) because a renderer that receives a thousand boxes draws nothing; when the cap bites, the file keeps the most depended-on files and ends with the number it left out.
+
+**Which graph?** `Aura: Export Graph (DOT / GraphML / Mermaid)` from the palette exports the **whole** graph; the 📤 Export menu of the graph view exports **what you see** — the active filters included.
+
+`auraVisualizer.graphClusters` chooses `first-level` or `full` folders for DOT and Mermaid, `auraVisualizer.graphmlGroups` chooses `attribute` or `nested` for GraphML. Every format is deterministic: the same graph always produces the same text.
+
 ### Agent context files
 
 An assistant that opens a repository it has never seen does not know which files are dangerous. **Aura: Generate Agent Context** writes that knowledge where agents actually look:

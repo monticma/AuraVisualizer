@@ -357,6 +357,11 @@
         "icon": "$(report)"
       },
       {
+        "command": "auraVisualizer.exportGraphFormat",
+        "title": "Aura: Export Graph (DOT / GraphML / Mermaid)",
+        "icon": "$(export)"
+      },
+      {
         "command": "auraVisualizer.generateAgentContext",
         "title": "Aura: Generate Agent Context",
         "icon": "$(file-code)"
@@ -669,6 +674,39 @@
           "minimum": 0,
           "maximum": 20,
           "description": "Complexity points per 30 days that flag a file as degrading in the Trend column / Risk dashboard"
+        },
+        "auraVisualizer.mermaidNodeLimit": {
+          "type": "number",
+          "default": 300,
+          "minimum": 0,
+          "maximum": 5000,
+          "description": "Maximum number of files in a Mermaid export. 0 = no limit (Mermaid stops rendering past a few hundred boxes)."
+        },
+        "auraVisualizer.graphClusters": {
+          "type": "string",
+          "enum": [
+            "first-level",
+            "full"
+          ],
+          "default": "first-level",
+          "enumDescriptions": [
+            "One cluster per top-level folder",
+            "One cluster per folder, nested folders included"
+          ],
+          "description": "How DOT and Mermaid group files into subgraphs"
+        },
+        "auraVisualizer.graphmlGroups": {
+          "type": "string",
+          "enum": [
+            "attribute",
+            "nested"
+          ],
+          "default": "attribute",
+          "enumDescriptions": [
+            "A group attribute per node (readable by Gephi partitions and NetworkX)",
+            "Nested <graph> elements (for tools that understand hierarchy)"
+          ],
+          "description": "How a GraphML export expresses folders"
         },
         "auraVisualizer.riskCentrality": {
           "type": "boolean",

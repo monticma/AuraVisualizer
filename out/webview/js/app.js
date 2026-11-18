@@ -1372,6 +1372,46 @@
         }
     }
 
+    /**
+     * The graph as the user sees it: the active filters are the question, so a
+     * DOT/GraphML/Mermaid export from the view must answer that question. Only
+     * the fields a serialiser needs travel — the dataset is otherwise large.
+     */
+    function exportableGraph() {
+        if (!graphData) return null;
+        var visible = filterGraphData(graphData);
+        function idOf(endpoint) {
+            return endpoint && typeof endpoint === 'object' ? endpoint.id : endpoint;
+        }
+        return {
+            nodes: visible.nodes.map(function (node) {
+                return {
+                    id: node.id, name: node.name, group: node.group,
+                    language: node.language, linesOfCode: node.linesOfCode,
+                    fanIn: node.fanIn, fanOut: node.fanOut
+                };
+            }),
+            links: visible.links.map(function (link) {
+                return {
+                    source: idOf(link.source), target: idOf(link.target),
+                    type: link.type, confidence: link.confidence
+                };
+            })
+        };
+    }
+
+    function postGraphExport(format) {
+        var graph = exportableGraph();
+        if (!graph) {
+            vscode.postMessage({ type: 'exportGraphFormat', payload: { format: format } });
+            return;
+        }
+        vscode.postMessage({
+            type: 'exportGraphFormat',
+            payload: { format: format, nodes: graph.nodes, links: graph.links }
+        });
+    }
+
     function setupRefresh() {
         var btn = $('#btn-refresh');
         if (btn) {
@@ -1394,6 +1434,15 @@
                 } },
                 { label: '📤 AI context', hint: 'Markdown or JSON, with a token budget', run: function () {
                     vscode.postMessage({ type: 'requestExport' });
+                } },
+                { label: '🔷 DOT', hint: 'Graphviz — the graph as currently filtered', run: function () {
+                    postGraphExport('dot');
+                } },
+                { label: '🔶 GraphML', hint: 'Gephi, yEd, NetworkX — the graph as currently filtered', run: function () {
+                    postGraphExport('graphml');
+                } },
+                { label: '🧜 Mermaid', hint: 'A README block — the graph as currently filtered', run: function () {
+                    postGraphExport('mermaid');
                 } },
             ]);
         }

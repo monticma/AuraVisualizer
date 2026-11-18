@@ -43,6 +43,9 @@ const SETTING_NORMALIZERS: Record<string, (v: unknown) => unknown> = {
     edgeClickSelect: (v) => v !== false,
     breadcrumbs: (v) => v === true,
     focusDistance: (v) => clampNumber(v, 40, 400, 120),
+    mermaidNodeLimit: (v) => Math.round(clampNumber(v, 0, 5000, 300)),
+    graphClusters: (v) => (v === 'full' ? 'full' : 'first-level'),
+    graphmlGroups: (v) => (v === 'nested' ? 'nested' : 'attribute'),
 };
 
 function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
@@ -389,6 +392,9 @@ export class WebviewProvider {
                     case 'exportResolution':
                         void this.handleExportResolution();
                         break;
+                    case 'exportGraphFormat':
+                        void this.handleExportGraphFormat(message.payload);
+                        break;
                     case 'requestDeadCodeRules':
                         void this.sendDeadCodeRules();
                         break;
@@ -540,6 +546,21 @@ export class WebviewProvider {
         } catch (err) {
             vscode.window.showErrorMessage(
                 'Aura: Failed to export the resolution report: ' + (err instanceof Error ? err.message : String(err))
+            );
+        }
+    }
+
+    /**
+     * The view sends the graph it is currently showing: the filters on screen
+     * are the question, so the file must answer that question and not the full
+     * graph. The host still owns formatting, settings and the save dialog.
+     */
+    private async handleExportGraphFormat(payload: unknown): Promise<void> {
+        try {
+            await vscode.commands.executeCommand('auraVisualizer.exportGraphFormat', payload);
+        } catch (err) {
+            vscode.window.showErrorMessage(
+                'Aura: Failed to export the graph: ' + (err instanceof Error ? err.message : String(err))
             );
         }
     }
@@ -1205,6 +1226,9 @@ export class WebviewProvider {
                     hover: config.get<boolean>('hover', true) !== false,
                     autoRefresh: config.get<boolean>('autoRefresh', true),
                     followEditor: config.get<boolean>('followEditor', true),
+                    mermaidNodeLimit: Math.round(clampNumber(config.get<number>('mermaidNodeLimit', 300), 0, 5000, 300)),
+                    graphClusters: config.get<string>('graphClusters', 'first-level') === 'full' ? 'full' : 'first-level',
+                    graphmlGroups: config.get<string>('graphmlGroups', 'attribute') === 'nested' ? 'nested' : 'attribute',
                 }
             });
         } catch { /* ignore */ }
@@ -2592,6 +2616,27 @@ export class WebviewProvider {
                         <input id="set-hover" data-setting="hover" type="checkbox" />
                     </div>
                 </section>
+                <section class="settings-group">
+                    <h4 class="settings-group-title">📤 Graph export</h4>
+                    <div class="settings-row">
+                        <label for="set-mermaidNodeLimit">Mermaid node limit<span class="settings-hint">0 = no limit. Past a few hundred boxes Mermaid draws nothing.</span></label>
+                        <input id="set-mermaidNodeLimit" data-setting="mermaidNodeLimit" type="number" min="0" max="5000" step="10" />
+                    </div>
+                    <div class="settings-row">
+                        <label for="set-graphClusters">Folder clusters<span class="settings-hint">Subgraphs in DOT and Mermaid</span></label>
+                        <select id="set-graphClusters" data-setting="graphClusters">
+                            <option value="first-level">Top-level folders</option>
+                            <option value="full">Every folder</option>
+                        </select>
+                    </div>
+                    <div class="settings-row">
+                        <label for="set-graphmlGroups">GraphML folders<span class="settings-hint">A group attribute (Gephi, NetworkX) or nested graphs</span></label>
+                        <select id="set-graphmlGroups" data-setting="graphmlGroups">
+                            <option value="attribute">Group attribute</option>
+                            <option value="nested">Nested graphs</option>
+                        </select>
+                    </div>
+                </section>
                 <div class="settings-footer">
                     <span id="settings-open-vscode">Open VS Code Settings →</span>
                     <span class="settings-hint">All settings: Extensions → Aura Visualizer</span>
@@ -2918,7 +2963,14 @@ export class WebviewProvider {
                 <p><strong>Four tools cover the whole session</strong> (MCP and <code>@aura</code> alike). <code>build</code> answers “is the graph still in sync?” — analysis age, file/link counts, the commit analysed vs <code>HEAD</code>, a <code>stale</code> flag and its reason, so an agent never quotes outdated metrics. <code>explain_file</code> returns one aggregated briefing per file (metrics, risk with reasons, cycles, dead code, call sites, dependencies, heritage, co-change, community). <code>hotspots_in_changes</code> ranks the changed files by risk — working tree by default, branch vs merge base with <code>base</code> — with <code>+/-</code> counts and reasons. <code>list_repositories</code> declares the served root, database, analysis age and every <code>git worktree</code> with its branch. The MCP server also sends operating instructions on connect (call <code>build</code> first, prefer Aura over shell <code>git</code>, quote anchors, report staleness).</p>
                 <p>Use <strong>Aura: Export Architecture Report</strong> from the Command Palette to generate a Markdown document with a Mermaid module graph, top dependencies, hotspots, cycles and dead exports. Documentation files are excluded by default. <strong>Aura: Export Architecture Report with AI Narrative</strong> adds a written explanation generated from that deterministic report by the selected VS Code model.</p>
                 <p><strong>Aura: Export Metrics (CSV/JSON)</strong> exports one row per file with LOC, complexity, cognitive max, fan-in/out, churn, authors and risk score, ready for a spreadsheet or a dashboard.</p>
-                <h3>🔗 Edge Colors</h3>
+                <h3>� The graph, outside Aura</h3>
+                <p>The graph view's <strong>📤 Export</strong> menu also hands the graph itself to other tools — and <strong>Aura: Export Graph (DOT / GraphML / Mermaid)</strong> does the same from the Command Palette.</p>
+                <p><strong>Scope follows the entry point:</strong> the palette exports the <strong>whole graph</strong>; the view's menu exports <strong>what you see</strong>, active filters included — the filters on screen are the question, so the file answers it.</p>
+                <p><strong>DOT</strong> (Graphviz) is the file you attach to a review: one <code>subgraph</code> per folder, node <strong>width from the file size</strong> in five bands, fill colour from the language, dashed edges for <code>doc-reference</code> and dotted ones for guessed relations. Its header comment carries the tip that matters — <code>unflatten -l 3 -c 5 aura-graph.dot | dot -Tsvg</code> — because a thin graph otherwise draws as a hairball.</p>
+                <p><strong>GraphML</strong> is the file Gephi, yEd and NetworkX open: typed <code>&lt;key&gt;</code>s (<code>string</code>/<code>int</code>/<code>double</code>), synthetic ids <code>n0…</code> with the path in a <code>&lt;data&gt;</code>, and folders either as a <strong>group attribute</strong> (Gephi partitions, NetworkX without code) or as <strong>nested <code>&lt;graph&gt;</code></strong> elements.</p>
+                <p><strong>Mermaid</strong> is the block you paste in a README: <code>graph LR</code>, one <code>subgraph</code> per folder, relation types on the edges — and a <strong>cap</strong>, because a renderer handed a thousand boxes draws nothing. <code>auraVisualizer.mermaidNodeLimit</code> (default 300, <strong>0 = no limit</strong>) keeps the most depended-on files and ends the file with the number it left out. All three settings — the cap, <code>auraVisualizer.graphClusters</code> (<code>first-level</code> / <code>full</code>) and <code>auraVisualizer.graphmlGroups</code> (<code>attribute</code> / <code>nested</code>) — are editable in <strong>⚙️ Settings → 📤 Graph export</strong>.</p>
+                <p>Every export is <strong>deterministic</strong>: nodes sorted by path, edges by (source, target, type), clusters by name. Two exports of the same graph are byte-identical, so a diff stays readable and nothing spurious moves in your repository.</p>
+                <h3>�🔗 Edge Colors</h3>
                 <table class="help-table">
                     <tr><td><span style="color:#4fc3f7">━━</span> <strong>include</strong></td><td>C <code>#include "file.h"</code></td></tr>
                     <tr><td><span style="color:#4fc3f755">━━</span> <strong>system-include</strong></td><td>C <code>#include &lt;stdlib.h&gt;</code></td></tr>

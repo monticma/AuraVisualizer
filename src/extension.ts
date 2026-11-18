@@ -60,6 +60,14 @@ import { generateArchitectureNarrative } from './report/ai-summary';
 import { metricsToCsv, metricsToJson, type MetricsRow } from './report/metrics-export';
 import { buildAiExportInput, generateAiExport, type AiExportSection } from './export/ai-export';
 import { saveOrCopyText, saveText } from './export/save';
+import {
+    DEFAULT_GRAPH_FORMAT_OPTIONS,
+    buildGraphFormat,
+    type GraphFormat,
+    type GraphFormatOptions,
+    type GraphLinkLike,
+    type GraphNodeLike,
+} from './export/graph-formats';
 import { chunkDocument, type DocChunk } from './analyzer/parsers/doc-parser';
 import { computeCochange } from './analysis/cochange';
 import { computeSymbolCycles } from './analysis/symbol-cycles';
@@ -506,6 +514,7 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('auraVisualizer.exportArchReportAI', () => exportArchReport(true)),
         vscode.commands.registerCommand('auraVisualizer.exportMetrics', () => exportMetrics()),
         vscode.commands.registerCommand('auraVisualizer.exportResolutionReport', () => exportResolutionReport()),
+        vscode.commands.registerCommand('auraVisualizer.exportGraphFormat', () => exportGraphFormat()),
         vscode.commands.registerCommand('auraVisualizer.generateAgentContext', () => writeAgentContext({ interactive: true })),
         vscode.commands.registerCommand('auraVisualizer.reviewBranch', () => reviewCurrentBranch(context)),
         vscode.commands.registerCommand('auraVisualizer.blastRadius', (uri?: unknown, selection?: unknown) =>
@@ -717,6 +726,75 @@ async function exportResolutionReport(): Promise<void> {
         return;
     }
     await saveOrCopyText('Resolution report', resolutionMarkdown(report), 'resolution-report.md', { Markdown: ['md'] });
+}
+
+/**
+ * Settings that shape the three text formats (lot 2).
+ *
+ * They are read at export time, not cached: a user can change the Mermaid cap
+ * in ⚙️ Settings and export again in the same session.
+ */
+function readGraphFormatOptions(): GraphFormatOptions {
+    const config = vscode.workspace.getConfiguration('auraVisualizer');
+    const clusters = config.get<string>('graphClusters');
+    const groups = config.get<string>('graphmlGroups');
+    return {
+        mermaidNodeLimit: Math.max(0, config.get<number>('mermaidNodeLimit') ?? DEFAULT_GRAPH_FORMAT_OPTIONS.mermaidNodeLimit),
+        clusters: clusters === 'full' ? 'full' : 'first-level',
+        graphmlGroups: groups === 'nested' ? 'nested' : 'attribute',
+    };
+}
+
+interface GraphFormatPayload {
+    format?: GraphFormat;
+    nodes?: GraphNodeLike[];
+    links?: GraphLinkLike[];
+}
+
+const GRAPH_FORMAT_PICKS = [
+    { label: 'DOT', description: 'Graphviz — clusters, node width from file size, the format to paste in a PR', format: 'dot' as GraphFormat },
+    { label: 'GraphML', description: 'Gephi, yEd, NetworkX — typed attributes, synthetic ids', format: 'graphml' as GraphFormat },
+    { label: 'Mermaid', description: 'A ```mermaid block for a README — capped, with subgraphs', format: 'mermaid' as GraphFormat },
+];
+
+/**
+ * Move the graph out of Aura.
+ *
+ * Two entry points, deliberately different: the palette exports the **whole**
+ * graph (a user asking for a file wants the file), while the view's 📤 Export
+ * menu sends the **current view** — the filters on screen are the user's
+ * question, so the answer must honour them.
+ */
+async function exportGraphFormat(payload?: GraphFormatPayload): Promise<void> {
+    const options = readGraphFormatOptions();
+    let format = payload?.format;
+    if (!format) {
+        const pick = await vscode.window.showQuickPick(GRAPH_FORMAT_PICKS, {
+            placeHolder: 'Aura: export the graph as…',
+        });
+        if (!pick) return;
+        format = pick.format;
+    }
+
+    // The view sends the filtered set; the palette reads the full graph.
+    const source = payload?.nodes?.length
+        ? { nodes: payload.nodes, links: payload.links || [] }
+        : { nodes: cachedGraphData?.nodes || [], links: cachedGraphData?.links || [] };
+    if (source.nodes.length === 0) {
+        void vscode.window.showWarningMessage('Aura: no graph to export yet — run the analysis first.');
+        return;
+    }
+
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    const projectName = workspaceFolder ? path.basename(workspaceFolder.uri.fsPath) : 'Aura';
+    const result = buildGraphFormat(format, { ...source, projectName }, options);
+    const scope = payload?.nodes?.length ? 'current view' : 'whole graph';
+    await saveOrCopyText(
+        `${result.label}, ${scope} (${source.nodes.length} files)`,
+        result.text,
+        `aura-graph.${result.extension}`,
+        result.filters,
+    );
 }
 
 /**
