@@ -24,6 +24,26 @@
         if (section) section.style.display = visible ? '' : 'none';
     }
 
+    /**
+     * Every symbol array the panel iterates. The analyzer always sends all of
+     * them; a partial object — from an incremental delta or a future producer —
+     * used to throw on `node.symbols.enums.length`, which killed the whole
+     * render and made the click look inert. Repairing the object in place is
+     * cheaper than guarding ten loops.
+     */
+    var SYMBOL_ARRAYS = [
+        'functions', 'structs', 'enums', 'macros', 'classes', 'exports',
+        'interfaces', 'traits', 'typeAliases', 'methods',
+    ];
+
+    function completeSymbols(symbols) {
+        if (!symbols || typeof symbols !== 'object') return symbols;
+        for (var i = 0; i < SYMBOL_ARRAYS.length; i++) {
+            if (!Array.isArray(symbols[SYMBOL_ARRAYS[i]])) symbols[SYMBOL_ARRAYS[i]] = [];
+        }
+        return symbols;
+    }
+
     function noteTimestamp(value) {
         if (value === null || value === undefined || value === '') return undefined;
         if (value instanceof Date) {
@@ -139,8 +159,7 @@
             $('#panel-mtime').textContent = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
         } else {
             $('#panel-mtime').textContent = '—';
-        }
-        var gitState = hooks.dirtyStateOf(node);
+        }        var gitState = hooks.dirtyStateOf(node);
         var gitEl = $('#panel-git');
         if (gitEl) {
             gitEl.textContent = gitState ? (hooks.getGitStateLabels()[gitState] || gitState) : '—';
@@ -167,6 +186,13 @@
 
         var symbolCount = node.symbols ? node.symbols.totalSymbols : 0;
         $('#panel-symbols-count').textContent = symbolCount;
+
+        // A partial `symbols` object — one that carries `totalSymbols` but not
+        // every array — used to throw right here, which aborted the whole detail
+        // render and made a node click look like it did nothing at all. The
+        // analyzer always sends every array; incremental deltas and any future
+        // producer are not trusted to.
+        if (node.symbols) node.symbols = completeSymbols(node.symbols);
 
         var symbolsSection = $('#symbols-section');
         var symbolsList = $('#symbols-list');

@@ -3631,7 +3631,7 @@
     }
 
     function handleNodeClick(node, event) {
-        if (window.AuraFlight && window.AuraFlight.isActive()) return; // pilot: clicks suspended
+        if (flightBlocksClick()) return;
         if (!node) return;
         clearFocusedLink();
 
@@ -3672,14 +3672,14 @@
             updateMultiSelectedLinks();
             refreshGraphVisuals();
             if (multiSelectedNodes.size > 1) {
-                if (window.AuraDetail) AuraDetail.showMultiSelect();
+                showMultiSelectSafely();
             } else if (multiSelectedNodes.size === 1) {
                 var solo = multiSelectedNodes.values().next().value;
                 multiSelectedNodes.clear();
                 multiSelectedLinks.clear();
                 selectedNode = solo;
                 refreshGraphVisuals();
-                if (window.AuraDetail) AuraDetail.show(solo);
+                showDetailSafely(solo);
             } else {
                 detailPanel.classList.add('collapsed');
             }
@@ -3718,7 +3718,7 @@
     }
 
     function graphContainerDblClick() {
-        if (window.AuraFlight && window.AuraFlight.isActive()) return; // pilot: clicks suspended
+        if (flightBlocksClick()) return;
         if (hoveredNode) handleNodeDblClick(hoveredNode);
     }
 
@@ -3743,7 +3743,7 @@
     }
 
     function handleBackgroundClick() {
-        if (window.AuraFlight && window.AuraFlight.isActive()) return; // pilot: clicks suspended
+        if (flightBlocksClick()) return;
         if (pathMode) return;
         var hadSelection = !!selectedNode || multiSelectedNodes.size > 0;
         var hadPinned = !!pinnedNode || blastMode;
@@ -3780,7 +3780,7 @@
     // Right-click pinned focus
     // ============================================================
     function handleNodeRightClick(node, eventOrFlag) {
-        if (window.AuraFlight && window.AuraFlight.isActive()) return; // pilot: clicks suspended
+        if (flightBlocksClick()) return;
         if (!node || pathMode) return;
 
         var isEvent = eventOrFlag && typeof eventOrFlag === 'object' && 'shiftKey' in eventOrFlag;
@@ -4233,7 +4233,48 @@
         ensureSelectedNodeEffect();
         graph.nodeThreeObject(graph.nodeThreeObject());
         updateExplorerSelection();
-        if (window.AuraDetail) AuraDetail.show(node);
+        showDetailSafely(node);
+    }
+
+    /**
+     * The detail panel is the last step of a click, but a throw in it used to
+     * take the rest of the gesture with it — the selection and the camera move
+     * never happened and the click looked dead. Rendering is now the only thing
+     * that can fail, and it says so in the webview console.
+     */
+    function showDetailSafely(node) {
+        if (!window.AuraDetail) return;
+        try {
+            AuraDetail.show(node);
+        } catch (err) {
+            console.error('[aura] detail panel failed for ' + (node && node.id), err);
+        }
+    }
+
+    function showMultiSelectSafely() {
+        if (!window.AuraDetail) return;
+        try {
+            AuraDetail.showMultiSelect();
+        } catch (err) {
+            console.error('[aura] multi-selection panel failed', err);
+        }
+    }
+
+    var pilotBlockWarned = false;
+
+    /**
+     * Pilot mode deliberately suspends clicks. It is also the one state that
+     * makes *every* node gesture inert, so say it once instead of returning
+     * silently — a stuck flight then reads as a stuck flight, not as a broken
+     * graph.
+     */
+    function flightBlocksClick() {
+        if (!window.AuraFlight || !window.AuraFlight.isActive()) return false;
+        if (!pilotBlockWarned) {
+            pilotBlockWarned = true;
+            console.warn('[aura] clicks are suspended while pilot mode is active — press Esc to leave the flight');
+        }
+        return true;
     }
 
     // ============================================================
