@@ -64,6 +64,14 @@ import { chunkDocument, type DocChunk } from './analyzer/parsers/doc-parser';
 import { computeCochange } from './analysis/cochange';
 import { computeSymbolCycles } from './analysis/symbol-cycles';
 import { buildParseFailureReport } from './analysis/parse-failures';
+import {
+    emptyScanCounters,
+    resolutionMarkdown,
+    sumResolution,
+    type FileResolution,
+    type ResolutionReport,
+    type ScanCounters,
+} from './analysis/resolution';
 import { computePageRank } from './analysis/pagerank';
 import { documentationIdsOf, isStructuralLink } from './analysis/architecture';
 import { parseDeadCodeRules, type DeadCodeRule } from './analysis/dead-code';
@@ -121,6 +129,38 @@ let incrementalCtx: IncrementalContext | undefined;
  * capped sample for the UI.
  */
 let parseFailureIndex = new Map<string, string>();
+/** Per-file resolution counters, mirrored from the `file_resolution` table. */
+let cachedResolution: Record<string, FileResolution> = {};
+/** What the last walk left out, persisted as `meta.scan`. */
+let cachedScan: ScanCounters | undefined;
+
+/**
+ * Recompute the aggregate from the per-file counters. Cheap (one pass over the
+ * files) and called after every graph change: that is what keeps an incremental
+ * edit from silently freezing the report, which was the whole point of choosing
+ * per-file counters.
+ */
+function rebuildResolutionReport(data: GraphData | undefined = cachedGraphData): ResolutionReport | undefined {
+    if (!data) return undefined;
+    const report = sumResolution({
+        entries: Object.values(cachedResolution),
+        scan: cachedScan ?? emptyScanCounters(),
+        parsedTotal: data.meta.totalFiles,
+        parsedFailed: data.meta.parseFailures?.total ?? 0,
+    });
+    data.meta.resolution = report;
+    if (cachedScan) data.meta.scan = cachedScan;
+    if (graphDb) {
+        try {
+            graphDb.setMeta('resolution', JSON.stringify(report));
+            if (cachedScan) graphDb.setMeta('scan', JSON.stringify(cachedScan));
+            graphDb.save();
+        } catch (err) {
+            console.warn('[aura] resolution meta update failed:', err);
+        }
+    }
+    return report;
+}
 
 /** Rebuild `meta.parseFailures` from the live index (undefined when clean). */
 function refreshParseFailureMeta(data: GraphData | undefined = cachedGraphData): void {
@@ -940,6 +980,9 @@ async function refreshAnalysis(context: vscode.ExtensionContext, force = false):
         if (currentFingerprint && graphDb) {
             if (!cachedGraphData) {
                 cachedGraphData = graphDb.exportGraphData() ?? undefined;
+                cachedResolution = graphDb.getFileResolution();
+                cachedScan = cachedGraphData ? cachedGraphData.meta.scan : undefined;
+                rebuildResolutionReport();
                 seedParseFailureIndex(cachedGraphData);
             }
             const previous = fingerprintFromMeta(graphDb.getAllMeta());
@@ -1019,6 +1062,16 @@ async function refreshAnalysis(context: vscode.ExtensionContext, force = false):
         // edits and rebuild the capped report carried by meta.
         parseFailureIndex = new Map((result.parseFailures || []).map(failure => [failure.path, failure.reason]));
         refreshParseFailureMeta(cachedGraphData);
+        // Resolution counters arrive with the analysis: keep them out of the
+        // graph payload (the webview only needs the aggregate) and persist them
+        // per file so an incremental edit can swap one row.
+        const analyzed = result.graphData as GraphData & { resolution?: Record<string, FileResolution> };
+        cachedResolution = analyzed.resolution && typeof analyzed.resolution === 'object'
+            ? analyzed.resolution
+            : {};
+        delete (analyzed as { resolution?: unknown }).resolution;
+        cachedScan = result.scan;
+        rebuildResolutionReport();
         loadArchConfiguration(rootPath);
         applyArchitectureToGraph(cachedGraphData);
         // Restore incremental context from already-computed graph data (no re-parsing)
@@ -1033,7 +1086,7 @@ async function refreshAnalysis(context: vscode.ExtensionContext, force = false):
                 await fs.mkdir(dbDir, { recursive: true });
                 await graphDb.open(path.join(dbDir, 'graph.db'));
             }
-            graphDb.importGraphData(cachedGraphData);
+            graphDb.importGraphData(cachedGraphData, cachedResolution);
             graphDb.importDocChunks(result.docChunks);
             if (currentFingerprint) persistFingerprint(currentFingerprint);
         } catch (dbErr) {
@@ -1136,7 +1189,13 @@ function runAnalysisInWorker(
     excludePaths: string[],
     projectName: string,
     deadCodeRules: DeadCodeRule[],
-): Promise<{ graphData: GraphData; files: FileInfo[]; docChunks: DocChunk[]; parseFailures: ParseFailure[] }> {
+): Promise<{
+    graphData: GraphData;
+    files: FileInfo[];
+    docChunks: DocChunk[];
+    parseFailures: ParseFailure[];
+    scan: ScanCounters;
+}> {
     return new Promise((resolve, reject) => {
         const workerPath = path.join(extensionUri.fsPath, 'out', 'analyzer-worker.js');
         const worker = new Worker(workerPath, {
@@ -1152,7 +1211,7 @@ function runAnalysisInWorker(
             },
         });
 
-        worker.on('message', (msg: { graphData?: GraphData; files?: FileInfo[]; docChunks?: DocChunk[]; parseFailures?: ParseFailure[]; error?: string; progress?: { phase: string; message: string } }) => {
+        worker.on('message', (msg: { graphData?: GraphData; files?: FileInfo[]; docChunks?: DocChunk[]; parseFailures?: ParseFailure[]; scan?: ScanCounters; error?: string; progress?: { phase: string; message: string } }) => {
             if (msg.progress) {
                 webviewProvider?.sendProgress(msg.progress.phase, msg.progress.message);
                 return;
@@ -1160,7 +1219,13 @@ function runAnalysisInWorker(
             if (msg.error) {
                 reject(new Error(msg.error));
             } else {
-                resolve({ graphData: msg.graphData!, files: msg.files!, docChunks: msg.docChunks || [], parseFailures: msg.parseFailures || [] });
+                resolve({
+                    graphData: msg.graphData!,
+                    files: msg.files!,
+                    docChunks: msg.docChunks || [],
+                    parseFailures: msg.parseFailures || [],
+                    scan: msg.scan || emptyScanCounters(),
+                });
             }
             worker.terminate();
         });
@@ -1205,6 +1270,12 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
         }
         // Update cached graph + send delta
         if (cachedGraphData) {
+            delete cachedResolution[relativePath];
+            try {
+                graphDb?.deleteFileResolution(relativePath);
+            } catch (err) {
+                console.warn('[aura] could not drop the resolution row:', err);
+            }
             const removedLinks = cachedGraphData.links
                 .filter(l => l.source === relativePath || l.target === relativePath)
                 .map(l => ({ source: l.source, target: l.target, type: l.type }));
@@ -1323,6 +1394,11 @@ async function incrementalUpdate(fileUri: vscode.Uri, deleted: boolean): Promise
         graphDb.replaceFileData(newInfo.id, result.node, result.outEdges, result.callSites);
         graphDb.updateFanCounts(affectedIds);
         if (cachedGraphData) graphDb.setMeta('parseFailures', JSON.stringify(cachedGraphData.meta.parseFailures || null));
+        // Swap this file's resolution contribution: the aggregate stays exact
+        // after a single-file rebuild (that is why the counters are per file).
+        cachedResolution[newInfo.id] = result.resolution;
+        graphDb.setFileResolution(newInfo.id, result.resolution);
+        rebuildResolutionReport();
         graphDb.save();
     }
 

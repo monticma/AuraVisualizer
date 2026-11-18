@@ -14,6 +14,7 @@ import { chunkDocument, type DocChunk } from './analyzer/parsers/doc-parser';
 import { parseSource } from './analyzer/tree-sitter-loader';
 import { flowProfile, functionFlowAtLine, type FunctionFlow } from './flow/flow-core';
 import type { DeadCodeRule } from './analysis/dead-code';
+import { emptyScanCounters } from './analysis/resolution';
 
 interface WorkerInput {
     rootPath?: string;
@@ -56,9 +57,10 @@ async function run(): Promise<void> {
     const projectName = input.projectName || '';
 
     parentPort?.postMessage({ progress: { phase: 'scanning', message: 'Scanning files...' } });
+    const scanCounters = emptyScanCounters();
     const files = await scanDirectory(rootPath, {
         skipDirs: new Set(skipDirs),
-    });
+    }, scanCounters);
 
     parentPort?.postMessage({ progress: { phase: 'parsing', message: `Parsing ${files.length} files...` } });
     // Pre-parse files with Tree-sitter where grammar is available. Failures are
@@ -89,6 +91,8 @@ async function run(): Promise<void> {
         graphData,
         files,
         docChunks,
+        // What the walk left out — folded into the resolution report.
+        scan: scanCounters,
         // Full failure list (usually tiny): the host keeps it for incremental edits.
         parseFailures: [...parseFailures.entries()]
             .sort((a, b) => a[0].localeCompare(b[0]))

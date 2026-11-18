@@ -3,6 +3,7 @@
  */
 
 import type { ArchEvaluation } from '../arch/arch-core';
+import type { ResolutionReport, ScanCounters } from '../analysis/resolution';
 import type { GitHistoryInfo } from '../git/shallow-core';
 
 export interface FileInfo {
@@ -189,6 +190,14 @@ export interface GraphMeta {
     cycles: string[][];
     /** Parse-failure summary (V2-17); absent when every file parsed cleanly. */
     parseFailures?: ParseFailureReport;
+    /**
+     * « Ce que l'analyse n'a pas vu » — attempted/resolved per relation type,
+     * guessed edges and the coded reasons the rest failed. Absent on a database
+     * written before the report existed; surfaces must say "not measured".
+     */
+    resolution?: ResolutionReport;
+    /** What the filesystem walk left out, folded into `resolution.scan`. */
+    scan?: ScanCounters;
     /** Function-level cycles (V2-03); absent on old databases until re-analysis. */
     symbolCycles?: SymbolCycle[];
     /** Architectural communities (documentation excluded), shared by all surfaces. */

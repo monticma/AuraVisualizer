@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { buildGraph, preParseFiles } from '../analyzer/graph-builder';
+import { isGuessed } from '../analysis/resolution';
 import { initTreeSitter } from '../analyzer/tree-sitter-loader';
 import { makeFileInfo } from './helpers';
 
@@ -457,5 +458,63 @@ describe('buildGraph', () => {
 
         expect(failures.size).toBe(0);
         expect(graph.meta.parseFailures).toBeUndefined();
+    });
+});
+
+describe('buildGraph — per-file resolution counters', () => {
+    const files = [
+        makeFileInfo({
+            id: 'src/a.ts',
+            content: [
+                "import { b } from './b';",
+                "import fastify from 'fastify';",
+                "import { gone } from './gone';",
+            ].join('\n') + '\n',
+            language: 'typescript', extension: '.ts',
+        }),
+        makeFileInfo({ id: 'src/b.ts', content: 'export const b = 1;\n', language: 'typescript', extension: '.ts' }),
+    ];
+
+    it('attributes each relation to the file that wrote it', async () => {
+        const trees = await preParseFiles(files);
+        const graph = buildGraph(files, 'Project', {}, trees);
+        const entry = graph.resolution['src/a.ts'];
+
+        expect(entry).toBeDefined();
+        expect(entry.attempts.import).toBe(3);
+        expect(entry.resolved.import).toBe(1);
+        // Whichever method the resolver used, it was a certain match, not a guess.
+        expect(Object.values(entry.methods).reduce((sum, count) => sum + count, 0)).toBe(1);
+        expect(Object.keys(entry.methods).some(isGuessed)).toBe(false);
+        // The two failures are told apart: a package is not a broken path.
+        expect(entry.codes['bare-specifier']).toBe(1);
+        expect(entry.codes['missing-file']).toBe(1);
+        expect(entry.samples.map(sample => sample.ref)).toContain('fastify');
+    });
+
+    it('keeps the legacy counters in sync with the detail', async () => {
+        const trees = await preParseFiles(files);
+        const graph = buildGraph(files, 'Project', {}, trees);
+        expect(graph.meta.unresolvedReferences).toBe(2);
+        expect(graph.meta.unresolvedSamples.map(sample => sample.ref).sort())
+            .toEqual(['./gone', 'fastify']);
+    });
+
+    it('never counts a stdlib system include as a failure', async () => {
+        const cFiles = [
+            makeFileInfo({
+                id: 'main.c',
+                content: '#include <stdio.h>\n#include "missing.h"\nint main(void) { return 0; }\n',
+                language: 'c', extension: '.c',
+            }),
+        ];
+        const trees = await preParseFiles(cFiles);
+        const graph = buildGraph(cFiles, 'Project', {}, trees);
+        const entry = graph.resolution['main.c'];
+
+        expect(entry.attempts['system-include']).toBe(1);
+        expect(entry.codes['missing-file']).toBe(1);
+        expect(entry.codes['bare-specifier']).toBeUndefined();
+        expect(graph.meta.unresolvedReferences).toBe(1);
     });
 });

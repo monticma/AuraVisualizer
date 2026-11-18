@@ -7,6 +7,7 @@ import { readdir, stat, readFile } from 'fs/promises';
 import { join, extname, relative } from 'path';
 import type { FileInfo, ScanOptions } from './types';
 import type { FileSignature } from './fingerprint';
+import { emptyScanCounters, type ScanCounters } from '../analysis/resolution';
 
 export const SUPPORTED_EXTENSIONS = new Set(['.c', '.h', '.cpp', '.cc', '.cxx', '.hpp', '.hxx', '.hh', '.js', '.jsx', '.ts', '.tsx', '.py', '.css', '.html', '.htm', '.java', '.go', '.rs', '.kt', '.kts', '.rb', '.swift', '.cs', '.php', '.vue', '.sh', '.bash', '.lua', '.md', '.markdown', '.txt', '.rst']);
 
@@ -57,8 +58,16 @@ export const SKIP_DIRS = new Set([
 
 /**
  * Recursively scan a directory and collect file metadata.
+ *
+ * Pass `counters` to learn what the walk left out: the resolution report says
+ * "12 000 entries skipped in `node_modules`" instead of pretending the project
+ * is only what Aura read.
  */
-export async function scanDirectory(rootDir: string, options: ScanOptions = {}): Promise<FileInfo[]> {
+export async function scanDirectory(
+    rootDir: string,
+    options: ScanOptions = {},
+    counters: ScanCounters = emptyScanCounters(),
+): Promise<FileInfo[]> {
     const extensions = options.extensions || SUPPORTED_EXTENSIONS;
     // Merge user-provided skip dirs with built-in defaults
     const skipDirs = new Set([...SKIP_DIRS, ...(options.skipDirs || [])]);    
@@ -71,6 +80,7 @@ export async function scanDirectory(rootDir: string, options: ScanOptions = {}):
         try {
             entries = await readdir(dir, { withFileTypes: true });
         } catch {
+            counters.unreadable++;
             return;
         }
 
@@ -80,10 +90,19 @@ export async function scanDirectory(rootDir: string, options: ScanOptions = {}):
             if (entry.isDirectory()) {
                 if (!skipDirsLower.has(entry.name.toLowerCase())) {
                     await walk(fullPath);
+                } else {
+                    counters.skippedDirHits++;
+                    if (counters.skippedDirs.indexOf(entry.name) < 0) {
+                        counters.skippedDirs.push(entry.name);
+                    }
                 }
             } else if (entry.isFile()) {
                 const ext = extname(entry.name).toLowerCase();
-                if (extensions.has(ext)) {
+                if (!extensions.has(ext)) {
+                    counters.unsupported++;
+                    continue;
+                }
+                {
                     try {
                         const fileStat = await stat(fullPath);
                         const content = await readFile(fullPath, 'utf-8');
@@ -105,8 +124,10 @@ export async function scanDirectory(rootDir: string, options: ScanOptions = {}):
                             group,
                             content
                         });
+                        counters.scanned++;
                     } catch {
-                        // Skip unreadable files
+                        // Skip unreadable files — but say so.
+                        counters.unreadable++;
                     }
                 }
             }
@@ -114,6 +135,7 @@ export async function scanDirectory(rootDir: string, options: ScanOptions = {}):
     }
 
     await walk(rootDir);
+    counters.skippedDirs.sort();
     return files;
 }
 

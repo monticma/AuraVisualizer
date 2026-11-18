@@ -12,6 +12,7 @@ import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import type { GraphData, GraphNode, GraphLink, GraphMeta, GraphCommunity, SymbolCycle, SymbolCycleStep } from './analyzer/types';
 import type { CochangePair } from './analysis/cochange';
+import type { FileResolution, ResolutionReport, ScanCounters } from './analysis/resolution';
 import { detectCommunities } from './analysis/communities';
 
 // ── Row types returned by queries ──────────────────────────────
@@ -217,6 +218,14 @@ CREATE TABLE IF NOT EXISTS saved_queries (
     created_at INTEGER NOT NULL DEFAULT 0
 );
 
+-- Per-file resolution counters (what the analysis could not see). Kept out of
+-- the meta table so an incremental edit can swap exactly one row and leave the
+-- aggregate exact; the host sums them into meta.resolution.
+CREATE TABLE IF NOT EXISTS file_resolution (
+    file    TEXT PRIMARY KEY,
+    payload TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_edges_source ON edges(source);
 CREATE INDEX IF NOT EXISTS idx_edges_target ON edges(target);
 CREATE INDEX IF NOT EXISTS idx_symbols_node ON symbols(node_id);
@@ -384,7 +393,7 @@ export class GraphDB {
 
     // ── Import (full replace after each analysis) ──────────────
 
-    importGraphData(data: GraphData): void {
+    importGraphData(data: GraphData, resolution?: Record<string, FileResolution>): void {
         const db = this.ensureDb();
 
         db.run('BEGIN TRANSACTION');
@@ -400,6 +409,7 @@ export class GraphDB {
             db.run('DELETE FROM nodes');
             db.run('DELETE FROM meta');
             db.run('DELETE FROM function_calls');
+            db.run('DELETE FROM file_resolution');
 
             // Insert nodes
             for (const n of data.nodes) {
@@ -474,6 +484,8 @@ export class GraphDB {
                 ['languageStats', JSON.stringify(data.meta.languageStats)],
                 ['groups', JSON.stringify(data.meta.groups)],
                 ['git', JSON.stringify(data.meta.git || null)],
+                ['resolution', JSON.stringify(data.meta.resolution || null)],
+                ['scan', JSON.stringify(data.meta.scan || null)],
             ];
             for (const [key, value] of metaEntries) {
                 db.run('INSERT INTO meta (key, value) VALUES (?, ?)', [key, value]);
@@ -489,6 +501,17 @@ export class GraphDB {
 
             // Insert function-level cycles (V2-03)
             this.insertSymbolCycles(data.meta.symbolCycles || []);
+
+            // Per-file resolution counters, when the caller has them (a full
+            // analysis always does; a re-export from an older database may not).
+            if (resolution) {
+                for (const [file, entry] of Object.entries(resolution)) {
+                    db.run(
+                        'INSERT OR REPLACE INTO file_resolution (file, payload) VALUES (?, ?)',
+                        [file, JSON.stringify(entry)],
+                    );
+                }
+            }
 
             db.run('COMMIT');
         } catch (err) {
@@ -845,9 +868,26 @@ export class GraphDB {
             }
         }
 
+        // Resolution report + scan counters: persisted as JSON, absent on a
+        // database written before they existed (surfaces say "not measured").
+        let resolutionReport: GraphMeta['resolution'];
+        let scanCounters: GraphMeta['scan'];
+        for (const [key, assign] of [
+            ['resolution', (value: unknown) => { resolutionReport = value as GraphMeta['resolution']; }],
+            ['scan', (value: unknown) => { scanCounters = value as GraphMeta['scan']; }],
+        ] as const) {
+            const raw = meta[key];
+            if (!raw) continue;
+            try {
+                const parsed = JSON.parse(raw);
+                if (parsed && typeof parsed === 'object') assign(parsed);
+            } catch {
+                // Corrupt cache entry — ignore rather than fail the export.
+            }
+        }
+
         // Shallow-clone flag (V3-14): persisted as JSON; absent on a full history.
-        let gitInfo: GraphMeta['git'];
-        if (meta['git']) {
+        let gitInfo: GraphMeta['git'];        if (meta['git']) {
             try {
                 const parsed = JSON.parse(meta['git']);
                 if (parsed && parsed.shallow === true) {
@@ -878,6 +918,8 @@ export class GraphDB {
                 cycles,
                 symbolCycles,
                 ...(parseFailures ? { parseFailures } : {}),
+                ...(resolutionReport ? { resolution: resolutionReport } : {}),
+                ...(scanCounters ? { scan: scanCounters } : {}),
                 ...(gitInfo ? { git: gitInfo } : {}),
                 languageStats: langStats,
                 groups,
@@ -893,6 +935,42 @@ export class GraphDB {
     }
 
     // ── Queries ────────────────────────────────────────────────
+
+    /**
+     * Replace one file's resolution contribution — the incremental path, so the
+     * aggregate stays exact after a single-file rebuild.
+     */
+    setFileResolution(fileId: string, entry: FileResolution): void {
+        const db = this.ensureDb();
+        db.run(
+            'INSERT OR REPLACE INTO file_resolution (file, payload) VALUES (?, ?)',
+            [fileId, JSON.stringify(entry)],
+        );
+        this.save();
+    }
+
+    deleteFileResolution(fileId: string): void {
+        const db = this.ensureDb();
+        db.run('DELETE FROM file_resolution WHERE file = ?', [fileId]);
+        this.save();
+    }
+
+    /** Every stored contribution. Corrupt rows are skipped, never fatal. */
+    getFileResolution(): Record<string, FileResolution> {
+        const rows = queryAll<{ file: string; payload: string }>(
+            this.ensureDb(), 'SELECT file, payload FROM file_resolution',
+        );
+        const out: Record<string, FileResolution> = {};
+        for (const row of rows) {
+            try {
+                const parsed = JSON.parse(row.payload) as FileResolution;
+                if (parsed && typeof parsed === 'object') out[row.file] = parsed;
+            } catch {
+                // Corrupt cache entry — ignore rather than fail the export.
+            }
+        }
+        return out;
+    }
 
     /** Every edge as a plain pair — feeds the pure transitive closure (V3-08). */
     getEdges(): { source: string; target: string }[] {

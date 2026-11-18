@@ -24,7 +24,15 @@ import { HTMLParser } from './parsers/html-parser';
 import { CSSParser } from './parsers/css-parser';
 import { computeComplexity } from './complexity';
 import { collectFunctionMetrics, type FunctionMetricEntry } from '../flow/flow-core';
-import { createImportResolver, confidenceScore, type ImportResolver } from './path-resolver';
+import { createImportResolver, confidenceScore, type ImportResolver, type AliasConfig } from './path-resolver';
+import {
+    classifyUnresolved,
+    createFileResolution,
+    recordAttempt,
+    recordResolved,
+    recordUnresolved,
+    type FileResolution,
+} from '../analysis/resolution';
 import { computeSymbolCycles } from '../analysis/symbol-cycles';
 import { computePageRank } from '../analysis/pagerank';
 import { documentationIdsOf, isStructuralLink } from '../analysis/architecture';
@@ -485,7 +493,13 @@ function buildGlobalUseLinks(files: FileInfo[], astTrees?: Map<string, Parser.Tr
     return links;
 }
 
-export function buildGraph(files: FileInfo[], projectName: string = 'Project', options: AnalyzeOptions = {}, astTrees?: Map<string, Parser.Tree>, failures?: Map<string, string>): GraphData {
+/**
+ * A full analysis: the graph the webview knows, plus the per-file resolution
+ * counters the host keeps in `file_resolution` (never sent to the webview).
+ */
+export type AnalyzedGraph = GraphData & { resolution: Record<string, FileResolution> };
+
+export function buildGraph(files: FileInfo[], projectName: string = 'Project', options: AnalyzeOptions = {}, astTrees?: Map<string, Parser.Tree>, failures?: Map<string, string>): AnalyzedGraph {
     const fileMap = new Map<string, FileInfo>();
     for (const file of files) {
         fileMap.set(file.id, file);
@@ -723,8 +737,24 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
     // Phase 5: Resolve targets and build links
     const links: GraphLink[] = [];
     const unresolvedCount = { count: 0, targets: [] as { from: string; ref: string }[] };
+    // Per-file counters (`analysis/resolution.ts`): an incremental rebuild swaps
+    // one file's contribution, so the aggregate never goes stale the way a
+    // "recompute only on a full scan" counter would.
+    const resolutionByFile: Record<string, FileResolution> = {};
+    const resolutionFor = (fileId: string): FileResolution => {
+        let entry = resolutionByFile[fileId];
+        if (!entry) {
+            entry = createFileResolution();
+            resolutionByFile[fileId] = entry;
+        }
+        return entry;
+    };
+    const unparsedIds = new Set(failures ? [...failures.keys()] : []);
+    const topLevelDirs = new Set(files.map(file => file.group));
 
     for (const relation of allRelations) {
+        const entry = resolutionFor(relation.source);
+        recordAttempt(entry, relation.type);
         const resolution = resolver.resolve(relation.target, relation.source);
         if (resolution && resolution.id !== relation.source) {
             const resolvedTarget = resolution.id;
@@ -743,18 +773,48 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
                 label: relation.label,
                 confidence: confidenceScore(resolution),
             });
-        } else if (relation.type !== 'system-include') {
-            // Don't count unresolved system includes (stdlib) as missing references.
-            unresolvedCount.count++;
-            if (unresolvedCount.targets.length < 20) {
-                unresolvedCount.targets.push({ from: relation.source, ref: relation.target });
+            recordResolved(entry, linkType, resolution.method);
+        } else {
+            // A stdlib `#include <stdio.h>` is not a failure: it is out of scope
+            // by definition, and the report says so instead of inflating the
+            // unresolved count.
+            if (relation.type !== 'system-include') {
+                unresolvedCount.count++;
+                if (unresolvedCount.targets.length < 20) {
+                    unresolvedCount.targets.push({ from: relation.source, ref: relation.target });
+                }
+                recordUnresolved(
+                    entry,
+                    classifyUnresolved({
+                        target: relation.target,
+                        type: relation.type,
+                        aliasPrefix: isAliasSpecifier(relation.target, resolver.aliases),
+                        unparsedIds,
+                        topLevelDirs,
+                        sourceDir: dirOf(relation.source),
+                    }),
+                    { from: relation.source, ref: relation.target },
+                );
             }
         }
     }
 
-    links.push(...functionCallLinks);
-    links.push(...heritageLinks);
-    links.push(...buildGlobalUseLinks(files, astTrees));
+    // Call, heritage and global-use edges are resolved by construction (the
+    // producer already knows its target), so they count as attempts *and*
+    // resolutions — otherwise `call 0/0` would read as "nothing to see".
+    const extraLinks: { links: GraphLink[]; type: string; method: string }[] = [
+        { links: functionCallLinks, type: 'call', method: 'call-site' },
+        { links: heritageLinks, type: 'heritage', method: 'heritage' },
+        { links: buildGlobalUseLinks(files, astTrees), type: 'global-use', method: 'namespace' },
+    ];
+    for (const group of extraLinks) {
+        for (const link of group.links) {
+            const entry = resolutionFor(link.source);
+            recordAttempt(entry, group.type);
+            recordResolved(entry, group.type, group.method);
+        }
+        links.push(...group.links);
+    }
 
     // Deduplicate links
     const linkSet = new Set<string>();
@@ -956,10 +1016,38 @@ export function buildGraph(files: FileInfo[], projectName: string = 'Project', o
         nodes,
         links: uniqueLinks,
         functionCalls: allCallSites,
+        // Per-file counters, kept out of `meta` so they never ride along in the
+        // graph payload: the host stores them in `file_resolution` and sums them.
+        resolution: resolutionByFile,
     };
 }
 
 // ── Incremental single-file rebuild ────────────────────────────
+
+/** `webview/js/app.js` → `webview/js`. */
+function dirOf(fileId: string): string {
+    const cut = String(fileId || '').lastIndexOf('/');
+    return cut > 0 ? fileId.slice(0, cut) : '';
+}
+
+/**
+ * Is this specifier written in one of the project's alias forms (`@/x`, the key
+ * of a `paths` entry)? Such a failure means the configuration is missing or
+ * incomplete, which is a different problem from a file that is not there.
+ */
+function isAliasSpecifier(target: string, aliases: AliasConfig | undefined): boolean {
+    if (!aliases) return false;
+    const value = String(target || '');
+    if (!value) return false;
+    for (const key of Object.keys(aliases.aliases || {})) {
+        if (key && value.startsWith(key)) return true;
+    }
+    for (const key of Object.keys(aliases.paths || {})) {
+        const prefix = key.replace(/\*+$/, '');
+        if (prefix && value.startsWith(prefix)) return true;
+    }
+    return false;
+}
 
 /** Persistent state for incremental rebuilds, seeded from a full buildGraph(). */
 export interface IncrementalContext {
@@ -975,6 +1063,8 @@ export interface IncrementalContext {
     globalNamespaces?: Map<string, string>;
     /** Namespaces one file defines, so an edit can drop its previous ones. */
     fileNamespaces?: Map<string, string[]>;
+    /** Files that failed to parse, so a missing target can be classified as such. */
+    parseFailureIds?: Set<string>;
 }
 
 /**
@@ -1134,6 +1224,8 @@ export function rebuildSingleFile(
     node: GraphNode;
     outEdges: GraphLink[];
     callSites: FunctionCallSite[];
+    /** Per-file resolution counters — the host stores them in `file_resolution`. */
+    resolution: FileResolution;
     /** First parse error hit for this file (V2-17), if any. */
     parseFailureReason?: string;
 } {
@@ -1347,20 +1439,49 @@ export function rebuildSingleFile(
 
     // Phase 5: Resolve targets and build outEdges
     const outEdges: GraphLink[] = [];
+    // Same counters as the full build, for this file only: the host swaps this
+    // contribution in `file_resolution` and the aggregate stays exact.
+    const resolution = createFileResolution();
+    const unparsedIds = ctx.parseFailureIds || new Set<string>();
+    const topLevelDirs = new Set([...fileMap.values()].map(entry => entry.group));
     for (const rel of relations) {
-        const resolution = resolver.resolve(rel.target, rel.source);
-        if (resolution && resolution.id !== rel.source) {
+        recordAttempt(resolution, rel.type);
+        const resolved = resolver.resolve(rel.target, rel.source);
+        if (resolved && resolved.id !== rel.source) {
             // Promote resolved local angle-bracket includes to visible links
             // (same rationale as buildGraph Phase 5).
             const linkType = rel.type === 'system-include' && !options.includeSystemHeaders
                 ? 'include'
                 : rel.type;
-            outEdges.push({ source: rel.source, target: resolution.id, type: linkType, label: rel.label, confidence: confidenceScore(resolution) });
+            outEdges.push({ source: rel.source, target: resolved.id, type: linkType, label: rel.label, confidence: confidenceScore(resolved) });
+            recordResolved(resolution, linkType, resolved.method);
+        } else if (rel.type !== 'system-include') {
+            recordUnresolved(
+                resolution,
+                classifyUnresolved({
+                    target: rel.target,
+                    type: rel.type,
+                    aliasPrefix: isAliasSpecifier(rel.target, resolver.aliases),
+                    unparsedIds,
+                    topLevelDirs,
+                    sourceDir: dirOf(rel.source),
+                }),
+                { from: rel.source, ref: rel.target },
+            );
         }
     }
-    outEdges.push(...functionCallLinks);
-    outEdges.push(...globalUseLinks);
-    outEdges.push(...heritageLinks);
+    const extraEdges: { links: GraphLink[]; type: string; method: string }[] = [
+        { links: functionCallLinks, type: 'call', method: 'call-site' },
+        { links: globalUseLinks, type: 'global-use', method: 'namespace' },
+        { links: heritageLinks, type: 'heritage', method: 'heritage' },
+    ];
+    for (const group of extraEdges) {
+        for (const link of group.links) {
+            recordAttempt(resolution, group.type);
+            recordResolved(resolution, group.type, group.method);
+        }
+        outEdges.push(...group.links);
+    }
 
     // Deduplicate
     const linkSet = new Set<string>();
@@ -1429,5 +1550,5 @@ export function rebuildSingleFile(
         if (classified.exempted.length > 0) node.exemptedExports = classified.exempted;
     }
 
-    return { node, outEdges: uniqueEdges, callSites, ...(parseFailure ? { parseFailureReason: parseFailure } : {}) };
+    return { node, outEdges: uniqueEdges, callSites, resolution, ...(parseFailure ? { parseFailureReason: parseFailure } : {}) };
 }
