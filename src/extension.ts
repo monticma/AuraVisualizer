@@ -63,10 +63,10 @@ import { saveOrCopyText, saveText } from './export/save';
 import {
     DEFAULT_GRAPH_FORMAT_OPTIONS,
     buildGraphFormat,
+    readFormatPayload,
+    type FormatExportPayload as GraphFormatPayload,
     type GraphFormat,
     type GraphFormatOptions,
-    type GraphLinkLike,
-    type GraphNodeLike,
 } from './export/graph-formats';
 import { chunkDocument, type DocChunk } from './analyzer/parsers/doc-parser';
 import { computeCochange } from './analysis/cochange';
@@ -514,7 +514,11 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('auraVisualizer.exportArchReportAI', () => exportArchReport(true)),
         vscode.commands.registerCommand('auraVisualizer.exportMetrics', () => exportMetrics()),
         vscode.commands.registerCommand('auraVisualizer.exportResolutionReport', () => exportResolutionReport()),
-        vscode.commands.registerCommand('auraVisualizer.exportGraphFormat', () => exportGraphFormat()),
+        // The argument is the view's payload (`{format, nodes, links}`). It must
+        // be forwarded: dropping it re-opened the format QuickPick, so picking
+        // DOT in the 📤 menu asked for DOT a second time.
+        vscode.commands.registerCommand('auraVisualizer.exportGraphFormat', (payload?: GraphFormatPayload) =>
+            exportGraphFormat(payload)),
         vscode.commands.registerCommand('auraVisualizer.generateAgentContext', () => writeAgentContext({ interactive: true })),
         vscode.commands.registerCommand('auraVisualizer.reviewBranch', () => reviewCurrentBranch(context)),
         vscode.commands.registerCommand('auraVisualizer.blastRadius', (uri?: unknown, selection?: unknown) =>
@@ -745,12 +749,6 @@ function readGraphFormatOptions(): GraphFormatOptions {
     };
 }
 
-interface GraphFormatPayload {
-    format?: GraphFormat;
-    nodes?: GraphNodeLike[];
-    links?: GraphLinkLike[];
-}
-
 const GRAPH_FORMAT_PICKS = [
     { label: 'DOT', description: 'Graphviz — clusters, node width from file size, the format to paste in a PR', format: 'dot' as GraphFormat },
     { label: 'GraphML', description: 'Gephi, yEd, NetworkX — typed attributes, synthetic ids', format: 'graphml' as GraphFormat },
@@ -767,7 +765,11 @@ const GRAPH_FORMAT_PICKS = [
  */
 async function exportGraphFormat(payload?: GraphFormatPayload): Promise<void> {
     const options = readGraphFormatOptions();
-    let format = payload?.format;
+    // The payload crosses a webview boundary: nothing in it is trusted. A
+    // command argument can also be a URI (from a menu contribution) or absent
+    // (from the palette), and both mean "ask me".
+    const view = readFormatPayload(payload);
+    let format = view.format;
     if (!format) {
         const pick = await vscode.window.showQuickPick(GRAPH_FORMAT_PICKS, {
             placeHolder: 'Aura: export the graph as…',
@@ -777,8 +779,8 @@ async function exportGraphFormat(payload?: GraphFormatPayload): Promise<void> {
     }
 
     // The view sends the filtered set; the palette reads the full graph.
-    const source = payload?.nodes?.length
-        ? { nodes: payload.nodes, links: payload.links || [] }
+    const source = view.nodes?.length
+        ? { nodes: view.nodes, links: view.links || [] }
         : { nodes: cachedGraphData?.nodes || [], links: cachedGraphData?.links || [] };
     if (source.nodes.length === 0) {
         void vscode.window.showWarningMessage('Aura: no graph to export yet — run the analysis first.');
@@ -788,7 +790,7 @@ async function exportGraphFormat(payload?: GraphFormatPayload): Promise<void> {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     const projectName = workspaceFolder ? path.basename(workspaceFolder.uri.fsPath) : 'Aura';
     const result = buildGraphFormat(format, { ...source, projectName }, options);
-    const scope = payload?.nodes?.length ? 'current view' : 'whole graph';
+    const scope = view.nodes?.length ? 'current view' : 'whole graph';
     await saveOrCopyText(
         `${result.label}, ${scope} (${source.nodes.length} files)`,
         result.text,

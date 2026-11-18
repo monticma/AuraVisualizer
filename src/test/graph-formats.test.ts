@@ -3,6 +3,7 @@ import {
     DEFAULT_GRAPH_FORMAT_OPTIONS,
     buildGraphFormat,
     clusterOf,
+    readFormatPayload,
     toDot,
     toGraphMl,
     toMermaid,
@@ -208,5 +209,45 @@ describe('buildGraphFormat', () => {
 
     it('rejects an unknown format', () => {
         expect(() => buildGraphFormat('pdf' as never, GRAPH)).toThrow(/Unknown graph format/);
+    });
+});
+
+describe('readFormatPayload', () => {
+    // The regression this guards: the command used to drop the payload, so
+    // picking DOT in the 📤 menu opened the format picker a second time.
+    it('keeps a palette request asking for a format', () => {
+        expect(readFormatPayload(undefined)).toEqual({});
+        expect(readFormatPayload(null)).toEqual({});
+    });
+
+    it('honours the format the view already chose', () => {
+        expect(readFormatPayload({ format: 'dot' }).format).toBe('dot');
+        expect(readFormatPayload({ format: 'graphml' }).format).toBe('graphml');
+        expect(readFormatPayload({ format: 'mermaid' }).format).toBe('mermaid');
+    });
+
+    it('drops an unknown format so the picker can ask', () => {
+        expect(readFormatPayload({ format: 'pdf' }).format).toBeUndefined();
+        expect(readFormatPayload({ format: 42 }).format).toBeUndefined();
+    });
+
+    it('keeps the filtered node set and its links', () => {
+        const payload = readFormatPayload({ format: 'dot', nodes: [{ id: 'a.ts' }], links: [] });
+        expect(payload.nodes).toEqual([{ id: 'a.ts' }]);
+        expect(payload.links).toEqual([]);
+    });
+
+    it('ignores junk nodes but keeps the format', () => {
+        const payload = readFormatPayload({
+            format: 'dot',
+            nodes: [{ id: 'a.ts' }, { name: 'no id' }, null, 'nope'],
+        });
+        expect(payload.nodes).toEqual([{ id: 'a.ts' }]);
+        expect(payload.format).toBe('dot');
+    });
+
+    it('rejects a non-object argument (a Uri from a menu contribution)', () => {
+        expect(readFormatPayload('file:///tmp/x.ts')).toEqual({});
+        expect(readFormatPayload([{ id: 'a.ts' }])).toEqual({});
     });
 });

@@ -398,3 +398,37 @@ export function buildGraphFormat(
             : toMermaid(input, options);
     return { text, extension: meta.extension, filters: meta.filters, label: meta.label };
 }
+
+// ── View payload ───────────────────────────────────────────────
+
+export interface FormatExportPayload {
+    format?: GraphFormat;
+    nodes?: GraphNodeLike[];
+    links?: GraphLinkLike[];
+}
+
+function validNodes(value: unknown): GraphNodeLike[] | undefined {
+    if (!Array.isArray(value)) return undefined;
+    return value.filter((node): node is GraphNodeLike =>
+        !!node && typeof node === 'object' && typeof (node as GraphNodeLike).id === 'string');
+}
+
+/**
+ * Normalise what the view sent with `exportGraphFormat`.
+ *
+ * A command argument is not a trusted object: it can be the palette (nothing),
+ * a menu contribution (a `Uri`) or a webview message (whatever the page built).
+ * Only a real payload with a known `format` skips the format picker — that was
+ * the bug behind "I pick DOT and VS Code asks me to pick DOT again".
+ */
+export function readFormatPayload(raw: unknown): FormatExportPayload {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+    const candidate = raw as { format?: unknown; nodes?: unknown; links?: unknown };
+    const nodes = validNodes(candidate.nodes);
+    const links = Array.isArray(candidate.links) ? [...candidate.links] : undefined;
+    return {
+        format: GRAPH_FORMATS.find(format => format === candidate.format),
+        ...(nodes ? { nodes } : {}),
+        ...(links ? { links } : {}),
+    };
+}
