@@ -30,6 +30,12 @@
   - **GraphML** for Gephi / yEd / NetworkX: typed `<key>`s, synthetic ids with the path in a `<data>`, folders as an **attribute** or as **nested `<graph>`** (a setting).
   - **Mermaid** for a README: the file **is** a fenced Markdown document (`graph LR`, subgraphs, typed edges) — no fence and a Markdown preview joins every line into one endless paragraph. **Two caps**: nodes (`mermaidNodeLimit`, default 300) and relations (`mermaidEdgeLimit`, default 500, Mermaid's own ceiling), both `0` = no limit; it keeps the most depended-on files and the most structural relations, and says what it left out.
   - **Byte-deterministic**: same graph in, same text out, so a diff stays readable and a golden test can hold it.
+- **🔗 The call graph, finally usable.** Every resolved call site was already in `.aura/graph.db`; the tools only spoke about **files**. Five new MCP tools answer at the **function** level:
+  - `find_callers` / `find_callees` — call sites grouped **per caller** with their lines and a confidence (1.0 local · 0.8 unique cross-file · 0.5 ambiguous target). `$` is called 1 756 times in Aura's own webview: a flat list would be unusable, so the grouping is the answer.
+  - `symbol_impact` — transitive callers with depth and the call path, so "directly affected" is separated from "reached indirectly".
+  - `trace_flow` — shortest cycle-safe call path between two symbols, with the call line of every step. On Aura: `activate → registerAuraLmTools → registerShared → runAuraToolAsync → explainFileTool → withAnchor`.
+  - `find_entry_points` — `main`, `activate`/`deactivate`, `package.json` main/bin, test files, then every symbol nothing calls.
+  - **Honest by construction**: the graph is static and records **free-function calls only** — a method called on an object is invisible, so an empty result says so instead of pretending. Entry detection is a heuristic, and it says that too.
 
 _Previously in 1.6.2: the **Aura** section in the Explorer — a card on the active file with its metrics, risk score and reasons, complexity sparkline, flags and the City's connection map, plus ◫ View in for the 3D graph, the City and the Treemap._
 
@@ -881,6 +887,11 @@ The MCP server exposes your codebase graph to AI tools via stdio transport. It r
 | `list_repositories` | — | **Which repo/worktree is served** — root, database path, analysis age, `HEAD`, staleness and every `git worktree` with its branch. |
 | `find_dependencies` | `file`, `depth` | Transitive dependency tree + the direct `call_sites` behind each edge |
 | `find_dependents` | `file`, `depth` | Impact analysis — blast radius with risk levels + the direct `call_sites` behind each edge |
+| `find_callers` | `symbol`, `file`, `limit`, `include_local` | **Who calls this function** — call sites grouped per caller with their lines and a confidence (1.0 local · 0.8 unique cross-file · 0.5 ambiguous target) |
+| `find_callees` | `symbol`, `file`, `limit`, `include_local` | What this function calls, same shape |
+| `symbol_impact` | `symbol`, `max_depth`, `limit` | **If I change this function, what breaks** — transitive callers with depth and the call path |
+| `trace_flow` | `from`, `to`, `max_depth` | **How execution reaches this function** — shortest cycle-safe call path with the call line of every step |
+| `find_entry_points` | `limit`, `include_tests` | **Where execution starts** — `main`, `activate`/`deactivate`, `package.json` main/bin, tests, then graph roots |
 | `find_path` | `from`, `to` | Shortest dependency path between two files |
 | `find_cycles` | — | Circular dependencies — file-level cycles plus function-level `symbol_cycles` (recursion/mutual recursion with call lines) |
 | `find_orphan_files` | `limit` | Files that nothing imports |
@@ -898,7 +909,9 @@ The MCP server exposes your codebase graph to AI tools via stdio transport. It r
 | `generate_documentation` | `hotspot_limit` | Full documentation payload: overview, modules, hotspots, cycles, dead code, inter-module links |
 | `get_architecture_violations` | `limit`, `include_baselined` | Evaluate `.aura/arch-rules.json` — new deny/slice violations, per-layer Ca/Ce/instability and aggregated layer cycles; documentation excluded |
 
-**Every payload is anchored.** As soon as a tool knows a line, the entry carries `file`, `line` **and** a ready-to-cite `anchor` field (`"src/risk/risk-core.ts:142"`) — nothing to concatenate on the agent side. That covers `search_symbols`, `search_docs`, `find_dead_code`, `find_unused_functions`, `find_heritage`, `resolve_context` and `explain_file`. `find_dependencies` and `find_dependents` also return the direct `call_sites` (`from`, `to`, `line`, `anchor`) behind each edge, so the agent jumps straight to the call instead of grepping for it.
+**Every payload is anchored.** As soon as a tool knows a line, the entry carries `file`, `line` **and** a ready-to-cite `anchor` field (`"src/risk/risk-core.ts:142"`) — nothing to concatenate on the agent side. That covers `search_symbols`, `search_docs`, `find_dead_code`, `find_unused_functions`, `find_heritage`, `resolve_context`, `find_callers`/`find_callees` and `explain_file`. `find_dependencies` and `find_dependents` also return the direct `call_sites` (`from`, `to`, `line`, `anchor`) behind each edge, so the agent jumps straight to the call instead of grepping for it.
+
+**The call graph says what it cannot see.** `find_callers`, `find_callees` and `symbol_impact` answer from a **static** graph built on the resolved call sites Aura already stores — free-function calls only. A method invoked on an object (`db.getCallSites()`) is not recorded by the analyser yet, so an empty answer comes with that caveat attached rather than a silent zero. `find_entry_points` is a heuristic too: a framework callback (route, event handler, DI) has no static caller and shows up as a root — the list is a set of *candidates*, not a verdict.
 
 **The server ships operating instructions.** On `initialize`, Aura returns an `instructions` block telling the agent to call `build` first, prefer the indexed tools over shell `git`/`grep`, quote the anchors, and say so when the graph is stale — so the workflow survives without any per-project prompt.
 

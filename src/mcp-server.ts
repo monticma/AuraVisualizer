@@ -281,6 +281,73 @@ const TOOLS = [
         description: 'Describe the workspace Aura is serving: root path, database path, analysis timestamp, file/link counts, current git HEAD, staleness, and every git worktree with its branch. Use it when a task must know which repository or worktree it is working on.',
         inputSchema: { type: 'object' as const, properties: {} },
     },
+    {
+        name: 'find_callers',
+        description: 'Who calls this function? Call sites pointing at a symbol, grouped per caller with their lines and a confidence (1.0 local · 0.8 unique cross-file · 0.5 ambiguous target). Static call graph of free-function calls: a method called on an object is not recorded yet, so an empty answer is not a proof.',
+        inputSchema: {
+            type: 'object' as const,
+            properties: {
+                symbol: { type: 'string', description: 'Symbol: "src/a.ts::computeRisk", "src/a.ts:computeRisk" or a bare name' },
+                file: { type: 'string', description: 'Optional file to disambiguate a bare name' },
+                limit: { type: 'number', description: 'Maximum callers returned (default 50)' },
+                include_local: { type: 'boolean', description: 'Include calls between functions of the same file (default false)' },
+            },
+            required: ['symbol'],
+        },
+    },
+    {
+        name: 'find_callees',
+        description: 'What does this function call? Same shape as find_callers, in the outgoing direction.',
+        inputSchema: {
+            type: 'object' as const,
+            properties: {
+                symbol: { type: 'string', description: 'Symbol: "src/a.ts::computeRisk", "src/a.ts:computeRisk" or a bare name' },
+                file: { type: 'string', description: 'Optional file to disambiguate a bare name' },
+                limit: { type: 'number', description: 'Maximum callees returned (default 50)' },
+                include_local: { type: 'boolean', description: 'Include calls inside the same file (default false)' },
+            },
+            required: ['symbol'],
+        },
+    },
+    {
+        name: 'symbol_impact',
+        description: 'If I change this function, what breaks? Transitive callers with depth and call path, so direct impact is separated from what is reached indirectly.',
+        inputSchema: {
+            type: 'object' as const,
+            properties: {
+                symbol: { type: 'string', description: 'Symbol to analyse' },
+                file: { type: 'string', description: 'Optional file to disambiguate a bare name' },
+                max_depth: { type: 'number', description: 'Maximum call depth followed (default 6)' },
+                limit: { type: 'number', description: 'Maximum impacted symbols (default 200)' },
+                include_local: { type: 'boolean', description: 'Include same-file callers (default false)' },
+            },
+            required: ['symbol'],
+        },
+    },
+    {
+        name: 'trace_flow',
+        description: 'How does execution reach this function? Shortest cycle-safe call path between two symbols, with the call line of every step.',
+        inputSchema: {
+            type: 'object' as const,
+            properties: {
+                from: { type: 'string', description: 'Starting symbol (often an entry point)' },
+                to: { type: 'string', description: 'Target symbol' },
+                max_depth: { type: 'number', description: 'Maximum path length (default 12)' },
+            },
+            required: ['from', 'to'],
+        },
+    },
+    {
+        name: 'find_entry_points',
+        description: 'Where does execution start? Heuristic entry detection: main, activate/deactivate, package.json main/bin modules, test files, then every symbol nothing calls. Conservative by design: a framework callback has no static caller.',
+        inputSchema: {
+            type: 'object' as const,
+            properties: {
+                limit: { type: 'number', description: 'Maximum entries returned (default 100)' },
+                include_tests: { type: 'boolean', description: 'Include test files (default true)' },
+            },
+        },
+    },
 ];
 
 // ── Tool handlers ──────────────────────────────────────────────
@@ -326,6 +393,11 @@ const AURA_TOOL_BY_MCP: Record<string, string> = {
     explain_file: 'aura_explain_file',
     hotspots_in_changes: 'aura_hotspots_in_changes',
     list_repositories: 'aura_list_repositories',
+    find_callers: 'aura_find_callers',
+    find_callees: 'aura_find_callees',
+    symbol_impact: 'aura_symbol_impact',
+    trace_flow: 'aura_trace_flow',
+    find_entry_points: 'aura_find_entry_points',
 };
 
 /**
@@ -593,6 +665,14 @@ async function handleToolInner(db: GraphDB, name: string, args: Record<string, u
         case 'explain_file':
         case 'hotspots_in_changes':
         case 'list_repositories':
+            return result;
+        // The call-graph tools already answer in the MCP shape (snake_case,
+        // anchors, notes); nothing to reshape.
+        case 'find_callers':
+        case 'find_callees':
+        case 'symbol_impact':
+        case 'trace_flow':
+        case 'find_entry_points':
             return result;
         default:
             throw new Error(`Unknown tool: ${name}`);

@@ -87,6 +87,17 @@ An assistant that opens a repository it has never seen does not know which files
 
 The block lists the top 10 hotspots with their reasons plus the repository health line (cycles, dead exports, architecture violations). Regenerating replaces only what is between the markers, so the prose around it is never touched, and only paths and metrics are written — never source code. If no instruction file exists the command offers to create `AGENTS.md`; the automatic refresh (`auraVisualizer.agentContext`, off by default) only ever updates a file that already exists.
 
+### The call graph: who calls what
+
+Aura already stored every resolved call site; it only answered at the **file** level. Five tools now answer at the **function** level (`file::name`, or a bare name when you do not know the file):
+
+- **`find_callers`** / **`find_callees`** — grouped per caller with their lines and a confidence (`1.0` local · `0.8` unique cross-file · `0.5` ambiguous target). Grouping matters: `$` is called 1 756 times in this repository alone.
+- **`symbol_impact`** — transitive callers with depth and the call path: what breaks if you change it.
+- **`trace_flow`** — shortest cycle-safe call path between two symbols, with the line of every step.
+- **`find_entry_points`** — `main`, `activate`/`deactivate`, `package.json` main/bin, tests, then every symbol nothing calls.
+
+**Read the caveats.** The graph is **static** and records **free-function calls only** — a method called on an object (`db.getCallSites()`) is not captured yet, so an empty answer comes with that note instead of a silent zero. And entry detection is a heuristic: a framework callback has no static caller and appears as a root. Use it to *propose* entries, never to declare something dead.
+
 ### How much can an agent trust the graph?
 
 Every tool answer now carries a **`coverage`** block — `files`, `parsed_failed`,

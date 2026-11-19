@@ -9,6 +9,19 @@
 
 import type { GraphDB } from '../graph-db';
 import { transitiveClosure } from '../analysis/transitive';
+import {
+    buildCallGraph,
+    callersOf,
+    calleesOf,
+    STATIC_CALL_GRAPH_NOTE,
+    impactOf,
+    entryPoints,
+    resolveSymbol,
+    shortestCallPath,
+    type CallDirectionResult,
+    type CallGraph,
+    type SymbolMatch,
+} from '../analysis/call-graph';
 import { resolveContext } from '../mcp/context';
 import { topRiskHotspots, type RiskFileEntry, type RiskSnapshot } from '../risk/risk-service';
 import { readBranchDiff } from '../git/branch-diff';
@@ -234,6 +247,73 @@ export const AURA_TOOLS: AuraTool[] = [
         description: 'Describe the workspace Aura is serving: root path, database path, analysis timestamp, file/link counts, current git HEAD, staleness, and every git worktree with its branch. Use it when a task must know which repository or worktree it is working on.',
         inputSchema: { type: 'object', properties: {} },
     },
+    {
+        name: 'aura_find_callers',
+        description: 'Who calls this function? Returns the call sites pointing at a symbol (`fichier::nom`, `fichier:nom` or a bare name), grouped per caller with their lines and a confidence (1.0 local · 0.8 unique cross-file · 0.5 ambiguous target). Static call graph: free-function calls only — a method called on an object is not recorded yet, so an empty answer is not a proof.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                symbol: { type: 'string', description: 'Symbol to look up: "src/a.ts::computeRisk", "src/a.ts:computeRisk" or a bare name' },
+                file: { type: 'string', description: 'Optional file to disambiguate a bare name' },
+                limit: { type: 'number', description: 'Maximum callers returned (default 50)' },
+                include_local: { type: 'boolean', description: 'Include calls between functions of the same file (default false)' },
+            },
+            required: ['symbol'],
+        },
+    },
+    {
+        name: 'aura_find_callees',
+        description: 'What does this function call? Same shape as aura_find_callers, in the outgoing direction.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                symbol: { type: 'string', description: 'Symbol to look up: "src/a.ts::computeRisk", "src/a.ts:computeRisk" or a bare name' },
+                file: { type: 'string', description: 'Optional file to disambiguate a bare name' },
+                limit: { type: 'number', description: 'Maximum callees returned (default 50)' },
+                include_local: { type: 'boolean', description: 'Include calls inside the same file (default false)' },
+            },
+            required: ['symbol'],
+        },
+    },
+    {
+        name: 'aura_symbol_impact',
+        description: 'If I change this function, what breaks? Walks the call graph backwards (transitive callers) with depth and the call path, so an answer separates "directly affected" from "reached indirectly".',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                symbol: { type: 'string', description: 'Symbol to analyse' },
+                file: { type: 'string', description: 'Optional file to disambiguate a bare name' },
+                max_depth: { type: 'number', description: 'Maximum call depth followed (default 6)' },
+                limit: { type: 'number', description: 'Maximum impacted symbols returned (default 200)' },
+                include_local: { type: 'boolean', description: 'Include same-file callers (default false)' },
+            },
+            required: ['symbol'],
+        },
+    },
+    {
+        name: 'aura_trace_flow',
+        description: 'How does execution reach this function? Shortest call path between two symbols (cycle-safe). Use it from a detected entry point to a deep function, or the reverse.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                from: { type: 'string', description: 'Starting symbol (often an entry point)' },
+                to: { type: 'string', description: 'Target symbol' },
+                max_depth: { type: 'number', description: 'Maximum path length (default 12)' },
+            },
+            required: ['from', 'to'],
+        },
+    },
+    {
+        name: 'aura_find_entry_points',
+        description: 'Where does execution start? Heuristic entry detection: main, activate/deactivate, package.json main/bin modules, test files, then every symbol nothing calls (graph roots). Conservative by design — a framework callback has no static caller.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                limit: { type: 'number', description: 'Maximum entries returned (default 100)' },
+                include_tests: { type: 'boolean', description: 'Include test files (default true)' },
+            },
+        },
+    },
 ];
 
 /** Resolve a file path or basename (e.g. "server.ts") to a full node id. */
@@ -271,8 +351,206 @@ function communityEntries(communities: ReturnType<GraphDB['getCommunitySnapshot'
         others: !!c.isOthers,
     }));
 }
+// ── Graphe d'appels (lot 3) ────────────────────────────────────
+
+/**
+ * The call graph is rebuilt from `function_calls` on demand and memoised per
+ * database. The row count doubles as a cheap fingerprint: an incremental
+ * rebuild changes it, so the next question sees the new graph without any
+ * invalidation hook. Building it costs ~70 ms on Aura's own 15k call sites.
+ */
+let callGraphCache: { db: GraphDB; rows: number; graph: CallGraph } | undefined;
+
+function callGraphFor(db: GraphDB): CallGraph {
+    const calls = db.getFunctionCalls();
+    if (callGraphCache && callGraphCache.db === db && callGraphCache.rows === calls.length) {
+        return callGraphCache.graph;
+    }
+    const graph = buildCallGraph(calls.map(call => ({
+        callerFile: call.caller_file,
+        callerName: call.caller_name,
+        calleeFile: call.callee_file,
+        calleeName: call.callee_name,
+        line: call.call_line,
+    })));
+    callGraphCache = { db, rows: calls.length, graph };
+    return graph;
+}
+
+/** `symbol`, or `symbol` + `file` when the caller passed both. */
+function symbolQuery(input: Record<string, unknown>): string {
+    const symbol = typeof input.symbol === 'string' ? input.symbol.trim() : '';
+    const file = typeof input.file === 'string' ? input.file.trim() : '';
+    if (!symbol) return '';
+    if (file && !symbol.includes('::') && !symbol.includes(':')) return `${file}::${symbol}`;
+    return symbol;
+}
+
+function symbolNotFound(query: string, matches: SymbolMatch[]): Record<string, unknown> {
+    return {
+        query,
+        match_count: matches.length,
+        matches: [],
+        total: 0,
+        note: matches.length === 0 ? STATIC_CALL_GRAPH_NOTE : undefined,
+    };
+}
+
+/**
+ * One entry per matching symbol. A bare name that exists in five files really
+ * is five symbols, so the answer lists five results instead of picking one and
+ * pretending the others do not exist.
+ */
+function perMatch<T>(matches: SymbolMatch[], build: (match: SymbolMatch) => T): T[] {
+    return matches.slice(0, 10).map(build);
+}
+
+function directionEntry(entry: CallDirectionResult['entries'][number]) {
+    return withAnchor({
+        file: entry.symbol.file,
+        name: entry.symbol.name,
+        lines: entry.lines,
+        call_count: entry.lines.length,
+        confidence: entry.confidence,
+        ambiguous: entry.confidence < 0.8,
+    }, entry.symbol.file, entry.lines[0]);
+}
+
+function callDirectionPayload(db: GraphDB, input: Record<string, unknown>, direction: 'in' | 'out'): Record<string, unknown> {
+    const query = symbolQuery(input);
+    const graph = callGraphFor(db);
+    const matches = resolveSymbol(graph, query);
+    if (matches.length === 0 || !query) return symbolNotFound(query, []);
+
+    const options = {
+        limit: typeof input.limit === 'number' ? input.limit : 50,
+        includeLocal: input.include_local === true,
+    };
+    const results = perMatch(matches, match => {
+        const result = direction === 'in' ? callersOf(graph, match, options) : calleesOf(graph, match, options);
+        return {
+            file: match.file,
+            name: match.name,
+            symbol: match.key,
+            direction: direction === 'in' ? 'callers' : 'callees',
+            entries: result.entries.map(directionEntry),
+            total: result.total,
+            distinct_files: result.distinctFiles,
+            ambiguous: result.ambiguous,
+            local_total: result.localTotal,
+            truncated: result.truncated,
+        };
+    });
+    const total = results.reduce((sum, result) => sum + result.total, 0);
+    return {
+        query,
+        match_count: matches.length,
+        matches: results,
+        total,
+        ...(total === 0 ? { note: STATIC_CALL_GRAPH_NOTE } : {}),
+        ...(matches.length > results.length ? { truncated_matches: matches.length - results.length } : {}),
+    };
+}
+
+function symbolImpactPayload(db: GraphDB, input: Record<string, unknown>): Record<string, unknown> {
+    const query = symbolQuery(input);
+    const graph = callGraphFor(db);
+    const matches = resolveSymbol(graph, query);
+    if (matches.length === 0 || !query) return symbolNotFound(query, []);
+
+    const options = {
+        maxDepth: typeof input.max_depth === 'number' ? input.max_depth : 6,
+        limit: typeof input.limit === 'number' ? input.limit : 200,
+        includeLocal: input.include_local === true,
+    };
+    const results = perMatch(matches, match => {
+        const result = impactOf(graph, match, options);
+        return {
+            file: match.file,
+            name: match.name,
+            symbol: match.key,
+            impacted: result.impacted.map(entry => withAnchor({
+                file: entry.symbol.file,
+                name: entry.symbol.name,
+                depth: entry.depth,
+                via: entry.via,
+                confidence: entry.confidence,
+            }, entry.symbol.file, undefined)),
+            total: result.total,
+            distinct_files: result.distinctFiles,
+            max_depth: result.maxDepth,
+            truncated: result.truncated,
+        };
+    });
+    const total = results.reduce((sum, result) => sum + result.total, 0);
+    return {
+        query,
+        match_count: matches.length,
+        matches: results,
+        total,
+        ...(total === 0 ? { note: STATIC_CALL_GRAPH_NOTE } : {}),
+    };
+}
+
+function traceFlowPayload(db: GraphDB, input: Record<string, unknown>): Record<string, unknown> {
+    const graph = callGraphFor(db);
+    const fromQuery = typeof input.from === 'string' ? input.from.trim() : '';
+    const toQuery = typeof input.to === 'string' ? input.to.trim() : '';
+    const from = resolveSymbol(graph, fromQuery, { includeModule: true })[0];
+    const to = resolveSymbol(graph, toQuery, { includeModule: true })[0];
+    if (!from) return { from: fromQuery, to: toQuery, found: false, error: `Unknown symbol: ${fromQuery}` };
+    if (!to) return { from: fromQuery, to: toQuery, found: false, error: `Unknown symbol: ${toQuery}` };
+
+    const result = shortestCallPath(graph, from, to, {
+        maxDepth: typeof input.max_depth === 'number' ? input.max_depth : 12,
+    });
+    if (!result.found) {
+        return {
+            from: from.key,
+            to: to.key,
+            found: false,
+            steps: [],
+            note: 'No static call path found. The call graph is conservative: dynamic dispatch, callbacks and method calls are not followed.',
+        };
+    }
+    return {
+        from: from.key,
+        to: to.key,
+        found: true,
+        length: result.steps.length - 1,
+        steps: result.steps.map(step => withAnchor({
+            file: step.symbol.file,
+            name: step.symbol.name,
+            confidence: step.confidence,
+            ...(step.line !== undefined ? { line: step.line } : {}),
+        }, step.symbol.file, step.line)),
+    };
+}
+
+function entryPointsPayload(db: GraphDB, input: Record<string, unknown>): Record<string, unknown> {
+    const graph = callGraphFor(db);
+    const entries = entryPoints(graph, {
+        limit: typeof input.limit === 'number' ? input.limit : 100,
+        includeTests: input.include_tests !== false,
+    });
+    const counts: Record<string, number> = {};
+    for (const entry of entries) counts[entry.reason] = (counts[entry.reason] ?? 0) + 1;
+    return {
+        entries: entries.map(entry => ({
+            file: entry.symbol.file,
+            name: entry.symbol.name,
+            kind: entry.reason,
+            ...(entry.detail ? { detail: entry.detail } : {}),
+        })),
+        total: entries.length,
+        counts,
+        note: 'Heuristic entry detection. A framework callback (routes, event handlers, DI) has no static caller and appears as a root, so treat the list as candidates, not as a verdict.',
+    };
+}
+
 /** Execute an Aura tool locally (deterministic, no LLM) against the GraphDB. */
 export function runAuraTool(db: GraphDB, name: string, input: Record<string, unknown>, getRiskSnapshot?: (input?: Record<string, unknown>) => RiskSnapshot | undefined, getArchitecture?: (input: Record<string, unknown>) => unknown): unknown {
+
     switch (name) {
         case 'aura_resolve_context':
             return resolveContext(db, input.task as string, (input.limit as number) || 8);
@@ -312,6 +590,16 @@ export function runAuraTool(db: GraphDB, name: string, input: Record<string, unk
                 exempted_total: exempted.length,
             };
         }
+        case 'aura_find_callers':
+            return callDirectionPayload(db, input, 'in');
+        case 'aura_find_callees':
+            return callDirectionPayload(db, input, 'out');
+        case 'aura_symbol_impact':
+            return symbolImpactPayload(db, input);
+        case 'aura_trace_flow':
+            return traceFlowPayload(db, input);
+        case 'aura_find_entry_points':
+            return entryPointsPayload(db, input);
         case 'aura_get_hotspots': {
             const limit = (input.limit as number) || 20;
             const sortBy = (input.sort_by as string) || 'risk';
