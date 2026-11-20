@@ -2,6 +2,9 @@
 .vscode/
 node_modules/
 .aura/
+coverage/
+.nyc_output/
+htmlcov/
 package-lock.json
 src/
 webview/
