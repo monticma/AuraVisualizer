@@ -13,8 +13,10 @@ Color every node by a metric to spot hotspots instantly.
 - 🟢→🔴 **Last Modified** — File modification time (most recently changed = red)
 - 🏛️ **Architecture layers** — Layer colors from `.aura/arch-rules.json`; forbidden edges are red, baselined ones amber
 - 🧩 **Communities** — Code-only architectural modules detected by Louvain
+- 📥 **Imported columns** — Any column you brought in with **Aura: Import Metrics…** (coverage, lint counts…). Grey means *unknown*, not zero: a file with no value in the imported file is left uncoloured instead of showing the bottom of the ramp.
 
-Blue = low, Red = high. The legend bar shows the value range.
+Blue = low, Red = high. The legend bar shows the value range. Percentage columns
+(coverage) use their own ramp, red → green, because there high is good.
 
 ### Architecture layers mode
 

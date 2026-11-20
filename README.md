@@ -48,6 +48,7 @@
   - **Absent is unknown, never zero.** A file with no coverage entry is painted **grey**, not the bottom of the ramp, and `coverage != 0` does not match it. A value generated before the file was modified is flagged **stale** in the tooltip and in the MCP answer.
   - **The mapping is never silent**: the report says how many paths were read, matched, **normalised** (absolute path, another workspace root, a Sonar component key), remapped by suffix, out of scope or unknown — and nothing is written when no path matches.
   - **Then query it**: `coverage < 80 and cognitive > 40` in the seven query views, `📥 <column>` in the heatmap selector, and an `imported_metrics` block with its source and generation date in `explain_file`. **Aura: Clear Imported Metrics** removes the file.
+  - **The analysis stops scanning the report a coverage run writes.** `coverage/`, `.nyc_output/`, `htmlcov/` and the usual tool caches are out of scope, so producing the lcov no longer adds 109 generated HTML/JS/CSS files to the graph. `vendor/` and `target/` stay scanned: vendored code is code, and a silent skip is worse than a noisy graph.
 
 _Previously in 1.6.2: the **Aura** section in the Explorer — a card on the active file with its metrics, risk score and reasons, complexity sparkline, flags and the City's connection map, plus ◫ View in for the 3D graph, the City and the Treemap._
 
