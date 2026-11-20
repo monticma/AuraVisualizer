@@ -60,6 +60,36 @@
         isarchviolator: '_isArchViolator'
     };
 
+    /**
+     * Imported columns (`.aura/metrics.json`) register themselves when the
+     * graph arrives: `coverage` lives on `node.metrics.coverage`, so the
+     * resolved property is a dotted path. Kept apart from NUMBER_FIELDS so a
+     * reset never forgets the built-ins.
+     */
+    var IMPORTED_FIELDS = {};
+
+    function registerMetricColumn(key) {
+        var name = String(key || '').trim();
+        if (!name) return;
+        IMPORTED_FIELDS[name.toLowerCase()] = 'metrics.' + name;
+    }
+
+    function resetMetricColumns() {
+        IMPORTED_FIELDS = {};
+    }
+
+    /** Resolve `a.b.c` against a node; `undefined` for a missing value. */
+    function fieldValue(node, prop) {
+        if (prop.indexOf('.') === -1) return node[prop];
+        var parts = prop.split('.');
+        var value = node;
+        for (var i = 0; i < parts.length; i++) {
+            if (value === null || value === undefined) return undefined;
+            value = value[parts[i]];
+        }
+        return value;
+    }
+
     function buildContextNode(node, ctx) {
         // Compute derived properties on the fly (cheap, no caching needed
         // since node ids are evaluated at most once per query run).
@@ -307,6 +337,7 @@
         if (NUMBER_FIELDS[k]) return { type: 'number', prop: NUMBER_FIELDS[k] };
         if (STRING_FIELDS[k]) return { type: 'string', prop: STRING_FIELDS[k] };
         if (BOOL_FIELDS[k]) return { type: 'bool', prop: BOOL_FIELDS[k] };
+        if (IMPORTED_FIELDS[k]) return { type: 'number', prop: IMPORTED_FIELDS[k], imported: true };
         return null;
     }
 
@@ -319,7 +350,7 @@
             case 'bool': {
                 var f = resolveField(ast.field);
                 if (!f) return false;
-                return !!node[f.prop];
+                return !!fieldValue(node, f.prop);
             }
             case 'call': {
                 if (ast.name === 'isorphan') return !!node._isOrphan;
@@ -331,13 +362,16 @@
             case 'cmp': {
                 var info = resolveField(ast.field);
                 if (!info) return false;
-                var lhs = node[info.prop];
+                var lhs = fieldValue(node, info.prop);
+                // An imported column with no value for this file is *unknown*,
+                // never zero: every comparison, including `!=`, is false.
+                if (info.imported && lhs === undefined) return false;
                 // Field-to-field (`fanIn > fanOut`) resolves the right side on
                 // the same node; everything else carries its literal.
                 var rhsVal = ast.rhs;
                 if (ast.rhsField) {
                     var rightInfo = resolveField(ast.rhsField);
-                    rhsVal = rightInfo ? node[rightInfo.prop] : undefined;
+                    rhsVal = rightInfo ? fieldValue(node, rightInfo.prop) : undefined;
                 }
                 if (ast.op === 'in' || ast.op === 'notin') {
                     if (!Array.isArray(rhsVal)) return false;
@@ -390,7 +424,7 @@
             case 'between': {
                 var bf = resolveField(ast.field);
                 if (!bf) return false;
-                var raw = node[bf.prop];
+                var raw = fieldValue(node, bf.prop);
                 var bv = (raw === true) ? 1 : (raw === false ? 0 : Number(raw));
                 var loN = Number(ast.lo), hiN = Number(ast.hi);
                 if (isNaN(bv) || isNaN(loN) || isNaN(hiN)) return false;
@@ -422,12 +456,13 @@
         Object.keys(NUMBER_FIELDS).forEach(function (k) { out.push(k); });
         Object.keys(STRING_FIELDS).forEach(function (k) { out.push(k); });
         Object.keys(BOOL_FIELDS).forEach(function (k) { out.push(k); });
+        Object.keys(IMPORTED_FIELDS).forEach(function (k) { if (out.indexOf(k) === -1) out.push(k); });
         return out.sort();
     }
 
     function fieldType(name) {
         var k = (name || '').toLowerCase();
-        if (NUMBER_FIELDS[k]) return 'number';
+        if (NUMBER_FIELDS[k] || IMPORTED_FIELDS[k]) return 'number';
         if (STRING_FIELDS[k]) return 'string';
         if (BOOL_FIELDS[k]) return 'bool';
         return null;
@@ -435,7 +470,7 @@
 
     function fieldProp(name) {
         var k = (name || '').toLowerCase();
-        return NUMBER_FIELDS[k] || STRING_FIELDS[k] || BOOL_FIELDS[k] || null;
+        return NUMBER_FIELDS[k] || STRING_FIELDS[k] || BOOL_FIELDS[k] || IMPORTED_FIELDS[k] || null;
     }
 
     window.AuraQuery = {
@@ -447,6 +482,9 @@
         boolFields: Object.keys(BOOL_FIELDS),
         numberFields: Object.keys(NUMBER_FIELDS),
         stringFields: Object.keys(STRING_FIELDS),
+        registerMetricColumn: registerMetricColumn,
+        resetMetricColumns: resetMetricColumns,
+        metricColumns: function () { return Object.keys(IMPORTED_FIELDS); },
         operators: ['==', '!=', '>=', '<=', '>', '<', '~', '!~', 'in', 'not in',
                     'contains', 'startswith', 'endswith', 'between']
     };

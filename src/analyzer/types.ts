@@ -5,6 +5,7 @@
 import type { ArchEvaluation } from '../arch/arch-core';
 import type { ResolutionReport, ScanCounters } from '../analysis/resolution';
 import type { GitHistoryInfo } from '../git/shallow-core';
+import type { ImportedMetricsSummary } from '../metrics/metrics-core';
 
 export interface FileInfo {
     id: string;
@@ -152,6 +153,12 @@ export interface GraphNode {
     layer?: string;
     /** New (non-baselined) architecture violations where this file is the source. */
     archViolations?: number;
+    /**
+     * Imported external metrics, keyed by column name (`coverage`, `eslintErrors`…).
+     * Absent when nothing was imported **or when this file has no value** — an
+     * absent column means unknown, never zero.
+     */
+    metrics?: Record<string, number>;
 }
 
 export interface GraphLink {
@@ -208,6 +215,12 @@ export interface GraphMeta {
     arch?: ArchEvaluation;
     /** Parse error of `.aura/arch-rules.json`, surfaced in the Architecture tab. */
     archError?: string;
+    /**
+     * Imported external columns (`.aura/metrics.json`) — provenance plus how many
+     * nodes carry a value, so every surface can say what it does *not* know.
+     * Absent when nothing was imported.
+     */
+    importedMetrics?: ImportedMetricsSummary;
     /** Shallow-clone warning (V3-14); absent when the history is complete. */
     git?: GitHistoryInfo;
     languageStats: Record<string, LanguageStat>;

@@ -42,6 +42,12 @@
   - **A ratchet, not a wall**: this repository has 406 dead exports and 21 cycles, so absolute thresholds would be red on day one. `.aura/gate-baseline.json` freezes what exists and the gate fails only on **growth**; `--update-baseline` is explicit, because accepting debt is a decision.
   - **Exit codes that mean something**: `0` pass · `1` a rule is broken · `2` configuration invalid or the analysis is **stale** — a verdict must never rest on a graph that predates the checkout.
   - **`--base origin/main`** judges only what a pull request touches, and **no baseline writing over MCP** — an agent must not be able to absolve its own failures.
+- **📥 Imported metrics — a column Aura does not compute.** Coverage, lint findings and Sonar numbers were the one thing every view had to pretend it did not know. **Aura: Import Metrics…** reads what your toolchain already writes and attaches it to the files.
+  - **Five adapters**: `lcov.info`, Istanbul (`coverage-summary.json` / `coverage-final.json`), `eslint -f json`, and any CSV/JSON shaped `path,metric,value` — which is how a Sonar export arrives. lcov's `FN`/`FNDA` blocks are kept as function-level values.
+  - **A file, not a table**: the columns live in `.aura/metrics.json`, because `.aura/graph.db` is rewritten by every analysis — the same reasoning that keeps notes in `annotations.json`. Importing again replaces **only the columns that file provides**, so coverage and lint findings coexist on the same nodes.
+  - **Absent is unknown, never zero.** A file with no coverage entry is painted **grey**, not the bottom of the ramp, and `coverage != 0` does not match it. A value generated before the file was modified is flagged **stale** in the tooltip and in the MCP answer.
+  - **The mapping is never silent**: the report says how many paths were read, matched, **normalised** (absolute path, another workspace root, a Sonar component key), remapped by suffix, out of scope or unknown — and nothing is written when no path matches.
+  - **Then query it**: `coverage < 80 and cognitive > 40` in the seven query views, `📥 <column>` in the heatmap selector, and an `imported_metrics` block with its source and generation date in `explain_file`. **Aura: Clear Imported Metrics** removes the file.
 
 _Previously in 1.6.2: the **Aura** section in the Explorer — a card on the active file with its metrics, risk score and reasons, complexity sparkline, flags and the City's connection map, plus ◫ View in for the 3D graph, the City and the Treemap._
 
@@ -860,6 +866,9 @@ You can also open the visualizer from the **Aura** icon in the Activity Bar or v
 | Aura: Copy View Link | — | Copy a `vscode://` link that reopens this exact view (tab, filters, camera, query) |
 | Aura: Find Symbol… | — | QuickPick over every indexed symbol, with kind chips → graph focus + explosion + ripple |
 | Aura: Review Current Branch | — | Diff the branch against its merge-base: touched files, ±lines, Δcomplexity, blast and compare |
+| Aura: Run Gate | — | Per-file budgets, global counts and architecture rules → pass/fail verdict, non-zero exit |
+| Aura: Import Metrics (coverage, lint, Sonar) | — | Attach an external column (lcov, Istanbul, ESLint JSON, CSV/JSON) to the graph |
+| Aura: Clear Imported Metrics | — | Remove `.aura/metrics.json` — the columns disappear from every surface |
 
 ## Keyboard Shortcuts (in graph)
 

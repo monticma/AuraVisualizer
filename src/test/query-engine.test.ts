@@ -12,7 +12,11 @@ type QueryApi = {
     compile: (expr: string) => CompileResult;
     prepareNode: (node: any, ctx: any) => any;
     listFields: () => string[];
+    fieldType: (name: string) => string | null;
     operators: string[];
+    registerMetricColumn: (key: string) => void;
+    resetMetricColumns: () => void;
+    metricColumns: () => string[];
 };
 
 let Q: QueryApi;
@@ -147,5 +151,59 @@ describe('Aura Query Language — composition and reporting', () => {
     it('keeps resolving the field names it always had', () => {
         expect(Q.listFields()).toContain('churn');
         expect(Q.listFields()).toContain('stalenote');
+    });
+});
+
+describe('Aura Query Language — imported metric columns', () => {
+    const runOn = (expr: string, extra: Record<string, unknown>): boolean => {
+        const compiled = Q.compile(expr);
+        if (!compiled.ok) throw new Error('compile failed: ' + compiled.error);
+        const copy = { ...JSON.parse(JSON.stringify(node)), ...extra };
+        Q.prepareNode(copy, ctx);
+        return !!compiled.fn!(copy);
+    };
+
+    beforeAll(() => {
+        Q.registerMetricColumn('coverage');
+        Q.registerMetricColumn('eslintErrors');
+    });
+
+    it('is queryable after registration', () => {
+        expect(Q.metricColumns()).toEqual(['coverage', 'eslinterrors']);
+        expect(Q.listFields()).toContain('coverage');
+        expect(Q.fieldType('coverage')).toBe('number');
+        expect(runOn('coverage < 80', { metrics: { coverage: 42 } })).toBe(true);
+        expect(runOn('coverage < 80', { metrics: { coverage: 91 } })).toBe(false);
+    });
+
+    it('combines with the metrics Aura computes itself', () => {
+        // The heading use case: complex and badly covered.
+        expect(runOn('coverage < 80 and cognitive > 40', { metrics: { coverage: 12 }, cognitive: 44 })).toBe(true);
+        expect(runOn('coverage < 80 and cognitive > 40', { metrics: { coverage: 12 }, cognitive: 10 })).toBe(false);
+    });
+
+    it('treats a missing value as unknown, never as zero', () => {
+        for (const expr of ['coverage < 80', 'coverage > 0', 'coverage == 0', 'coverage != 0', 'coverage between 0 and 100']) {
+            expect(runOn(expr, {})).toBe(false);
+            expect(runOn(expr, { metrics: {} })).toBe(false);
+        }
+    });
+
+    it('supports between and field-to-field comparisons', () => {
+        expect(runOn('coverage between 40 and 60', { metrics: { coverage: 55 } })).toBe(true);
+        expect(runOn('coverage < eslintErrors', { metrics: { coverage: 3, eslintErrors: 9 } })).toBe(true);
+    });
+
+    it('is case-insensitive', () => {
+        expect(runOn('COVERAGE < 80', { metrics: { coverage: 10 } })).toBe(true);
+    });
+
+    it('forgets the columns on reset, so a cleared import stops matching', () => {
+        Q.resetMetricColumns();
+        expect(Q.metricColumns()).toEqual([]);
+        expect(Q.listFields()).not.toContain('coverage');
+        // An unknown field never matches, whatever the node carries.
+        expect(runOn('coverage < 80', { metrics: { coverage: 10 } })).toBe(false);
+        Q.registerMetricColumn('coverage');
     });
 });

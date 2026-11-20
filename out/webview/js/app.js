@@ -394,6 +394,9 @@
                     if (window.AuraDetail) window.AuraDetail.refreshEditor(selectedNode);
                 }
                 break;
+            case 'importedMetrics':
+                handleImportedMetrics(message.payload);
+                break;
             case 'warps':
                 warps = (message.payload && Array.isArray(message.payload.warps)) ? message.payload.warps : [];
                 if (window.AuraWarps) window.AuraWarps.render();
@@ -777,6 +780,9 @@
 
         graphData = data;
         buildLinkWidthIndex();
+        // Imported columns must be known to the query engine before the active
+        // query is re-evaluated below.
+        registerImportedQueryColumns();
 
         // Re-evaluate active query against the new dataset
         if (window.AuraQueryBar) {
@@ -785,6 +791,7 @@
 
         headGraphData = JSON.parse(JSON.stringify(data));
         computeMetricRanges();
+        syncImportedMetricChannels();
         syncCommunitiesFromMetadata(false);
         syncLayersFromMetadata(false);
         updateStats(graphData.meta);
@@ -1962,6 +1969,132 @@
     }
 
     // ============================================================
+    // Imported metrics — external columns (`.aura/metrics.json`)
+    // ============================================================
+
+    /** Grey for "this file has no value" — never the bottom of the ramp. */
+    var NO_IMPORTED_DATA_COLOR = '#4b5563';
+    /** Worst → best. Coverage is the metric where high is good. */
+    var IMPORTED_PERCENT_SCALE = ['#b71c1c', '#e65100', '#f9a825', '#9ccc65', '#2e7d32', '#1b5e20'];
+    /** Low → high for counts (errors, bugs): more is worse. */
+    var IMPORTED_COUNT_SCALE = ['#1a237e', '#1565c0', '#2e7d32', '#f9a825', '#e65100', '#b71c1c'];
+
+    function importedMetricSummary() {
+        return (graphData && graphData.meta && graphData.meta.importedMetrics) || null;
+    }
+
+    function importedColumns() {
+        var summary = importedMetricSummary();
+        return (summary && summary.columns) ? summary.columns : [];
+    }
+
+    function formatImportedValue(column, value) {
+        if (column.unit === 'percent') return (Math.round(value * 10) / 10) + ' %';
+        return String(value);
+    }
+
+    /** The column was generated before the file was last modified. */
+    function importedValueIsStale(column, node) {
+        if (!column || !column.generatedAt || !node || !node.lastModified) return false;
+        var generated = Date.parse(column.generatedAt);
+        return isFinite(generated) && generated < node.lastModified;
+    }
+
+    /**
+     * Publish the imported columns everywhere they are usable: query palette,
+     * heatmap selector, legend label and colour ramp. Called on every dataset
+     * change, because the columns are not part of the database.
+     */
+    function registerImportedQueryColumns() {
+        if (!window.AuraQuery) return;
+        if (window.AuraQuery.resetMetricColumns) window.AuraQuery.resetMetricColumns();
+        var columns = importedColumns();
+        for (var i = 0; i < columns.length; i++) {
+            window.AuraQuery.registerMetricColumn(columns[i].key);
+        }
+    }
+
+    function syncImportedMetricChannels() {
+        var columns = importedColumns();
+        var i;
+
+        // A restored query may name an imported column: it must know the field
+        // *before* the query is evaluated.
+        registerImportedQueryColumns();
+
+        var select = $('#heatmap-select');
+        if (select) {
+            for (var s = select.options.length - 1; s >= 0; s--) {
+                if (select.options[s].value.indexOf('imp:') === 0) select.remove(s);
+            }
+            for (i = 0; i < columns.length; i++) {
+                var column = columns[i];
+                var option = document.createElement('option');
+                option.value = 'imp:' + column.key;
+                option.textContent = '📥 ' + (column.label || column.key);
+                option.title = column.unit + ' · ' + column.source
+                    + (column.missing ? ' · ' + column.missing + ' files without a value' : '')
+                    + (column.stale ? ' · ' + column.stale + ' stale' : '');
+                select.appendChild(option);
+            }
+        }
+
+        for (i = 0; i < columns.length; i++) {
+            var key = 'imp:' + columns[i].key;
+            if (typeof HEATMAP_LABELS === 'object') HEATMAP_LABELS[key] = columns[i].label || columns[i].key;
+            if (typeof HEATMAP_SCALES === 'object') {
+                HEATMAP_SCALES[key] = columns[i].unit === 'percent' ? IMPORTED_PERCENT_SCALE : IMPORTED_COUNT_SCALE;
+            }
+        }
+
+        // A mode whose column just vanished must not stay selected.
+        if (heatmapMode.indexOf('imp:') === 0 && !metricRanges[heatmapMode]) {
+            setHeatmapMode('off');
+        } else if (window.AuraPanels) {
+            window.AuraPanels.applyHeatmapMode(heatmapMode);
+        }
+        if (graph && typeof graph.nodeColor === 'function') graph.nodeColor(graph.nodeColor());
+    }
+
+    /**
+     * Import pushed from the host: patch the nodes in place instead of taking a
+     * full `graphData` message, which would rebuild the 3D graph and throw the
+     * camera away.
+     */
+    function handleImportedMetrics(payload) {
+        if (!graphData) return;
+        var summary = payload ? payload.summary : null;
+        var rows = (payload && payload.rows) || {};
+
+        if (summary && summary.columns && summary.columns.length > 0) {
+            graphData.meta.importedMetrics = summary;
+        } else {
+            delete graphData.meta.importedMetrics;
+        }
+
+        var patch = function (nodes) {
+            if (!nodes) return;
+            for (var i = 0; i < nodes.length; i++) {
+                var values = rows[nodes[i].id];
+                if (values && Object.keys(values).length > 0) nodes[i].metrics = values;
+                else delete nodes[i].metrics;
+            }
+        };
+        patch(graphData.nodes);
+        if (headGraphData && headGraphData.nodes) patch(headGraphData.nodes);
+
+        computeMetricRanges();
+        syncImportedMetricChannels();
+        feedGraphFrozen(filterGraphData(graphData));
+        if (window.AuraQueryBar) {
+            try { AuraQueryBar.refreshAfterDataChange(); } catch (_) { /* noop */ }
+        }
+        if (selectedNode && !selectedNode._isCluster && !selectedNode._isSymbol) {
+            if (window.AuraDetail) window.AuraDetail.refreshEditor(selectedNode);
+        }
+    }
+
+    // ============================================================
     // Metric Ranges
     // ============================================================
     function computeMetricRanges() {
@@ -2002,6 +2135,20 @@
             metricRanges.cochange.min = Math.min(metricRanges.cochange.min, cc);
             metricRanges.cochange.max = Math.max(metricRanges.cochange.max, cc);
         }
+
+        // Imported columns: range over the files that *have* a value. A file
+        // without one is unknown, so it must not drag the minimum to 0.
+        importedColumns().forEach(function (column) {
+            var key = 'imp:' + column.key;
+            var range = { min: Infinity, max: -Infinity };
+            for (var j = 0; j < nodes.length; j++) {
+                var value = nodes[j].metrics ? nodes[j].metrics[column.key] : undefined;
+                if (typeof value !== 'number' || !isFinite(value)) continue;
+                if (value < range.min) range.min = value;
+                if (value > range.max) range.max = value;
+            }
+            metricRanges[key] = range;
+        });
         rebuildCentralityHaloSet();
     }
 
@@ -3404,16 +3551,27 @@
                 return cColor;
             }
             var value;
-            switch (heatmapMode) {
-                case 'complexity': value = node.complexity || 1; break;
-                case 'cognitive':  value = typeof node.cognitive === 'number' ? node.cognitive : 0; break;
-                case 'fanIn':      value = node.fanIn; break;
-                case 'fanOut':     value = node.fanOut; break;
-                case 'loc':        value = node.linesOfCode; break;
-                case 'churn':      value = getChurn(node.id) || getChurn(node.path); break;
-                case 'cochange':   value = getCochangeScore(node.id); break;
-                case 'lastModified': value = node.lastModified || 0; break;
-                default:           value = 0;
+            if (heatmapMode.indexOf('imp:') === 0) {
+                var importedKey = heatmapMode.slice(4);
+                var importedValue = node.metrics ? node.metrics[importedKey] : undefined;
+                // Unknown is not zero: paint it as "no data" instead of the
+                // bottom of the ramp, which would read as "worst score".
+                if (typeof importedValue !== 'number' || !isFinite(importedValue)) {
+                    return NO_IMPORTED_DATA_COLOR;
+                }
+                value = importedValue;
+            } else {
+                switch (heatmapMode) {
+                    case 'complexity': value = node.complexity || 1; break;
+                    case 'cognitive':  value = typeof node.cognitive === 'number' ? node.cognitive : 0; break;
+                    case 'fanIn':      value = node.fanIn; break;
+                    case 'fanOut':     value = node.fanOut; break;
+                    case 'loc':        value = node.linesOfCode; break;
+                    case 'churn':      value = getChurn(node.id) || getChurn(node.path); break;
+                    case 'cochange':   value = getCochangeScore(node.id); break;
+                    case 'lastModified': value = node.lastModified || 0; break;
+                    default:           value = 0;
+                }
             }
             var norm = normalizeMetric(value, heatmapMode);
             var color = heatmapColor(norm, HEATMAP_SCALES[heatmapMode]);
@@ -4997,6 +5155,16 @@
                 'in: ' + node.fanIn,
                 'out: ' + node.fanOut
             ];
+            if (node.metrics) {
+                var summaryColumns = importedColumns();
+                for (var mc = 0; mc < summaryColumns.length; mc++) {
+                    var column = summaryColumns[mc];
+                    var metricValue = node.metrics[column.key];
+                    if (typeof metricValue !== 'number' || !isFinite(metricValue)) continue;
+                    parts.push((column.label || column.key) + ': ' + formatImportedValue(column, metricValue)
+                        + (importedValueIsStale(column, node) ? ' (stale)' : ''));
+                }
+            }
             if (commName) parts.push(commName);
             metaEl.textContent = parts.join(' · ');
         }
@@ -6304,6 +6472,10 @@
         // Keyboard shortcuts
         // ============================================================
         var HEATMAP_MODES = ['off', 'complexity', 'cognitive', 'fanIn', 'fanOut', 'loc', 'churn', 'cochange', 'lastModified', 'layers', 'community'];
+        // Imported columns join the cycle, in the order the selector shows them.
+        for (var im = 0; im < importedColumns().length; im++) {
+            HEATMAP_MODES.push('imp:' + importedColumns()[im].key);
+        }
 
         document.addEventListener('keydown', function(e) {
             // Ignore when typing in an input

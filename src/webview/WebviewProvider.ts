@@ -18,6 +18,8 @@ import type { FunctionFlow } from '../flow/flow-core';
 import type { ViewLinkPayload } from '../deeplinks';
 import type { BranchReviewPayload } from '../git/branch-diff-core';
 import type { TransitiveDirection, TransitiveResult } from '../analysis/transitive';
+import { applyImportedMetrics } from '../metrics/metrics-core';
+import { readMetrics } from '../metrics/metrics-store';
 
 /** Whitelist of webview-editable settings, with per-key validation. */
 const SETTING_NORMALIZERS: Record<string, (v: unknown) => unknown> = {
@@ -872,6 +874,7 @@ export class WebviewProvider {
 
     public sendGraphData(data: GraphData): void {
         this.attachCommunities(data);
+        this.attachImportedMetrics(data);
         this.pendingData = data;
         // A new dataset rebuilds the ForceGraph3D instance — graph-dependent
         // messages must wait for the next `graphRendered` handshake.
@@ -974,6 +977,46 @@ export class WebviewProvider {
         } catch (err) {
             console.warn('[aura] community snapshot failed:', err);
         }
+    }
+
+    /**
+     * Imported columns from `.aura/metrics.json`.
+     *
+     * Re-attached on every graph send, so a re-analysis never loses a column
+     * that does not live in the database — and removed from the nodes when the
+     * file is gone, so yesterday's numbers never linger.
+     */
+    private attachImportedMetrics(data: GraphData): void {
+        const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        if (!root) return;
+        try {
+            const document = readMetrics(root);
+            const summary = applyImportedMetrics(data.nodes, document);
+            if (document && summary.columns.length > 0) data.meta.importedMetrics = summary;
+            else delete data.meta.importedMetrics;
+        } catch (err) {
+            console.warn('[aura] imported metrics failed:', err);
+        }
+    }
+
+    /**
+     * Push the imported columns without re-sending the graph: a full
+     * `graphData` message rebuilds the ForceGraph3D instance and resets the
+     * camera, which is far too much for "I just imported coverage".
+     */
+    public sendImportedMetrics(): void {
+        const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        const document = root ? readMetrics(root) : null;
+        let summary = null;
+        if (this.pendingData) {
+            summary = applyImportedMetrics(this.pendingData.nodes, document);
+            if (document && summary.columns.length > 0) this.pendingData.meta.importedMetrics = summary;
+            else delete this.pendingData.meta.importedMetrics;
+        }
+        this.panel?.webview.postMessage({
+            type: 'importedMetrics',
+            payload: { summary, rows: document ? document.rows : {} },
+        });
     }
 
     private attachDeltaCommunities(delta: Record<string, unknown>): void {
@@ -2904,7 +2947,11 @@ export class WebviewProvider {
                 <p><strong>The baseline is a ratchet.</strong> A repository with 406 dead exports and 21 cycles fails any absolute threshold on day one, so the gate freezes what exists (<code>.aura/gate-baseline.json</code>) and only fails on <strong>growth</strong>. <code>--update-baseline</code> is the only way to freeze — never automatic, because accepting debt is a decision.</p>
                 <p><strong>Scope and freshness decide more than the rules.</strong> <code>exclude</code> defaults to documentation and generated output (<code>out/</code>, <code>dist/</code>); without it a budget catches bundles. And a verdict must not rest on a stale graph or a database the editor is rewriting: the gate <strong>refuses to conclude</strong> then, with its own exit code. Same code for a broken <code>gate.json</code>.</p>
                 <p>Three doors, one implementation: <code>node out/gate.js --root . --base origin/main</code> (exit <code>0</code> / <code>1</code> rule broken / <code>2</code> config or staleness), the MCP tool <code>gate</code> for agents — it never writes the baseline, so an agent cannot absolve itself — and the command above, which opens the Markdown report ready for a pull request.</p>
-                <h3>🛡️ Risk Map</h3>
+                <h3>� Imported metrics</h3>
+                <p>Aura computes what it can read from the source, and <strong>refuses to invent the rest</strong>: coverage, lint findings and Sonar numbers are not in its model. <strong>Aura: Import Metrics…</strong> reads a file you already produce — <code>lcov.info</code>, an Istanbul <code>coverage-summary.json</code> or <code>coverage-final.json</code>, <code>eslint -f json</code>, or any CSV/JSON shaped <code>path,metric,value</code> — and attaches it to the files as an extra column.</p>
+                <p>Columns live in <code>.aura/metrics.json</code>, <strong>not</strong> in <code>.aura/graph.db</code>: the database is rebuilt by every analysis, this file is not. Importing again replaces only the columns that file provides, so coverage and lint findings coexist on the same nodes. Nothing is written when no path matches, and the report always says how many paths were read, matched exactly, remapped (absolute path, other workspace, suffix) or left unknown.</p>
+                <p><strong>An absent value is not zero.</strong> A file with no coverage entry is painted grey by the heatmap instead of the bottom of the ramp, and <code>coverage &gt; 0</code> does not match it; a value generated before the file was last modified is flagged <em>stale</em> in the tooltip. Then query it — <code>coverage &lt; 80 and cognitive &gt; 40</code> is the whole point — pick it in the heatmap selector (📥 prefix), and read it in <code>aura_explain_file</code> with its source, generation date and staleness. <strong>Aura: Clear Imported Metrics</strong> removes the file.</p>
+                <h3>�🛡️ Risk Map</h3>
                 <p>Open the <strong>🛡️ Risk</strong> tab for a codebase health dashboard. It uses a transparent risk score: <code>100 × (0.21·complexity + 0.18·centrality + 0.08·fan-out + 0.12·cycle + 0.12·dead-code + 0.09·rewrite + 0.06·recency + 0.06·frequency + 0.05·authors + 0.03·fixes)</code> — the structural half stays dominant on purpose. <code>centrality</code> is fan-in, or PageRank when <code>auraVisualizer.riskCentrality</code> is on; <code>rewrite</code> is the volume of lines added and removed relative to the file's size today, <code>recency</code> weights a commit made today over one at the window's edge, and <code>fixes</code> is the share of commits whose message looks like a bug fix. Documentation is outside architectural risk: docs are not scored and <code>doc-reference</code> links do not inflate fan-in or PageRank. Exempted framework symbols are not counted as dead code.</p>
                 <p>Complexity, fan-in, fan-out and churn are <strong>percentile ranks inside your repository</strong> (0 = lowest file, 1 = highest), so the score is a standing relative to this codebase. A <strong>History window</strong> selector (30 / 90 / 365 days) drives churn, scoring and explanations. Churn is <strong>rename-aware</strong>: files moved with <code>git mv</code> keep their history across the rename.</p>
                 <p>High / Medium / Low file lists are collapsible, each row explains <em>why</em> a file scores that way, and clicking a file selects it in the 3D graph. Also included: <strong>📈 Risk Trend</strong>, <strong>📈 Complexity Trend</strong> (per-file sparklines + slope), <strong>🔥 Recently Hot</strong> (last 30 days), <strong>📊 Churn × Complexity</strong> scatter (log scale), and <strong>👤 Bus Factor</strong> (files with a single author). Use <strong>📤 Export</strong> to write <code>.aura/risk-report.md</code>.</p>
@@ -2915,7 +2962,7 @@ export class WebviewProvider {
 
                 <h2 class="help-block">Integrations &amp; details</h2>
                 <h3>🤖 Where to Ask Aura</h3>
-                <p>AI lives in <strong>VS Code Chat</strong>, not inside the graph panel. Mention <code>@aura</code> for grounded answers (<code>/explain</code>, <code>/impact</code>, <code>/path</code>, <code>/hotspots</code>, <code>/query</code>), or click any <strong>✨ Ask Aura</strong> button — file detail, clusters, community cards, layer cards, Risk dashboard, explorer context menu — to pre-attach the current view context. The old in-panel assistant (✨ tab button) has been removed: there is a single conversational surface. External agents reach the same deterministic evaluation through the <strong>Language Model tools</strong> and the built-in <strong>MCP server</strong> (22 tools).</p>
+                <p>AI lives in <strong>VS Code Chat</strong>, not inside the graph panel. Mention <code>@aura</code> for grounded answers (<code>/explain</code>, <code>/impact</code>, <code>/path</code>, <code>/hotspots</code>, <code>/query</code>), or click any <strong>✨ Ask Aura</strong> button — file detail, clusters, community cards, layer cards, Risk dashboard, explorer context menu — to pre-attach the current view context. The old in-panel assistant (✨ tab button) has been removed: there is a single conversational surface. External agents reach the same deterministic evaluation through the <strong>Language Model tools</strong> and the built-in <strong>MCP server</strong> (29 tools).</p>
                 <h3>🔗 Share a View</h3>
                 <p><strong>🔗 Link</strong> (top bar) copies a <code>vscode://</code> link that reopens this exact view elsewhere: active tab, every filter, the camera pose (anchored to the files in view, like a warp) and the query expression. Paste it in a chat or an issue — opening it launches VS Code, opens Aura and applies the view once the graph is rendered. The payload is versioned, capped at 8 KB and fully validated: a corrupted link shows a message instead of breaking the panel.</p>
                 <h3>⏳ Time Travel</h3>

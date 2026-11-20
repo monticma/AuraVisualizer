@@ -362,6 +362,16 @@
         "icon": "$(verified)"
       },
       {
+        "command": "auraVisualizer.importMetrics",
+        "title": "Aura: Import Metrics (coverage, lint, Sonar)",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "auraVisualizer.clearImportedMetrics",
+        "title": "Aura: Clear Imported Metrics",
+        "icon": "$(trash)"
+      },
+      {
         "command": "auraVisualizer.exportGraphFormat",
         "title": "Aura: Export Graph (DOT / GraphML / Mermaid)",
         "icon": "$(export)"

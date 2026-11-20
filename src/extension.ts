@@ -62,6 +62,7 @@ import { buildAiExportInput, generateAiExport, type AiExportSection } from './ex
 import { saveOrCopyText, saveText } from './export/save';
 import { runGate } from './gate/gate-run';
 import { gateMarkdown } from './gate/gate-core';
+import { clearImportedMetricsCommand, importMetricsCommand } from './commands/import-metrics';
 import {
     DEFAULT_GRAPH_FORMAT_OPTIONS,
     buildGraphFormat,
@@ -517,6 +518,8 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('auraVisualizer.exportMetrics', () => exportMetrics()),
         vscode.commands.registerCommand('auraVisualizer.exportResolutionReport', () => exportResolutionReport()),
         vscode.commands.registerCommand('auraVisualizer.runGate', () => runGateCommand(context)),
+        vscode.commands.registerCommand('auraVisualizer.importMetrics', () => runImportMetricsCommand()),
+        vscode.commands.registerCommand('auraVisualizer.clearImportedMetrics', () => runClearImportedMetricsCommand()),
         // The argument is the view's payload (`{format, nodes, links}`). It must
         // be forwarded: dropping it re-opened the format QuickPick, so picking
         // DOT in the 📤 menu asked for DOT a second time.
@@ -841,6 +844,43 @@ async function runGateCommand(context: vscode.ExtensionContext): Promise<void> {
         });
         await vscode.window.showTextDocument(document, { preview: true });
     }
+}
+
+/**
+ * "Aura: Import Metrics…" — bring an external column (coverage, lint counts,
+ * a Sonar export) into the graph.
+ *
+ * The column is written to `.aura/metrics.json`, not to `.aura/graph.db`: the
+ * database is rebuilt by every analysis, the file is not. Nothing is written
+ * when no path matched, because a column nobody can attach is worse than no
+ * column at all.
+ */
+async function runImportMetricsCommand(): Promise<void> {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+        void vscode.window.showWarningMessage('Aura: no workspace folder open.');
+        return;
+    }
+    const nodeIds = (cachedGraphData?.nodes || []).map(node => node.id);
+    await importMetricsCommand({
+        root: workspaceFolder.uri.fsPath,
+        nodeIds,
+        onImported: () => {
+            // No graph re-send: that rebuilds the ForceGraph3D instance and
+            // resets the camera. The dedicated message patches the nodes.
+            webviewProvider?.sendImportedMetrics();
+        },
+    });
+}
+
+/** "Aura: Clear Imported Metrics" — removes `.aura/metrics.json`. */
+async function runClearImportedMetricsCommand(): Promise<void> {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) return;
+    await clearImportedMetricsCommand({
+        root: workspaceFolder.uri.fsPath,
+        onCleared: () => webviewProvider?.sendImportedMetrics(),
+    });
 }
 
 /**

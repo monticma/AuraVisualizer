@@ -26,6 +26,8 @@ import { resolveContext } from '../mcp/context';
 import { topRiskHotspots, type RiskFileEntry, type RiskSnapshot } from '../risk/risk-service';
 import { readBranchDiff } from '../git/branch-diff';
 import { readCurrentHead, readWorkingTreeChanges, readWorktrees } from '../git/git-info';
+import { metricsForNode } from '../metrics/metrics-core';
+import { readMetrics } from '../metrics/metrics-store';
 import { withAnchor } from './anchors';
 import { buildStatusPayload, mergeChangesWithRisk, type ChangedFile } from './tool-core';
 
@@ -872,6 +874,26 @@ function riskView(entry: RiskFileEntry) {
     };
 }
 
+/**
+ * Imported columns for one file, with the provenance an agent needs to decide
+ * whether the number is still worth quoting. Empty when nothing was imported or
+ * when this file has no value — an absent value is **unknown**, not zero.
+ */
+function importedMetricsForFile(root: string, fileId: string, lastModified?: number) {
+    const document = readMetrics(root);
+    if (!document) return [];
+    const values = metricsForNode(document, fileId, lastModified);
+    return Object.entries(values).map(([key, value]) => ({
+        key,
+        value: value.value,
+        unit: value.unit,
+        source: value.source,
+        generated_at: value.generatedAt || null,
+        imported_at: value.importedAt,
+        stale: value.stale,
+    }));
+}
+
 /** `aura_build` — is the analysed graph still in sync with the checkout? */
 async function buildTool(db: GraphDB, deps: AuraToolDeps) {
     const status = buildStatusPayload({
@@ -960,6 +982,7 @@ function explainFileTool(db: GraphDB, input: Record<string, unknown>, deps: Aura
         cycles: cycles.map(cycle => ({ files: cycle, length: cycle.length })),
         cochange,
         community: communityId === undefined ? null : { id: communityId, name: labels[String(communityId)] || null },
+        imported_metrics: importedMetricsForFile(deps.root, resolved, detail.last_modified),
         note: 'Aggregated briefing: risk first, then structure, then history. Anchors are "file:line" and safe to quote in a review.',
     };
 }
