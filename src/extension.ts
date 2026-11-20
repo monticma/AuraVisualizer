@@ -60,6 +60,8 @@ import { generateArchitectureNarrative } from './report/ai-summary';
 import { metricsToCsv, metricsToJson, type MetricsRow } from './report/metrics-export';
 import { buildAiExportInput, generateAiExport, type AiExportSection } from './export/ai-export';
 import { saveOrCopyText, saveText } from './export/save';
+import { runGate } from './gate/gate-run';
+import { gateMarkdown } from './gate/gate-core';
 import {
     DEFAULT_GRAPH_FORMAT_OPTIONS,
     buildGraphFormat,
@@ -514,6 +516,7 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('auraVisualizer.exportArchReportAI', () => exportArchReport(true)),
         vscode.commands.registerCommand('auraVisualizer.exportMetrics', () => exportMetrics()),
         vscode.commands.registerCommand('auraVisualizer.exportResolutionReport', () => exportResolutionReport()),
+        vscode.commands.registerCommand('auraVisualizer.runGate', () => runGateCommand(context)),
         // The argument is the view's payload (`{format, nodes, links}`). It must
         // be forwarded: dropping it re-opened the format QuickPick, so picking
         // DOT in the 📤 menu asked for DOT a second time.
@@ -798,6 +801,46 @@ async function exportGraphFormat(payload?: GraphFormatPayload): Promise<void> {
         `aura-graph.${result.extension}`,
         result.filters,
     );
+}
+
+/**
+ * `Aura: Run Gate` — le verdict, sans quitter l'éditeur.
+ *
+ * Même implémentation que la CLI et l'outil MCP (`runGate`) : un seul verdict,
+ * trois portes. Le rapport s'ouvre dans un document Markdown pour pouvoir être
+ * collé tel quel dans une pull request.
+ */
+async function runGateCommand(context: vscode.ExtensionContext): Promise<void> {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+        void vscode.window.showWarningMessage('Aura: no workspace folder open.');
+        return;
+    }
+    if (!graphDb) {
+        void vscode.window.showWarningMessage('Aura: no analysis yet — run "Aura: Visualize Codebase" first.');
+        return;
+    }
+    const root = workspaceFolder.uri.fsPath;
+
+    const verdict = await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title: 'Aura: gate…' },
+        async () => (await runGate(graphDb!, { root })).verdict,
+    );
+
+    const action = verdict.ok ? 'Open report' : 'Open report';
+    const show = verdict.ok ? vscode.window.showInformationMessage : vscode.window.showWarningMessage;
+    const picked = await show(`Aura gate — ${verdict.summary}`, action, 'Settings');
+    if (picked === 'Settings') {
+        void vscode.commands.executeCommand('workbench.action.openSettings', '@ext:monticma-aura.aura-visualizer-3D gate');
+        return;
+    }
+    if (picked === action) {
+        const document = await vscode.workspace.openTextDocument({
+            language: 'markdown',
+            content: gateMarkdown(verdict, `Aura Gate — ${workspaceFolder.name}`),
+        });
+        await vscode.window.showTextDocument(document, { preview: true });
+    }
 }
 
 /**

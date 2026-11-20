@@ -37,6 +37,11 @@
   - `trace_flow` — shortest cycle-safe call path between two symbols, with the call line of every step. On Aura: `activate → registerAuraLmTools → registerShared → runAuraToolAsync → explainFileTool → withAnchor`.
   - `find_entry_points` — `main`, `activate`/`deactivate`, `package.json` main/bin, test files, then every symbol nothing calls.
   - **Honest by construction**: the graph is static and records **free-function calls plus `this.`/`self.` calls** — a method called on an arbitrary object (`db.getCallSites()`) is invisible, so an empty result says so instead of pretending. Entry detection is a heuristic, and it says that too.
+- **✅ The gate: a verdict, not a dashboard.** Aura detected; it can now **refuse**. `node out/gate.js` (or the MCP tool `gate`, or **Aura: Run Gate**) evaluates `.aura/gate.json` and exits non-zero.
+  - **Budgets** per file (`cognitive`, `complexity`, `fanIn`, `fanOut`, `linesOfCode`), **counts** (cycles, dead exports, unresolved ratio), and the **architecture rules** already in place.
+  - **A ratchet, not a wall**: this repository has 406 dead exports and 21 cycles, so absolute thresholds would be red on day one. `.aura/gate-baseline.json` freezes what exists and the gate fails only on **growth**; `--update-baseline` is explicit, because accepting debt is a decision.
+  - **Exit codes that mean something**: `0` pass · `1` a rule is broken · `2` configuration invalid or the analysis is **stale** — a verdict must never rest on a graph that predates the checkout.
+  - **`--base origin/main`** judges only what a pull request touches, and **no baseline writing over MCP** — an agent must not be able to absolve its own failures.
 
 _Previously in 1.6.2: the **Aura** section in the Explorer — a card on the active file with its metrics, risk score and reasons, complexity sparkline, flags and the City's connection map, plus ◫ View in for the 3D graph, the City and the Treemap._
 
@@ -416,6 +421,48 @@ Aura reads its own graph better than anyone else does, but a report, a design re
 ```bash
 unflatten -l 3 -c 5 aura-graph.dot | dot -Tsvg > aura-graph.svg
 ```
+
+### The Gate ✅
+
+Everything else in Aura **detects**. The gate **refuses** — in CI, in a git hook, or right after an agent changed the code.
+
+`.aura/gate.json` is the whole contract:
+
+```json
+{
+  "version": 1,
+  "include": ["src/**", "webview/**"],
+  "exclude": ["docs/**", "out/**", "**/*.d.ts"],
+  "budgets": { "cognitive": 40, "fanIn": 20 },
+  "counts": { "fileCycles": 0, "deadExports": 0, "unresolvedRatio": 0.01 },
+  "architecture": true,
+  "failOnStale": true
+}
+```
+
+```bash
+node out/gate.js --root .                    # whole repository
+node out/gate.js --root . --base origin/main # only what the PR touches
+node out/gate.js --json                      # for a script or an agent
+node out/gate.js --markdown gate.md          # a report ready for the pull request
+node out/gate.js --update-baseline           # freeze today's debt (explicit)
+```
+
+| Exit | Meaning |
+|---|---|
+| `0` | the gate passes |
+| `1` | a rule is broken (`failures[]` says which file, which metric, what limit) |
+| `2` | configuration invalid, analysis missing or **stale** — Aura refuses to judge |
+
+Three behaviours that come from measuring on a real repository:
+
+- **It ratchets.** 406 dead exports, 21 cycles and 33 files over a 40 cognitive budget: an absolute threshold would be red forever, so it would be switched off. `.aura/gate-baseline.json` freezes what exists; the gate fails only when the count or the value **grows**. Frozen overruns are listed separately — visible, non-blocking.
+- **It scopes before it judges.** With `out/` versioned, a raw complexity budget caught generated bundles. The default `exclude` removes documentation and generated output; `include` narrows to the code.
+- **It refuses stale premises.** A graph analysed two days ago, or a database the editor is rewriting mid-read, cannot found a refusal — that is exit `2`, not a pass.
+
+**After an agent.** This is the use that makes a gate more than CI hygiene: the MCP tool `gate` returns the failure list with file, metric, value and limit, so an agent has a verifiable target instead of an instruction. It **cannot** write the baseline — accepting debt stays a human decision.
+
+**One honest caveat.** The gate **reads** `.aura/graph.db`; it does not analyse. In CI you therefore need a step that produces a **fresh** database first (open the workspace with the extension, or run an analysis headlessly — that entry point does not exist yet). The freshness check is what makes this safe: a database that does not match the checkout gives exit `2`, never a false green.
 
 ### Orphan Detection
 

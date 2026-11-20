@@ -67,6 +67,22 @@ const mcpServerConfig = {
     tsconfig: 'tsconfig.json',
 };
 
+/** @type {esbuild.BuildOptions} */
+const gateConfig = {
+    entryPoints: ['src/gate-cli.ts'],
+    bundle: true,
+    format: 'cjs',
+    minify: production,
+    sourcemap: !production,
+    sourcesContent: false,
+    platform: 'node',
+    outfile: 'out/gate.js',
+    external: [],
+    logLevel: 'info',
+    logOverride: { 'require-resolve-not-external': 'silent' },
+    tsconfig: 'tsconfig.json',
+};
+
 async function copyWebviewAssets() {
     const webviewSrc = path.join(__dirname, 'webview');
     const webviewDest = path.join(__dirname, 'out', 'webview');
@@ -286,6 +302,7 @@ async function main() {
         await esbuild.build(workerConfig);
         await esbuild.build(historyWorkerConfig);
         await esbuild.build(mcpServerConfig);
+        await esbuild.build(gateConfig);
     }
 }
 

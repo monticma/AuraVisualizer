@@ -29,6 +29,8 @@ import { runAuraToolAsync } from './ai/tools';
 import { withAnchor } from './ai/anchors';
 import { buildRiskSnapshot, type RiskServiceCommit } from './risk/risk-service';
 import { resolutionMarkdown, type ResolutionReport } from './analysis/resolution';
+import { runGate } from './gate/gate-run';
+import { gateMarkdown } from './gate/gate-core';
 import {
     ARCH_BASELINE_FILE,
     ARCH_RULES_FILE,
@@ -348,6 +350,18 @@ const TOOLS = [
             },
         },
     },
+    {
+        name: 'gate',
+        description: 'The verdict: evaluate `.aura/gate.json` against the analysed graph (per-file budgets, global counts ratcheted by `.aura/gate-baseline.json`, architecture rules) and return `{ ok, code, failures, summary }`. Exit semantics: code 1 = a rule is broken, code 2 = configuration invalid or the analysis is stale — never gate on a graph that predates the checkout. Use it as a verifiable target: fix the listed failures, then call it again. It never writes the baseline.',
+        inputSchema: {
+            type: 'object' as const,
+            properties: {
+                base: { type: 'string', description: 'Only judge files changed since this ref (e.g. origin/main)' },
+                allow_stale: { type: 'boolean', description: 'Judge even when the analysis does not match the checkout (default false)' },
+                format: { type: 'string', description: '"json" (default) or "markdown" for a pull-request report' },
+            },
+        },
+    },
 ];
 
 // ── Tool handlers ──────────────────────────────────────────────
@@ -526,6 +540,27 @@ async function handleToolInner(db: GraphDB, name: string, args: Record<string, u
             return { measured: true, format: 'markdown', markdown: resolutionMarkdown(report) };
         }
         return { measured: true, ...report };
+    }
+
+    if (name === 'gate') {
+        // Le gate ne gèle jamais la baseline depuis un agent : `--update-baseline`
+        // est réservé à la CLI, pour qu'un agent ne puisse pas absoudre ses propres
+        // échecs en réécrivant la dette acceptée.
+        const root = resolve(dirname(DB_PATH!), '..');
+        const context = await runGate(db, {
+            root,
+            ...(typeof args.base === 'string' && args.base ? { base: args.base } : {}),
+            ...(args.allow_stale === true ? { allowStale: true } : {}),
+        });
+        const verdict = context.verdict;
+        const payload = {
+            ...verdict,
+            config_missing: context.configMissing,
+            changed_files: context.changedFiles,
+        };
+        return args.format === 'markdown'
+            ? { ...payload, format: 'markdown', markdown: gateMarkdown(verdict) }
+            : payload;
     }
 
     const auraName = AURA_TOOL_BY_MCP[name];

@@ -98,6 +98,27 @@ Aura already stored every resolved call site; it only answered at the **file** l
 
 **Read the caveats.** The graph is **static** and records **free functions plus `this.`/`self.` calls** — a method called on an arbitrary object (`db.getCallSites()`) is not captured, so an empty answer comes with that note instead of a silent zero. And entry detection is a heuristic: a framework callback has no static caller and appears as a root. Use it to *propose* entries, never to declare something dead.
 
+### The gate: give the agent a target, not an instruction
+
+An agent told "keep the code clean" will do what it likes. An agent that can call **`gate`** gets a list of failures with file, metric, value and limit — and a way to know it has finished.
+
+**What it evaluates** (`.aura/gate.json`):
+
+- **budgets** per file — `cognitive`, `complexity`, `fanIn`, `fanOut`, `linesOfCode`;
+- **counts** — cycles, dead exports, unresolved ratio (the report from the lot above);
+- the **architecture rules** and their baseline.
+
+**A ratchet, not a wall.** A real repository carries 406 dead exports and 21 cycles: an absolute threshold is red on day one, gets switched off, and protects nothing. `.aura/gate-baseline.json` freezes what exists, and the gate fails only when something **grows**. `--update-baseline` is the only way to freeze, and the MCP tool cannot call it — accepting debt stays a human decision.
+
+**Exit codes that mean something:** `0` pass · `1` a rule is broken · `2` configuration invalid or the **analysis is stale**. The last one matters: a gate reading a graph that predates the checkout would issue a confident, wrong verdict, so it refuses instead.
+
+```bash
+node out/gate.js --root .                    # whole repository
+node out/gate.js --root . --base origin/main # only the files the PR touches
+```
+
+**One caveat to state plainly:** the gate reads `.aura/graph.db`; it does not analyse. A CI job needs a fresh database before it can gate — today that means analysing from the editor (or waiting for a headless analysis entry point).
+
 ### How much can an agent trust the graph?
 
 Every tool answer now carries a **`coverage`** block — `files`, `parsed_failed`,
