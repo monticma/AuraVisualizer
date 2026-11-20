@@ -34,3 +34,6 @@ docs/
 
 # Local MCP config (machine-specific paths, auto-created by VS Code)
 .mcp.json
+
+# Coverage reports (npx vitest run --coverage)
+coverage/

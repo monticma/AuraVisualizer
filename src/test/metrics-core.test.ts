@@ -372,8 +372,11 @@ describe('metricsMarkdown', () => {
         expect(markdown).toContain('# Aura — imported metrics');
         expect(markdown).toContain('**Paths:** 2 read · 1 mapped (1 exact, 0 remapped)');
         expect(markdown).toContain('1 unknown');
+        // The denominator is the graph, not the file: 6 known ids, 1 value.
+        expect(markdown).toContain('**Nodes:** 1 of 6 received a value');
+        expect(markdown).toContain('the other 5 have none (unknown, not zero)');
         expect(markdown).toContain('## Unmatched paths (1)');
         expect(markdown).toContain('`src/nope.ts`');
-        expect(markdown).toContain('| `coverage` | percent | 1 |');
+        expect(markdown).toContain('| `coverage` | percent | 1 | 5 |');
     });
 });

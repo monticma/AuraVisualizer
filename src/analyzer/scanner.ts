@@ -54,7 +54,14 @@ export const SKIP_DIRS = new Set([
     'node_modules', '.git', '.svn', '.hg',
     'dist', 'build', 'out', '.next',
     '__pycache__', '.vscode', '.idea', 'Backup',
-    'Tests'
+    'Tests',
+    // Generated *reports* and tool caches: never source, and each one brings
+    // hundreds of unconnected files (a vitest coverage run writes 109 HTML/JS/CSS
+    // files next to the lcov). Importing coverage used to add them to the graph
+    // as an island of orphans.
+    'coverage', '.nyc_output', 'htmlcov',
+    '.pytest_cache', '.mypy_cache', '.ruff_cache', '.tox',
+    '.cache', '.parcel-cache', '.turbo', '.angular', 'storybook-static'
 ]);
 
 /**

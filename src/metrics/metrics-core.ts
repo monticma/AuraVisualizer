@@ -133,6 +133,8 @@ export interface ImportReport {
     replaced: string[];
     /** Nodes that received at least one value. */
     nodes: number;
+    /** Nodes in the analysed graph — the denominator of "how much is unknown". */
+    nodesInGraph: number;
 }
 
 export interface MergeOptions {
@@ -511,6 +513,7 @@ export function mergeImport(
         unknownTotal: unknownList.length,
         replaced,
         nodes: Object.keys(matched).length,
+        nodesInGraph: index.ids.size,
     };
 
     return { document: doc, report };
@@ -655,7 +658,10 @@ export function metricsMarkdown(
         lines.push(`**Normalised before matching:** ${report.normalized} paths `
             + '(absolute paths, backslashes, another workspace root or a Sonar component key)  ');
     }
-    lines.push(`**Nodes:** ${report.nodes} received a value`);
+    lines.push(`**Nodes:** ${report.nodes} of ${report.nodesInGraph} received a value`
+        + `${report.nodesInGraph > report.nodes
+            ? ` · the other ${report.nodesInGraph - report.nodes} have none (unknown, not zero)`
+            : ''}`);
     if (report.replaced.length > 0) {
         lines.push(`**Replaced:** ${report.replaced.map(key => `\`${key}\``).join(', ')}`);
     }
@@ -663,20 +669,21 @@ export function metricsMarkdown(
 
     const columns = doc.columns.filter(column => report.columns.includes(column.key));
     if (columns.length > 0) {
-        lines.push('| Column | Unit | Values | Scope | Provenance |');
+        lines.push('| Column | Unit | With a value | Unknown | Provenance |');
         lines.push('|---|---|---|---|---|');
         for (const column of columns) {
             let values = 0;
-            let empty = 0;
             for (const row of Object.values(doc.rows)) {
                 const value = row[column.key];
                 if (typeof value === 'number' && Number.isFinite(value)) values++;
-                else empty++;
             }
+            // Unknown is counted against the graph, not against the file: a node
+            // that is simply absent from the export is unmeasured, not zero.
+            const unknown = Math.max(0, report.nodesInGraph - values);
             const generated = toMillis(column.generatedAt);
             const provenance = `${column.source}${generated !== undefined ? ` · generated ${formatAge(generated, now)}` : ''}`
                 + `${column.head ? ` · ${column.head.slice(0, 7)}` : ''}`;
-            lines.push(`| \`${column.key}\` | ${column.unit} | ${values} | ${empty} unknown | ${provenance} |`);
+            lines.push(`| \`${column.key}\` | ${column.unit} | ${values} | ${unknown} | ${provenance} |`);
         }
         lines.push('');
     }
