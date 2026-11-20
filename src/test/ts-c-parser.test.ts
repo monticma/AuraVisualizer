@@ -6,6 +6,7 @@
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import { TreeSitterCParser } from '../analyzer/parsers/ts-c-parser';
+import { TreeSitterCppParser } from '../analyzer/parsers/ts-cpp-parser';
 import { initTreeSitter, parseSource } from '../analyzer/tree-sitter-loader';
 import { makeFileInfo } from './helpers';
 import type Parser from 'web-tree-sitter';
@@ -257,5 +258,25 @@ describe('TreeSitterCParser.extractCallSitesAST', () => {
         expect(helperCall?.isLocal).toBe(true);
         const extCall = mainCalls.find(s => s.calleeName === 'process_data');
         expect(extCall?.isLocal).toBe(false);
+    });
+
+    // C++ : `this->m()` a une cible certaine (même fichier), à condition que la
+    // méthode y soit définie — une méthode héritée d'un autre fichier n'est pas
+    // inventée. Les noms qualifiés `Foo::bar` sont ramenés à `bar`.
+    it('records this->method() when the method is defined here', async () => {
+        const content = [
+            'class Panel {',
+            'public:',
+            '    void run() { this->helper(); this->inherited(); }',
+            '    void helper();',
+            '};',
+            'void Panel::helper() {}',
+        ].join('\n');
+        const t = await parseSource('cpp', content);
+        const file = makeFileInfo({ id: 'panel.cpp', content, language: 'cpp', extension: '.cpp' });
+        const sites = new TreeSitterCppParser().extractCallSitesAST(t, file);
+        const selfCall = sites.find(s => s.calleeName === 'helper' && s.callerName === 'run');
+        expect(selfCall?.isLocal).toBe(true);
+        expect(sites.some(s => s.calleeName === 'inherited')).toBe(false);
     });
 });

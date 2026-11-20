@@ -294,4 +294,31 @@ describe('TreeSitterPyParser.extractCallSitesAST', () => {
         const nested = sites.find(s => s.calleeName === 'execute');
         expect(nested?.callerName).toBe('run');
     });
+
+    // `self.m()` est le seul appel de méthode dont la cible est certaine :
+    // la portée donne la classe, donc le fichier — et seulement si la méthode
+    // y est déclarée.
+    it('records self.method() when the method is declared in the class', async () => {
+        const content = [
+            'class Panel:',
+            '    def run(self):',
+            '        self.helper()',
+            '        self.inherited()',
+            '    def helper(self):',
+            '        return 1',
+            '',
+            'def module_level():',
+            '    helper()',
+        ].join('\n');
+        const t = await tree(content);
+        const file = makeFileInfo({ id: 'app.py', content, language: 'python', extension: '.py' });
+        const sites = parser.extractCallSitesAST(t, file);
+        const selfCall = sites.find(s => s.calleeName === 'helper' && s.callerName === 'run');
+        expect(selfCall?.isLocal).toBe(true);
+        expect(sites.some(s => s.calleeName === 'inherited')).toBe(false);
+        // Comportement existant en Python : `definedHere` contient aussi les
+        // méthodes, donc un appel nu homonyme reste marqué local.
+        const bare = sites.find(s => s.calleeName === 'helper' && s.callerName === 'module_level');
+        expect(bare?.isLocal).toBe(true);
+    });
 });

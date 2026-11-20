@@ -249,7 +249,7 @@ export const AURA_TOOLS: AuraTool[] = [
     },
     {
         name: 'aura_find_callers',
-        description: 'Who calls this function? Returns the call sites pointing at a symbol (`fichier::nom`, `fichier:nom` or a bare name), grouped per caller with their lines and a confidence (1.0 local · 0.8 unique cross-file · 0.5 ambiguous target). Static call graph: free-function calls only — a method called on an object is not recorded yet, so an empty answer is not a proof.',
+        description: 'Who calls this function? Returns the call sites pointing at a symbol (`fichier::nom`, `fichier:nom` or a bare name), grouped per caller with their lines and a confidence (1.0 local · 0.8 unique cross-file · 0.5 ambiguous target). Static call graph: free functions plus this./self. calls — a method called on an arbitrary object is not recorded, so an empty answer is not a proof.',
         inputSchema: {
             type: 'object',
             properties: {

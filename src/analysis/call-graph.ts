@@ -46,7 +46,7 @@ export const MODULE_SYMBOL = '<module>';
  * contraire ferait exactement ce que le rapport de résolution corrige ailleurs.
  */
 export const STATIC_CALL_GRAPH_NOTE =
-    'Static call graph: free-function calls only. A method called on an object (db.getCallSites()) is not recorded by the analyser yet, so an empty result is not a proof that nothing calls this symbol.';
+    'Static call graph: free functions plus `this.`/`self.` calls. A method called on an arbitrary object (db.getCallSites()) is not recorded by the analyser, so an empty result is not a proof that nothing calls this symbol.';
 
 export interface CallSiteInput {
     callerFile: string;

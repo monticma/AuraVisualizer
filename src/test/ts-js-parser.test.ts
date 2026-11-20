@@ -430,6 +430,43 @@ describe('TreeSitterJSParser.extractCallSitesAST', () => {
         expect(nested?.callerName).toBe('setup');
     });
 
+    // Les appels de méthode sont ignorés en général (pas de type), sauf
+    // `this.membre()` : la portée donne le fichier, donc la cible est certaine.
+    it('records this.member() when the member is declared here', async () => {
+        const content = [
+            'class Panel {',
+            '    run() {',
+            '        this.helper();',
+            '        this.inherited();',
+            '        this.helper();',
+            '    }',
+            '    helper() { return 1; }',
+            '    onClick = () => this.helper();',
+            '}',
+        ].join('\n');
+        const t = await tsTree(content);
+        const file = makeFileInfo({ id: 'panel.ts', content, language: 'typescript', extension: '.ts' });
+        const sites = tsParser.extractCallSitesAST(t, file);
+        const helper = sites.filter(s => s.calleeName === 'helper');
+        expect(helper).toHaveLength(3);
+        expect(helper.every(s => s.isLocal)).toBe(true);
+        expect(helper.filter(s => s.callerName === 'run')).toHaveLength(2);
+        // Méthode héritée d'une autre classe : rien n'est inventé.
+        expect(sites.some(s => s.calleeName === 'inherited')).toBe(false);
+    });
+
+    it('does not treat a bare call as local because a method shares its name', async () => {
+        const content = [
+            'class Panel { helper() { return 1; } }',
+            'function run() { helper(); }',
+        ].join('\n');
+        const t = await tsTree(content);
+        const file = makeFileInfo({ id: 'panel.ts', content, language: 'typescript', extension: '.ts' });
+        const sites = tsParser.extractCallSitesAST(t, file);
+        const bare = sites.find(s => s.calleeName === 'helper' && s.callerName === 'run');
+        expect(bare?.isLocal).toBe(false);
+    });
+
     it('tracks arrow function scope', async () => {
         const content = [
             'const process = () => {',

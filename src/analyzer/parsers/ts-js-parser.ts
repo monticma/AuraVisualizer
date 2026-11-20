@@ -459,17 +459,46 @@ export class TreeSitterJSParser extends BaseParser {
     override extractCallSitesAST(tree: Parser.Tree, _fileInfo: FileInfo): CallSite[] {
         const definedHere = new Set<string>();
         this.collectDefinedFunctions(tree.rootNode, definedHere);
+        // Membres de classe, dans un ensemble séparé : une méthode ne doit pas
+        // rendre « local » un appel nu homonyme (voir collectCallSites).
+        const membersHere = new Set<string>();
+        this.collectDefinedMembers(tree.rootNode, membersHere);
         const sites: CallSite[] = [];
-        this.collectCallSites(tree.rootNode, sites, definedHere, '<module>');
+        this.collectCallSites(tree.rootNode, sites, definedHere, '<module>', membersHere);
         return sites;
     }
 
-    private collectCallSites(node: Parser.SyntaxNode, sites: CallSite[], definedHere: Set<string>, currentFunc: string): void {
+    /**
+     * Noms de méthodes et de champs-fonctions déclarés dans le fichier.
+     *
+     * `this.helper()` est un appel **certain** : la portée lexicale donne la
+     * classe, donc le fichier cible — aucune inférence de type n'est nécessaire.
+     * On ne retient le site que si le membre est déclaré ici : une méthode
+     * héritée d'une classe d'un autre fichier ne doit pas être attribuée à tort
+     * à ce fichier.
+     */
+    protected collectDefinedMembers(node: Parser.SyntaxNode, defined: Set<string>): void {
+        if (node.type === 'method_definition') {
+            const name = node.childForFieldName('name')?.text;
+            if (name) { defined.add(name); }
+        } else if (node.type === 'public_field_definition' || node.type === 'field_definition') {
+            const value = node.childForFieldName('value');
+            if (value?.type === 'arrow_function') {
+                const name = node.childForFieldName('name')?.text;
+                if (name) { defined.add(name); }
+            }
+        }
+        for (let i = 0; i < node.childCount; i++) {
+            this.collectDefinedMembers(node.child(i)!, defined);
+        }
+    }
+
+    private collectCallSites(node: Parser.SyntaxNode, sites: CallSite[], definedHere: Set<string>, currentFunc: string, membersHere?: Set<string>): void {
         // Track function scope changes
         if (node.type === 'function_declaration' || node.type === 'generator_function_declaration') {
             const name = node.childForFieldName('name')?.text || currentFunc;
             for (let i = 0; i < node.childCount; i++) {
-                this.collectCallSites(node.child(i)!, sites, definedHere, name);
+                this.collectCallSites(node.child(i)!, sites, definedHere, name, membersHere);
             }
             return;
         }
@@ -478,7 +507,7 @@ export class TreeSitterJSParser extends BaseParser {
             if (value?.type === 'arrow_function') {
                 const name = node.childForFieldName('name')?.text || currentFunc;
                 for (let i = 0; i < node.childCount; i++) {
-                    this.collectCallSites(node.child(i)!, sites, definedHere, name);
+                    this.collectCallSites(node.child(i)!, sites, definedHere, name, membersHere);
                 }
                 return;
             }
@@ -486,7 +515,7 @@ export class TreeSitterJSParser extends BaseParser {
         if (node.type === 'method_definition') {
             const name = node.childForFieldName('name')?.text || currentFunc;
             for (let i = 0; i < node.childCount; i++) {
-                this.collectCallSites(node.child(i)!, sites, definedHere, name);
+                this.collectCallSites(node.child(i)!, sites, definedHere, name, membersHere);
             }
             return;
         }
@@ -504,11 +533,28 @@ export class TreeSitterJSParser extends BaseParser {
                         isLocal: definedHere.has(name),
                     });
                 }
+            } else if (funcNode?.type === 'member_expression') {
+                // `this.helper()` : le seul appel de méthode dont la cible est
+                // certaine sans inférence — même fichier, et seulement si le
+                // membre y est déclaré.
+                const object = funcNode.childForFieldName('object');
+                const property = funcNode.childForFieldName('property');
+                if (object?.type === 'this' && property?.type === 'property_identifier') {
+                    const name = property.text;
+                    if (!JS_BUILTINS.has(name) && membersHere?.has(name)) {
+                        sites.push({
+                            callerName: currentFunc,
+                            calleeName: name,
+                            line: node.startPosition.row + 1,
+                            isLocal: true,
+                        });
+                    }
+                }
             }
         }
 
         for (let i = 0; i < node.childCount; i++) {
-            this.collectCallSites(node.child(i)!, sites, definedHere, currentFunc);
+            this.collectCallSites(node.child(i)!, sites, definedHere, currentFunc, membersHere);
         }
     }
 

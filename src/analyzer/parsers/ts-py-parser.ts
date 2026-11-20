@@ -381,17 +381,49 @@ export class TreeSitterPyParser extends BaseParser {
     override extractCallSitesAST(tree: Parser.Tree, _fileInfo: FileInfo): CallSite[] {
         const definedHere = new Set<string>();
         this.collectDefinedFunctions(tree.rootNode, definedHere);
+        // Membres de classe à part : `self.m()` ne doit pas rendre « local »
+        // un appel nu homonyme au niveau module.
+        const membersHere = new Set<string>();
+        this.collectDefinedMembers(tree.rootNode, membersHere);
         const sites: CallSite[] = [];
-        this.collectCallSites(tree.rootNode, sites, definedHere, '<module>');
+        this.collectCallSites(tree.rootNode, sites, definedHere, '<module>', membersHere);
         return sites;
     }
 
-    private collectCallSites(node: Parser.SyntaxNode, sites: CallSite[], definedHere: Set<string>, currentFunc: string): void {
+    /**
+     * Méthodes déclarées dans une classe du fichier.
+     *
+     * `self.helper()` est certain — la portée donne la classe, donc le fichier —
+     * et le site n'est retenu que si la méthode est déclarée ici : une méthode
+     * héritée d'un autre module ne doit pas être attribuée à ce fichier.
+     */
+    private collectDefinedMembers(node: Parser.SyntaxNode, defined: Set<string>): void {
+        if (node.type === 'class_definition') {
+            const body = node.childForFieldName('body');
+            if (body) {
+                for (let i = 0; i < body.childCount; i++) {
+                    const member = body.child(i)!;
+                    const target = member.type === 'decorated_definition'
+                        ? this.findChild(member, 'function_definition')
+                        : member;
+                    if (target && target.type === 'function_definition') {
+                        const name = target.childForFieldName('name')?.text;
+                        if (name) defined.add(name);
+                    }
+                }
+            }
+        }
+        for (let i = 0; i < node.childCount; i++) {
+            this.collectDefinedMembers(node.child(i)!, defined);
+        }
+    }
+
+    private collectCallSites(node: Parser.SyntaxNode, sites: CallSite[], definedHere: Set<string>, currentFunc: string, membersHere?: Set<string>): void {
         // Track function scope
         if (node.type === 'function_definition') {
             const name = node.childForFieldName('name')?.text || currentFunc;
             for (let i = 0; i < node.childCount; i++) {
-                this.collectCallSites(node.child(i)!, sites, definedHere, name);
+                this.collectCallSites(node.child(i)!, sites, definedHere, name, membersHere);
             }
             return;
         }
@@ -400,9 +432,9 @@ export class TreeSitterPyParser extends BaseParser {
                 const child = node.child(i)!;
                 if (child.type === 'function_definition') {
                     const name = child.childForFieldName('name')?.text || currentFunc;
-                    this.collectCallSites(child, sites, definedHere, name);
+                    this.collectCallSites(child, sites, definedHere, name, membersHere);
                 } else {
-                    this.collectCallSites(child, sites, definedHere, currentFunc);
+                    this.collectCallSites(child, sites, definedHere, currentFunc, membersHere);
                 }
             }
             return;
@@ -421,11 +453,26 @@ export class TreeSitterPyParser extends BaseParser {
                         isLocal: definedHere.has(name),
                     });
                 }
+            } else if (funcNode?.type === 'attribute') {
+                // `self.helper()` — cible certaine : la classe du fichier.
+                const object = funcNode.childForFieldName('object');
+                const attribute = funcNode.childForFieldName('attribute');
+                if (object?.type === 'identifier' && object.text === 'self' && attribute) {
+                    const name = attribute.text;
+                    if (!PY_BUILTINS.has(name) && !PY_KEYWORDS.has(name) && membersHere?.has(name)) {
+                        sites.push({
+                            callerName: currentFunc,
+                            calleeName: name,
+                            line: node.startPosition.row + 1,
+                            isLocal: true,
+                        });
+                    }
+                }
             }
         }
 
         for (let i = 0; i < node.childCount; i++) {
-            this.collectCallSites(node.child(i)!, sites, definedHere, currentFunc);
+            this.collectCallSites(node.child(i)!, sites, definedHere, currentFunc, membersHere);
         }
     }
 

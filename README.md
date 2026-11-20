@@ -35,7 +35,7 @@
   - `symbol_impact` — transitive callers with depth and the call path, so "directly affected" is separated from "reached indirectly".
   - `trace_flow` — shortest cycle-safe call path between two symbols, with the call line of every step. On Aura: `activate → registerAuraLmTools → registerShared → runAuraToolAsync → explainFileTool → withAnchor`.
   - `find_entry_points` — `main`, `activate`/`deactivate`, `package.json` main/bin, test files, then every symbol nothing calls.
-  - **Honest by construction**: the graph is static and records **free-function calls only** — a method called on an object is invisible, so an empty result says so instead of pretending. Entry detection is a heuristic, and it says that too.
+  - **Honest by construction**: the graph is static and records **free-function calls plus `this.`/`self.` calls** — a method called on an arbitrary object (`db.getCallSites()`) is invisible, so an empty result says so instead of pretending. Entry detection is a heuristic, and it says that too.
 
 _Previously in 1.6.2: the **Aura** section in the Explorer — a card on the active file with its metrics, risk score and reasons, complexity sparkline, flags and the City's connection map, plus ◫ View in for the 3D graph, the City and the Treemap._
 
@@ -911,7 +911,7 @@ The MCP server exposes your codebase graph to AI tools via stdio transport. It r
 
 **Every payload is anchored.** As soon as a tool knows a line, the entry carries `file`, `line` **and** a ready-to-cite `anchor` field (`"src/risk/risk-core.ts:142"`) — nothing to concatenate on the agent side. That covers `search_symbols`, `search_docs`, `find_dead_code`, `find_unused_functions`, `find_heritage`, `resolve_context`, `find_callers`/`find_callees` and `explain_file`. `find_dependencies` and `find_dependents` also return the direct `call_sites` (`from`, `to`, `line`, `anchor`) behind each edge, so the agent jumps straight to the call instead of grepping for it.
 
-**The call graph says what it cannot see.** `find_callers`, `find_callees` and `symbol_impact` answer from a **static** graph built on the resolved call sites Aura already stores — free-function calls only. A method invoked on an object (`db.getCallSites()`) is not recorded by the analyser yet, so an empty answer comes with that caveat attached rather than a silent zero. `find_entry_points` is a heuristic too: a framework callback (route, event handler, DI) has no static caller and shows up as a root — the list is a set of *candidates*, not a verdict.
+**The call graph says what it cannot see.** `find_callers`, `find_callees` and `symbol_impact` answer from a **static** graph built on the resolved call sites Aura already stores — free functions and `this.`/`self.` calls. A method invoked on an arbitrary object (`db.getCallSites()`) is not recorded by the analyser, so an empty answer comes with that caveat attached rather than a silent zero. `find_entry_points` is a heuristic too: a framework callback (route, event handler, DI) has no static caller and shows up as a root — the list is a set of *candidates*, not a verdict.
 
 **The server ships operating instructions.** On `initialize`, Aura returns an `instructions` block telling the agent to call `build` first, prefer the indexed tools over shell `git`/`grep`, quote the anchors, and say so when the graph is stale — so the workflow survives without any per-project prompt.
 

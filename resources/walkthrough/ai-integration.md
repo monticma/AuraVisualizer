@@ -96,7 +96,7 @@ Aura already stored every resolved call site; it only answered at the **file** l
 - **`trace_flow`** — shortest cycle-safe call path between two symbols, with the line of every step.
 - **`find_entry_points`** — `main`, `activate`/`deactivate`, `package.json` main/bin, tests, then every symbol nothing calls.
 
-**Read the caveats.** The graph is **static** and records **free-function calls only** — a method called on an object (`db.getCallSites()`) is not captured yet, so an empty answer comes with that note instead of a silent zero. And entry detection is a heuristic: a framework callback has no static caller and appears as a root. Use it to *propose* entries, never to declare something dead.
+**Read the caveats.** The graph is **static** and records **free functions plus `this.`/`self.` calls** — a method called on an arbitrary object (`db.getCallSites()`) is not captured, so an empty answer comes with that note instead of a silent zero. And entry detection is a heuristic: a framework callback has no static caller and appears as a root. Use it to *propose* entries, never to declare something dead.
 
 ### How much can an agent trust the graph?
 

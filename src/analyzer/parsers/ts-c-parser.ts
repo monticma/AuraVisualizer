@@ -262,6 +262,10 @@ export class TreeSitterCParser extends BaseParser {
             const nameNode = declarator?.childForFieldName('declarator');
             if (nameNode) {
                 defined.add(nameNode.text);
+                // C++ : une définition hors classe s'appelle `Foo::bar` ; le nom
+                // utilisable par un appel `this->bar()` est le dernier segment.
+                const qualified = nameNode.text.lastIndexOf('::');
+                if (qualified >= 0) defined.add(nameNode.text.slice(qualified + 2));
             }
         }
         for (let i = 0; i < node.childCount; i++) {
@@ -318,6 +322,22 @@ export class TreeSitterCParser extends BaseParser {
                         line: node.startPosition.row + 1,
                         isLocal: definedHere.has(name),
                     });
+                }
+            } else if (funcNode?.type === 'field_expression') {
+                // C++ `this->helper()` : cible certaine, même fichier, et
+                // seulement si la méthode y est définie.
+                const argument = funcNode.childForFieldName('argument');
+                const field = funcNode.childForFieldName('field');
+                if (argument?.type === 'this' && field) {
+                    const name = field.text;
+                    if (!C_BUILTINS.has(name) && definedHere.has(name)) {
+                        sites.push({
+                            callerName: currentFunc,
+                            calleeName: name,
+                            line: node.startPosition.row + 1,
+                            isLocal: true,
+                        });
+                    }
                 }
             }
         }

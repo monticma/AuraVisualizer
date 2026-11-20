@@ -281,7 +281,8 @@ describe('outils (glue runAuraTool)', () => {
     it('says the graph is static when nothing is found', () => {
         const payload = runAuraTool(fakeDb, 'aura_find_callers', { symbol: 'db.getCallSites' }) as { total: number; note?: string };
         expect(payload.total).toBe(0);
-        expect(payload.note).toContain('free-function calls only');
+        expect(payload.note).toContain('is not recorded');
+        expect(payload.note).toContain('not a proof');
     });
 
     it('answers symbol_impact with depths', () => {
