@@ -7,6 +7,7 @@ import { readdir, stat, readFile } from 'fs/promises';
 import { join, extname, relative } from 'path';
 import type { FileInfo, ScanOptions } from './types';
 import type { FileSignature } from './fingerprint';
+import { languageForHeader } from './header-language';
 import { emptyScanCounters, type ScanCounters } from '../analysis/resolution';
 
 export const SUPPORTED_EXTENSIONS = new Set(['.c', '.h', '.cpp', '.cc', '.cxx', '.hpp', '.hxx', '.hh', '.js', '.jsx', '.ts', '.tsx', '.py', '.css', '.html', '.htm', '.java', '.go', '.rs', '.kt', '.kts', '.rb', '.swift', '.cs', '.php', '.vue', '.sh', '.bash', '.lua', '.md', '.markdown', '.txt', '.rst']);
@@ -116,7 +117,8 @@ export async function scanDirectory(
                             name: entry.name,
                             path: relativePath,
                             fullPath,
-                            language: LANGUAGE_MAP[ext] || 'unknown',
+                            // Un `.h` est C ou C++ selon son contenu, pas son nom.
+                            language: languageForHeader(ext, content, LANGUAGE_MAP[ext] || 'unknown'),
                             extension: ext,
                             size: fileStat.size,
                             linesOfCode,
@@ -205,7 +207,7 @@ export async function scanSingleFile(fullPath: string, rootDir: string): Promise
             name,
             path: relativePath,
             fullPath,
-            language: LANGUAGE_MAP[ext] || 'unknown',
+            language: languageForHeader(ext, content, LANGUAGE_MAP[ext] || 'unknown'),
             extension: ext,
             size: fileStat.size,
             linesOfCode,
