@@ -141,7 +141,15 @@
             focusBtn.title = 'Focus this file in the 3D Graph';
             focusBtn.addEventListener('click', function () {
                 if (!isFileNode(selected)) return;
-                post({ type: 'focusNode', payload: { nodeId: selected.id, reveal: true } });
+                // `AuraHost.post` talks to the **host**, and `focusNode` is a
+                // webview-internal message: posting it to the host reached nobody
+                // and the button did nothing. Same sequence as the City's HUD and
+                // `AuraViews.openIn('graph', …)`: switch the tab, then dispatch.
+                var graphTab = document.querySelector('.tab-btn[data-tab="graph"]');
+                if (graphTab) graphTab.click();
+                window.dispatchEvent(new MessageEvent('message', {
+                    data: { type: 'focusNode', payload: { nodeId: selected.id, reveal: true } },
+                }));
             });
             var openBtn = el('button', 'status-btn', '↗');
             openBtn.type = 'button';
