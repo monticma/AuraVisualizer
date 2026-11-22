@@ -2079,9 +2079,19 @@ export class WebviewProvider {
                 </select></label>
             </div>
                 <div class="view-bar-actions">
+                    <button type="button" class="view-action" id="chord-panel-show" title="Show the list of groups">🏷 Groups</button>
                     <button type="button" class="view-action query-open" data-query-tab="chord" title="Query palette (Ctrl+K) — this view lists what the query matches">🔍 Query</button>
                     <button type="button" class="view-action" data-export-tab="chord" title="Export the diagram as SVG or the flows as CSV">📤 Export</button>
                 </div>
+        </div>
+        <!-- Group list, floating over the diagram like the City's legend: the
+             circle can only truncate a name, the panel has the room for it. -->
+        <div id="chord-panel" class="view-legend chord-panel">
+            <div class="chord-panel-head">
+                <span class="chord-panel-title">🏷 Groups</span>
+                <button type="button" id="chord-panel-close" class="chord-panel-btn" title="Hide the group list">✕</button>
+            </div>
+            <div id="chord-panel-body" class="chord-panel-body"></div>
         </div>
         <div id="chord-container"></div>
     </div>
@@ -2956,6 +2966,9 @@ export class WebviewProvider {
                 <h3>📊 The status bar</h3>
                 <p>Every object view ends on <strong>one line, in two zones</strong>, because five views each used to invent their own counter line with their own wording. On the left, what is <strong>selected</strong>: <code>path · LOC · ccx · in · out</code>, with <strong>⌖</strong> to focus it in the 3D graph and <strong>↗</strong> to open it in the editor. On the right, what the view <strong>shows</strong>: <code>⌕ query · 142 / 303 files · 21 cycles · 91 % resolved</code>, plus a note when the view truncates (<code>top 400 shown</code>).</p>
                 <p>A count that is zero is not written, and an unmeasured resolution is not written as <code>0 %</code> — the same rule as the imported columns. The selection zone appears only where the objects do not carry their own numbers (Treemap, Chord, Matrix); in the Table, the Metrics dashboard and the Risk tab the rows already say everything, so only the state zone is added. The City keeps its own richer line — building height and district — and gains the state zone.</p>
+                <h3>🎵 Chord</h3>
+                <p>Ribbons are dependency flows between groups — directories, languages, architecture layers or communities (the <strong>Group by</strong> selector). Ribbon thickness is the flow volume, and hovering either an arc or a ribbon dims the rest of the diagram.</p>
+                <p>The <strong>🏷 Groups</strong> panel floats on the left and lists every group with its colour, its file count and its <code>↑out ↓in</code> flows. <strong>Click a row to isolate a group</strong>: the isolation is sticky, unlike hover, and clicking the row again clears it. Arc labels are truncated to stay inside the view — the panel has the full name, which is where a long directory path is readable. <strong>✕</strong> hides the panel, the toolbar button brings it back.</p>
                 <h3>🛡️ Risk Map</h3>
                 <p>Open the <strong>🛡️ Risk</strong> tab for a codebase health dashboard. It uses a transparent risk score: <code>100 × (0.21·complexity + 0.18·centrality + 0.08·fan-out + 0.12·cycle + 0.12·dead-code + 0.09·rewrite + 0.06·recency + 0.06·frequency + 0.05·authors + 0.03·fixes)</code> — the structural half stays dominant on purpose. <code>centrality</code> is fan-in, or PageRank when <code>auraVisualizer.riskCentrality</code> is on; <code>rewrite</code> is the volume of lines added and removed relative to the file's size today, <code>recency</code> weights a commit made today over one at the window's edge, and <code>fixes</code> is the share of commits whose message looks like a bug fix. Documentation is outside architectural risk: docs are not scored and <code>doc-reference</code> links do not inflate fan-in or PageRank. Exempted framework symbols are not counted as dead code.</p>
                 <p>Complexity, fan-in, fan-out and churn are <strong>percentile ranks inside your repository</strong> (0 = lowest file, 1 = highest), so the score is a standing relative to this codebase. A <strong>History window</strong> selector (30 / 90 / 365 days) drives churn, scoring and explanations. Churn is <strong>rename-aware</strong>: files moved with <code>git mv</code> keep their history across the rename.</p>

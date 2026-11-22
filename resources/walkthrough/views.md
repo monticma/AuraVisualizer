@@ -64,6 +64,8 @@ Every view carries an **📤 Export** in its bar, and the menu lists what *that*
 
 ### Chord Diagram tips
 - **Group by**: Directory, Language, Architecture layer, or Community
+- The **🏷 Groups** panel on the left lists every group with its file count and its outgoing / incoming flows. **Click a row to isolate that group** — the rest of the diagram dims and stays dimmed until you click again, so the isolation survives the mouse leaving the circle. **✕** hides the panel, **🏷 Groups** brings it back.
+- Arc labels are truncated to fit inside the view; the panel always shows the full name
 - Hover an arc to highlight all its connections
 - Hover a ribbon to see flows in both directions (A→B and B→A)
 - Great for spotting unexpected coupling between modules

@@ -892,8 +892,71 @@
         var groupSelect = $('#chord-group-by');
         if (groupSelect) groupSelect.addEventListener('change', function() {
             chordGroupBy = this.value;
+            chordIsolated = -1;
             renderChord();
         });
+
+        // The panel lists the groups; clicking one isolates it. Delegation,
+        // because the rows are rebuilt on every render.
+        var panelBody = $('#chord-panel-body');
+        if (panelBody) {
+            panelBody.addEventListener('click', function(e) {
+                var row = e.target.closest ? e.target.closest('.chord-panel-row') : null;
+                if (!row) return;
+                var gi = parseInt(row.dataset.group, 10);
+                chordIsolated = (chordIsolated === gi) ? -1 : gi;
+                applyChordIsolation();
+            });
+        }
+        var closeBtn = $('#chord-panel-close');
+        if (closeBtn) closeBtn.addEventListener('click', function() { setChordPanelOpen(false); });
+        var showBtn = $('#chord-panel-show');
+        if (showBtn) showBtn.addEventListener('click', function() { setChordPanelOpen(true); });
+    }
+
+    /** Group index isolated by a click on the panel, -1 when nothing is. */
+    var chordIsolated = -1;
+    /** Last render, kept for the sticky isolation (the rows are DOM, not data). */
+    var chordViewState = null;
+
+    function setChordPanelOpen(open) {
+        var panel = $('#chord-panel');
+        if (!panel) return;
+        panel.classList.toggle('hidden', !open);
+    }
+
+    /**
+     * Dim everything but one group's ribbons and the arcs it talks to. Sticky:
+     * hovering clears itself, a click does not, so the mouse leaving the svg
+     * restores this instead of clearing it.
+     */
+    function applyChordIsolation() {
+        var st = chordViewState;
+        if (!st || !st.svg) return;
+        var gi = chordIsolated;
+        var ribbons = st.svg.querySelectorAll('.chord-ribbon');
+        var arcs = st.svg.querySelectorAll('.chord-arc');
+        var partners = {};
+        if (gi >= 0 && st.matrix) {
+            for (var j = 0; j < st.matrix.length; j++) {
+                if (j !== gi && (st.matrix[gi][j] || st.matrix[j][gi])) partners[j] = true;
+            }
+        }
+        for (var r = 0; r < ribbons.length; r++) {
+            var src = parseInt(ribbons[r].dataset.source, 10);
+            var tgt = parseInt(ribbons[r].dataset.target, 10);
+            var touches = gi < 0 || src === gi || tgt === gi;
+            ribbons[r].classList.toggle('chord-dimmed', !touches);
+            ribbons[r].setAttribute('fill-opacity', !touches ? '0.35' : (gi < 0 ? '0.35' : '0.55'));
+        }
+        for (var a = 0; a < arcs.length; a++) {
+            var g = parseInt(arcs[a].dataset.group, 10);
+            arcs[a].classList.toggle('chord-dimmed', gi >= 0 && g !== gi && !partners[g]);
+        }
+        var rows = document.querySelectorAll('#chord-panel-body .chord-panel-row');
+        for (var k = 0; k < rows.length; k++) {
+            rows[k].classList.toggle('isolated', parseInt(rows[k].dataset.group, 10) === gi);
+        }
     }
 
     // 10 distinct muted colors for groups
@@ -1016,8 +1079,13 @@
         var W = rect.width || 600;
         var H = rect.height || 600;
         var size = Math.min(W, H);
-        var outerR = size * 0.40;
+        // The group names sit outside the arc: reserve a band for them, or a long
+        // name runs off the SVG (at 0.40 × size it did). The band also decides
+        // how many characters a label may keep — the panel carries the full name.
+        var labelBand = Math.min(170, size * 0.22);
+        var outerR = Math.max(70, size / 2 - labelBand);
         var innerR = outerR - 14;
+        var maxNameChars = Math.max(6, Math.floor(labelBand / 6.4) - 8);
 
         var cx = W / 2;
         var cy = H / 2;
@@ -1154,7 +1222,7 @@
                 text.setAttribute('text-anchor', 'start');
             }
             var label = groupNames[i];
-            if (label.length > 20) label = label.slice(0, 18) + '…';
+            if (label.length > maxNameChars) label = label.slice(0, Math.max(1, maxNameChars - 1)) + '…';
             text.textContent = label + ' (' + groupSizes[i] + ')';
             arcGroup.appendChild(text);
         }
@@ -1163,15 +1231,26 @@
         container.innerHTML = '';
         container.appendChild(svg);
 
-        // Legend
-        var legend = document.createElement('div');
-        legend.className = 'chord-legend';
-        for (var i = 0; i < G; i++) {
-            legend.innerHTML += '<div class="chord-legend-item">' +
-                '<div class="chord-legend-swatch" style="background:' + CHORD_PALETTE[i % CHORD_PALETTE.length] + '"></div>' +
-                '<span>' + escapeHtml(groupNames[i]) + ' (' + groupSizes[i] + ')</span></div>';
+        // Group list — the floating panel on the left, not a strip along the
+        // bottom: the strip grew sideways with the number of groups.
+        chordViewState = { svg: svg, matrix: matrix, groupNames: groupNames };
+        var panelBody = $('#chord-panel-body');
+        if (panelBody) {
+            var rowsHtml = '';
+            for (var i = 0; i < G; i++) {
+                var outFlow = 0, inFlow = 0;
+                for (var j = 0; j < G; j++) { outFlow += matrix[i][j]; inFlow += matrix[j][i]; }
+                rowsHtml += '<div class="chord-panel-row" data-group="' + i + '"' +
+                        ' title="' + escapeHtml(groupNames[i]) + ' — ' + groupSizes[i] + ' files, ' +
+                        outFlow + ' out, ' + inFlow + ' in. Click to isolate.">' +
+                    '<span class="chord-legend-swatch" style="background:' + CHORD_PALETTE[i % CHORD_PALETTE.length] + '"></span>' +
+                    '<span class="chord-panel-name">' + escapeHtml(groupNames[i]) + '</span>' +
+                    '<span class="chord-panel-flows">↑' + outFlow + ' ↓' + inFlow + '</span>' +
+                    '<span class="chord-panel-count">' + groupSizes[i] + '</span></div>';
+            }
+            panelBody.innerHTML = rowsHtml;
         }
-        container.appendChild(legend);
+        if (chordIsolated >= G) chordIsolated = -1;
 
         // Tooltip
         if (!chordTooltipEl) {
@@ -1239,14 +1318,9 @@
                     'Outgoing: ' + outFlow + ' · Incoming: ' + inFlow + '</div>';
                 chordTooltipEl.classList.add('visible');
             } else {
-                // Clear highlights
-                var allRibbons = svg.querySelectorAll('.chord-ribbon');
-                var allArcs = svg.querySelectorAll('.chord-arc');
-                for (var r = 0; r < allRibbons.length; r++) {
-                    allRibbons[r].classList.remove('chord-dimmed');
-                    allRibbons[r].setAttribute('fill-opacity', '0.35');
-                }
-                for (var a = 0; a < allArcs.length; a++) allArcs[a].classList.remove('chord-dimmed');
+                // Back to the sticky state: a click on the panel must survive the
+                // mouse leaving the diagram.
+                applyChordIsolation();
                 chordTooltipEl.classList.remove('visible');
             }
         });
@@ -1259,15 +1333,12 @@
         });
 
         svg.addEventListener('mouseleave', function() {
-            var allRibbons = svg.querySelectorAll('.chord-ribbon');
-            var allArcs = svg.querySelectorAll('.chord-arc');
-            for (var r = 0; r < allRibbons.length; r++) {
-                allRibbons[r].classList.remove('chord-dimmed');
-                allRibbons[r].setAttribute('fill-opacity', '0.35');
-            }
-            for (var a = 0; a < allArcs.length; a++) allArcs[a].classList.remove('chord-dimmed');
+            applyChordIsolation();
             if (chordTooltipEl) chordTooltipEl.classList.remove('visible');
         });
+
+        // A re-render (new grouping, new query) keeps the panel honest.
+        applyChordIsolation();
     }
 
     // ============================================================
