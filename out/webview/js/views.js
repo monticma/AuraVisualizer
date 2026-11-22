@@ -163,6 +163,7 @@
                 '</tr>';
         }
         body.innerHTML = html;
+        renderStatus('coupling', queriedNodes().length, pairs.length ? pairs.length + ' implicit pairs' : '');
     }
 
     function setupCoupling() {
@@ -337,6 +338,7 @@
             selectFileInView(row, row.dataset.nodeId, container);
             openFileMenu(e, row.dataset.nodeId);
         };
+        renderStatus('metrics', totalFiles);
     }
 
     function metricCard(title, value, sub) {
@@ -802,6 +804,7 @@
             selectFileInView(fileCell, fileCell.dataset.nodeId, container);
             openFileMenu(e, fileCell.dataset.nodeId);
         };
+        renderStatus('treemap', nodes.length);
     }
 
     function renderTreemapCells(items, offsetX, offsetY, metricRange, parentW, parentH) {
@@ -971,8 +974,8 @@
         // Stats
         var totalFlows = 0;
         for (var i = 0; i < G; i++) for (var j = 0; j < G; j++) totalFlows += matrix[i][j];
-        var statsEl = $('#chord-stats');
-        if (statsEl) statsEl.textContent = G + ' groups · ' + totalFlows + ' cross-group dependencies';
+        // Counters go to the shared status bar: one vocabulary, one place.
+        renderStatus('chord', nodes.length, G + ' groups · ' + totalFlows + ' cross-group dependencies');
 
         // Compute chord layout
         // Row sums for arc sizing
@@ -2071,8 +2074,7 @@
         // Stats
         var depCount = 0;
         for (var i = 0; i < N; i++) for (var j = 0; j < N; j++) depCount += matrix[i][j];
-        var statsEl = $('#dsm-stats');
-        if (statsEl) statsEl.textContent = N + ' files · ' + depCount + ' dependencies' + (nodes.length > MAX ? ' (top ' + MAX + ' shown)' : '');
+        renderStatus('dsm', N, depCount + ' dependencies' + (nodes.length > MAX ? ' · top ' + MAX + ' shown' : ''));
 
         // Detect group boundaries for separator lines
         var groupBounds = [];
@@ -2212,6 +2214,26 @@
     }
 
     /**
+     * Counters handed to the shared status bar (`status-bar.js`). The bar owns
+     * no state: each render says what it currently shows, the bar renders it.
+     * Absent numbers are omitted, never written as 0.
+     */
+    function statusCounts(shown, note) {
+        var expr = (window.AuraQueryBar && window.AuraQueryBar.getExpression)
+            ? window.AuraQueryBar.getExpression() : '';
+        if (window.AuraStatus && window.AuraStatus.countsFrom) {
+            return window.AuraStatus.countsFrom(graphData, shown, note, expr);
+        }
+        return { shown: shown, total: 0, query: expr, note: note || '' };
+    }
+
+    function renderStatus(tab, shown, note) {
+        if (window.AuraStatus && window.AuraStatus.render) {
+            window.AuraStatus.render(tab, statusCounts(shown, note));
+        }
+    }
+
+    /**
      * The rows this view shows — the single source of truth for the table *and*
      * its CSV export, so "filter, then export" cannot disagree with "export".
      * A query narrows first (it is the user's explicit selection), then the text
@@ -2329,6 +2351,7 @@
                 };
             })(rows[i]));
         }
+        renderStatus('table', filtered.length);
     }
 
     /**

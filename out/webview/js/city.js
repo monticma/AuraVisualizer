@@ -1166,6 +1166,18 @@
         updateHud();
         updateLegend();
         renderCrumbs();
+        publishStatus();
+    }
+
+    /**
+     * The shared status bar shows the City's counters on its own row, next to the
+     * selection line the City already writes (`#city-hud-meta`). The totals come
+     * from the graph the app handed to `AuraStatus`, not from this module.
+     */
+    function publishStatus() {
+        if (!window.AuraStatus || !window.AuraStatus.countsFrom) return;
+        var shown = state.plan ? state.plan.rects.length : 0;
+        window.AuraStatus.render('city', window.AuraStatus.countsFrom(null, shown));
     }
 
     /**

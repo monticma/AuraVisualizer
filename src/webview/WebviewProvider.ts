@@ -1373,6 +1373,9 @@ export class WebviewProvider {
         const queryUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'query.js')
         );
+        const statusUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'status-bar.js')
+        );
         const structureUri = webview.asWebviewUri(
             vscode.Uri.joinPath(this.extensionUri, webviewPath, 'js', 'structure.js')
         );
@@ -2074,7 +2077,6 @@ export class WebviewProvider {
                     <option value="layer">Architecture layer</option>
                     <option value="community">Community</option>
                 </select></label>
-                <span class="chord-stats" id="chord-stats"></span>
             </div>
                 <div class="view-bar-actions">
                     <button type="button" class="view-action query-open" data-query-tab="chord" title="Query palette (Ctrl+K) — this view lists what the query matches">🔍 Query</button>
@@ -2127,7 +2129,6 @@ export class WebviewProvider {
                     <option value="fanIn">Fan-in</option>
                     <option value="fanOut">Fan-out</option>
                 </select></label>
-                <span class="dsm-stats" id="dsm-stats"></span>
             </div>
                 <div class="view-bar-actions">
                     <button type="button" class="view-action query-open" data-query-tab="dsm" title="Query palette (Ctrl+K) — this view lists what the query matches">🔍 Query</button>
@@ -2952,6 +2953,9 @@ export class WebviewProvider {
                 <p>Columns live in <code>.aura/metrics.json</code>, <strong>not</strong> in <code>.aura/graph.db</code>: the database is rebuilt by every analysis, this file is not. Importing again replaces only the columns that file provides, so coverage and lint findings coexist on the same nodes. Nothing is written when no path matches, and the report always says how many paths were read, matched, <strong>normalised</strong> first (absolute path, another workspace root, a Sonar component key), remapped by suffix, out of scope or unknown — with the unknown count taken against the whole graph, not against the file.</p>
                 <p><strong>An absent value is not zero.</strong> A file with no coverage entry is painted grey by the heatmap instead of the bottom of the ramp, <code>coverage &gt; 0</code> does not match it, and <code>coverage != 0</code> does not either. A value generated before the file was last modified is flagged <em>stale</em> in the tooltip. Then query it — <code>coverage &lt; 80 and cognitive &gt; 40</code> is the whole point — pick it in the heatmap selector (📥 prefix), and read it in <code>aura_explain_file</code> with its source, generation date and staleness. <strong>Aura: Clear Imported Metrics</strong> removes the file.</p>
                 <p><strong>Producing the numbers no longer pollutes the graph.</strong> A vitest coverage run writes a 109-file HTML report next to the lcov, which used to land in the analysis as an island of orphans; <code>coverage/</code>, <code>.nyc_output/</code>, <code>htmlcov/</code> and the usual tool caches are now out of scope. Vendored code (<code>vendor/</code>, <code>target/</code>) stays scanned — a silent skip is worse than a noisy graph.</p>
+                <h3>📊 The status bar</h3>
+                <p>Every object view ends on <strong>one line, in two zones</strong>, because five views each used to invent their own counter line with their own wording. On the left, what is <strong>selected</strong>: <code>path · LOC · ccx · in · out</code>, with <strong>⌖</strong> to focus it in the 3D graph and <strong>↗</strong> to open it in the editor. On the right, what the view <strong>shows</strong>: <code>⌕ query · 142 / 303 files · 21 cycles · 91 % resolved</code>, plus a note when the view truncates (<code>top 400 shown</code>).</p>
+                <p>A count that is zero is not written, and an unmeasured resolution is not written as <code>0 %</code> — the same rule as the imported columns. The selection zone appears only where the objects do not carry their own numbers (Treemap, Chord, Matrix); in the Table, the Metrics dashboard and the Risk tab the rows already say everything, so only the state zone is added. The City keeps its own richer line — building height and district — and gains the state zone.</p>
                 <h3>🛡️ Risk Map</h3>
                 <p>Open the <strong>🛡️ Risk</strong> tab for a codebase health dashboard. It uses a transparent risk score: <code>100 × (0.21·complexity + 0.18·centrality + 0.08·fan-out + 0.12·cycle + 0.12·dead-code + 0.09·rewrite + 0.06·recency + 0.06·frequency + 0.05·authors + 0.03·fixes)</code> — the structural half stays dominant on purpose. <code>centrality</code> is fan-in, or PageRank when <code>auraVisualizer.riskCentrality</code> is on; <code>rewrite</code> is the volume of lines added and removed relative to the file's size today, <code>recency</code> weights a commit made today over one at the window's edge, and <code>fixes</code> is the share of commits whose message looks like a bug fix. Documentation is outside architectural risk: docs are not scored and <code>doc-reference</code> links do not inflate fan-in or PageRank. Exempted framework symbols are not counted as dead code.</p>
                 <p>Complexity, fan-in, fan-out and churn are <strong>percentile ranks inside your repository</strong> (0 = lowest file, 1 = highest), so the score is a standing relative to this codebase. A <strong>History window</strong> selector (30 / 90 / 365 days) drives churn, scoring and explanations. Churn is <strong>rename-aware</strong>: files moved with <code>git mv</code> keep their history across the rename.</p>
@@ -3071,6 +3075,7 @@ export class WebviewProvider {
     <script nonce="${nonce}" src="${trendCoreUri}"></script>
     <script nonce="${nonce}" src="${trendUiUri}"></script>
     <script nonce="${nonce}" src="${queryUri}"></script>
+    <script nonce="${nonce}" src="${statusUri}"></script>
     <script nonce="${nonce}" src="${structureUri}"></script>
     <script nonce="${nonce}" src="${riskUri}"></script>
     <script nonce="${nonce}" src="${archCoreUri}"></script>

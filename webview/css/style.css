@@ -5279,6 +5279,80 @@ select option {
     -webkit-backdrop-filter: blur(6px);
 }
 
+/* ============================================================
+   Shared status bar (status-bar.js) — one line at the bottom of every object
+   view, two zones: what is selected, and what the view currently shows.
+   Docked as the last child of the view (the flex column puts it at the bottom);
+   `position: sticky` keeps it there inside a view that scrolls (#risk-view,
+   #metrics-view).
+   ============================================================ */
+.status-bar {
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 12px;
+    border-radius: 0;
+    border-left: 0;
+    border-right: 0;
+    border-bottom: 0;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.status-selection {
+    color: #e6edf3;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 62%;
+}
+
+/* The two actions belong to the selection: no selection, no buttons. */
+.status-actions {
+    display: none;
+    gap: 4px;
+    flex: 0 0 auto;
+}
+
+.status-has-selection .status-actions {
+    display: inline-flex;
+}
+
+.status-btn {
+    padding: 0 6px;
+    border-radius: 5px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    color: #b0bec5;
+    font-size: 11px;
+    line-height: 16px;
+    cursor: pointer;
+}
+
+.status-btn:hover {
+    color: #e6edf3;
+    border-color: rgba(96, 165, 250, 0.6);
+    background: rgba(96, 165, 250, 0.12);
+}
+
+.status-state {
+    margin-left: auto;
+    color: #8b949e;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* The City keeps its own selection line (#city-hud-meta): it says the building
+   height and its district, which a generic line cannot. It only gains the
+   state zone, on the same row. */
+#city-hud-state {
+    margin-left: 4px;
+    color: #8b949e;
+}
+
 /* The column that holds them. Two absolutely positioned boxes at bottom: 12px
    and bottom: 52px had to agree on the band's height forever — the 52 was a
    measurement, not a layout. A flex column cannot drift. */

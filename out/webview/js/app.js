@@ -574,7 +574,7 @@
             AuraDetail.init({
                 getGraphData: function () { return graphData; },
                 getSelectedNode: function () { return selectedNode; },
-                setSelectedNode: function (n) { selectedNode = n; },
+                setSelectedNode: function (n) { selectedNode = n; notifyStatusSelection(n); },
                 getMultiSelectedNodes: function () { return multiSelectedNodes; },
                 getMultiSelectedLinks: function () { return multiSelectedLinks; },
                 clearMultiSelection: function () {
@@ -774,12 +774,16 @@
         highlightedPath.nodes.clear();
         highlightedPath.links.clear();
         selectedNode = null;
+        notifyStatusSelection(null);
         explodedNode = null;
         explosionData = null;
         lastHoverId = null; // the new dataset requires a fresh hover pass
 
         graphData = data;
         buildLinkWidthIndex();
+        // The status bar keeps a reference to the dataset for its totals: the
+        // views only say what they show, not how big the graph is.
+        if (window.AuraStatus && window.AuraStatus.setGraph) window.AuraStatus.setGraph(data);
         // Imported columns must be known to the query engine before the active
         // query is re-evaluated below.
         registerImportedQueryColumns();
@@ -1257,6 +1261,7 @@
             highlightNodes.clear();
             highlightLinks.clear();
             selectedNode = null;
+            notifyStatusSelection(null);
             if (window.AuraTimeline && AuraTimeline.clearImpact) AuraTimeline.clearImpact();
 
             // 2. Re-apply the query exactly as it was (or drop it).
@@ -1303,6 +1308,7 @@
         multiSelectedNodes.clear();
         for (var i = 0; i < nodes.length; i++) multiSelectedNodes.add(nodes[i]);
         selectedNode = null;
+        notifyStatusSelection(null);
         updateMultiSelectedLinks();
         refreshGraphVisuals();
         updateExplorerSelection();
@@ -1767,8 +1773,11 @@
 
         var report = meta && meta.resolution ? meta.resolution : null;
         var failed = meta && meta.parseFailures ? meta.parseFailures.total : 0;
-        var unresolved = report ? report.totals.unresolved : 0;
-        var skipped = report ? (report.scan.unsupported + report.scan.unreadable) : 0;
+        // A legacy or hand-written `meta.resolution` may lack the sub-reports:
+        // throwing here used to abort `handleGraphData` before `initGraph`, which
+        // left every view dead for a count the user never asked for.
+        var unresolved = report && report.totals ? report.totals.unresolved : 0;
+        var skipped = report && report.scan ? (report.scan.unsupported + report.scan.unreadable) : 0;
         // No noise on a clean repository: the chip is a door to the report, and
         // a door nobody needs to open stays shut. The command palette still
         // offers the export when everything resolved.
@@ -3972,6 +3981,7 @@
                 multiSelectedNodes.add(node);
             }
             selectedNode = null;
+            notifyStatusSelection(null);
             updateMultiSelectedLinks();
             refreshGraphVisuals();
             if (multiSelectedNodes.size > 1) {
@@ -4058,6 +4068,7 @@
         disposeEdgeGlow();
         disposeRipples();
         selectedNode = null;
+        notifyStatusSelection(null);
         multiSelectedNodes.clear();
         multiSelectedLinks.clear();
         highlightNodes.clear();
@@ -4533,6 +4544,7 @@
             multiSelectedLinks.clear();
         }
         selectedNode = node;
+        notifyStatusSelection(node);
         ensureSelectedNodeEffect();
         graph.nodeThreeObject(graph.nodeThreeObject());
         updateExplorerSelection();
@@ -4545,6 +4557,15 @@
      * never happened and the click looked dead. Rendering is now the only thing
      * that can fail, and it says so in the webview console.
      */
+    /**
+     * Tell the shared status bar (`status-bar.js`) what is selected. Called from
+     * every path that sets `selectedNode`, so a view never shows a stale line:
+     * the bar owns no state, the app owns the selection.
+     */
+    function notifyStatusSelection(node) {
+        if (window.AuraStatus && window.AuraStatus.setSelection) window.AuraStatus.setSelection(node);
+    }
+
     function showDetailSafely(node) {
         if (!window.AuraDetail) return;
         try {
@@ -4935,6 +4956,7 @@
         multiSelectedNodes.add(source);
         multiSelectedNodes.add(target);
         selectedNode = null;
+        notifyStatusSelection(null);
         updateMultiSelectedLinks();
         refreshGraphVisuals();
         updateExplorerSelection();
@@ -5011,6 +5033,7 @@
             graph.cameraPosition(nodeCameraPose(node), node, 1000);
         } else {
             selectedNode = node;
+            notifyStatusSelection(node);
             updateExplorerSelection();
             // Subtle highlight when following the active editor.
             graph.nodeColor(graph.nodeColor());
@@ -6117,6 +6140,7 @@
             if (!graph) return;
             if (window.AuraWarps) AuraWarps.cancelTravel();
             selectedNode = null;
+            notifyStatusSelection(null);
             multiSelectedNodes.clear();
             multiSelectedLinks.clear();
             highlightNodes.clear();
@@ -6600,6 +6624,7 @@
                 case 'escape':
                     // Reset: clear selection, pinned focus, path mode, heatmap
                     selectedNode = null;
+                    notifyStatusSelection(null);
                     multiSelectedNodes.clear();
                     multiSelectedLinks.clear();
                     highlightNodes.clear();
@@ -7067,7 +7092,7 @@
                 getCommunityMap: function () { return communityMap; },
                 getCommunityNames: function () { return communityNames; },
                 getSelectedNode: function () { return selectedNode; },
-                setSelectedNode: function (n) { selectedNode = n; },
+                setSelectedNode: function (n) { selectedNode = n; notifyStatusSelection(n); },
                 getActiveTab: function () { return activeTab; },
                 getCochangeResult: function () { return cochangeResult; },
                 getCochangeOptions: function () { return { windowDays: cochangeWindowDays, minScore: cochangeMinScore }; },
@@ -7122,6 +7147,9 @@
         if (tabName === activeTab) return;
         var prevTab = activeTab;
         activeTab = tabName;
+        // One status bar at a time: the shared one (status-bar.js) shows the
+        // counters of the tab the user is looking at.
+        if (window.AuraStatus && window.AuraStatus.setActiveTab) window.AuraStatus.setActiveTab(tabName);
 
         // Update buttons
         var tabBtns = document.querySelectorAll('.tab-btn');

@@ -96,6 +96,9 @@ Every view carries an **📤 Export** in its bar, and the menu lists what *that*
 - 📤 Export writes `.aura/risk-report.md` (reasons included)
 - Churn, Recently Hot, and Bus Factor require the git **Time Travel** scan
 
+### Status bar
+Every object view ends on the same line: on the left what is selected (`path · LOC · ccx · in · out`, with ⌖ focus in the 3D graph and ↗ open in the editor), on the right what the view currently shows (`⌕ query · 142 / 303 files · 21 cycles · 91 % resolved`). A zero is not written, and an unmeasured resolution is not shown as 0 %. The selection side only appears where the objects carry no numbers of their own: Treemap, Chord and Matrix.
+
 ### Co-change tips
 - Run **Time Travel** first — temporal co-change is computed from git commits.
 - **Jaccard** = cochanges / (A commits + B commits − cochanges); **support** = share of analysed multi-file commits touching both.

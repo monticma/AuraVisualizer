@@ -234,6 +234,9 @@
         renderBusFactor();
         renderSymbolCycles();
         renderComplexityTrends();
+        if (window.AuraStatus && window.AuraStatus.countsFrom) {
+            window.AuraStatus.render('risk', window.AuraStatus.countsFrom(hooks.getGraphData(), scored.length));
+        }
     }
 
     /** Per-file complexity slope + sparkline (V2-05). */
