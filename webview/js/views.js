@@ -892,7 +892,7 @@
         var groupSelect = $('#chord-group-by');
         if (groupSelect) groupSelect.addEventListener('change', function() {
             chordGroupBy = this.value;
-            chordIsolated = -1;
+            chordIsolatedGroups = [];
             chordHoverGroup = -1;
             // Drilling only means something for directories, and a flow
             // selection names groups that the new grouping does not have.
@@ -916,7 +916,7 @@
         if (upBtn) upBtn.addEventListener('click', function() {
             if (!chordDrillPath.length) return;
             chordDrillPath.pop();
-            chordIsolated = -1;
+            chordIsolatedGroups = [];
             chordHoverGroup = -1;
             chordPanelMode = 'groups';
             chordFlowSelection = null;
@@ -945,7 +945,7 @@
                 }
                 var row = e.target.closest ? e.target.closest('.chord-panel-row') : null;
                 if (!row) return;
-                chordIsolated = (chordIsolated === parseInt(row.dataset.group, 10)) ? -1 : parseInt(row.dataset.group, 10);
+                toggleChordIsolation(parseInt(row.dataset.group, 10), e.shiftKey);
                 refreshChordEmphasis();
             });
             panelBody.addEventListener('mouseover', function(e) {
@@ -967,8 +967,8 @@
 
     /** Directories we drilled into, outermost first ('' = the whole repo). */
     var chordDrillPath = [];
-    /** Group isolated by a click, -1 when none. Sticky until clicked again. */
-    var chordIsolated = -1;
+    /** Groups isolated by a click (Shift+click adds one). Sticky. */
+    var chordIsolatedGroups = [];
     /** Group under the pointer, -1 when none. A hover wins over the isolation. */
     var chordHoverGroup = -1;
     /** Ribbons thinner than this are not drawn (long-tail noise). */
@@ -981,39 +981,69 @@
      * `gi` -1 restores the full diagram. The panel rows follow: `.isolated`
      * marks the clicked group, `.hover` the pointed one.
      */
-    function applyChordEmphasis(gi) {
+    function isChordIsolated(gi) {
+        return chordIsolatedGroups.indexOf(gi) !== -1;
+    }
+
+    /**
+     * A plain click isolates that group alone (and clears it if it already was
+     * alone); Shift+click adds or removes one, which is how "these three
+     * modules" becomes a question the diagram can answer.
+     */
+    function toggleChordIsolation(gi, additive) {
+        if (additive) {
+            var at = chordIsolatedGroups.indexOf(gi);
+            if (at === -1) chordIsolatedGroups.push(gi);
+            else chordIsolatedGroups.splice(at, 1);
+            return;
+        }
+        chordIsolatedGroups = (chordIsolatedGroups.length === 1 && chordIsolatedGroups[0] === gi) ? [] : [gi];
+    }
+
+    /**
+     * Emphasise a set of groups: `groups` empty means no isolation at all, one
+     * entry is the plain click, several come from Shift+click ("me and my two
+     * neighbours"). Ribbons touching any member stay bright; their partners'
+     * arcs stay visible.
+     */
+    function applyChordEmphasis(groups) {
         var st = chordViewState;
         if (!st || !st.svg) return;
+        var active = groups || [];
         var ribbons = st.svg.querySelectorAll('.chord-ribbon');
         var arcs = st.svg.querySelectorAll('.chord-arc');
         var partners = {};
-        if (gi >= 0 && st.matrix) {
-            for (var j = 0; j < st.matrix.length; j++) {
-                if (j !== gi && (st.matrix[gi][j] || st.matrix[j][gi])) partners[j] = true;
+        if (active.length && st.matrix) {
+            for (var m = 0; m < active.length; m++) {
+                var gi = active[m];
+                for (var j = 0; j < st.matrix.length; j++) {
+                    if (j !== gi && (st.matrix[gi][j] || st.matrix[j][gi])) partners[j] = true;
+                }
             }
         }
         for (var r = 0; r < ribbons.length; r++) {
             var src = parseInt(ribbons[r].dataset.source, 10);
             var tgt = parseInt(ribbons[r].dataset.target, 10);
-            var touches = gi < 0 || src === gi || tgt === gi;
+            var touches = active.length === 0 || active.indexOf(src) !== -1 || active.indexOf(tgt) !== -1;
             ribbons[r].classList.toggle('chord-dimmed', !touches);
-            ribbons[r].setAttribute('fill-opacity', !touches ? '0.35' : (gi < 0 ? '0.45' : '0.65'));
+            ribbons[r].setAttribute('fill-opacity', !touches ? '0.35' : (active.length === 0 ? '0.45' : '0.65'));
         }
         for (var a = 0; a < arcs.length; a++) {
             var g = parseInt(arcs[a].dataset.group, 10);
-            arcs[a].classList.toggle('chord-dimmed', gi >= 0 && g !== gi && !partners[g]);
+            var keep = active.length === 0 || active.indexOf(g) !== -1 || partners[g];
+            arcs[a].classList.toggle('chord-dimmed', !keep);
         }
         var rows = document.querySelectorAll('#chord-panel-body .chord-panel-row');
         for (var k = 0; k < rows.length; k++) {
             var rowGroup = parseInt(rows[k].dataset.group, 10);
-            rows[k].classList.toggle('isolated', rowGroup === chordIsolated);
-            rows[k].classList.toggle('hover', rowGroup === gi && rowGroup !== chordIsolated);
+            rows[k].classList.toggle('isolated', isChordIsolated(rowGroup));
+            rows[k].classList.toggle('hover', active.indexOf(rowGroup) !== -1 && !isChordIsolated(rowGroup));
         }
     }
 
-    /** The pointed group wins over the isolated one, so hover is always visible. */
+    /** The pointed group wins over the isolated ones, so hover is always visible. */
     function refreshChordEmphasis() {
-        applyChordEmphasis(chordHoverGroup >= 0 ? chordHoverGroup : chordIsolated);
+        applyChordEmphasis(chordHoverGroup >= 0 ? [chordHoverGroup] : chordIsolatedGroups);
     }
 
     // ── Panel: the group list, or the file pairs behind one ribbon ───────────
@@ -1121,7 +1151,7 @@
         var segment = st.groupNames[gi];
         if (segment === '(root)') return false;
         chordDrillPath.push(segment);
-        chordIsolated = -1;
+        chordIsolatedGroups = [];
         chordHoverGroup = -1;
         chordPanelMode = 'groups';
         chordFlowSelection = null;
@@ -1489,7 +1519,7 @@
             pairFlows: pairFlows,
             drillable: groupDrillable,
         };
-        if (chordIsolated >= G) chordIsolated = -1;
+        chordIsolatedGroups = chordIsolatedGroups.filter(function (g) { return g < G; });
         renderChordPanel();
 
         // Tooltip
@@ -1570,8 +1600,7 @@
             }
             var arcEl = e.target.closest ? (e.target.closest('.chord-arc') || e.target.closest('.chord-label')) : null;
             if (!arcEl || !arcEl.dataset.group) return;
-            var gi = parseInt(arcEl.dataset.group, 10);
-            chordIsolated = (chordIsolated === gi) ? -1 : gi;
+            toggleChordIsolation(parseInt(arcEl.dataset.group, 10), e.shiftKey);
             chordHoverGroup = -1;
             refreshChordEmphasis();
         });
@@ -1599,7 +1628,7 @@
 
         // A re-render (new grouping, new query, new min flow) keeps the panel
         // honest: the isolation may point at a group that no longer exists.
-        if (chordIsolated >= G) chordIsolated = -1;
+        chordIsolatedGroups = chordIsolatedGroups.filter(function (g) { return g < G; });
         chordHoverGroup = -1;
         refreshChordEmphasis();
     }
@@ -2029,45 +2058,47 @@
         var svg = document.querySelector('#chord-container svg');
         if (!svg) return;
         var copy = svg.cloneNode(true);
+        // The exported file carries no stylesheet, so `.chord-dimmed` means
+        // nothing once it leaves the webview: "what you see" has to be done by
+        // removing the elements, not by dimming them.
+        var stranded = copy.querySelectorAll('.chord-dimmed');
+        for (var d = 0; d < stranded.length; d++) {
+            if (stranded[d].parentNode) stranded[d].parentNode.removeChild(stranded[d]);
+        }
+        // A label whose arc is gone would float alone.
+        var labels = copy.querySelectorAll('.chord-label');
+        for (var l = 0; l < labels.length; l++) {
+            var group = labels[l].getAttribute('data-group');
+            if (group !== null && !copy.querySelector('.chord-arc[data-group="' + group + '"]')) {
+                if (labels[l].parentNode) labels[l].parentNode.removeChild(labels[l]);
+            }
+        }
         copy.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
         copy.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
         saveText('Chord diagram', 'aura-chord.svg', new XMLSerializer().serializeToString(copy));
     }
 
-    /** The chord's grouping rule, for the CSV — the render keeps a local copy. */
-    function chordGroupKey() {
-        return function (node) {
-            if (chordGroupBy === 'language') return node.language || 'unknown';
-            if (chordGroupBy === 'layer') return node.layer || 'unlayered';
-            if (chordGroupBy === 'community') {
-                var cid = communityMap[node.id];
-                if (cid != null && communityNames[cid]) return communityNames[cid].name;
-                return 'ungrouped';
-            }
-            var parts = String(node.id || '').split('/');
-            return parts.length > 1 ? parts[0] : '.';
-        };
-    }
-
+    /**
+     * The CSV is read off the render, not recomputed: the render knows the
+     * drilled directory, the min-flow threshold and the isolation, and a second
+     * implementation of the grouping is exactly how an export ends up saying
+     * something the screen does not.
+     */
     function exportChordCsv() {
-        if (!graphData) return;
-        var groupOf = chordGroupKey();
-        var flows = {};
-        var links = graphData.links || [];
-        for (var i = 0; i < links.length; i++) {
-            var source = typeof links[i].source === 'object' ? links[i].source : { id: links[i].source };
-            var target = typeof links[i].target === 'object' ? links[i].target : { id: links[i].target };
-            var from = groupOf(source) || 'unknown';
-            var to = groupOf(target) || 'unknown';
-            if (from === to) continue;
-            var key = from + '\u0000' + to;
-            flows[key] = (flows[key] || 0) + 1;
-        }
+        var st = chordViewState;
+        if (!st) return;
+        var G = st.groupNames.length;
+        var isolated = chordIsolatedGroups.length > 0;
         var rows = [];
-        for (var k in flows) {
-            if (!Object.prototype.hasOwnProperty.call(flows, k)) continue;
-            var parts = k.split('\u0000');
-            rows.push([parts[0], parts[1], flows[k]]);
+        for (var i = 0; i < G; i++) {
+            for (var j = 0; j < G; j++) {
+                var flow = st.matrix[i][j];
+                if (!flow) continue;
+                // Same rule as the ribbons: the threshold applies to the pair.
+                if (st.matrix[i][j] + st.matrix[j][i] < chordMinFlow) continue;
+                if (isolated && !isChordIsolated(i) && !isChordIsolated(j)) continue;
+                rows.push([st.groupNames[i], st.groupNames[j], flow]);
+            }
         }
         rows.sort(function (a, b) { return b[2] - a[2]; });
         saveText('Chord flows', 'aura-chord-flows.csv', toCsv(['from', 'to', 'dependencies'], rows));
