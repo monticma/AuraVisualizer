@@ -67,6 +67,8 @@ Every view carries an **📤 Export** in its bar, and the menu lists what *that*
 - The **🏷 Groups** panel on the left lists every group with its file count and its outgoing / incoming flows. **Click a row — or its arc, or its label — to isolate that group**: the rest of the diagram dims and stays dimmed until you click again, so the isolation survives the mouse leaving the circle. Hovering crosses the two halves: a row lights its ribbons, a ribbon lights its two rows.
 - **Each ribbon is a gradient from the source colour to the target colour** — the direction of a dependency reads at a glance, without the tooltip
 - **Min flow** (≥ 2, 4, 8) hides the ribbons below the threshold: on a large repository the one-dependency tail is most of the drawing
+- **Click a ribbon** to swap the panel for the concrete file pairs behind it — both directions. A pair follows the rule of every list here: **click focuses it in the 3D graph, right-click opens the shared menu**; **← groups** goes back
+- In **Group by: Directory**, **↳** on a group row (or a double-click on its arc) drills one directory deeper and **↩** climbs back
 - Arc labels are truncated to fit inside the view; the panel always shows the full name
 - Hover an arc to highlight all its connections
 - Hover a ribbon to see flows in both directions (A→B and B→A)

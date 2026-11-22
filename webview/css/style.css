@@ -3696,9 +3696,81 @@ html, body {
     letter-spacing: 0.2px;
     white-space: nowrap;
 }
+.chord-panel-btn {
+    flex: 0 0 auto;
+    padding: 0 5px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.04);
+    color: #b0bec5;
+    font-size: 10px;
+    line-height: 15px;
+    cursor: pointer;
+}
+.chord-panel-btn:hover {
+    color: #e6edf3;
+    border-color: rgba(96, 165, 250, 0.6);
+}
 .chord-panel-body {
     overflow-y: auto;
     padding: 3px 0;
+}
+/* One level deeper: only a group that has sub-directories gets the button. */
+.chord-drill {
+    flex: 0 0 auto;
+    padding: 0 4px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: #8b949e;
+    font-size: 11px;
+    line-height: 15px;
+    cursor: pointer;
+    visibility: hidden;
+}
+.chord-panel-row:hover .chord-drill,
+.chord-panel-row.hover .chord-drill,
+.chord-panel-row.isolated .chord-drill {
+    visibility: visible;
+}
+.chord-drill:hover {
+    color: #e6edf3;
+    background: rgba(96, 165, 250, 0.2);
+}
+/* The file pairs behind a ribbon. */
+.chord-flow-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px 2px;
+    color: #b0bec5;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+}
+.chord-flow-count {
+    font-weight: 400;
+    color: #8b949e;
+    font-variant-numeric: tabular-nums;
+}
+.chord-flow-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    font-size: 11px;
+    cursor: pointer;
+}
+.chord-flow-row:hover { background: rgba(255, 255, 255, 0.08); }
+.chord-flow-from { color: #e6edf3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chord-flow-arrow { color: #8b949e; flex: 0 0 auto; }
+.chord-flow-to { color: #b0bec5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chord-flow-more,
+.chord-flow-empty {
+    padding: 3px 8px;
+    color: #8b949e;
+    font-size: 10px;
+    font-style: italic;
 }
 .chord-panel-row {
     display: flex;

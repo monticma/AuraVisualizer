@@ -893,6 +893,12 @@
         if (groupSelect) groupSelect.addEventListener('change', function() {
             chordGroupBy = this.value;
             chordIsolated = -1;
+            chordHoverGroup = -1;
+            // Drilling only means something for directories, and a flow
+            // selection names groups that the new grouping does not have.
+            chordDrillPath = [];
+            chordPanelMode = 'groups';
+            chordFlowSelection = null;
             renderChord();
         });
         var minSelect = $('#chord-min-flow');
@@ -904,9 +910,39 @@
         // The panel lists the groups. Clicking a row isolates it, hovering one
         // previews the isolation — delegation, because the rows are rebuilt on
         // every render.
+        var backBtn = $('#chord-panel-back');
+        if (backBtn) backBtn.addEventListener('click', closeChordFlows);
+        var upBtn = $('#chord-panel-up');
+        if (upBtn) upBtn.addEventListener('click', function() {
+            if (!chordDrillPath.length) return;
+            chordDrillPath.pop();
+            chordIsolated = -1;
+            chordHoverGroup = -1;
+            chordPanelMode = 'groups';
+            chordFlowSelection = null;
+            renderChord();
+        });
+
         var panelBody = $('#chord-panel-body');
         if (panelBody) {
             panelBody.addEventListener('click', function(e) {
+                // A flow row follows the same rule as every other list in
+                // Aura: a plain click selects and focuses, it never opens the
+                // editor — the shared right-click menu does that.
+                var flowRow = e.target.closest ? e.target.closest('.chord-flow-row') : null;
+                if (flowRow) {
+                    var graphTab = document.querySelector('.tab-btn[data-tab="graph"]');
+                    if (graphTab) graphTab.click();
+                    window.dispatchEvent(new MessageEvent('message', {
+                        data: { type: 'focusNode', payload: { nodeId: flowRow.dataset.from, reveal: true } },
+                    }));
+                    return;
+                }
+                var drillBtn = e.target.closest ? e.target.closest('.chord-drill') : null;
+                if (drillBtn) {
+                    drillIntoGroup(parseInt(drillBtn.dataset.drill, 10));
+                    return;
+                }
                 var row = e.target.closest ? e.target.closest('.chord-panel-row') : null;
                 if (!row) return;
                 chordIsolated = (chordIsolated === parseInt(row.dataset.group, 10)) ? -1 : parseInt(row.dataset.group, 10);
@@ -921,9 +957,16 @@
                 chordHoverGroup = -1;
                 refreshChordEmphasis();
             });
+            panelBody.addEventListener('contextmenu', function(e) {
+                var flowRow = e.target.closest ? e.target.closest('.chord-flow-row') : null;
+                if (!flowRow) return;
+                openFileMenu(e, flowRow.dataset.from);
+            });
         }
     }
 
+    /** Directories we drilled into, outermost first ('' = the whole repo). */
+    var chordDrillPath = [];
     /** Group isolated by a click, -1 when none. Sticky until clicked again. */
     var chordIsolated = -1;
     /** Group under the pointer, -1 when none. A hover wins over the isolation. */
@@ -973,6 +1016,131 @@
         applyChordEmphasis(chordHoverGroup >= 0 ? chordHoverGroup : chordIsolated);
     }
 
+    // ── Panel: the group list, or the file pairs behind one ribbon ───────────
+    var chordPanelMode = 'groups';   // 'groups' | 'flows'
+    var chordFlowSelection = null;   // { i, j } — the ribbon being read
+    /** How many concrete pairs a ribbon shows before it says "and N more". */
+    var CHORD_FLOW_ROWS = 8;
+
+    function renderChordPanel() {
+        var body = $('#chord-panel-body');
+        var back = $('#chord-panel-back');
+        var up = $('#chord-panel-up');
+        if (back) back.classList.toggle('hidden', chordPanelMode !== 'flows');
+        if (up) {
+            up.classList.toggle('hidden', chordDrillPath.length === 0);
+            up.textContent = '↩ ' + (chordDrillPath[chordDrillPath.length - 1] || '');
+            up.title = 'Leave ' + (chordDrillPath.join('/') || '') + '/ and group one level higher';
+        }
+        if (!body) return;
+        if (!chordViewState) { body.innerHTML = ''; return; }
+
+        // The selection can name groups that no longer exist (new grouping,
+        // fewer groups): fall back to the list instead of rendering blanks.
+        if (chordFlowSelection && (chordFlowSelection.i >= chordViewState.groupNames.length
+            || chordFlowSelection.j >= chordViewState.groupNames.length)) {
+            chordPanelMode = 'groups';
+            chordFlowSelection = null;
+        }
+        var title = $('#chord-panel-title');
+        if (title) {
+            title.textContent = (chordPanelMode === 'flows' && chordFlowSelection)
+                ? chordViewState.groupNames[chordFlowSelection.i] + ' ↔ ' + chordViewState.groupNames[chordFlowSelection.j]
+                : '🏷 Groups';
+        }
+
+        if (chordPanelMode === 'flows' && chordFlowSelection) {
+            body.innerHTML = chordFlowsHtml(chordFlowSelection.i, chordFlowSelection.j);
+            return;
+        }
+        body.innerHTML = chordGroupsHtml();
+    }
+
+    function chordGroupsHtml() {
+        var st = chordViewState;
+        var G = st.groupNames.length;
+        var canDrill = chordGroupBy === 'directory';
+        var html = '';
+        for (var i = 0; i < G; i++) {
+            var outFlow = 0, inFlow = 0;
+            for (var j = 0; j < G; j++) {
+                outFlow += st.matrix[i][j];
+                inFlow += st.matrix[j][i];
+            }
+            var name = st.groupNames[i];
+            var drill = (canDrill && st.drillable[i]) ? '<button type="button" class="chord-drill"' +
+                ' data-drill="' + i + '" title="Drill into ' + escapeHtml(name) + '/">↳</button>' : '';
+            html += '<div class="chord-panel-row" data-group="' + i + '"' +
+                    ' title="' + escapeHtml(name) + ' — ' + st.groupSizes[i] + ' files, ' +
+                    outFlow + ' out, ' + inFlow + ' in. Click to isolate.">' +
+                '<span class="chord-legend-swatch" style="background:' + CHORD_PALETTE[i % CHORD_PALETTE.length] + '"></span>' +
+                '<span class="chord-panel-name">' + escapeHtml(name) + '</span>' +
+                '<span class="chord-panel-flows">↑' + outFlow + ' ↓' + inFlow + '</span>' +
+                '<span class="chord-panel-count">' + st.groupSizes[i] + '</span>' + drill + '</div>';
+        }
+        return html;
+    }
+
+    /**
+     * The concrete files behind a ribbon, both ways. A ribbon says "these two
+     * groups talk"; this says which files do the talking, which is the only
+     * thing you can act on.
+     */
+    function chordFlowsHtml(i, j) {
+        var st = chordViewState;
+        var a = st.groupNames[i], b = st.groupNames[j];
+        var out = st.pairFlows[i + '>' + j] || [];
+        var back = st.pairFlows[j + '>' + i] || [];
+
+        function block(title, list, fromGroup) {
+            if (list.length === 0) return '';
+            var rows = '';
+            for (var k = 0; k < list.length && k < CHORD_FLOW_ROWS; k++) {
+                rows += '<div class="chord-flow-row" data-from="' + escapeHtml(list[k].from) + '"' +
+                    ' title="' + escapeHtml(list[k].from + '  →  ' + list[k].to
+                        + '\nClick: focus in the graph · right-click: the file menu') + '">' +
+                    '<span class="chord-flow-from">' + escapeHtml(shortName(list[k].from)) + '</span>' +
+                    '<span class="chord-flow-arrow">→</span>' +
+                    '<span class="chord-flow-to">' + escapeHtml(shortName(list[k].to)) + '</span></div>';
+            }
+            if (list.length > CHORD_FLOW_ROWS) {
+                rows += '<div class="chord-flow-more">and ' + (list.length - CHORD_FLOW_ROWS) + ' more</div>';
+            }
+            return '<div class="chord-flow-head">' + escapeHtml(title) +
+                ' <span class="chord-flow-count">' + list.length + '</span></div>' + rows;
+        }
+
+        var html = block(a + ' → ' + b, out, i) + block(b + ' → ' + a, back, j);
+        return html || '<div class="chord-flow-empty">No flows in this direction.</div>';
+    }
+
+    /** One level deeper: the group's sub-directories become the groups. */
+    function drillIntoGroup(gi) {
+        var st = chordViewState;
+        if (!st || !st.groupNames[gi] || chordGroupBy !== 'directory') return false;
+        var segment = st.groupNames[gi];
+        if (segment === '(root)') return false;
+        chordDrillPath.push(segment);
+        chordIsolated = -1;
+        chordHoverGroup = -1;
+        chordPanelMode = 'groups';
+        chordFlowSelection = null;
+        renderChord();
+        return true;
+    }
+
+    function openChordFlows(i, j) {
+        chordPanelMode = 'flows';
+        chordFlowSelection = { i: i, j: j };
+        renderChordPanel();
+    }
+
+    function closeChordFlows() {
+        chordPanelMode = 'groups';
+        chordFlowSelection = null;
+        renderChordPanel();
+    }
+
     // 10 distinct muted colors for groups
     var CHORD_PALETTE = [
         '#4fc3f7', '#81c784', '#ffd54f', '#ff8a65', '#ce93d8',
@@ -985,12 +1153,16 @@
         var container = $('#chord-container');
         if (!container || !graphData) return;
 
-        var nodes = queriedNodes();
+        var allNodes = queriedNodes();
         var links = graphData.links || [];
-        if (nodes.length === 0) {
+        if (allNodes.length === 0) {
             container.innerHTML = '<div style="padding:24px;opacity:0.5">No data to display</div>';
             return;
         }
+
+        // Drilled into a directory: only its children take part in the diagram,
+        // and the group key becomes the next path segment.
+        var drillPrefix = chordDrillPath.length ? chordDrillPath.join('/') + '/' : '';
 
         // Build groups
         function groupKey(n) {
@@ -1001,15 +1173,32 @@
                 if (cid != null && communityNames[cid]) return communityNames[cid].name;
                 return 'ungrouped';
             }
+            if (drillPrefix) {
+                if (n.id.indexOf(drillPrefix) !== 0) return null;
+                var rest = n.id.slice(drillPrefix.length).split('/');
+                return rest.length > 1 ? rest[0] : '(root)';
+            }
             // directory: first path segment
             var parts = n.id.split('/');
             return parts.length > 1 ? parts[0] : '.';
         }
 
-        // Assign each node to a group
+        var nodes = [];
+        for (var an = 0; an < allNodes.length; an++) {
+            if (groupKey(allNodes[an]) !== null) nodes.push(allNodes[an]);
+        }
+        if (nodes.length === 0) {
+            container.innerHTML = '<div style="padding:24px;opacity:0.5">Nothing under this directory — go back up</div>';
+            return;
+        }
+
+        // Assign each node to a group; a group is drillable when a file below it
+        // has one more directory level.
         var groupNames = [];
         var groupMap = {}; // groupName → index
         var nodeToGroup = {};
+        var groupDrillable = {};
+        var depth = chordDrillPath.length;
         for (var i = 0; i < nodes.length; i++) {
             var gk = groupKey(nodes[i]);
             if (groupMap[gk] === undefined) {
@@ -1017,6 +1206,8 @@
                 groupNames.push(gk);
             }
             nodeToGroup[nodes[i].id] = groupMap[gk];
+            var dirs = nodes[i].id.split('/');
+            if (dirs.length - 1 > depth + 1) groupDrillable[groupMap[gk]] = true;
         }
 
         var G = groupNames.length;
@@ -1026,6 +1217,7 @@
         }
 
         // Build G×G adjacency matrix (flow counts between groups)
+        var pairFlows = {}; // "i>j" → [{ from, to }]
         var matrix = [];
         for (var i = 0; i < G; i++) {
             matrix[i] = new Array(G);
@@ -1038,6 +1230,10 @@
             var gi = nodeToGroup[src], gj = nodeToGroup[tgt];
             if (gi !== undefined && gj !== undefined && gi !== gj) {
                 matrix[gi][gj] += 1;
+                // The ribbon is a sum: keep the concrete pairs so a click can
+                // open them instead of only counting them.
+                var pairKey = gi + '>' + gj;
+                (pairFlows[pairKey] || (pairFlows[pairKey] = [])).push({ from: src, to: tgt });
             }
         }
 
@@ -1053,7 +1249,8 @@
         for (var i = 0; i < G; i++) for (var j = 0; j < G; j++) totalFlows += matrix[i][j];
         // Counters go to the shared status bar: one vocabulary, one place.
         renderStatus('chord', nodes.length, G + ' groups · ' + totalFlows + ' cross-group dependencies'
-            + (chordMinFlow > 1 ? ' · min flow ' + chordMinFlow : ''));
+            + (chordMinFlow > 1 ? ' · min flow ' + chordMinFlow : '')
+            + (drillPrefix ? ' · in ' + drillPrefix : ''));
 
         // Compute chord layout
         // Row sums for arc sizing
@@ -1284,24 +1481,16 @@
 
         // Group list — the floating panel on the left, not a strip along the
         // bottom: the strip grew sideways with the number of groups.
-        chordViewState = { svg: svg, matrix: matrix, groupNames: groupNames };
-        var panelBody = $('#chord-panel-body');
-        if (panelBody) {
-            var rowsHtml = '';
-            for (var i = 0; i < G; i++) {
-                var outFlow = 0, inFlow = 0;
-                for (var j = 0; j < G; j++) { outFlow += matrix[i][j]; inFlow += matrix[j][i]; }
-                rowsHtml += '<div class="chord-panel-row" data-group="' + i + '"' +
-                        ' title="' + escapeHtml(groupNames[i]) + ' — ' + groupSizes[i] + ' files, ' +
-                        outFlow + ' out, ' + inFlow + ' in. Click to isolate.">' +
-                    '<span class="chord-legend-swatch" style="background:' + CHORD_PALETTE[i % CHORD_PALETTE.length] + '"></span>' +
-                    '<span class="chord-panel-name">' + escapeHtml(groupNames[i]) + '</span>' +
-                    '<span class="chord-panel-flows">↑' + outFlow + ' ↓' + inFlow + '</span>' +
-                    '<span class="chord-panel-count">' + groupSizes[i] + '</span></div>';
-            }
-            panelBody.innerHTML = rowsHtml;
-        }
+        chordViewState = {
+            svg: svg,
+            matrix: matrix,
+            groupNames: groupNames,
+            groupSizes: groupSizes,
+            pairFlows: pairFlows,
+            drillable: groupDrillable,
+        };
         if (chordIsolated >= G) chordIsolated = -1;
+        renderChordPanel();
 
         // Tooltip
         if (!chordTooltipEl) {
@@ -1373,12 +1562,26 @@
         // Click an arc or its label: same isolation as a click on the panel row,
         // because that is the gesture people try first.
         svg.addEventListener('click', function(e) {
+            // A ribbon is a sum: read the files behind it.
+            var ribbonEl = e.target.closest ? e.target.closest('.chord-ribbon') : null;
+            if (ribbonEl) {
+                openChordFlows(parseInt(ribbonEl.dataset.source, 10), parseInt(ribbonEl.dataset.target, 10));
+                return;
+            }
             var arcEl = e.target.closest ? (e.target.closest('.chord-arc') || e.target.closest('.chord-label')) : null;
             if (!arcEl || !arcEl.dataset.group) return;
             var gi = parseInt(arcEl.dataset.group, 10);
             chordIsolated = (chordIsolated === gi) ? -1 : gi;
             chordHoverGroup = -1;
             refreshChordEmphasis();
+        });
+
+        // Double-click an arc to go one directory deeper (the ↳ button on the
+        // row does the same, and it is the discoverable one).
+        svg.addEventListener('dblclick', function(e) {
+            var arcEl = e.target.closest ? (e.target.closest('.chord-arc') || e.target.closest('.chord-label')) : null;
+            if (!arcEl || !arcEl.dataset.group) return;
+            drillIntoGroup(parseInt(arcEl.dataset.group, 10));
         });
 
         svg.addEventListener('mousemove', function(e) {
