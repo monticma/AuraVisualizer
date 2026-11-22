@@ -5293,12 +5293,19 @@ select option {
     flex: 0 0 auto;
     display: flex;
     align-items: center;
+    justify-content: flex-start;
     gap: 10px;
     padding: 4px 12px;
     border-radius: 0;
     border-left: 0;
     border-right: 0;
     border-bottom: 0;
+    /* Same shell as `.view-toolbar` so the top and the bottom of a view read
+       as one frame: same background, same hairline, mirrored border. */
+    background: var(--aura-sidebar-bg);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
     white-space: nowrap;
     overflow: hidden;
 }
@@ -5339,7 +5346,9 @@ select option {
 }
 
 .status-state {
-    margin-left: auto;
+    /* Left-aligned, right after the selection: the toolbar is left-aligned too
+       and a line parked at the far right read as a second, unrelated element. */
+    margin-left: 0;
     color: #8b949e;
     overflow: hidden;
     text-overflow: ellipsis;
