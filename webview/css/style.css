@@ -3632,7 +3632,10 @@ html, body {
     font-size: 11px;
     fill: var(--aura-fg);
     dominant-baseline: central;
-    pointer-events: none;
+    cursor: pointer;
+}
+.chord-arc {
+    cursor: pointer;
 }
 .chord-dimmed {
     opacity: 0.08 !important;
@@ -3657,8 +3660,13 @@ html, body {
 /* Group list — floating panel over the diagram, the same box as the City's
    legend (`.view-legend`). It replaced a bottom strip that grew sideways with
    the number of groups and pushed the last names off screen. */
-#chord-view {
+/* The stage sits between the toolbar and the panel: `#chord-view` starts at the
+   top of the tab, so anchoring the panel to it put it over the Group by bar. */
+#chord-stage {
     position: relative;
+    flex: 1;
+    min-height: 0;
+    display: flex;
 }
 .chord-panel {
     position: absolute;
@@ -3688,20 +3696,6 @@ html, body {
     letter-spacing: 0.2px;
     white-space: nowrap;
 }
-.chord-panel-btn {
-    padding: 0 5px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 5px;
-    background: rgba(255, 255, 255, 0.04);
-    color: #b0bec5;
-    font-size: 10px;
-    line-height: 15px;
-    cursor: pointer;
-}
-.chord-panel-btn:hover {
-    color: #e6edf3;
-    border-color: rgba(96, 165, 250, 0.6);
-}
 .chord-panel-body {
     overflow-y: auto;
     padding: 3px 0;
@@ -3715,7 +3709,8 @@ html, body {
     font-size: 11px;
     line-height: 1.5;
 }
-.chord-panel-row:hover { background: rgba(255, 255, 255, 0.06); }
+.chord-panel-row:hover,
+.chord-panel-row.hover { background: rgba(255, 255, 255, 0.08); }
 /* Isolating one group dims the rest of the diagram, so the row has to say so. */
 .chord-panel-row.isolated {
     background: rgba(96, 165, 250, 0.16);

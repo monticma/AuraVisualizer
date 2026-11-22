@@ -614,23 +614,31 @@ ${JSON.stringify(s,null,2)}`);let a=i[o]();return new Language(INTERNAL,a)})}}cl
                     <option value="layer">Architecture layer</option>
                     <option value="community">Community</option>
                 </select></label>
+                <label title="Hide the ribbons thinner than this \u2014 long tails drown the signal">Min flow: <select id="chord-min-flow" class="view-select">
+                    <option value="1" selected>\u2265 1</option>
+                    <option value="2">\u2265 2</option>
+                    <option value="4">\u2265 4</option>
+                    <option value="8">\u2265 8</option>
+                </select></label>
             </div>
                 <div class="view-bar-actions">
-                    <button type="button" class="view-action" id="chord-panel-show" title="Show the list of groups">\u{1F3F7} Groups</button>
                     <button type="button" class="view-action query-open" data-query-tab="chord" title="Query palette (Ctrl+K) \u2014 this view lists what the query matches">\u{1F50D} Query</button>
                     <button type="button" class="view-action" data-export-tab="chord" title="Export the diagram as SVG or the flows as CSV">\u{1F4E4} Export</button>
                 </div>
         </div>
-        <!-- Group list, floating over the diagram like the City's legend: the
-             circle can only truncate a name, the panel has the room for it. -->
-        <div id="chord-panel" class="view-legend chord-panel">
-            <div class="chord-panel-head">
-                <span class="chord-panel-title">\u{1F3F7} Groups</span>
-                <button type="button" id="chord-panel-close" class="chord-panel-btn" title="Hide the group list">\u2715</button>
+        <!-- The stage owns the panel and the circle: the panel anchors below the
+             toolbar (anchoring it to the tab itself put it over the Group by
+             bar) and the container keeps wiping its own children on every
+             render. -->
+        <div id="chord-stage">
+            <div id="chord-panel" class="view-legend chord-panel">
+                <div class="chord-panel-head">
+                    <span class="chord-panel-title">\u{1F3F7} Groups</span>
+                </div>
+                <div id="chord-panel-body" class="chord-panel-body"></div>
             </div>
-            <div id="chord-panel-body" class="chord-panel-body"></div>
+            <div id="chord-container"></div>
         </div>
-        <div id="chord-container"></div>
     </div>
 
     <!-- Timeline Chart View -->
@@ -1504,8 +1512,8 @@ ${JSON.stringify(s,null,2)}`);let a=i[o]();return new Language(INTERNAL,a)})}}cl
                 <p>Every object view ends on <strong>one line, in two zones</strong>, because five views each used to invent their own counter line with their own wording. On the left, what is <strong>selected</strong>: <code>path \xB7 LOC \xB7 ccx \xB7 in \xB7 out</code>, with <strong>\u2316</strong> to focus it in the 3D graph and <strong>\u2197</strong> to open it in the editor. On the right, what the view <strong>shows</strong>: <code>\u2315 query \xB7 142 / 303 files \xB7 21 cycles \xB7 91 % resolved</code>, plus a note when the view truncates (<code>top 400 shown</code>).</p>
                 <p>A count that is zero is not written, and an unmeasured resolution is not written as <code>0 %</code> \u2014 the same rule as the imported columns. The selection zone appears only where the objects do not carry their own numbers (Treemap, Chord, Matrix); in the Table, the Metrics dashboard and the Risk tab the rows already say everything, so only the state zone is added. The City keeps its own richer line \u2014 building height and district \u2014 and gains the state zone.</p>
                 <h3>\u{1F3B5} Chord</h3>
-                <p>Ribbons are dependency flows between groups \u2014 directories, languages, architecture layers or communities (the <strong>Group by</strong> selector). Ribbon thickness is the flow volume, and hovering either an arc or a ribbon dims the rest of the diagram.</p>
-                <p>The <strong>\u{1F3F7} Groups</strong> panel floats on the left and lists every group with its colour, its file count and its <code>\u2191out \u2193in</code> flows. <strong>Click a row to isolate a group</strong>: the isolation is sticky, unlike hover, and clicking the row again clears it. Arc labels are truncated to stay inside the view \u2014 the panel has the full name, which is where a long directory path is readable. <strong>\u2715</strong> hides the panel, the toolbar button brings it back.</p>
+                <p>Ribbons are dependency flows between groups \u2014 directories, languages, architecture layers or communities (the <strong>Group by</strong> selector). Ribbon thickness is the flow volume, and <strong>every ribbon is a gradient from the source colour to the target colour</strong>: which way the dependency leans is visible without opening the tooltip. <strong>Min flow</strong> hides ribbons below 2, 4 or 8, because on a large repository the long tail of one-dependency pairs drowns the signal.</p>
+                <p>The <strong>\u{1F3F7} Groups</strong> panel floats on the left and lists every group with its colour, its file count and its <code>\u2191out \u2193in</code> flows. <strong>Click a row \u2014 or its arc, or its label \u2014 to isolate a group</strong>: the isolation is sticky, unlike hover, and clicking again clears it. Hovering crosses both halves: a row lights its ribbons, a ribbon lights its two rows. Arc labels are truncated to stay inside the view, and the panel always has the full name.</p>
                 <h3>\u{1F6E1}\uFE0F Risk Map</h3>
                 <p>Open the <strong>\u{1F6E1}\uFE0F Risk</strong> tab for a codebase health dashboard. It uses a transparent risk score: <code>100 \xD7 (0.21\xB7complexity + 0.18\xB7centrality + 0.08\xB7fan-out + 0.12\xB7cycle + 0.12\xB7dead-code + 0.09\xB7rewrite + 0.06\xB7recency + 0.06\xB7frequency + 0.05\xB7authors + 0.03\xB7fixes)</code> \u2014 the structural half stays dominant on purpose. <code>centrality</code> is fan-in, or PageRank when <code>auraVisualizer.riskCentrality</code> is on; <code>rewrite</code> is the volume of lines added and removed relative to the file's size today, <code>recency</code> weights a commit made today over one at the window's edge, and <code>fixes</code> is the share of commits whose message looks like a bug fix. Documentation is outside architectural risk: docs are not scored and <code>doc-reference</code> links do not inflate fan-in or PageRank. Exempted framework symbols are not counted as dead code.</p>
                 <p>Complexity, fan-in, fan-out and churn are <strong>percentile ranks inside your repository</strong> (0 = lowest file, 1 = highest), so the score is a standing relative to this codebase. A <strong>History window</strong> selector (30 / 90 / 365 days) drives churn, scoring and explanations. Churn is <strong>rename-aware</strong>: files moved with <code>git mv</code> keep their history across the rename.</p>

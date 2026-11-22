@@ -895,45 +895,52 @@
             chordIsolated = -1;
             renderChord();
         });
+        var minSelect = $('#chord-min-flow');
+        if (minSelect) minSelect.addEventListener('change', function() {
+            chordMinFlow = parseInt(this.value, 10) || 1;
+            renderChord();
+        });
 
-        // The panel lists the groups; clicking one isolates it. Delegation,
-        // because the rows are rebuilt on every render.
+        // The panel lists the groups. Clicking a row isolates it, hovering one
+        // previews the isolation — delegation, because the rows are rebuilt on
+        // every render.
         var panelBody = $('#chord-panel-body');
         if (panelBody) {
             panelBody.addEventListener('click', function(e) {
                 var row = e.target.closest ? e.target.closest('.chord-panel-row') : null;
                 if (!row) return;
-                var gi = parseInt(row.dataset.group, 10);
-                chordIsolated = (chordIsolated === gi) ? -1 : gi;
-                applyChordIsolation();
+                chordIsolated = (chordIsolated === parseInt(row.dataset.group, 10)) ? -1 : parseInt(row.dataset.group, 10);
+                refreshChordEmphasis();
+            });
+            panelBody.addEventListener('mouseover', function(e) {
+                var row = e.target.closest ? e.target.closest('.chord-panel-row') : null;
+                chordHoverGroup = row ? parseInt(row.dataset.group, 10) : -1;
+                refreshChordEmphasis();
+            });
+            panelBody.addEventListener('mouseleave', function() {
+                chordHoverGroup = -1;
+                refreshChordEmphasis();
             });
         }
-        var closeBtn = $('#chord-panel-close');
-        if (closeBtn) closeBtn.addEventListener('click', function() { setChordPanelOpen(false); });
-        var showBtn = $('#chord-panel-show');
-        if (showBtn) showBtn.addEventListener('click', function() { setChordPanelOpen(true); });
     }
 
-    /** Group index isolated by a click on the panel, -1 when nothing is. */
+    /** Group isolated by a click, -1 when none. Sticky until clicked again. */
     var chordIsolated = -1;
-    /** Last render, kept for the sticky isolation (the rows are DOM, not data). */
+    /** Group under the pointer, -1 when none. A hover wins over the isolation. */
+    var chordHoverGroup = -1;
+    /** Ribbons thinner than this are not drawn (long-tail noise). */
+    var chordMinFlow = 1;
+    /** Last render, kept for the emphasis (the rows are DOM, not data). */
     var chordViewState = null;
 
-    function setChordPanelOpen(open) {
-        var panel = $('#chord-panel');
-        if (!panel) return;
-        panel.classList.toggle('hidden', !open);
-    }
-
     /**
-     * Dim everything but one group's ribbons and the arcs it talks to. Sticky:
-     * hovering clears itself, a click does not, so the mouse leaving the svg
-     * restores this instead of clearing it.
+     * Dim everything but one group's ribbons and the arcs it talks to.
+     * `gi` -1 restores the full diagram. The panel rows follow: `.isolated`
+     * marks the clicked group, `.hover` the pointed one.
      */
-    function applyChordIsolation() {
+    function applyChordEmphasis(gi) {
         var st = chordViewState;
         if (!st || !st.svg) return;
-        var gi = chordIsolated;
         var ribbons = st.svg.querySelectorAll('.chord-ribbon');
         var arcs = st.svg.querySelectorAll('.chord-arc');
         var partners = {};
@@ -947,7 +954,7 @@
             var tgt = parseInt(ribbons[r].dataset.target, 10);
             var touches = gi < 0 || src === gi || tgt === gi;
             ribbons[r].classList.toggle('chord-dimmed', !touches);
-            ribbons[r].setAttribute('fill-opacity', !touches ? '0.35' : (gi < 0 ? '0.35' : '0.55'));
+            ribbons[r].setAttribute('fill-opacity', !touches ? '0.35' : (gi < 0 ? '0.45' : '0.65'));
         }
         for (var a = 0; a < arcs.length; a++) {
             var g = parseInt(arcs[a].dataset.group, 10);
@@ -955,8 +962,15 @@
         }
         var rows = document.querySelectorAll('#chord-panel-body .chord-panel-row');
         for (var k = 0; k < rows.length; k++) {
-            rows[k].classList.toggle('isolated', parseInt(rows[k].dataset.group, 10) === gi);
+            var rowGroup = parseInt(rows[k].dataset.group, 10);
+            rows[k].classList.toggle('isolated', rowGroup === chordIsolated);
+            rows[k].classList.toggle('hover', rowGroup === gi && rowGroup !== chordIsolated);
         }
+    }
+
+    /** The pointed group wins over the isolated one, so hover is always visible. */
+    function refreshChordEmphasis() {
+        applyChordEmphasis(chordHoverGroup >= 0 ? chordHoverGroup : chordIsolated);
     }
 
     // 10 distinct muted colors for groups
@@ -1038,7 +1052,8 @@
         var totalFlows = 0;
         for (var i = 0; i < G; i++) for (var j = 0; j < G; j++) totalFlows += matrix[i][j];
         // Counters go to the shared status bar: one vocabulary, one place.
-        renderStatus('chord', nodes.length, G + ' groups · ' + totalFlows + ' cross-group dependencies');
+        renderStatus('chord', nodes.length, G + ' groups · ' + totalFlows + ' cross-group dependencies'
+            + (chordMinFlow > 1 ? ' · min flow ' + chordMinFlow : ''));
 
         // Compute chord layout
         // Row sums for arc sizing
@@ -1166,20 +1181,55 @@
         svg.setAttribute('width', W);
         svg.setAttribute('height', H);
 
-        // Ribbons
+        // Ribbons — a gradient along the length, from the source colour to the
+        // target colour, so which way the dependency leans is visible without a
+        // tooltip. Direction is per ribbon, hence one gradient per ribbon.
+        var defs = document.createElementNS(svgNS, 'defs');
+        svg.appendChild(defs);
         var ribbonGroup = document.createElementNS(svgNS, 'g');
         ribbonGroup.setAttribute('class', 'chord-ribbons');
+        var drawnFlows = 0;
         for (var k = 0; k < ribbons.length; k++) {
             var rb = ribbons[k];
+            var flowTotal = rb.flow_ij + rb.flow_ji;
+            if (flowTotal < chordMinFlow) continue;
+            drawnFlows++;
+
             var path = document.createElementNS(svgNS, 'path');
             path.setAttribute('d', ribbonPath(
                 rb.source, rb.srcStart, rb.srcEnd,
                 rb.target, rb.tgtStart, rb.tgtEnd
             ));
-            var color = CHORD_PALETTE[rb.source % CHORD_PALETTE.length];
-            path.setAttribute('fill', color);
-            path.setAttribute('fill-opacity', '0.35');
-            path.setAttribute('stroke', color);
+            var srcColor = CHORD_PALETTE[rb.source % CHORD_PALETTE.length];
+            var tgtColor = CHORD_PALETTE[rb.target % CHORD_PALETTE.length];
+
+            // Anchor the gradient on the two arc mid-points, at the inner radius:
+            // that is where the ribbon actually leaves and lands.
+            var srcMid = (rb.srcStart + rb.srcEnd) / 2;
+            var tgtMid = (rb.tgtStart + rb.tgtEnd) / 2;
+            var gradId = 'chord-grad-' + k;
+            var grad = document.createElementNS(svgNS, 'linearGradient');
+            grad.setAttribute('id', gradId);
+            grad.setAttribute('gradientUnits', 'userSpaceOnUse');
+            grad.setAttribute('x1', cx + innerR * Math.cos(srcMid));
+            grad.setAttribute('y1', cy + innerR * Math.sin(srcMid));
+            grad.setAttribute('x2', cx + innerR * Math.cos(tgtMid));
+            grad.setAttribute('y2', cy + innerR * Math.sin(tgtMid));
+            var stopFrom = document.createElementNS(svgNS, 'stop');
+            stopFrom.setAttribute('offset', '0%');
+            stopFrom.setAttribute('stop-color', srcColor);
+            stopFrom.setAttribute('stop-opacity', '0.75');
+            var stopTo = document.createElementNS(svgNS, 'stop');
+            stopTo.setAttribute('offset', '100%');
+            stopTo.setAttribute('stop-color', tgtColor);
+            stopTo.setAttribute('stop-opacity', '0.25');
+            grad.appendChild(stopFrom);
+            grad.appendChild(stopTo);
+            defs.appendChild(grad);
+
+            path.setAttribute('fill', 'url(#' + gradId + ')');
+            path.setAttribute('fill-opacity', '0.45');
+            path.setAttribute('stroke', srcColor);
             path.setAttribute('stroke-opacity', '0.5');
             path.setAttribute('stroke-width', '0.5');
             path.setAttribute('class', 'chord-ribbon');
@@ -1212,6 +1262,7 @@
             text.setAttribute('x', lx);
             text.setAttribute('y', ly);
             text.setAttribute('class', 'chord-label');
+            text.dataset.group = i;
             // Rotate so text follows the arc
             var deg = midAngle * 180 / Math.PI;
             if (deg > 90 && deg < 270) {
@@ -1262,7 +1313,7 @@
         // Interactions
         svg.addEventListener('mouseover', function(e) {
             var ribbon = e.target.closest('.chord-ribbon');
-            var arc = e.target.closest('.chord-arc');
+            var arc = e.target.closest('.chord-arc') || e.target.closest('.chord-label');
 
             if (ribbon) {
                 var si = parseInt(ribbon.dataset.source);
@@ -1280,6 +1331,12 @@
                     if (gi === si || gi === ti) allArcs[a].classList.remove('chord-dimmed');
                 }
                 // Tooltip
+                chordHoverGroup = -1;
+                var rowsEls = document.querySelectorAll('#chord-panel-body .chord-panel-row');
+                for (var rw = 0; rw < rowsEls.length; rw++) {
+                    var rg = parseInt(rowsEls[rw].dataset.group, 10);
+                    rowsEls[rw].classList.toggle('hover', rg === si || rg === ti);
+                }
                 chordTooltipEl.innerHTML =
                     '<div class="chord-tooltip-title">' + escapeHtml(groupNames[si]) + ' ↔ ' + escapeHtml(groupNames[ti]) + '</div>' +
                     '<div class="chord-tooltip-meta">' +
@@ -1288,24 +1345,11 @@
                 chordTooltipEl.classList.add('visible');
             } else if (arc) {
                 var gi = parseInt(arc.dataset.group);
-                // Dim everything, highlight this group's ribbons
-                var allRibbons = svg.querySelectorAll('.chord-ribbon');
-                var allArcs = svg.querySelectorAll('.chord-arc');
-                for (var r = 0; r < allRibbons.length; r++) allRibbons[r].classList.add('chord-dimmed');
-                for (var a = 0; a < allArcs.length; a++) allArcs[a].classList.add('chord-dimmed');
-                arc.classList.remove('chord-dimmed');
-                for (var r = 0; r < allRibbons.length; r++) {
-                    var s = parseInt(allRibbons[r].dataset.source);
-                    var t = parseInt(allRibbons[r].dataset.target);
-                    if (s === gi || t === gi) {
-                        allRibbons[r].classList.remove('chord-dimmed');
-                        // Also un-dim connected arcs
-                        var other = s === gi ? t : s;
-                        for (var a = 0; a < allArcs.length; a++) {
-                            if (parseInt(allArcs[a].dataset.group) === other) allArcs[a].classList.remove('chord-dimmed');
-                        }
-                    }
-                }
+                // One implementation for hover, isolation and the panel rows:
+                // the arc used to dim by hand, which is how the two halves of
+                // this view drifted apart.
+                chordHoverGroup = gi;
+                refreshChordEmphasis();
                 // Tooltip
                 var inFlow = 0, outFlow = 0;
                 for (var j = 0; j < G; j++) {
@@ -1320,9 +1364,21 @@
             } else {
                 // Back to the sticky state: a click on the panel must survive the
                 // mouse leaving the diagram.
-                applyChordIsolation();
+                chordHoverGroup = -1;
+                refreshChordEmphasis();
                 chordTooltipEl.classList.remove('visible');
             }
+        });
+
+        // Click an arc or its label: same isolation as a click on the panel row,
+        // because that is the gesture people try first.
+        svg.addEventListener('click', function(e) {
+            var arcEl = e.target.closest ? (e.target.closest('.chord-arc') || e.target.closest('.chord-label')) : null;
+            if (!arcEl || !arcEl.dataset.group) return;
+            var gi = parseInt(arcEl.dataset.group, 10);
+            chordIsolated = (chordIsolated === gi) ? -1 : gi;
+            chordHoverGroup = -1;
+            refreshChordEmphasis();
         });
 
         svg.addEventListener('mousemove', function(e) {
@@ -1333,12 +1389,16 @@
         });
 
         svg.addEventListener('mouseleave', function() {
-            applyChordIsolation();
+            chordHoverGroup = -1;
+            refreshChordEmphasis();
             if (chordTooltipEl) chordTooltipEl.classList.remove('visible');
         });
 
-        // A re-render (new grouping, new query) keeps the panel honest.
-        applyChordIsolation();
+        // A re-render (new grouping, new query, new min flow) keeps the panel
+        // honest: the isolation may point at a group that no longer exists.
+        if (chordIsolated >= G) chordIsolated = -1;
+        chordHoverGroup = -1;
+        refreshChordEmphasis();
     }
 
     // ============================================================
