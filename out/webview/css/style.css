@@ -3657,9 +3657,10 @@ html, body {
 .chord-tooltip-title { font-weight: 600; margin-bottom: 4px; }
 .chord-tooltip-meta { opacity: 0.7; font-size: 11px; line-height: 1.5; }
 
-/* Group list — floating panel over the diagram, the same box as the City's
-   legend (`.view-legend`). It replaced a bottom strip that grew sideways with
-   the number of groups and pushed the last names off screen. */
+/* Group list — a floating palette, same family as the 3D graph's windows
+   (`.float-window`): sidebar background, hairline, radius, shadow, blur, and a
+   header that drags it. It replaced a bottom strip that grew sideways with the
+   number of groups and pushed the last names off screen. */
 /* The stage sits between the toolbar and the panel: `#chord-view` starts at the
    top of the tab, so anchoring the panel to it put it over the Group by bar. */
 #chord-stage {
@@ -3669,6 +3670,8 @@ html, body {
     display: flex;
 }
 .chord-panel {
+    /* `absolute` rather than the family's `fixed`: the panel belongs to the
+       chord stage and must never float over another tab. */
     position: absolute;
     left: 12px;
     top: 12px;

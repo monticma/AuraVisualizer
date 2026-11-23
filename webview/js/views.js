@@ -1052,6 +1052,88 @@
     /** How many concrete pairs a ribbon shows before it says "and N more". */
     var CHORD_FLOW_ROWS = 8;
 
+    // The panel is a floating window of the same family as the 3D graph's
+    // palettes: dragged by its header, position remembered. Coordinates are
+    // relative to #chord-stage, its offsetParent, so the panel always belongs
+    // to the chord tab and a window resize never strands it outside the canvas.
+    var CHORD_PANEL_POS_KEY = 'aura.chord.panel.pos';
+
+    function readChordPanelPos() {
+        try {
+            var raw = window.localStorage.getItem(CHORD_PANEL_POS_KEY);
+            if (!raw) return null;
+            var pos = JSON.parse(raw);
+            if (typeof pos.left !== 'number' || typeof pos.top !== 'number') return null;
+            return pos;
+        } catch (_) { /* private mode, or a hand-edited key */
+            return null;
+        }
+    }
+
+    function saveChordPanelPos() {
+        var panel = $('#chord-panel');
+        if (!panel) return;
+        try {
+            window.localStorage.setItem(CHORD_PANEL_POS_KEY, JSON.stringify({
+                left: Math.round(parseFloat(panel.style.left) || 0),
+                top: Math.round(parseFloat(panel.style.top) || 0)
+            }));
+        } catch (_) { /* private mode */ }
+    }
+
+    /** Keep the whole card inside the stage: never half out of the tab. */
+    function placeChordPanel(left, top) {
+        var panel = $('#chord-panel');
+        var stage = $('#chord-stage');
+        if (!panel || !stage) return;
+        var maxLeft = Math.max(0, stage.clientWidth - panel.offsetWidth);
+        var maxTop = Math.max(0, stage.clientHeight - panel.offsetHeight);
+        panel.style.left = Math.round(Math.min(Math.max(0, left), maxLeft)) + 'px';
+        panel.style.top = Math.round(Math.min(Math.max(0, top), maxTop)) + 'px';
+    }
+
+    function restoreChordPanelPos() {
+        var pos = readChordPanelPos();
+        var stage = $('#chord-stage');
+        // Nothing to measure while the chord tab is hidden (display: none):
+        // every render calls this again, so the first visible one applies it.
+        if (!pos || !stage || !stage.clientWidth || !stage.clientHeight) return;
+        placeChordPanel(pos.left, pos.top);
+    }
+
+    function wireChordPanelDrag() {
+        var panel = $('#chord-panel');
+        if (!panel) return;
+        var head = panel.querySelector('.float-window-header');
+        if (!head || head.dataset.dragWired === '1') return;
+        head.dataset.dragWired = '1';
+        var dragging = false, ox = 0, oy = 0;
+        head.addEventListener('mousedown', function (e) {
+            if (e.button !== 0) return;
+            var tag = e.target && e.target.tagName;
+            if (tag === 'BUTTON' || tag === 'INPUT' || tag === 'SELECT') return;
+            var rect = panel.getBoundingClientRect();
+            var host = $('#chord-stage').getBoundingClientRect();
+            dragging = true;
+            ox = e.clientX - rect.left;
+            oy = e.clientY - rect.top;
+            // Pin the geometry the CSS gave it before the first move.
+            panel.style.left = (rect.left - host.left) + 'px';
+            panel.style.top = (rect.top - host.top) + 'px';
+            e.preventDefault();
+        });
+        document.addEventListener('mousemove', function (e) {
+            if (!dragging) return;
+            var host = $('#chord-stage').getBoundingClientRect();
+            placeChordPanel(e.clientX - host.left - ox, e.clientY - host.top - oy);
+        });
+        document.addEventListener('mouseup', function () {
+            if (!dragging) return;
+            dragging = false;
+            saveChordPanelPos();
+        });
+    }
+
     function renderChordPanel() {
         var body = $('#chord-panel-body');
         var back = $('#chord-panel-back');
@@ -1182,6 +1264,11 @@
         syncCtx();
         var container = $('#chord-container');
         if (!container || !graphData) return;
+
+        // The panel is a floating palette: wire the drag once, then re-apply the
+        // remembered spot (silently skipped until the stage has a box).
+        wireChordPanelDrag();
+        restoreChordPanelPos();
 
         var allNodes = queriedNodes();
         var links = graphData.links || [];
