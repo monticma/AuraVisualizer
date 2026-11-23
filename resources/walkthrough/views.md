@@ -92,7 +92,8 @@ Every view carries an **📤 Export** in its bar, and the menu lists what *that*
 - Risk = `100 × (0.21·complexity + 0.18·centrality + 0.08·fan-out + 0.12·cycle + 0.12·dead-code + 0.09·rewrite + 0.06·recency + 0.06·frequency + 0.05·authors + 0.03·fixes)` — the structural half stays dominant, git history refines the ranking
 - Documentation is outside architectural risk: docs are not scored and `doc-reference` links do not inflate fan-in or PageRank
 - Framework/test exemptions do not count as dead code; they remain visible in the detail panel with their reason
-- Complexity, fan-in, fan-out and churn are **percentile ranks inside your repository** — a score is a standing relative to *this* codebase
+- Complexity, fan-in, fan-out and churn are **percentile ranks inside your repository** — a score is a standing relative to *this* codebase, and it does not move when you filter
+- **🔍 Query** in the bar scopes the whole dashboard to the matching files (health, lists, scatter, bus factor, export); percentiles stay repository-wide, so the score of a file is the same with and without a query. An empty match shows `—`, never a 100 % health
 - Every row explains itself in plain words ("changed 29 times in 90 days (top 1%)"); hover for the full breakdown
 - **History window**: pick 30 / 90 / 365 days — it drives churn, scoring and the explanations (also editable in the ⚙️ Settings modal / `auraVisualizer.riskWindow` setting)
 - **📈 Complexity Trend** — per-file sparkline + least-squares slope per 30 days (R²). Files above `auraVisualizer.complexityTrendThreshold` (default 0.5) get a degrading badge; the Table has the same sortable **Trend** column

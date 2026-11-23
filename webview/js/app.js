@@ -642,6 +642,13 @@
                         try { AuraViews[fn](); }
                         catch (e) { console.error('[aura] ' + fn + ' failed:', e); }
                     }
+                    // Risk lives in its own module (AuraRiskMap), not in
+                    // AuraViews: its dashboard lists files, so a query applies
+                    // to it and the view on screen must follow the palette live.
+                    if (activeTab === 'risk' && window.AuraRiskMap) {
+                        try { AuraRiskMap.renderRiskDashboard(); }
+                        catch (e) { console.error('[aura] risk render failed:', e); }
+                    }
                 },
                 // The palette is a floating window: its open state and its query
                 // are part of the view, like the warps panel or the minimap.

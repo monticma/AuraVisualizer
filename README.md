@@ -824,7 +824,7 @@ Switch between **11 visualization tabs** for different perspectives on your code
 | **📊 Metrics** | Dashboard with bar charts: LOC, complexity, fan-in, fan-out by language and top files. |
 | **📈 Timeline** | Line chart showing metric evolution over git history (LOC, file count, avg complexity, total complexity). Requires Time Travel scan. |
 | **📋 Table** | Sortable, filterable spreadsheet of all files with LOC, complexity, cognitive max, fan-in/out, symbols, layer, and folder. With a query applied it lists exactly its matches — sort them, then export *those* rows as CSV. |
-| **🛡️ Risk** | Codebase risk dashboard — health score, risk distribution, churn × complexity matrix, bus factor, and an exportable report |
+| **🛡️ Risk** | Codebase risk dashboard — health score, risk distribution, churn × complexity matrix, bus factor, and an exportable report. The bar's **🔍 Query** narrows the whole dashboard to the matching files while scores keep their repository-wide percentiles |
 | **🏛️ Architecture** | Layer rules — violations by rule, Ca/Ce/instability per layer, aggregated cycles, unlayered files, baseline and Markdown export |
 | **🔗 Co-change** | Temporal co-change — files that change together in git commits without a direct dependency (Jaccard score, support, virtual links) |
 

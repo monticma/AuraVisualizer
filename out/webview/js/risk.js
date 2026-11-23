@@ -41,6 +41,23 @@
         }
         return result;
     }
+
+    /**
+     * The files the dashboard *shows*: the architecture set, narrowed by the
+     * query when one is applied. Percentiles stay on the whole repository — a
+     * query must not change a file's score, only what the view picks out.
+     */
+    function dashboardNodes() {
+        var nodes = architectureNodes();
+        var qset = null;
+        try {
+            var qs = window.AuraQueryBar && window.AuraQueryBar.state
+                ? window.AuraQueryBar.state() : null;
+            if (qs && qs.active) qset = qs.set;
+        } catch (_) { qset = null; }
+        if (!qset) return nodes;
+        return nodes.filter(function (n) { return qset.has(n.id); });
+    }
     var RISK_WINDOWS = riskCore.RISK_WINDOWS;
     var riskWindowDays = riskCore.normalizeRiskWindow((window.AURA_CONFIG || {}).riskWindow);
     var riskPercentiles = null; // { complexity, fanIn, fanOut, churn } → lookup(v) → 0..1
@@ -161,8 +178,10 @@
 
     function renderRiskDashboard() {
         if (!hooks.getGraphData() || !hooks.getGraphData().nodes) return;
-        var nodes = architectureNodes();
-        riskPercentiles = buildRiskPercentiles(nodes);
+        // Percentiles are a standing inside the repository: computed on every
+        // architecture file, whatever the query shows.
+        riskPercentiles = buildRiskPercentiles(architectureNodes());
+        var nodes = dashboardNodes();
         var scored = [];
         var maxFanInNode = null;
         var i, n, score;
@@ -198,9 +217,11 @@
         };
 
         var el;
-        el = $('#risk-health-score'); if (el) el.textContent = health + '%';
+        el = $('#risk-health-score'); if (el) el.textContent = total > 0 ? health + '%' : '—';
         el = $('#risk-total-files'); if (el) el.textContent = total;
-        el = $('#risk-avg-risk'); if (el) el.textContent = Math.round(avgRisk);
+        // An empty selection has no average and no health: writing 100 % would
+        // flatter a query that matched nothing.
+        el = $('#risk-avg-risk'); if (el) el.textContent = total > 0 ? Math.round(avgRisk) : '—';
         el = $('#risk-most-risky');
         if (el) el.textContent = scored.length ? (scored[0].node.name + ' · ' + Math.round(scored[0].score) + '/100') : '—';
         el = $('#risk-most-connected');
@@ -235,7 +256,13 @@
         renderSymbolCycles();
         renderComplexityTrends();
         if (window.AuraStatus && window.AuraStatus.countsFrom) {
-            window.AuraStatus.render('risk', window.AuraStatus.countsFrom(hooks.getGraphData(), scored.length));
+            var expr = (window.AuraQueryBar && window.AuraQueryBar.getExpression)
+                ? window.AuraQueryBar.getExpression() : '';
+            var counts = window.AuraStatus.countsFrom(hooks.getGraphData(), scored.length, '', expr);
+            // This view's universe is the architecture set — documentation is
+            // outside the risk model — so its "x / y" must not add the docs back.
+            counts.total = architectureNodes().length;
+            window.AuraStatus.render('risk', counts);
         }
     }
 
@@ -247,7 +274,7 @@
         if (!section || !list) return;
         var trends = window.AuraTrendUI ? AuraTrendUI.getTrends() : {};
         var currentIds = {};
-        var nodes = architectureNodes();
+        var nodes = dashboardNodes();
         for (var n = 0; n < nodes.length; n++) currentIds[nodes[n].id] = true;
         var ranked = Object.keys(trends)
             .map(function(id) { return trends[id]; })
@@ -540,7 +567,7 @@
         }
 
         var rows = [];
-        var nodes = architectureNodes();
+        var nodes = dashboardNodes();
         for (var i = 0; i < nodes.length; i++) {
             var n = nodes[i];
             var c = churnByFile[n.id] || churnByFile[n.path];
@@ -583,7 +610,7 @@
             return;
         }
         var rows = [];
-        var nodes = architectureNodes();
+        var nodes = dashboardNodes();
         for (var i = 0; i < nodes.length; i++) {
             var n = nodes[i];
             var c = churnByFile[n.id] || churnByFile[n.path];
@@ -610,7 +637,7 @@
             return;
         }
 
-        var nodes = architectureNodes();
+        var nodes = dashboardNodes();
         var points = [];
         for (var i = 0; i < nodes.length; i++) {
             var n = nodes[i];
@@ -740,7 +767,7 @@
         }
 
         var rows = [];
-        var nodes = architectureNodes();
+        var nodes = dashboardNodes();
         for (var i = 0; i < nodes.length; i++) {
             var n = nodes[i];
             var c = churnByFile[n.id] || churnByFile[n.path];
@@ -787,7 +814,7 @@
             return;
         }
         var rows = [];
-        var nodes = architectureNodes();
+        var nodes = dashboardNodes();
         for (var i = 0; i < nodes.length; i++) {
             var n = nodes[i];
             var c = churnByFile[n.id] || churnByFile[n.path];
