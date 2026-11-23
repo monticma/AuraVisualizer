@@ -48,6 +48,10 @@ It follows the editor: switching tabs rebuilds the card. With no analyzed file o
 
 Every view carries an **📤 Export** in its bar, and the menu lists what *that* view can say: CSV of the cells (Treemap, Table), Markdown of the dependency list (Matrix), SVG of the diagram and CSV of the flows (Chord), CSV of the series (Timeline), CSV of the pairs (Co-change), Markdown of the summary (Metrics). The 3D Graph exports a PNG and an AI context, the City a PNG or a postcard. Risk and Architecture keep their one-click Markdown report. Each export offers **Save…** or **Copy to clipboard**.
 
+### Files palette tips
+- **☰ Files** opens the folder tree as a **floating card over the canvas**, not a column: the graph keeps its size and its camera, and the card is **dragged by its header** — the drop position is remembered
+- **All** / **None** check or clear every top-level folder; **✕** closes the card and **☰ Files** reopens it where you left it
+
 ### Treemap tips
 - Use the **Size** dropdown to choose what determines rectangle size (LOC, complexity, fan-in, fan-out)
 - Use the **Color** dropdown to choose the color metric

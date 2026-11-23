@@ -69,6 +69,7 @@ Files become interactive 3D nodes, dependencies become edges. The graph uses phy
 - **Edge colors** reflect dependency type (import, include, function call, etc.)
 - **Directional arrows** show dependency direction
 - **Animated particles** flow along highlighted paths
+- **☰ Files** opens the folder tree as a **floating card over the canvas** — dragged by its header, position remembered, **✕** to close
 
 ### Code City 🏙️
 
