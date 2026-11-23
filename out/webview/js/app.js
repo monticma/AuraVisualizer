@@ -5806,7 +5806,14 @@
 
         // Explorer
         if (typeof state.showExplorer === 'boolean') {
-            setExplorerOpen(state.showExplorer);
+            showExplorer = state.showExplorer;
+            if (showExplorer) {
+                explorerPanel.classList.remove('collapsed');
+                toggleExplorerBtn.classList.add('active');
+            } else {
+                explorerPanel.classList.add('collapsed');
+                toggleExplorerBtn.classList.remove('active');
+            }
         }
 
         // Minimaps — one intent per scene.
@@ -6814,131 +6821,19 @@
     // ============================================================
     // File Explorer
     // ============================================================
-    // ============================================================
-    // File Explorer — a floating palette (drag by the header, remembered)
-    // ============================================================
-    // The panel floats over the canvas, so "where I dropped it" is a user
-    // preference, not a layout constant. Coordinates are stored **relative to
-    // #middle-row** (its offsetParent): a window resize can move the tab bar,
-    // never the card's distance to the canvas corner.
-    var EXPLORER_POS_KEY = 'aura.explorer.pos';
-
-    function readExplorerPos() {
-        try {
-            var raw = window.localStorage.getItem(EXPLORER_POS_KEY);
-            if (!raw) return null;
-            var pos = JSON.parse(raw);
-            if (typeof pos.left !== 'number' || typeof pos.top !== 'number') return null;
-            return pos;
-        } catch (_) { /* private mode, or a hand-edited key */
-            return null;
-        }
-    }
-
-    function saveExplorerPos() {
-        try {
-            window.localStorage.setItem(EXPLORER_POS_KEY, JSON.stringify({
-                left: Math.round(parseFloat(explorerPanel.style.left) || 0),
-                top: Math.round(parseFloat(explorerPanel.style.top) || 0),
-                height: Math.round(explorerPanel.offsetHeight)
-            }));
-        } catch (_) { /* private mode */ }
-    }
-
-    /** The card must never cover the graph bar nor leave the row. */
-    function placeExplorer(left, top) {
-        var row = $('#middle-row');
-        var bar = $('#graph-bar');
-        var minTop = bar ? bar.offsetHeight + 4 : 45;
-        var maxLeft = Math.max(0, row.clientWidth - explorerPanel.offsetWidth);
-        var maxTop = Math.max(minTop, row.clientHeight - explorerPanel.offsetHeight);
-        explorerPanel.style.left = Math.round(Math.min(Math.max(0, left), maxLeft)) + 'px';
-        explorerPanel.style.top = Math.round(Math.min(Math.max(minTop, top), maxTop)) + 'px';
-        explorerPanel.style.bottom = 'auto';
-    }
-
-    function restoreExplorerPos() {
-        var pos = readExplorerPos();
-        var row = $('#middle-row');
-        // Nothing to measure before the tab has a box (first paint, or a view
-        // state replayed while the graph tab is hidden): the next open redoes it.
-        if (!pos || !row || !row.clientWidth || !row.clientHeight) return;
-        var bar = $('#graph-bar');
-        var minTop = bar ? bar.offsetHeight + 4 : 45;
-        var avail = row.clientHeight - minTop - 8;
-        if (pos.height > 0 && avail > 120) {
-            explorerPanel.style.height = Math.max(120, Math.min(pos.height, avail)) + 'px';
-        }
-        placeExplorer(pos.left, pos.top);
-    }
-
-    /** One intent, three doors (toolbar button, header ✕, restored state). */
-    function setExplorerOpen(open) {
-        if (!toggleExplorerBtn || !explorerPanel) return;
-        showExplorer = !!open;
-        if (showExplorer) {
-            restoreExplorerPos();
-            explorerPanel.classList.remove('collapsed');
-            toggleExplorerBtn.classList.add('active');
-        } else {
-            explorerPanel.classList.add('collapsed');
-            toggleExplorerBtn.classList.remove('active');
-        }
-    }
-
-    function wireExplorerDrag() {
-        var header = explorerPanel.querySelector('.float-window-header');
-        if (!header || header.dataset.dragWired === '1') return;
-        header.dataset.dragWired = '1';
-        var dragging = false, ox = 0, oy = 0;
-        header.addEventListener('mousedown', function (e) {
-            if (e.button !== 0) return;
-            var tag = e.target && e.target.tagName;
-            if (tag === 'BUTTON' || tag === 'INPUT' || tag === 'SELECT') return;
-            var rect = explorerPanel.getBoundingClientRect();
-            var host = $('#middle-row').getBoundingClientRect();
-            dragging = true;
-            // Freeze the height the CSS gave it (`top` + `bottom`), otherwise
-            // switching to `bottom: auto` would let the card shrink as it moves.
-            // Measured 0 only when the panel is not laid out — never freeze that.
-            if (rect.height > 0) explorerPanel.style.height = rect.height + 'px';
-            explorerPanel.style.left = (rect.left - host.left) + 'px';
-            explorerPanel.style.top = (rect.top - host.top) + 'px';
-            explorerPanel.style.bottom = 'auto';
-            ox = e.clientX - rect.left;
-            oy = e.clientY - rect.top;
-            e.preventDefault();
-        });
-        document.addEventListener('mousemove', function (e) {
-            if (!dragging) return;
-            var host = $('#middle-row').getBoundingClientRect();
-            placeExplorer(e.clientX - host.left - ox, e.clientY - host.top - oy);
-        });
-        document.addEventListener('mouseup', function () {
-            if (!dragging) return;
-            dragging = false;
-            saveExplorerPos();
-        });
-    }
-
     function setupExplorer() {
         if (!toggleExplorerBtn) return;
         toggleExplorerBtn.addEventListener('click', function() {
-            setExplorerOpen(!showExplorer);
+            showExplorer = !showExplorer;
+            if (showExplorer) {
+                explorerPanel.classList.remove('collapsed');
+                toggleExplorerBtn.classList.add('active');
+            } else {
+                explorerPanel.classList.add('collapsed');
+                toggleExplorerBtn.classList.remove('active');
+            }
             saveViewState();
         });
-
-        // The ✕ in the header does what the toolbar button does — one intent,
-        // two doors, and the button state never desyncs.
-        var explorerCloseBtn = $('#explorer-close');
-        if (explorerCloseBtn) {
-            explorerCloseBtn.addEventListener('click', function() {
-                setExplorerOpen(false);
-                saveViewState();
-            });
-        }
-
-        wireExplorerDrag();
 
         var explorerAllBtn = $('#explorer-all');
         var explorerNoneBtn = $('#explorer-none');

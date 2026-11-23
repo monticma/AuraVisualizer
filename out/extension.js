@@ -110,15 +110,9 @@ ${JSON.stringify(s,null,2)}`);let a=i[o]();return new Language(INTERNAL,a)})}}cl
                 <button id="breadcrumb-clear" class="breadcrumb-btn" title="Clear the trail">\u2715</button>
             </div>
 
-            <!-- Explorer \u2014 a floating palette, like the Query, Warps and
-                 Communities windows: inset from the edges, rounded, shadowed
-                 and dragged by its header, so it floats OVER the canvas
-                 instead of reading as a docked column. Rendered by app.js. -->
-            <aside id="explorer-panel" class="float-window collapsed">
-                <div class="explorer-header float-window-header">
-                    <span class="float-window-title">\u{1F5C2} Files</span>
-                    <span class="explorer-btns float-window-actions"><button id="explorer-all" title="Check all">All</button><button id="explorer-none" title="Uncheck all">None</button><button id="explorer-close" type="button" class="float-window-btn" title="Close (\u2630 Files reopens it)">\u2715</button></span>
-                </div>
+            <!-- Explorer Panel -->
+            <aside id="explorer-panel" class="collapsed">
+                <div class="explorer-header"><h3>Files</h3><span class="explorer-btns"><button id="explorer-all" title="Check all">All</button><button id="explorer-none" title="Uncheck all">None</button></span></div>
                 <div id="explorer-tree" class="explorer-tree"></div>
             </aside>
 
@@ -1411,9 +1405,6 @@ ${JSON.stringify(s,null,2)}`);let a=i[o]();return new Language(INTERNAL,a)})}}cl
                 <p>Consecutive duplicates are collapsed and the last <strong>20</strong> places are kept, so clicking the same file twice never fills the trail. Entries store <strong>ids and numbers only</strong> \u2014 never live node or Three.js objects \u2014 so a re-analysis can never leave a dead reference behind. The strip stays hidden until there is a second place to go back to; <strong>\u2715</strong> clears it, and <kbd>Esc</kbd> records a <strong>Reset</strong> place so even a full reset is reversible. Unlike \u{1F300} Warps (named, persisted poses) and \u{1F517} View links (shared views), the trail is the session's own history.</p>
                 <h3>\u{1F50E} Find Symbol</h3>
                 <p>The top-right search box lists files first, then matching <strong>symbols</strong> (\u26A1 <code>path:line</code>): clicking a symbol explodes its file, selects the exact function and, once the camera has landed, fires a <strong>one-shot ring</strong> around it \u2014 a light-blue pulse that grows and fades in ~1.2 s, then removes itself. From anywhere in VS Code, <strong>Aura: Find Symbol\u2026</strong> opens a QuickPick over the whole symbol index \u2014 kind chips (<code>function (82)</code>, <code>method (140)</code>\u2026) as the first rows, live filtering, \u2191\u2193 then Enter to jump to the exploded symbol.</p>
-                <h3>\u{1F5C2} Files Palette</h3>
-                <p>The <strong>\u2630 Files</strong> button opens the folder tree as a <strong>floating card over the canvas</strong> \u2014 the same window family as \u{1F50D} Query, \u{1F300} Warps and the maps: inset from the edges, rounded, shadowed, and <strong>dragged by its header</strong> with the drop position remembered. It never takes width away from the graph, so filtering and reading keep the same camera.</p>
-                <p><strong>All</strong> checks every top-level folder, <strong>None</strong> clears them, and <strong>\u2715</strong> closes the card \u2014 the \u2630 Files button in the bar reopens it exactly where you left it.</p>
                 <h3>\u{1F300} Warp Points</h3>
                 <p>Save named camera bookmarks of the 3D view: the <strong>\u{1F300} Warps</strong> toolbar button opens the floating panel; its <strong>\u{1F4CC}</strong> button captures the current pose (camera position + view target + orientation). Click a warp to fly there (smooth 800 ms tween), re-capture or rename it, and assign quick slots \u2014 <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>1\u20139</kbd> flies back from anywhere (plain <kbd>Alt</kbd>+<kbd>digit</kbd> is captured by VS Code). The <strong>\u{1F3E0} Home</strong> row returns to the default fit-to-view pose.</p>
                 <p>Warps are stored in <code>.aura/warps.json</code> \u2014 local to your workspace, never committed.</p>

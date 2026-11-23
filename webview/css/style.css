@@ -2026,33 +2026,46 @@ html, body {
 #tooltip-meta { font-size: 11px; opacity: 0.6; display: block; margin-top: 2px; }
 
 /* ============================================================
-   Explorer Panel — a floating palette
+   Explorer Panel
    ============================================================ */
-/* Same family as the Query, Warps and Communities windows: inset from the
-   edges, rounded, shadowed, dragged by its header. It uses `absolute` rather
-   than the `.float-window` default of `fixed` so it stays inside #middle-row —
-   under the tab bar, clipped to its own tab — and never lands on the top bar. */
 #explorer-panel {
     position: absolute;
-    top: calc(var(--graph-bar-h, 41px) + 12px);
-    left: 12px;
-    /* Hug the tree, cap at the canvas: a card sized by its content reads as a
-       floating window, a card stretched to the bottom reads as a column. */
-    max-height: calc(100% - var(--graph-bar-h, 41px) - 24px);
+    top: var(--graph-bar-h, 41px);
+    left: 0;
+    height: calc(100% - var(--graph-bar-h, 41px));
     width: 260px;
-    min-width: 180px;
-    min-height: 140px;
+    background: var(--aura-sidebar-bg);
+    border-right: 1px solid var(--aura-border);
     /* The tree scrolls, not the panel: with the panel scrolling, its scrollbar
        sat on top of the sticky header and clipped the "None" button. */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    transition: transform 0.25s ease;
     z-index: 50;
     transform: translateX(0);
-    transition: transform 0.25s ease, opacity 0.2s ease;
 }
 
 #explorer-panel.collapsed {
-    transform: translateX(calc(-100% - 24px));
-    opacity: 0;
+    transform: translateX(-100%);
     pointer-events: none;
+}
+
+.explorer-header {
+    padding: 10px 12px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: rgba(201, 209, 217, 0.5);
+    border-bottom: 1px solid var(--aura-border);
+    background: var(--vscode-sideBar-background, #0d1117);
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
 }
 
 .explorer-tree {
@@ -2062,13 +2075,19 @@ html, body {
     overflow-x: hidden;
 }
 
-/* The header is `.float-window-header` (chrome, hairline, grab cursor); the
-   class below only exists so the buttons keep their identity. */
+.explorer-header h3 {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0;
+}
+
 .explorer-btns {
     display: flex;
     gap: 4px;
 }
-.explorer-btns button:not(.float-window-btn) {
+.explorer-btns button {
     background: rgba(96,165,250,0.12);
     border: 1px solid rgba(96,165,250,0.25);
     color: #8bb9fe;
@@ -2079,7 +2098,7 @@ html, body {
     text-transform: none;
     letter-spacing: 0;
 }
-.explorer-btns button:not(.float-window-btn):hover {
+.explorer-btns button:hover {
     background: rgba(96,165,250,0.25);
 }
 

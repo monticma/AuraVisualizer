@@ -1573,15 +1573,9 @@ export class WebviewProvider {
                 <button id="breadcrumb-clear" class="breadcrumb-btn" title="Clear the trail">✕</button>
             </div>
 
-            <!-- Explorer — a floating palette, like the Query, Warps and
-                 Communities windows: inset from the edges, rounded, shadowed
-                 and dragged by its header, so it floats OVER the canvas
-                 instead of reading as a docked column. Rendered by app.js. -->
-            <aside id="explorer-panel" class="float-window collapsed">
-                <div class="explorer-header float-window-header">
-                    <span class="float-window-title">🗂 Files</span>
-                    <span class="explorer-btns float-window-actions"><button id="explorer-all" title="Check all">All</button><button id="explorer-none" title="Uncheck all">None</button><button id="explorer-close" type="button" class="float-window-btn" title="Close (☰ Files reopens it)">✕</button></span>
-                </div>
+            <!-- Explorer Panel -->
+            <aside id="explorer-panel" class="collapsed">
+                <div class="explorer-header"><h3>Files</h3><span class="explorer-btns"><button id="explorer-all" title="Check all">All</button><button id="explorer-none" title="Uncheck all">None</button></span></div>
                 <div id="explorer-tree" class="explorer-tree"></div>
             </aside>
 
@@ -2874,9 +2868,6 @@ export class WebviewProvider {
                 <p>Consecutive duplicates are collapsed and the last <strong>20</strong> places are kept, so clicking the same file twice never fills the trail. Entries store <strong>ids and numbers only</strong> — never live node or Three.js objects — so a re-analysis can never leave a dead reference behind. The strip stays hidden until there is a second place to go back to; <strong>✕</strong> clears it, and <kbd>Esc</kbd> records a <strong>Reset</strong> place so even a full reset is reversible. Unlike 🌀 Warps (named, persisted poses) and 🔗 View links (shared views), the trail is the session's own history.</p>
                 <h3>🔎 Find Symbol</h3>
                 <p>The top-right search box lists files first, then matching <strong>symbols</strong> (⚡ <code>path:line</code>): clicking a symbol explodes its file, selects the exact function and, once the camera has landed, fires a <strong>one-shot ring</strong> around it — a light-blue pulse that grows and fades in ~1.2 s, then removes itself. From anywhere in VS Code, <strong>Aura: Find Symbol…</strong> opens a QuickPick over the whole symbol index — kind chips (<code>function (82)</code>, <code>method (140)</code>…) as the first rows, live filtering, ↑↓ then Enter to jump to the exploded symbol.</p>
-                <h3>🗂 Files Palette</h3>
-                <p>The <strong>☰ Files</strong> button opens the folder tree as a <strong>floating card over the canvas</strong> — the same window family as 🔍 Query, 🌀 Warps and the maps: inset from the edges, rounded, shadowed, and <strong>dragged by its header</strong> with the drop position remembered. It never takes width away from the graph, so filtering and reading keep the same camera.</p>
-                <p><strong>All</strong> checks every top-level folder, <strong>None</strong> clears them, and <strong>✕</strong> closes the card — the ☰ Files button in the bar reopens it exactly where you left it.</p>
                 <h3>🌀 Warp Points</h3>
                 <p>Save named camera bookmarks of the 3D view: the <strong>🌀 Warps</strong> toolbar button opens the floating panel; its <strong>📌</strong> button captures the current pose (camera position + view target + orientation). Click a warp to fly there (smooth 800 ms tween), re-capture or rename it, and assign quick slots — <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>1–9</kbd> flies back from anywhere (plain <kbd>Alt</kbd>+<kbd>digit</kbd> is captured by VS Code). The <strong>🏠 Home</strong> row returns to the default fit-to-view pose.</p>
                 <p>Warps are stored in <code>.aura/warps.json</code> — local to your workspace, never committed.</p>
